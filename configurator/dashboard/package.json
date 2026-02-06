@@ -127,7 +127,14 @@
       "private": false
     },
     "win": {
-      "target": "portable"
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": true,
+      "shortcutName": "Dev-Suite Dashboard"
     },
     "linux": {
       "target": "AppImage"

@@ -74,17 +74,17 @@ jobs:
         working-directory: configurator/dashboard
         run: npm run build
 
-      - name: Build Electron portable exe
+      - name: Build Electron installer
         working-directory: configurator/dashboard
-        run: npx electron-builder --win portable
+        run: npx electron-builder --win nsis
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload exe to release
+      - name: Upload installer to release
         shell: bash
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
-          EXE=$(find configurator/dashboard/dist-electron -name "*.exe" | head -1)
+          EXE=$(find configurator/dashboard/dist-electron -name "*Setup*.exe" | head -1)
           echo "Uploading $EXE to release $VERSION"
           gh release upload "$VERSION" "$EXE" --clobber
         env:
