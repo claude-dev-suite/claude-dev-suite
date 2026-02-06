@@ -261,8 +261,16 @@ function startServer(projectPath) {
     console.log('[Electron] Dev-suite path:', devSuitePath);
     console.log('[Electron] Project path:', projectPath);
 
+    // Build PATH with bundled Node directory so npm/npx commands work
+    let envPath = process.env.PATH || '';
+    if (nodeExe) {
+      const nodeDir = path.dirname(nodeExe);
+      envPath = nodeDir + path.delimiter + envPath;
+    }
+
     const env = {
       ...process.env,
+      PATH: envPath,
       PORT: SERVER_PORT.toString(),
       PROJECT_PATH: projectPath,
       DEV_SUITE_DIR: devSuitePath,
