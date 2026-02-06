@@ -1,0 +1,19 @@
+{
+  "name": "security-scanner",
+  "description": "Security vulnerability scanning: dependency audit (npm/pip/cargo/go), secret detection (gitleaks/trufflehog), SAST (semgrep), container scanning (trivy)",
+  "shortDescription": "Security scanning",
+  "category": "security",
+  "tools": [
+    "scan_dependencies",
+    "scan_secrets",
+    "scan_code",
+    "scan_container",
+    "check_tools",
+    "scan_all"
+  ],
+  "envVars": [],
+  "requiredFor": [
+    "security-expert",
+    "devops-expert"
+  ]
+}

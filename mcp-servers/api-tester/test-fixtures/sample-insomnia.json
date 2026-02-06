@@ -1,0 +1,69 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2024-01-15T10:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2024.1.0",
+  "resources": [
+    {
+      "_id": "wrk_1",
+      "_type": "workspace",
+      "name": "User API Workspace",
+      "description": "User management API"
+    },
+    {
+      "_id": "env_1",
+      "_type": "environment",
+      "parentId": "wrk_1",
+      "name": "Development",
+      "data": {
+        "baseUrl": "https://api.example.com",
+        "token": "dev-token-456"
+      }
+    },
+    {
+      "_id": "fld_1",
+      "_type": "request_group",
+      "parentId": "wrk_1",
+      "name": "Users"
+    },
+    {
+      "_id": "req_1",
+      "_type": "request",
+      "parentId": "fld_1",
+      "name": "List Users",
+      "method": "GET",
+      "url": "{{ baseUrl }}/users",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ token }}" }
+      ],
+      "parameters": [
+        { "name": "page", "value": "1" },
+        { "name": "limit", "value": "20" }
+      ]
+    },
+    {
+      "_id": "req_2",
+      "_type": "request",
+      "parentId": "fld_1",
+      "name": "Create User",
+      "method": "POST",
+      "url": "{{ baseUrl }}/users",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ token }}" },
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"name\": \"John Doe\", \"email\": \"john@example.com\"}"
+      }
+    },
+    {
+      "_id": "req_3",
+      "_type": "request",
+      "parentId": "wrk_1",
+      "name": "Health",
+      "method": "GET",
+      "url": "{{ baseUrl }}/health"
+    }
+  ]
+}

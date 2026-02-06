@@ -1,0 +1,34 @@
+export default defineNuxtConfig({
+  devtools: { enabled: true },
+
+  modules: [
+    '@pinia/nuxt',
+    '@nuxtjs/tailwindcss',
+  ],
+
+  typescript: {
+    strict: true,
+    typeCheck: true,
+  },
+
+  app: {
+    head: {
+      title: '{{PROJECT_NAME}}',
+      meta: [
+        { charset: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      ],
+    },
+  },
+
+  runtimeConfig: {
+    // Private keys (server only)
+    apiSecret: '',
+    // Public keys (exposed to client)
+    public: {
+      apiBase: '/api',
+    },
+  },
+
+  compatibilityDate: '2024-01-01',
+});

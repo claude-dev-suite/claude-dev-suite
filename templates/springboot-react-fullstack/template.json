@@ -1,0 +1,128 @@
+{
+  "name": "Spring Boot + React Fullstack",
+  "description": "Enterprise fullstack application with Spring Boot 3 backend (Java 17, PostgreSQL, JWT) and React 19 frontend (TanStack Router, TanStack Query, Zustand, Tailwind, shadcn/ui)",
+  "version": "1.0.0",
+  "author": "dev-suite",
+  "tags": ["fullstack", "java", "spring-boot", "react", "typescript", "postgresql", "jwt", "enterprise"],
+  "technologies": ["spring-boot", "java", "react", "typescript", "postgresql", "tailwindcss"],
+  "basedOn": ["castellino", "gestionale-presenze"],
+  "structure": {
+    "backend": {
+      "path": "backend",
+      "language": "java",
+      "version": "17",
+      "framework": "spring-boot",
+      "frameworkVersion": "3.3.x",
+      "database": "postgresql",
+      "orm": "jpa",
+      "buildTool": "maven",
+      "features": [
+        "spring-security",
+        "jwt-auth",
+        "flyway-migrations",
+        "mapstruct",
+        "lombok",
+        "openapi-swagger",
+        "jacoco-coverage",
+        "docker"
+      ]
+    },
+    "frontend": {
+      "path": "frontend",
+      "language": "typescript",
+      "version": "5.x",
+      "framework": "react",
+      "frameworkVersion": "19.x",
+      "buildTool": "vite",
+      "features": [
+        "tanstack-router",
+        "tanstack-query",
+        "zustand",
+        "tailwindcss-v4",
+        "shadcn-ui",
+        "react-hook-form",
+        "zod",
+        "biome",
+        "vitest",
+        "playwright"
+      ]
+    }
+  },
+  "files": [
+    "backend/pom.xml.tmpl",
+    "backend/src-structure.tmpl",
+    "backend/docker-compose.yml.tmpl",
+    "backend/Dockerfile.tmpl",
+    "frontend/package.json.tmpl",
+    "frontend/vite.config.ts.tmpl",
+    "frontend/src-structure.tmpl",
+    "README.md.tmpl"
+  ],
+  "variables": [
+    {
+      "name": "groupId",
+      "label": "Group ID",
+      "type": "text",
+      "required": true,
+      "default": "com.example",
+      "placeholder": "com.example",
+      "description": "Maven group ID (reverse domain)",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$",
+      "patternError": "Group ID must be a valid Java package name (e.g., com.example)"
+    },
+    {
+      "name": "artifactId",
+      "label": "Artifact ID",
+      "type": "text",
+      "required": true,
+      "derivedFrom": "projectName",
+      "derivedTransform": "kebab-case",
+      "description": "Maven artifact ID (derived from project name)"
+    },
+    {
+      "name": "javaVersion",
+      "label": "Java Version",
+      "type": "select",
+      "required": true,
+      "default": "17",
+      "description": "Java LTS version to use",
+      "options": [
+        { "label": "Java 17 (LTS)", "value": "17" },
+        { "label": "Java 21 (LTS)", "value": "21" }
+      ]
+    },
+    {
+      "name": "packageManager",
+      "label": "Frontend Package Manager",
+      "type": "select",
+      "required": true,
+      "default": "pnpm",
+      "description": "Which package manager to use for frontend",
+      "options": [
+        { "label": "pnpm (Recommended)", "value": "pnpm" },
+        { "label": "npm", "value": "npm" },
+        { "label": "yarn", "value": "yarn" }
+      ]
+    },
+    {
+      "name": "database",
+      "label": "Database",
+      "type": "select",
+      "required": true,
+      "default": "postgresql",
+      "description": "Primary database",
+      "options": [
+        { "label": "PostgreSQL", "value": "postgresql" },
+        { "label": "MySQL", "value": "mysql" }
+      ]
+    },
+    {
+      "name": "basePackage",
+      "label": "Base Package",
+      "type": "text",
+      "required": false,
+      "autoGenerate": "base_package",
+      "description": "Java base package (auto-generated from groupId + artifactId)"
+    }
+  ]
+}

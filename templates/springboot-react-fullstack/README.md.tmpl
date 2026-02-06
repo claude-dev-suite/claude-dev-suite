@@ -1,0 +1,148 @@
+# {{projectName}}
+
+{{projectDescription}}
+
+## Tech Stack
+
+### Backend
+- **Language**: Java 17
+- **Framework**: Spring Boot 3.3.x
+- **Database**: PostgreSQL 16
+- **ORM**: Spring Data JPA + Hibernate
+- **Migrations**: Flyway
+- **Security**: Spring Security + JWT
+- **API Docs**: OpenAPI 3 (Swagger UI)
+- **Utilities**: Lombok, MapStruct
+- **Testing**: JUnit 5, Spring Boot Test, REST Assured
+- **Coverage**: JaCoCo (80% target)
+
+### Frontend
+- **Language**: TypeScript 5.x
+- **Framework**: React 19
+- **Build Tool**: Vite 7
+- **Routing**: TanStack Router
+- **Data Fetching**: TanStack Query
+- **State Management**: Zustand
+- **Styling**: Tailwind CSS 4
+- **UI Components**: shadcn/ui (Radix)
+- **Forms**: react-hook-form + Zod
+- **Linting**: Biome
+- **Testing**: Vitest, Playwright
+
+## Getting Started
+
+### Prerequisites
+- Java 17+
+- Node.js 20+
+- Docker & Docker Compose
+- Maven 3.9+
+
+### Development Setup
+
+1. **Clone and install dependencies**
+```bash
+# Backend
+cd backend
+./mvnw clean install -DskipTests
+
+# Frontend
+cd frontend
+npm install
+```
+
+2. **Start infrastructure with Docker**
+```bash
+cd backend
+docker-compose up -d postgres
+```
+
+3. **Run backend**
+```bash
+cd backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+4. **Run frontend**
+```bash
+cd frontend
+npm run dev
+```
+
+### Access Points
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8080/api/v1
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- PgAdmin: http://localhost:5050 (with `--profile tools`)
+
+## Project Structure
+
+```
+{{projectName}}/
+├── backend/
+│   ├── src/main/java/{{basePackagePath}}/
+│   │   ├── config/          # Configuration classes
+│   │   ├── controller/      # REST Controllers
+│   │   ├── dto/             # Data Transfer Objects
+│   │   ├── exception/       # Exception handling
+│   │   ├── mapper/          # MapStruct mappers
+│   │   ├── model/           # Entities & Enums
+│   │   ├── repository/      # JPA Repositories
+│   │   ├── security/        # Security configuration
+│   │   ├── service/         # Business logic
+│   │   └── validator/       # Custom validators
+│   └── src/main/resources/
+│       ├── application.yml
+│       └── db/migration/    # Flyway migrations
+├── frontend/
+│   └── src/
+│       ├── api/             # API client
+│       ├── components/      # Reusable components
+│       ├── features/        # Feature modules
+│       ├── hooks/           # Custom hooks
+│       ├── routes/          # TanStack Router routes
+│       ├── stores/          # Zustand stores
+│       └── types/           # TypeScript types
+└── docker-compose.yml
+```
+
+## Testing
+
+### Backend
+```bash
+# Run all tests
+./mvnw test
+
+# Run with coverage
+./mvnw test jacoco:report
+# Report: target/site/jacoco/index.html
+```
+
+### Frontend
+```bash
+# Unit tests
+npm test
+
+# Unit tests with UI
+npm run test:ui
+
+# E2E tests
+npm run test:e2e
+
+# Coverage
+npm run test:coverage
+```
+
+## Deployment
+
+### Docker
+```bash
+# Build and run all services
+docker-compose up --build
+
+# Production build
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+```
+
+## License
+
+MIT

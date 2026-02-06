@@ -1,0 +1,28 @@
+{
+  "name": "{{PROJECT_NAME}}",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run start:dev -w backend",
+    "build": "npm run build:shared && npm run build:frontend && npm run build:backend",
+    "build:frontend": "npm run build -w frontend",
+    "build:backend": "npm run build -w backend",
+    "build:shared": "npm run build -w shared",
+    "test": "npm run test -w frontend && npm run test -w backend",
+    "test:e2e": "npm run test:e2e -w frontend",
+    "lint": "npm run lint -w frontend && npm run lint -w backend",
+    "db:migrate": "npm run migrate -w backend",
+    "db:seed": "npm run seed -w backend",
+    "db:studio": "npm run studio -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

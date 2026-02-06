@@ -1,0 +1,32 @@
+{
+  "name": "dashboard-bridge",
+  "description": "Dashboard integration and orchestrator bridge for dev-suite. Provides dashboard access, config management, and task orchestration with WebSocket communication for real-time updates.",
+  "shortDescription": "Dashboard & Orchestrator",
+  "category": "tooling",
+  "tools": [
+    "dashboard_open",
+    "dashboard_status",
+    "dashboard_start",
+    "dashboard_get_config",
+    "dashboard_list_agents",
+    "dashboard_detect_stack",
+    "get_orchestrator_task",
+    "report_orchestrator_status",
+    "list_pending_jobs"
+  ],
+  "envVars": [
+    {
+      "name": "DASHBOARD_PORT",
+      "description": "Port for the dashboard HTTP server",
+      "default": "3456",
+      "required": false
+    },
+    {
+      "name": "ORCHESTRATOR_WS_PORT",
+      "description": "Port for the orchestrator WebSocket server",
+      "default": "3457",
+      "required": false
+    }
+  ],
+  "requiredFor": []
+}

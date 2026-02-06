@@ -1,0 +1,107 @@
+{
+  "name": "Spring Boot API",
+  "description": "Enterprise REST API with Spring Boot 3 (Java 17, PostgreSQL, JWT, OpenAPI)",
+  "version": "1.0.0",
+  "author": "dev-suite",
+  "tags": ["backend", "java", "spring-boot", "api", "postgresql", "jwt", "enterprise"],
+  "technologies": ["spring-boot", "java", "postgresql", "jwt", "maven"],
+  "basedOn": ["castellino", "gestionale-presenze"],
+  "structure": {
+    "backend": {
+      "path": ".",
+      "language": "java",
+      "version": "17",
+      "framework": "spring-boot",
+      "frameworkVersion": "3.3.x",
+      "database": "postgresql",
+      "orm": "jpa",
+      "buildTool": "maven",
+      "features": [
+        "spring-security",
+        "jwt-auth",
+        "flyway-migrations",
+        "mapstruct",
+        "lombok",
+        "openapi-swagger",
+        "jacoco-coverage",
+        "docker",
+        "actuator"
+      ]
+    }
+  },
+  "files": [
+    "pom.xml.tmpl",
+    "src-structure.tmpl",
+    "docker-compose.yml.tmpl",
+    "Dockerfile.tmpl",
+    "application.yml.tmpl",
+    "README.md.tmpl"
+  ],
+  "variables": [
+    {
+      "name": "groupId",
+      "label": "Group ID",
+      "type": "text",
+      "required": true,
+      "default": "com.example",
+      "placeholder": "com.example",
+      "description": "Maven group ID (reverse domain)",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$",
+      "patternError": "Group ID must be a valid Java package name (e.g., com.example)"
+    },
+    {
+      "name": "artifactId",
+      "label": "Artifact ID",
+      "type": "text",
+      "required": true,
+      "derivedFrom": "projectName",
+      "derivedTransform": "kebab-case",
+      "description": "Maven artifact ID (derived from project name)"
+    },
+    {
+      "name": "basePackage",
+      "label": "Base Package",
+      "type": "text",
+      "required": true,
+      "derivedFrom": "groupId",
+      "description": "Java base package (derived from group ID)"
+    },
+    {
+      "name": "javaVersion",
+      "label": "Java Version",
+      "type": "select",
+      "required": true,
+      "default": "17",
+      "description": "Java LTS version to use",
+      "options": [
+        { "label": "Java 17 (LTS)", "value": "17" },
+        { "label": "Java 21 (LTS)", "value": "21" }
+      ]
+    },
+    {
+      "name": "database",
+      "label": "Database",
+      "type": "select",
+      "required": true,
+      "default": "postgresql",
+      "description": "Primary database",
+      "options": [
+        { "label": "PostgreSQL", "value": "postgresql" },
+        { "label": "MySQL", "value": "mysql" },
+        { "label": "H2 (Development)", "value": "h2" }
+      ]
+    },
+    {
+      "name": "includeDocker",
+      "label": "Include Docker",
+      "type": "select",
+      "required": true,
+      "default": "yes",
+      "description": "Include Docker and docker-compose files",
+      "options": [
+        { "label": "Yes", "value": "yes" },
+        { "label": "No", "value": "no" }
+      ]
+    }
+  ]
+}

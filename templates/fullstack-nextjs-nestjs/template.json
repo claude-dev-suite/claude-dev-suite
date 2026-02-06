@@ -1,0 +1,84 @@
+{
+  "name": "Next.js + NestJS Fullstack",
+  "description": "Full-stack TypeScript application with Next.js frontend, NestJS backend, and Prisma ORM",
+  "version": "1.0.0",
+  "tags": ["fullstack", "nextjs", "nestjs", "typescript", "prisma"],
+  "technologies": ["nextjs", "nestjs", "prisma", "typescript", "tailwindcss", "postgresql"],
+  "structure": {
+    "frontend": {
+      "path": "frontend",
+      "framework": "nextjs",
+      "features": ["app-router", "server-components", "tailwindcss", "shadcn-ui"]
+    },
+    "backend": {
+      "path": "backend",
+      "framework": "nestjs",
+      "features": ["prisma", "jwt-auth", "swagger"]
+    },
+    "shared": {
+      "path": "shared",
+      "features": ["types", "validation"]
+    }
+  },
+  "scripts": {
+    "dev": "Run frontend and backend concurrently",
+    "build": "Build both frontend and backend",
+    "test": "Run all tests",
+    "db:migrate": "Run Prisma migrations",
+    "db:seed": "Seed database"
+  },
+  "devContainerSupport": true,
+  "variables": [
+    {
+      "name": "packageManager",
+      "label": "Package Manager",
+      "type": "select",
+      "required": true,
+      "default": "pnpm",
+      "description": "Which package manager to use",
+      "options": [
+        { "label": "pnpm (Recommended)", "value": "pnpm" },
+        { "label": "npm", "value": "npm" },
+        { "label": "yarn", "value": "yarn" }
+      ]
+    },
+    {
+      "name": "database",
+      "label": "Database",
+      "type": "select",
+      "required": true,
+      "default": "postgresql",
+      "description": "Database for Prisma",
+      "options": [
+        { "label": "PostgreSQL", "value": "postgresql" },
+        { "label": "MySQL", "value": "mysql" },
+        { "label": "SQLite (Development)", "value": "sqlite" }
+      ]
+    },
+    {
+      "name": "includeAuth",
+      "label": "Include Authentication",
+      "type": "select",
+      "required": true,
+      "default": "jwt",
+      "description": "Authentication strategy",
+      "options": [
+        { "label": "JWT Auth", "value": "jwt" },
+        { "label": "NextAuth.js", "value": "nextauth" },
+        { "label": "None", "value": "none" }
+      ]
+    },
+    {
+      "name": "includeDocker",
+      "label": "Include Docker",
+      "type": "select",
+      "required": true,
+      "default": "yes",
+      "description": "Include Docker and docker-compose files",
+      "options": [
+        { "label": "Yes", "value": "yes" },
+        { "label": "No", "value": "no" }
+      ]
+    }
+  ]
+}

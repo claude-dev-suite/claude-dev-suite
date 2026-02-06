@@ -1,0 +1,20 @@
+{
+  "name": "api-tester",
+  "description": "HTTP request testing, Postman/Insomnia import, test generation, and mock server",
+  "shortDescription": "API testing",
+  "category": "testing",
+  "tools": [
+    "http_request",
+    "health_check",
+    "batch_request",
+    "import_collection",
+    "generate_tests",
+    "mock_server"
+  ],
+  "envVars": [],
+  "requiredFor": [
+    "nestjs-expert",
+    "spring-boot-expert",
+    "fastapi-expert"
+  ]
+}

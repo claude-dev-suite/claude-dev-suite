@@ -1,0 +1,57 @@
+{
+  "name": "React SPA",
+  "description": "React SPA with Vite, TypeScript, TailwindCSS, and React Router",
+  "version": "1.0.0",
+  "tags": ["frontend", "react", "spa", "vite", "typescript"],
+  "technologies": ["react", "vite", "typescript", "tailwindcss", "react-router"],
+  "structure": {
+    "frontend": {
+      "path": ".",
+      "framework": "react",
+      "features": ["vite", "typescript", "tailwindcss", "react-router"]
+    }
+  },
+  "features": [
+    "File-based routing (React Router)",
+    "TailwindCSS styling",
+    "shadcn/ui components",
+    "Zustand state management",
+    "TanStack Query for data fetching",
+    "Form validation with Zod",
+    "Dark mode support"
+  ],
+  "scripts": {
+    "dev": "Start development server",
+    "build": "Build for production",
+    "preview": "Preview production build",
+    "test": "Run unit tests",
+    "test:e2e": "Run Playwright e2e tests"
+  },
+  "variables": [
+    {
+      "name": "packageManager",
+      "label": "Package Manager",
+      "type": "select",
+      "required": true,
+      "default": "npm",
+      "description": "Which package manager to use",
+      "options": [
+        { "label": "npm", "value": "npm" },
+        { "label": "pnpm", "value": "pnpm" },
+        { "label": "yarn", "value": "yarn" }
+      ]
+    },
+    {
+      "name": "includeTests",
+      "label": "Include Tests",
+      "type": "select",
+      "required": true,
+      "default": "vitest",
+      "description": "Testing framework to include",
+      "options": [
+        { "label": "Vitest + Playwright", "value": "vitest" },
+        { "label": "None", "value": "none" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "name": "React TanStack",
+  "description": "Modern React 19 application with TanStack Router, TanStack Query, Zustand, Tailwind CSS 4, and shadcn/ui",
+  "version": "1.0.0",
+  "author": "dev-suite",
+  "tags": ["frontend", "react", "typescript", "tanstack", "tailwind", "shadcn"],
+  "technologies": ["react", "vite", "typescript", "tailwindcss", "tanstack-router", "tanstack-query"],
+  "basedOn": ["gestionale-presenze-frontend"],
+  "structure": {
+    "frontend": {
+      "path": ".",
+      "language": "typescript",
+      "version": "5.x",
+      "framework": "react",
+      "frameworkVersion": "19.x",
+      "buildTool": "vite",
+      "features": [
+        "tanstack-router",
+        "tanstack-query",
+        "zustand",
+        "tailwindcss-v4",
+        "shadcn-ui",
+        "react-hook-form",
+        "zod",
+        "biome",
+        "vitest",
+        "playwright"
+      ]
+    }
+  },
+  "files": [
+    "package.json.tmpl",
+    "vite.config.ts.tmpl",
+    "tsconfig.json.tmpl",
+    "biome.json.tmpl",
+    "src-structure.tmpl",
+    "README.md.tmpl"
+  ],
+  "variables": [
+    {
+      "name": "packageManager",
+      "label": "Package Manager",
+      "type": "select",
+      "required": true,
+      "default": "pnpm",
+      "description": "Which package manager to use",
+      "options": [
+        { "label": "pnpm (Recommended)", "value": "pnpm" },
+        { "label": "npm", "value": "npm" },
+        { "label": "yarn", "value": "yarn" }
+      ]
+    },
+    {
+      "name": "includeTests",
+      "label": "Include Tests",
+      "type": "select",
+      "required": true,
+      "default": "full",
+      "description": "Testing setup to include",
+      "options": [
+        { "label": "Vitest + Playwright", "value": "full" },
+        { "label": "Vitest Only", "value": "vitest" },
+        { "label": "None", "value": "none" }
+      ]
+    }
+  ]
+}

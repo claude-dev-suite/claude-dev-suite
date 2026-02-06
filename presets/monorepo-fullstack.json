@@ -1,0 +1,110 @@
+{
+  "name": "Monorepo Full-Stack",
+  "description": "Monorepo structure with separate frontend and backend directories - React + Spring Boot/NestJS",
+  "version": "1.0.0",
+  "config": {
+    "project": {
+      "type": "fullstack",
+      "isMonorepo": true,
+      "frontendPath": "frontend",
+      "backendPath": "backend"
+    },
+    "stacks": {
+      "frontend": {
+        "framework": "react",
+        "metaFramework": "vite-react",
+        "styling": "tailwindcss",
+        "stateManagement": "zustand+tanstack-query",
+        "componentLibrary": "shadcn-ui"
+      },
+      "backend": {
+        "runtime": "java",
+        "framework": "spring-boot",
+        "apiStyle": "rest"
+      },
+      "database": {
+        "type": "postgresql",
+        "orm": "spring-data-jpa"
+      },
+      "infrastructure": {
+        "containerization": "docker",
+        "orchestration": "docker-compose",
+        "cicd": "github-actions"
+      },
+      "testing": {
+        "unit": "vitest",
+        "unitBackend": "junit",
+        "e2e": "playwright",
+        "coverageThreshold": 80
+      }
+    },
+    "agents": {
+      "enabled": [
+        "architect",
+        "code-reviewer",
+        "react-expert",
+        "spring-boot-expert",
+        "docker-expert",
+        "vitest-expert",
+        "playwright-expert",
+        "security-expert"
+      ],
+      "config": {
+        "react-expert": {
+          "skills": ["typescript", "react", "tailwindcss", "zustand", "tanstack-query"],
+          "workingDirectory": "frontend"
+        },
+        "spring-boot-expert": {
+          "skills": ["java", "spring-boot", "spring-data-jpa", "spring-security", "rest-api"],
+          "workingDirectory": "backend"
+        }
+      }
+    },
+    "skills": {
+      "global": ["typescript", "java", "clean-code", "solid-principles", "security", "git-workflow"]
+    },
+    "documentation": {
+      "strategy": "hybrid",
+      "levels": {
+        "level0": { "enabled": true, "maxTokens": 500 },
+        "level1": { "enabled": true, "maxTokens": 1000 },
+        "level2": { "enabled": true, "maxTokens": 3000 },
+        "level3": { "enabled": true, "preferLocal": true, "fallbackToLive": true }
+      }
+    },
+    "hooks": {
+      "formatOnSave": true,
+      "lintOnSave": true,
+      "typeCheckOnSave": false,
+      "securityScan": true,
+      "runAffectedTests": false
+    },
+    "mcp": {
+      "enabled": ["documentation", "database-query", "docker-manager"]
+    },
+    "monorepo": {
+      "structure": {
+        "frontend": {
+          "path": "frontend",
+          "type": "react-vite",
+          "commands": {
+            "dev": "npm run dev",
+            "build": "npm run build",
+            "test": "npm run test"
+          }
+        },
+        "backend": {
+          "path": "backend",
+          "type": "spring-boot",
+          "commands": {
+            "dev": "./mvnw spring-boot:run",
+            "build": "./mvnw clean package",
+            "test": "./mvnw test"
+          }
+        }
+      },
+      "sharedDirs": [],
+      "rootFiles": ["docker-compose.yml", ".env", ".gitignore", "README.md"]
+    }
+  }
+}

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev-Suite Loading</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: transparent;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+
+    .splash-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .logo {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 32px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .steps {
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .step.pending {
+      opacity: 0.4;
+    }
+
+    .step.active {
+      opacity: 1;
+    }
+
+    .step.done {
+      opacity: 0.8;
+    }
+
+    .step-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .step.pending .step-icon {
+      border: 2px solid #374151;
+      background: transparent;
+    }
+
+    .step.active .step-icon {
+      border: 2px solid #667eea;
+      background: transparent;
+    }
+
+    .step.done .step-icon {
+      border: none;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+    }
+
+    .step.error .step-icon {
+      border: none;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid transparent;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .step-text {
+      font-size: 13px;
+      color: #e5e7eb;
+      transition: color 0.3s ease;
+    }
+
+    .step.pending .step-text {
+      color: #6b7280;
+    }
+
+    .step.done .step-text {
+      color: #9ca3af;
+    }
+
+    /* Path selector styles */
+    .path-selector {
+      margin: 8px 0 16px 36px;
+      -webkit-app-region: no-drag;
+      transition: opacity 0.3s ease, max-height 0.3s ease;
+      overflow: hidden;
+    }
+
+    .path-selector.hidden {
+      opacity: 0;
+      max-height: 0;
+      margin: 0;
+      pointer-events: none;
+    }
+
+    .path-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .path-input {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid #374151;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #e5e7eb;
+      font-size: 12px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      outline: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .path-input:focus {
+      border-color: #667eea;
+    }
+
+    .btn-browse {
+      background: rgba(102, 126, 234, 0.2);
+      border: 1px solid #667eea;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #667eea;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-browse:hover {
+      background: rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-start {
+      width: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-start:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-start:active {
+      transform: translateY(0);
+    }
+
+    .btn-start:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .path-error {
+      color: #ef4444;
+      font-size: 11px;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .path-error.visible {
+      display: block;
+    }
+
+    .version {
+      margin-top: 24px;
+      font-size: 10px;
+      color: #4b5563;
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container">
+    <div class="logo">Dev-Suite</div>
+    <div class="tagline">Development Toolkit</div>
+
+    <div class="steps">
+      <div class="step active" data-step="0">
+        <div class="step-icon"></div>
+        <span class="step-text">Select project folder</span>
+      </div>
+
+      <div class="path-selector" id="pathSelector">
+        <div class="path-input-row">
+          <input type="text" class="path-input" id="pathInput" readonly>
+          <button class="btn-browse" id="btnBrowse" title="Browse...">&#128193;</button>
+        </div>
+        <button class="btn-start" id="btnStart">Start</button>
+        <div class="path-error" id="pathError">Invalid folder path</div>
+      </div>
+
+      <div class="step pending" data-step="1">
+        <div class="step-icon"></div>
+        <span class="step-text">Starting Node.js runtime...</span>
+      </div>
+      <div class="step pending" data-step="2">
+        <div class="step-icon"></div>
+        <span class="step-text">Initializing server...</span>
+      </div>
+      <div class="step pending" data-step="3">
+        <div class="step-icon"></div>
+        <span class="step-text">Loading dashboard...</span>
+      </div>
+    </div>
+
+    <div class="version" id="version"></div>
+  </div>
+
+  <script>
+    const stepTexts = {
+      0: { active: 'Select project folder', done: 'Project selected' },
+      1: { active: 'Starting Node.js runtime...', done: 'Runtime ready' },
+      2: { active: 'Initializing server...', done: 'Server started' },
+      3: { active: 'Loading dashboard...', done: 'Ready!' }
+    };
+
+    const pathInput = document.getElementById('pathInput');
+    const pathSelector = document.getElementById('pathSelector');
+    const btnBrowse = document.getElementById('btnBrowse');
+    const btnStart = document.getElementById('btnStart');
+    const pathError = document.getElementById('pathError');
+
+    let currentPath = '';
+
+    function updateStep(stepIndex, status) {
+      const stepEl = document.querySelector(`[data-step="${stepIndex}"]`);
+      if (!stepEl) return;
+
+      stepEl.className = `step ${status}`;
+      const iconEl = stepEl.querySelector('.step-icon');
+      const textEl = stepEl.querySelector('.step-text');
+
+      if (status === 'active') {
+        iconEl.innerHTML = '<div class="spinner"></div>';
+        textEl.textContent = stepTexts[stepIndex].active;
+      } else if (status === 'done') {
+        iconEl.innerHTML = '&#10003;';
+        textEl.textContent = stepTexts[stepIndex].done;
+      } else if (status === 'error') {
+        iconEl.innerHTML = '&#10007;';
+      } else if (status === 'pending') {
+        iconEl.innerHTML = '';
+        textEl.textContent = stepTexts[stepIndex].active;
+      }
+    }
+
+    function hidePathSelector() {
+      pathSelector.classList.add('hidden');
+    }
+
+    function showError(msg) {
+      pathError.textContent = msg;
+      pathError.classList.add('visible');
+    }
+
+    function hideError() {
+      pathError.classList.remove('visible');
+    }
+
+    function setPath(p) {
+      currentPath = p;
+      pathInput.value = p;
+      pathInput.title = p;
+      hideError();
+    }
+
+    // Button handlers
+    btnBrowse.addEventListener('click', async () => {
+      if (window.splashAPI && window.splashAPI.browseFolder) {
+        const newPath = await window.splashAPI.browseFolder();
+        if (newPath) {
+          setPath(newPath);
+        }
+      }
+    });
+
+    btnStart.addEventListener('click', async () => {
+      if (!currentPath) {
+        showError('Please select a folder');
+        return;
+      }
+
+      btnStart.disabled = true;
+      btnStart.textContent = 'Starting...';
+
+      if (window.splashAPI && window.splashAPI.confirmPath) {
+        const result = await window.splashAPI.confirmPath(currentPath);
+        if (result && result.error) {
+          showError(result.error);
+          btnStart.disabled = false;
+          btnStart.textContent = 'Start';
+        } else {
+          // Path confirmed, hide selector - main process will update step to 'done'
+          hidePathSelector();
+        }
+      }
+    });
+
+    // Listen for updates from main process
+    if (window.splashAPI) {
+      window.splashAPI.onStepUpdate((event, data) => {
+        updateStep(data.step, data.status);
+      });
+
+      window.splashAPI.onSetDefaultPath((event, defaultPath) => {
+        setPath(defaultPath);
+      });
+
+      // Show version if available
+      const versionEl = document.getElementById('version');
+      if (window.splashAPI.getVersion) {
+        versionEl.textContent = 'v' + window.splashAPI.getVersion();
+      }
+    }
+  </script>
+</body>
+</html>

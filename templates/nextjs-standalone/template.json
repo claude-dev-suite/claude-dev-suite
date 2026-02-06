@@ -1,0 +1,75 @@
+{
+  "name": "Next.js Standalone",
+  "description": "Full-stack Next.js application with App Router, Server Actions, and Prisma",
+  "version": "1.0.0",
+  "tags": ["fullstack", "nextjs", "react", "prisma", "typescript"],
+  "technologies": ["nextjs", "react", "typescript", "prisma", "tailwindcss", "postgresql"],
+  "structure": {
+    "frontend": {
+      "path": ".",
+      "framework": "nextjs",
+      "features": ["app-router", "server-components", "server-actions", "tailwindcss"]
+    },
+    "backend": {
+      "path": ".",
+      "framework": "nextjs",
+      "features": ["prisma", "nextauth"]
+    }
+  },
+  "features": [
+    "App Router with layouts",
+    "Server Components",
+    "Server Actions for mutations",
+    "Prisma ORM",
+    "NextAuth.js authentication",
+    "TailwindCSS + shadcn/ui",
+    "TypeScript strict mode"
+  ],
+  "scripts": {
+    "dev": "Start development server",
+    "build": "Build for production",
+    "start": "Start production server",
+    "db:migrate": "Run Prisma migrations"
+  },
+  "variables": [
+    {
+      "name": "packageManager",
+      "label": "Package Manager",
+      "type": "select",
+      "required": true,
+      "default": "pnpm",
+      "description": "Which package manager to use",
+      "options": [
+        { "label": "pnpm (Recommended)", "value": "pnpm" },
+        { "label": "npm", "value": "npm" },
+        { "label": "yarn", "value": "yarn" }
+      ]
+    },
+    {
+      "name": "database",
+      "label": "Database",
+      "type": "select",
+      "required": true,
+      "default": "postgresql",
+      "description": "Database for Prisma",
+      "options": [
+        { "label": "PostgreSQL", "value": "postgresql" },
+        { "label": "MySQL", "value": "mysql" },
+        { "label": "SQLite (Development)", "value": "sqlite" }
+      ]
+    },
+    {
+      "name": "authProvider",
+      "label": "Authentication",
+      "type": "select",
+      "required": true,
+      "default": "nextauth",
+      "description": "Authentication strategy",
+      "options": [
+        { "label": "NextAuth.js", "value": "nextauth" },
+        { "label": "Clerk", "value": "clerk" },
+        { "label": "None", "value": "none" }
+      ]
+    }
+  ]
+}

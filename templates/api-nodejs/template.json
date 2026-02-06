@@ -1,0 +1,60 @@
+{
+  "name": "NestJS API",
+  "description": "Node.js REST API with NestJS, Prisma, and PostgreSQL",
+  "version": "1.0.0",
+  "tags": ["backend", "nestjs", "nodejs", "typescript", "api"],
+  "technologies": ["nestjs", "prisma", "typescript", "postgresql", "swagger"],
+  "structure": {
+    "backend": {
+      "path": ".",
+      "framework": "nestjs",
+      "features": ["prisma", "jwt-auth", "swagger"]
+    }
+  },
+  "features": [
+    "JWT Authentication",
+    "Role-based Authorization",
+    "Swagger Documentation",
+    "Request Validation",
+    "Error Handling",
+    "Logging",
+    "Health Checks"
+  ],
+  "scripts": {
+    "start:dev": "Start in development mode with hot reload",
+    "start:prod": "Start in production mode",
+    "test": "Run unit tests",
+    "test:e2e": "Run e2e tests",
+    "db:migrate": "Run database migrations",
+    "db:seed": "Seed database"
+  },
+  "devContainerSupport": true,
+  "variables": [
+    {
+      "name": "packageManager",
+      "label": "Package Manager",
+      "type": "select",
+      "required": true,
+      "default": "pnpm",
+      "description": "Which package manager to use",
+      "options": [
+        { "label": "pnpm (Recommended)", "value": "pnpm" },
+        { "label": "npm", "value": "npm" },
+        { "label": "yarn", "value": "yarn" }
+      ]
+    },
+    {
+      "name": "database",
+      "label": "Database",
+      "type": "select",
+      "required": true,
+      "default": "postgresql",
+      "description": "Database for Prisma",
+      "options": [
+        { "label": "PostgreSQL", "value": "postgresql" },
+        { "label": "MySQL", "value": "mysql" },
+        { "label": "MongoDB", "value": "mongodb" }
+      ]
+    }
+  ]
+}

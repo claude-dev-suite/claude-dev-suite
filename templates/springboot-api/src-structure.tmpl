@@ -1,0 +1,78 @@
+# Spring Boot Backend Source Structure
+# Based on: castellino, gestionale-presenze
+
+src/
+├── main/
+│   ├── java/{{basePackagePath}}/
+│   │   ├── Application.java
+│   │   ├── audit/
+│   │   │   ├── AuditListener.java
+│   │   │   └── Auditable.java
+│   │   ├── config/
+│   │   │   ├── AppConfig.java
+│   │   │   ├── CorsConfig.java
+│   │   │   ├── OpenApiConfig.java
+│   │   │   └── security/
+│   │   │       ├── SecurityConfig.java
+│   │   │       ├── JwtAuthenticationFilter.java
+│   │   │       ├── JwtService.java
+│   │   │       └── UserDetailsServiceImpl.java
+│   │   ├── controller/
+│   │   │   ├── AuthController.java
+│   │   │   └── UserController.java
+│   │   ├── dto/
+│   │   │   ├── request/
+│   │   │   │   ├── LoginRequest.java
+│   │   │   │   ├── RegisterRequest.java
+│   │   │   │   └── UserUpdateRequest.java
+│   │   │   └── response/
+│   │   │       ├── AuthResponse.java
+│   │   │       ├── UserResponse.java
+│   │   │       └── ApiResponse.java
+│   │   ├── exception/
+│   │   │   ├── GlobalExceptionHandler.java
+│   │   │   ├── ResourceNotFoundException.java
+│   │   │   ├── BadRequestException.java
+│   │   │   ├── UnauthorizedException.java
+│   │   │   └── BusinessException.java
+│   │   ├── mapper/
+│   │   │   └── UserMapper.java
+│   │   ├── model/
+│   │   │   ├── entity/
+│   │   │   │   ├── BaseEntity.java
+│   │   │   │   ├── User.java
+│   │   │   │   └── Role.java
+│   │   │   └── enums/
+│   │   │       ├── UserRole.java
+│   │   │       └── UserStatus.java
+│   │   ├── repository/
+│   │   │   ├── UserRepository.java
+│   │   │   └── RoleRepository.java
+│   │   ├── service/
+│   │   │   ├── AuthService.java
+│   │   │   ├── UserService.java
+│   │   │   └── impl/
+│   │   │       ├── AuthServiceImpl.java
+│   │   │       └── UserServiceImpl.java
+│   │   ├── util/
+│   │   │   └── DateUtils.java
+│   │   └── validator/
+│   │       └── UniqueEmailValidator.java
+│   └── resources/
+│       ├── application.yml
+│       ├── application-dev.yml
+│       ├── application-test.yml
+│       ├── application-prod.yml
+│       └── db/migration/
+│           └── V1__init_schema.sql
+└── test/
+    └── java/{{basePackagePath}}/
+        ├── ApplicationTests.java
+        ├── controller/
+        │   ├── AuthControllerTest.java
+        │   └── UserControllerTest.java
+        ├── service/
+        │   ├── AuthServiceTest.java
+        │   └── UserServiceTest.java
+        └── integration/
+            └── AuthIntegrationTest.java

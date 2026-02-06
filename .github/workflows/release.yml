@@ -1,0 +1,154 @@
+# Dev-Suite Dashboard Release Workflow
+#
+# This workflow builds and publishes the Electron app when a version tag is pushed.
+#
+# Triggers on: push of tags matching v* (e.g., v1.0.0, v1.2.3)
+#
+# Release flow:
+#   1. npm version patch/minor/major  (in configurator/dashboard)
+#   2. git push origin main --tags
+#   3. This workflow builds and creates a GitHub Release
+#
+# The app will auto-detect these releases and notify users.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Ensure only one release workflow runs at a time
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Build job for Windows
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: configurator/dashboard/package-lock.json
+
+      # Install dependencies for dashboard
+      - name: Install dashboard dependencies
+        working-directory: configurator/dashboard
+        run: npm ci
+
+      # Install and build server dependencies
+      - name: Install server dependencies
+        working-directory: configurator/dashboard/server
+        run: npm ci
+
+      - name: Build server
+        working-directory: configurator/dashboard/server
+        run: npm run build
+
+      # Build MCP servers (needed for bundling)
+      - name: Install MCP servers dependencies
+        working-directory: mcp-servers
+        run: npm ci
+
+      - name: Build MCP servers
+        working-directory: mcp-servers
+        run: npm run build
+
+      # Download Node.js for bundling
+      - name: Download bundled Node.js
+        working-directory: configurator/dashboard
+        shell: powershell
+        run: |
+          $nodeVersion = "20.11.1"
+          $nodeUrl = "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-win-x64.zip"
+          $nodeZip = "node.zip"
+          $nodeDir = "node"
+
+          Write-Host "Downloading Node.js $nodeVersion..."
+          Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeZip
+
+          Write-Host "Extracting Node.js..."
+          Expand-Archive -Path $nodeZip -DestinationPath . -Force
+
+          if (Test-Path $nodeDir) {
+            Remove-Item -Recurse -Force $nodeDir
+          }
+          Rename-Item "node-v$nodeVersion-win-x64" $nodeDir
+          Remove-Item $nodeZip
+
+          Write-Host "Node.js bundled successfully"
+
+      # Build the React frontend
+      - name: Build frontend
+        working-directory: configurator/dashboard
+        run: npm run build
+
+      # Build and publish Electron app
+      - name: Build and publish Electron app
+        working-directory: configurator/dashboard
+        run: npm run electron:build -- --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      # Upload artifacts for debugging (optional, can be removed in production)
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: configurator/dashboard/dist-electron/*.exe
+          retention-days: 7
+
+  # Create GitHub Release (runs after build)
+  create-release:
+    needs: build-windows
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Generate basic release notes
+          cat << EOF > release_notes.md
+          ## Dev-Suite Dashboard $VERSION
+
+          ### Installation
+
+          Download and run the installer (.exe) below.
+
+          ### Auto-Updates
+
+          Existing installations will automatically detect this update and prompt to install.
+
+          ### Requirements
+
+          - Windows 10 or later
+          - No additional dependencies required (Node.js is bundled)
+
+          ---
+
+          *Built automatically by GitHub Actions*
+          EOF
+
+      - name: Update release notes
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

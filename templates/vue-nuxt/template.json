@@ -1,0 +1,57 @@
+{
+  "name": "Vue 3 + Nuxt 3",
+  "description": "Vue 3 application with Nuxt 3, Pinia state management, and TailwindCSS",
+  "version": "1.0.0",
+  "tags": ["frontend", "vue", "nuxt", "typescript", "ssr"],
+  "technologies": ["vue", "nuxt", "pinia", "typescript", "tailwindcss"],
+  "structure": {
+    "frontend": {
+      "path": ".",
+      "framework": "nuxt",
+      "features": ["pinia", "tailwindcss", "typescript", "nitro"]
+    }
+  },
+  "features": [
+    "File-based routing",
+    "Auto-imports for components and composables",
+    "Pinia state management",
+    "TailwindCSS styling",
+    "TypeScript support",
+    "Nitro server engine",
+    "SSR/SSG support"
+  ],
+  "scripts": {
+    "dev": "Start development server",
+    "build": "Build for production",
+    "preview": "Preview production build",
+    "generate": "Generate static site"
+  },
+  "variables": [
+    {
+      "name": "packageManager",
+      "label": "Package Manager",
+      "type": "select",
+      "required": true,
+      "default": "pnpm",
+      "description": "Which package manager to use",
+      "options": [
+        { "label": "pnpm (Recommended)", "value": "pnpm" },
+        { "label": "npm", "value": "npm" },
+        { "label": "yarn", "value": "yarn" }
+      ]
+    },
+    {
+      "name": "renderMode",
+      "label": "Render Mode",
+      "type": "select",
+      "required": true,
+      "default": "universal",
+      "description": "How to render the application",
+      "options": [
+        { "label": "Universal (SSR + SPA)", "value": "universal" },
+        { "label": "Static Site Generation", "value": "static" },
+        { "label": "SPA Only", "value": "spa" }
+      ]
+    }
+  ]
+}

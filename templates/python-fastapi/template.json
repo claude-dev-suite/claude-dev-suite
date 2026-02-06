@@ -1,0 +1,70 @@
+{
+  "name": "FastAPI",
+  "description": "Python REST API with FastAPI, SQLAlchemy ORM, and PostgreSQL",
+  "version": "1.0.0",
+  "tags": ["backend", "python", "fastapi", "api"],
+  "technologies": ["python", "fastapi", "sqlalchemy", "postgresql", "pydantic"],
+  "structure": {
+    "backend": {
+      "path": ".",
+      "language": "python",
+      "framework": "fastapi",
+      "features": ["sqlalchemy", "pydantic", "jwt-auth", "alembic"]
+    }
+  },
+  "features": [
+    "Async SQLAlchemy",
+    "Pydantic v2 validation",
+    "JWT Authentication",
+    "Alembic migrations",
+    "OpenAPI documentation",
+    "Dependency injection",
+    "CORS middleware"
+  ],
+  "scripts": {
+    "dev": "Start development server with uvicorn",
+    "test": "Run pytest",
+    "migrate": "Run Alembic migrations",
+    "lint": "Run ruff linter"
+  },
+  "variables": [
+    {
+      "name": "pythonVersion",
+      "label": "Python Version",
+      "type": "select",
+      "required": true,
+      "default": "3.12",
+      "description": "Python version to use",
+      "options": [
+        { "label": "Python 3.12", "value": "3.12" },
+        { "label": "Python 3.11", "value": "3.11" },
+        { "label": "Python 3.10", "value": "3.10" }
+      ]
+    },
+    {
+      "name": "database",
+      "label": "Database",
+      "type": "select",
+      "required": true,
+      "default": "postgresql",
+      "description": "Database to use",
+      "options": [
+        { "label": "PostgreSQL", "value": "postgresql" },
+        { "label": "MySQL", "value": "mysql" },
+        { "label": "SQLite (Development)", "value": "sqlite" }
+      ]
+    },
+    {
+      "name": "includeDocker",
+      "label": "Include Docker",
+      "type": "select",
+      "required": true,
+      "default": "yes",
+      "description": "Include Docker and docker-compose files",
+      "options": [
+        { "label": "Yes", "value": "yes" },
+        { "label": "No", "value": "no" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "database-query",
+  "description": "Executes SQL queries, manages schemas, generates migrations, and performs database operations",
+  "shortDescription": "Database operations",
+  "category": "database",
+  "tools": [
+    "execute_query",
+    "list_tables",
+    "describe_table",
+    "get_schema",
+    "explain_query",
+    "compare_schemas",
+    "find_slow_queries",
+    "generate_migration",
+    "backup_restore"
+  ],
+  "envVars": [
+    {
+      "name": "DATABASE_URL",
+      "description": "Database connection string",
+      "default": "",
+      "required": true
+    }
+  ],
+  "requiredFor": [
+    "prisma-expert",
+    "sql-expert"
+  ],
+  "detectedWhen": [
+    "prisma",
+    "drizzle",
+    "typeorm",
+    "sequelize",
+    "postgresql",
+    "mysql",
+    "mongodb"
+  ]
+}

@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: {{projectName}}-postgres
+    environment:
+      POSTGRES_DB: {{dbName}}
+      POSTGRES_USER: {{dbUser}}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{dbUser}} -d {{dbName}}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - {{projectName}}-network
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: {{projectName}}-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{dbName}}
+      SPRING_DATASOURCE_USERNAME: {{dbUser}}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-min-256-bits}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - {{projectName}}-network
+
+  # PgAdmin (optional, for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: {{projectName}}-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - postgres
+    networks:
+      - {{projectName}}-network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+
+networks:
+  {{projectName}}-network:
+    driver: bridge

@@ -1,0 +1,24 @@
+{
+  "name": "api-explorer",
+  "description": "Explores and analyzes OpenAPI/Swagger specifications, lists endpoints, models, and detects API frameworks",
+  "shortDescription": "OpenAPI explorer",
+  "category": "api",
+  "tools": [
+    "list_api_endpoints",
+    "get_api_schema",
+    "list_api_paths",
+    "get_api_endpoint_details",
+    "get_api_models",
+    "search_api",
+    "detect_api_frameworks"
+  ],
+  "envVars": [],
+  "requiredFor": [
+    "architect",
+    "integration-validator-expert"
+  ],
+  "detectedWhen": [
+    "openapi",
+    "swagger"
+  ]
+}

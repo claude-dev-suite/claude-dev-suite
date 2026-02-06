@@ -1,0 +1,39 @@
+{
+  "name": "@dev-suite/mcp-servers",
+  "version": "2.2.0",
+  "private": true,
+  "description": "MCP servers for dev-suite",
+  "workspaces": [
+    "api-explorer",
+    "api-tester",
+    "code-quality",
+    "dashboard-bridge",
+    "database-query",
+    "docker-manager",
+    "documentation",
+    "log-analyzer",
+    "performance-profiler",
+    "security-scanner"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:api-explorer": "npm run build -w api-explorer",
+    "build:api-tester": "npm run build -w api-tester",
+    "build:code-quality": "npm run build -w code-quality",
+    "build:dashboard-bridge": "npm run build -w dashboard-bridge",
+    "build:database-query": "npm run build -w database-query",
+    "build:docker-manager": "npm run build -w docker-manager",
+    "build:documentation": "npm run build -w documentation",
+    "build:log-analyzer": "npm run build -w log-analyzer",
+    "build:performance-profiler": "npm run build -w performance-profiler",
+    "build:security-scanner": "npm run build -w security-scanner",
+    "test": "npm run test --workspaces --if-present",
+    "clean": "rm -rf node_modules */node_modules */dist"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "tsx": "^4.6.0",
+    "vitest": "^2.0.0"
+  }
+}

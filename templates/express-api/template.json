@@ -1,0 +1,57 @@
+{
+  "name": "Express API",
+  "description": "Express.js REST API with TypeScript, Prisma ORM, and PostgreSQL",
+  "version": "1.0.0",
+  "tags": ["backend", "express", "nodejs", "typescript", "api"],
+  "technologies": ["express", "typescript", "prisma", "postgresql", "zod"],
+  "structure": {
+    "backend": {
+      "path": ".",
+      "framework": "express",
+      "features": ["prisma", "zod", "jwt-auth"]
+    }
+  },
+  "features": [
+    "TypeScript support",
+    "Prisma ORM",
+    "Zod validation",
+    "JWT Authentication",
+    "Error handling middleware",
+    "Request logging",
+    "CORS configured"
+  ],
+  "scripts": {
+    "dev": "Start development server with tsx",
+    "build": "Compile TypeScript",
+    "start": "Start production server",
+    "test": "Run vitest tests"
+  },
+  "variables": [
+    {
+      "name": "packageManager",
+      "label": "Package Manager",
+      "type": "select",
+      "required": true,
+      "default": "npm",
+      "description": "Which package manager to use",
+      "options": [
+        { "label": "npm", "value": "npm" },
+        { "label": "pnpm", "value": "pnpm" },
+        { "label": "yarn", "value": "yarn" }
+      ]
+    },
+    {
+      "name": "database",
+      "label": "Database",
+      "type": "select",
+      "required": true,
+      "default": "postgresql",
+      "description": "Database for Prisma",
+      "options": [
+        { "label": "PostgreSQL", "value": "postgresql" },
+        { "label": "MySQL", "value": "mysql" },
+        { "label": "SQLite (Development)", "value": "sqlite" }
+      ]
+    }
+  ]
+}

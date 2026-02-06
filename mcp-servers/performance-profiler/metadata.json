@@ -1,0 +1,25 @@
+{
+  "name": "performance-profiler",
+  "description": "Script/function profiling, memory analysis, startup measurement, bottleneck detection, and HAR import for flow replay",
+  "shortDescription": "Performance profiling",
+  "category": "performance",
+  "tools": [
+    "profile_script",
+    "profile_function",
+    "benchmark_code",
+    "analyze_memory",
+    "measure_startup",
+    "find_bottlenecks",
+    "attach_profiler",
+    "profile_endpoint",
+    "list_java_processes",
+    "import_har",
+    "list_flows",
+    "replay_flow",
+    "stress_test_flow"
+  ],
+  "envVars": [],
+  "requiredFor": [
+    "qa-expert"
+  ]
+}

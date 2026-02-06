@@ -1,0 +1,13 @@
+# Build output
+dist/
+*.js
+*.d.ts
+
+# Dependencies
+node_modules/
+
+# Cache
+.kb-cache/
+
+# Logs
+*.log

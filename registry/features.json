@@ -1,0 +1,98 @@
+{
+  "$schema": "./features.schema.json",
+  "schemaVersion": "1.0.0",
+  "features": [
+    {
+      "id": "integration-validator-hook",
+      "version": "1.0.0",
+      "type": "hook",
+      "name": "Integration Validator Hook",
+      "description": "Automatic API contract validation after subagent completion. Detects when API endpoints or frontend integrations are modified and triggers the integration-validator-expert to ensure consistency between frontend calls and backend contracts.",
+      "addedInVersion": "2.7.0",
+      "stackRequirements": {
+        "requiresAny": {
+          "frontend": ["react", "vue", "svelte", "nextjs", "nuxt", "sveltekit"],
+          "backend": ["spring-boot", "nestjs", "fastapi", "django", "flask", "go", "rust", "deno"]
+        }
+      },
+      "dependencies": {
+        "agents": ["integration-validator-expert"]
+      },
+      "apply": {
+        "type": "hook-merge",
+        "target": ".claude/settings.json",
+        "event": "SubagentStop",
+        "config": {
+          "matcherBuilder": "buildIntegrationValidatorMatcher",
+          "promptTemplate": "integration-validator-prompt"
+        }
+      }
+    },
+    {
+      "id": "react-19-patterns",
+      "version": "1.0.0",
+      "type": "agent-update",
+      "name": "React 19 Patterns",
+      "description": "Updates react-expert agent with React 19 patterns including use() hook, Server Components improvements, Actions, and optimistic updates.",
+      "addedInVersion": "2.8.0",
+      "stackRequirements": {
+        "requiresAny": {
+          "frontend": ["react", "nextjs"]
+        }
+      },
+      "dependencies": {
+        "agents": ["react-expert"]
+      },
+      "apply": {
+        "type": "agent-replace",
+        "source": "agents/frontend/react-expert.md",
+        "target": ".claude/agents/react-expert.md"
+      }
+    },
+    {
+      "id": "auto-format-hook",
+      "version": "1.0.0",
+      "type": "hook",
+      "name": "Auto-Format on Write Hook",
+      "description": "Automatically runs Prettier or Biome after file modifications to maintain consistent code formatting.",
+      "addedInVersion": "2.8.0",
+      "stackRequirements": {
+        "requiresPackage": ["prettier", "@biomejs/biome"]
+      },
+      "dependencies": {},
+      "apply": {
+        "type": "hook-merge",
+        "target": ".claude/settings.json",
+        "event": "PostToolUse",
+        "config": {
+          "matcher": "Write|Edit",
+          "hooks": ["npx prettier --write \"$CLAUDE_FILE_PATHS\" 2>/dev/null || npx biome format --write \"$CLAUDE_FILE_PATHS\" 2>/dev/null || true"]
+        }
+      }
+    },
+    {
+      "id": "typecheck-on-write-hook",
+      "version": "1.0.0",
+      "type": "hook",
+      "name": "Type-Check on Write Hook",
+      "description": "Runs TypeScript type-checking after TypeScript file modifications to catch type errors early.",
+      "addedInVersion": "2.8.0",
+      "stackRequirements": {
+        "requiresPackage": ["typescript"]
+      },
+      "dependencies": {},
+      "apply": {
+        "type": "hook-merge",
+        "target": ".claude/settings.json",
+        "event": "PostToolUse",
+        "config": {
+          "matcher": "Write|Edit",
+          "hooks": ["[[ \"$CLAUDE_FILE_PATHS\" =~ \\.(ts|tsx)$ ]] && npx tsc --noEmit || true"]
+        }
+      }
+    }
+  ],
+  "promptTemplates": {
+    "integration-validator-prompt": "Analizza il lavoro completato dall'agente e determina se è necessaria la validazione dell'integrazione API.\n\nCONTESTO: $ARGUMENTS\n\nCRITERI DI TRIGGER (rispondi {ok: false} per continuare con integration-validator):\n\n**Backend:**\n- Modifiche a controller/routes/handlers HTTP\n- Nuovi endpoint REST o GraphQL\n- Modifiche a DTO/request/response types\n- Cambi a middleware di autenticazione API\n\n**Frontend:**\n- Nuove chiamate API (fetch, axios, ky, ofetch)\n- Modifiche a hooks di data fetching (useQuery, useMutation, useSWR)\n- Modifiche a composables/services che chiamano API\n- Modifiche a tipi TypeScript per request/response API\n\nNON TRIGGERA (rispondi {ok: true} per fermarti):\n- Solo modifiche CSS/styling\n- Solo cambi di testo/label\n- Refactoring interno senza toccare API\n- Modifiche a componenti UI senza data fetching\n- Test unitari senza integration test\n\nRispondi SOLO con JSON valido:\n{\"ok\": false, \"reason\": \"API integration detected: [descrizione]\"} per triggerare validation\n{\"ok\": true} per terminare senza validation"
+  }
+}

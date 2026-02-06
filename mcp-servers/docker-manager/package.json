@@ -1,0 +1,18 @@
+{
+  "name": "@dev-suite/docker-manager-server",
+  "version": "2.2.0",
+  "description": "MCP server for Docker container and compose management",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0"
+  }
+}

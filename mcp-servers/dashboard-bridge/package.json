@@ -1,0 +1,23 @@
+{
+  "name": "@dev-suite/dashboard-bridge",
+  "version": "2.0.0",
+  "description": "MCP server for Claude Code orchestration with dashboard integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["mcp", "claude", "dashboard", "dev-suite", "orchestrator"],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "open": "^10.1.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.4.0"
+  }
+}

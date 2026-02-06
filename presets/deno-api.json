@@ -1,0 +1,74 @@
+{
+  "name": "Deno API",
+  "description": "Deno backend API with Fresh/Oak",
+  "version": "1.0.0",
+  "config": {
+    "project": {
+      "type": "api"
+    },
+    "stacks": {
+      "frontend": {
+        "framework": "none",
+        "metaFramework": "none",
+        "styling": "none",
+        "stateManagement": "none",
+        "componentLibrary": "none"
+      },
+      "backend": {
+        "runtime": "deno",
+        "framework": "oak",
+        "apiStyle": "rest"
+      },
+      "database": {
+        "type": "postgresql",
+        "orm": "none"
+      },
+      "infrastructure": {
+        "containerization": "docker",
+        "orchestration": "docker-compose",
+        "cicd": "github-actions"
+      },
+      "testing": {
+        "unit": "deno-testing",
+        "e2e": "none",
+        "coverageThreshold": 80
+      }
+    },
+    "agents": {
+      "enabled": [
+        "architect",
+        "code-reviewer",
+        "deno-expert",
+        "docker-expert",
+        "security-expert"
+      ],
+      "config": {
+        "deno-expert": {
+          "skills": ["deno", "typescript", "oak", "rest-api"]
+        }
+      }
+    },
+    "skills": {
+      "global": ["deno", "typescript", "clean-code", "solid-principles", "security", "rest-api"]
+    },
+    "documentation": {
+      "strategy": "hybrid",
+      "levels": {
+        "level0": { "enabled": true, "maxTokens": 500 },
+        "level1": { "enabled": true, "maxTokens": 1000 },
+        "level2": { "enabled": true, "maxTokens": 3000 },
+        "level3": { "enabled": true, "preferLocal": true, "fallbackToLive": true }
+      }
+    },
+    "hooks": {
+      "formatOnSave": true,
+      "lintOnSave": true,
+      "typeCheckOnSave": false,
+      "securityScan": true,
+      "runAffectedTests": false
+    },
+    "mcp": {
+      "enabled": ["documentation", "api-tester"]
+    }
+  }
+}

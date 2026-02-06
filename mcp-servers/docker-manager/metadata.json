@@ -1,0 +1,23 @@
+{
+  "name": "docker-manager",
+  "description": "Docker container management, compose operations, image management, and resource stats",
+  "shortDescription": "Docker management",
+  "category": "infrastructure",
+  "tools": [
+    "docker_ps",
+    "docker_container",
+    "docker_compose",
+    "docker_images",
+    "docker_stats",
+    "docker_networks",
+    "docker_volumes",
+    "cleanup_unused"
+  ],
+  "envVars": [],
+  "requiredFor": [
+    "devops-expert"
+  ],
+  "detectedWhen": [
+    "docker"
+  ]
+}

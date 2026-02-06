@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: MIT
+/**
+ * Dashboard tool handlers
+ */
+
+import { spawn, exec } from "child_process";
+import { promisify } from "util";
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+import {
+  DashboardOpenSchema,
+  DashboardStartSchema,
+  ProjectPathSchema,
+  DASHBOARD_URL,
+  ORCHESTRATOR_WS_PORT,
+  jobQueue,
+  jsonResponse,
+  textResponse,
+  type Handler,
+  type HandlerResult,
+} from "./types.js";
+
+const execAsync = promisify(exec);
+
+export const handleDashboardOpen: Handler = async (args): Promise<HandlerResult> => {
+  const { page, projectPath } = DashboardOpenSchema.parse(args);
+
+  let url = DASHBOARD_URL;
+  if (page === "home") {
+    url = DASHBOARD_URL;
+  } else if (page === "wizard" && projectPath) {
+    url = `${DASHBOARD_URL}/wizard?project=${encodeURIComponent(projectPath)}`;
+  } else {
+    url = `${DASHBOARD_URL}/${page}`;
+  }
+
+  const openCommand = process.platform === "darwin"
+    ? "open"
+    : process.platform === "win32"
+    ? "start"
+    : "xdg-open";
+
+  try {
+    await execAsync(`${openCommand} "${url}"`);
+    return textResponse(`Opened dashboard at ${url}`);
+  } catch {
+    return textResponse(`Please open manually: ${url}`);
+  }
+};
+
+export const handleDashboardStatus: Handler = async (): Promise<HandlerResult> => {
+  try {
+    const response = await fetch(`${DASHBOARD_URL}/api/agents`);
+    if (response.ok) {
+      const data = await response.json();
+      return jsonResponse({
+        status: "running",
+        url: DASHBOARD_URL,
+        orchestratorWsPort: ORCHESTRATOR_WS_PORT,
+        agents: data.total || 0,
+        pendingJobs: jobQueue.filter(j => j.status === "pending").length,
+      });
+    }
+  } catch {
+    // Dashboard not running
+  }
+
+  return jsonResponse({
+    status: "not_running",
+    url: DASHBOARD_URL,
+    orchestratorWsPort: ORCHESTRATOR_WS_PORT,
+    message: "Dashboard is not running. Use dashboard_start to start it.",
+  });
+};
+
+export const handleDashboardStart: Handler = async (args): Promise<HandlerResult> => {
+  let devSuiteDir = DashboardStartSchema.parse(args).devSuiteDir;
+
+  if (!devSuiteDir) {
+    const possiblePaths = [
+      process.env.DEV_SUITE_DIR,
+      join(process.cwd(), ".."),
+      join(process.cwd(), "..", "dev-suite"),
+    ];
+
+    for (const path of possiblePaths) {
+      if (path && existsSync(join(path, "configurator", "dashboard"))) {
+        devSuiteDir = path;
+        break;
+      }
+    }
+  }
+
+  if (!devSuiteDir) {
+    return textResponse("Could not find dev-suite directory. Please provide devSuiteDir parameter.");
+  }
+
+  const dashboardDir = join(devSuiteDir, "configurator", "dashboard");
+
+  try {
+    const response = await fetch(`${DASHBOARD_URL}/api/agents`);
+    if (response.ok) {
+      return textResponse(`Dashboard is already running at ${DASHBOARD_URL}`);
+    }
+  } catch {
+    // Not running, continue to start
+  }
+
+  const child = spawn("node", ["server.cjs"], {
+    cwd: dashboardDir,
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+
+  return textResponse(`Starting dashboard at ${DASHBOARD_URL}. It may take a few seconds to be ready.`);
+};
+
+export const handleDashboardGetConfig: Handler = async (args): Promise<HandlerResult> => {
+  const { projectPath } = ProjectPathSchema.parse(args);
+
+  const configPath = join(projectPath, ".dev-suite.json");
+  const mcpPath = join(projectPath, ".mcp.json");
+
+  const result: Record<string, unknown> = {};
+
+  if (existsSync(configPath)) {
+    try {
+      result.devSuiteConfig = JSON.parse(readFileSync(configPath, "utf-8"));
+    } catch (e) {
+      result.devSuiteConfigError = String(e);
+    }
+  } else {
+    result.devSuiteConfig = null;
+  }
+
+  if (existsSync(mcpPath)) {
+    try {
+      result.mcpConfig = JSON.parse(readFileSync(mcpPath, "utf-8"));
+    } catch (e) {
+      result.mcpConfigError = String(e);
+    }
+  } else {
+    result.mcpConfig = null;
+  }
+
+  return jsonResponse(result);
+};
+
+export const handleDashboardListAgents: Handler = async (): Promise<HandlerResult> => {
+  try {
+    const response = await fetch(`${DASHBOARD_URL}/api/agents`);
+    if (response.ok) {
+      const data = await response.json();
+      return jsonResponse(data);
+    }
+  } catch {
+    // Dashboard not running
+  }
+
+  return textResponse("Dashboard is not running. Start it with dashboard_start first.");
+};
+
+export const handleDashboardDetectStack: Handler = async (args): Promise<HandlerResult> => {
+  const { projectPath } = ProjectPathSchema.parse(args);
+
+  try {
+    const response = await fetch(`${DASHBOARD_URL}/api/detect?project_path=${encodeURIComponent(projectPath)}`);
+    if (response.ok) {
+      const data = await response.json();
+      return jsonResponse(data);
+    }
+  } catch {
+    // Dashboard not running
+  }
+
+  return textResponse("Dashboard is not running. Start it with dashboard_start first.");
+};

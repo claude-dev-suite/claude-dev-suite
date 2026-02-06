@@ -1,0 +1,16 @@
+# Build output
+dist/
+*.js
+*.d.ts
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Profiling output
+*.cpuprofile
+*.heapsnapshot
+*.prof
+*.jfr

@@ -1,0 +1,23 @@
+{
+  "name": "documentation",
+  "description": "Fetches and manages technical documentation for 121+ technologies with version support and caching",
+  "shortDescription": "Documentation fetcher",
+  "category": "knowledge",
+  "tools": [
+    "fetch_docs",
+    "list_versions",
+    "search_docs",
+    "list_topics"
+  ],
+  "envVars": [
+    {
+      "name": "KB_REPO_URL",
+      "description": "URL of the knowledge base git repository",
+      "default": "https://github.com/claude-dev-suite/knowledge_base.git",
+      "required": false
+    }
+  ],
+  "requiredFor": [
+    "all"
+  ]
+}

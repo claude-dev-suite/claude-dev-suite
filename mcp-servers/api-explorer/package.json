@@ -1,0 +1,28 @@
+{
+  "name": "@dev-suite/api-explorer-server",
+  "version": "2.2.0",
+  "description": "MCP server for fetching and exploring OpenAPI/Swagger schemas from multiple API endpoints",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0",
+    "yaml": "^2.3.0"
+  },
+  "keywords": [
+    "mcp",
+    "openapi",
+    "swagger",
+    "api-explorer",
+    "api-documentation"
+  ],
+  "author": "dev-suite",
+  "license": "MIT"
+}

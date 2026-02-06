@@ -1,0 +1,75 @@
+{
+  "name": "React SPA",
+  "description": "Single Page Application with React, Vite, and TanStack Query",
+  "version": "1.0.0",
+  "config": {
+    "project": {
+      "type": "frontend"
+    },
+    "stacks": {
+      "frontend": {
+        "framework": "react",
+        "metaFramework": "none",
+        "styling": "tailwindcss",
+        "stateManagement": "tanstack-query",
+        "componentLibrary": "shadcn-ui"
+      },
+      "backend": {
+        "runtime": "none",
+        "framework": "none",
+        "apiStyle": "none"
+      },
+      "database": {
+        "type": "none",
+        "orm": "none"
+      },
+      "infrastructure": {
+        "containerization": "docker",
+        "orchestration": "none",
+        "cicd": "github-actions"
+      },
+      "testing": {
+        "unit": "vitest",
+        "e2e": "playwright",
+        "coverageThreshold": 70
+      }
+    },
+    "agents": {
+      "enabled": [
+        "architect",
+        "code-reviewer",
+        "react-expert",
+        "tailwind-expert",
+        "vitest-expert",
+        "playwright-expert"
+      ],
+      "config": {
+        "react-expert": {
+          "skills": ["typescript", "react", "react-hooks", "tanstack-query", "tailwindcss"]
+        }
+      }
+    },
+    "skills": {
+      "global": ["typescript", "clean-code", "accessibility", "performance"]
+    },
+    "documentation": {
+      "strategy": "hybrid",
+      "levels": {
+        "level0": { "enabled": true, "maxTokens": 500 },
+        "level1": { "enabled": true, "maxTokens": 1000 },
+        "level2": { "enabled": true, "maxTokens": 3000 },
+        "level3": { "enabled": true, "preferLocal": true, "fallbackToLive": true }
+      }
+    },
+    "hooks": {
+      "formatOnSave": true,
+      "lintOnSave": true,
+      "typeCheckOnSave": true,
+      "securityScan": false,
+      "runAffectedTests": false
+    },
+    "mcp": {
+      "enabled": ["documentation"]
+    }
+  }
+}

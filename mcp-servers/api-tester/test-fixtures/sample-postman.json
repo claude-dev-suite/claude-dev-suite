@@ -1,0 +1,70 @@
+{
+  "info": {
+    "name": "Pet Store API",
+    "_postman_id": "12345-test",
+    "description": "Sample Pet Store API Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://petstore.example.com/api/v1" },
+    { "key": "apiKey", "value": "demo-key-123" }
+  ],
+  "item": [
+    {
+      "name": "Pets",
+      "item": [
+        {
+          "name": "List Pets",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/pets",
+              "host": ["{{baseUrl}}"],
+              "path": ["pets"],
+              "query": [
+                { "key": "limit", "value": "10" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Pet",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/pets/123",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Pet",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/pets",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Fluffy\", \"type\": \"cat\", \"age\": 3}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      }
+    }
+  ]
+}

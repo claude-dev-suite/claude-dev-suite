@@ -1,0 +1,212 @@
+# ================================================================
+# dev-suite .gitignore
+# ================================================================
+
+# ----------------------------------------------------------------
+# Node.js / JavaScript / TypeScript
+# ----------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Build outputs (MCP servers)
+mcp-servers/*/dist/
+mcp-servers/**/dist/
+
+# Claude Code local configuration (developer-specific)
+.claude/
+
+# Test outputs
+playwright-report/
+test-results/
+**/playwright-report/
+**/test-results/
+
+# Knowledge base cache (MCP documentation server)
+.kb-cache/
+**/.kb-cache/
+
+# Lock files (reinstalled on npm install)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ----------------------------------------------------------------
+# Python
+# ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+eggs/
+.eggs/
+# lib/ - COMMENTED: We use lib/ for bash libraries
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+env/
+.env.local
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ----------------------------------------------------------------
+# Java / Spring Boot / Maven / Gradle
+# ----------------------------------------------------------------
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.settings/
+.classpath
+.project
+.factorypath
+hs_err_pid*
+replay_pid*
+
+# ----------------------------------------------------------------
+# IDE & Editors
+# ----------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# ----------------------------------------------------------------
+# OS Generated Files
+# ----------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ----------------------------------------------------------------
+# Environment & Secrets
+# ----------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.env.local
+.envrc
+*.pem
+*.key
+credentials.json
+secrets.json
+*.secret
+.secrets/
+
+# ----------------------------------------------------------------
+# Logs & Debug
+# ----------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+debug.log
+
+# ----------------------------------------------------------------
+# Coverage & Testing
+# ----------------------------------------------------------------
+coverage/
+.nyc_output/
+*.lcov
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# ----------------------------------------------------------------
+# Electron Build
+# ----------------------------------------------------------------
+configurator/dashboard/dist/
+configurator/dashboard/node/
+
+# ----------------------------------------------------------------
+# Build & Cache
+# ----------------------------------------------------------------
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.output/
+.vercel/
+.turbo/
+.angular/
+dist/
+out/
+*.tsbuildinfo
+
+# ----------------------------------------------------------------
+# Temporary Files
+# ----------------------------------------------------------------
+*.tmp
+*.temp
+*.bak
+*.backup
+tmp/
+temp/
+.tmp/
+
+# ----------------------------------------------------------------
+# Docker (local volumes)
+# ----------------------------------------------------------------
+docker-volumes/
+.docker/
+
+# ----------------------------------------------------------------
+# Database Files (local)
+# ----------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.sql.gz
+GIT_TOKEN.txt
+
+# ----------------------------------------------------------------
+# Claude Code Temp Files
+# ----------------------------------------------------------------
+tmpclaude-*-cwd
+**/tmpclaude-*-cwd
+nul
+build-output.txt
+test-results.json
+final-error-fix.js

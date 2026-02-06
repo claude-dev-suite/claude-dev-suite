@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: Todo API
+  version: 1.0.0
+  description: Simple Todo management API
+
+servers:
+  - url: https://api.todos.example.com/v1
+    description: Production server
+
+paths:
+  /todos:
+    get:
+      operationId: listTodos
+      summary: List all todos
+      tags:
+        - todos
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, completed, all]
+        - name: limit
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of todos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Todo'
+              example:
+                - id: 1
+                  title: Buy groceries
+                  completed: false
+                - id: 2
+                  title: Walk the dog
+                  completed: true
+        '400':
+          description: Invalid parameters
+
+    post:
+      operationId: createTodo
+      summary: Create a new todo
+      tags:
+        - todos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTodo'
+            example:
+              title: New task
+              description: Task description
+      responses:
+        '201':
+          description: Todo created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '400':
+          description: Invalid input
+
+  /todos/{id}:
+    get:
+      operationId: getTodo
+      summary: Get a todo by ID
+      tags:
+        - todos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Todo found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '404':
+          description: Todo not found
+
+    put:
+      operationId: updateTodo
+      summary: Update a todo
+      tags:
+        - todos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTodo'
+      responses:
+        '200':
+          description: Todo updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '404':
+          description: Todo not found
+
+    delete:
+      operationId: deleteTodo
+      summary: Delete a todo
+      tags:
+        - todos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Todo deleted
+        '404':
+          description: Todo not found
+
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check endpoint
+      tags:
+        - system
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
+components:
+  schemas:
+    Todo:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        completed:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - completed
+
+    CreateTodo:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+      required:
+        - title
+
+    UpdateTodo:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        completed:
+          type: boolean

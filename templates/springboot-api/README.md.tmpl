@@ -1,0 +1,95 @@
+# {{projectName}}
+
+{{projectDescription}}
+
+## Tech Stack
+
+- **Language**: Java 17
+- **Framework**: Spring Boot 3.3.x
+- **Database**: PostgreSQL 16
+- **ORM**: Spring Data JPA + Hibernate
+- **Migrations**: Flyway
+- **Security**: Spring Security + JWT
+- **API Docs**: OpenAPI 3 (Swagger UI)
+- **Utilities**: Lombok, MapStruct
+- **Testing**: JUnit 5, Spring Boot Test, REST Assured
+- **Coverage**: JaCoCo (80% target)
+
+## Getting Started
+
+### Prerequisites
+- Java 17+
+- Docker & Docker Compose
+- Maven 3.9+
+
+### Development Setup
+
+1. **Start PostgreSQL with Docker**
+```bash
+docker-compose up -d postgres
+```
+
+2. **Run the application**
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+### Access Points
+- API: http://localhost:8080/api/v1
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- Health: http://localhost:8080/actuator/health
+
+## Project Structure
+
+```
+src/main/java/{{basePackagePath}}/
+├── config/          # Configuration classes
+├── controller/      # REST Controllers
+├── dto/             # Data Transfer Objects
+├── exception/       # Exception handling
+├── mapper/          # MapStruct mappers
+├── model/           # Entities & Enums
+├── repository/      # JPA Repositories
+├── security/        # Security configuration
+├── service/         # Business logic
+└── validator/       # Custom validators
+```
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /auth/login | User login |
+| POST | /auth/register | User registration |
+| GET | /users | List users |
+| GET | /users/{id} | Get user by ID |
+| PUT | /users/{id} | Update user |
+| DELETE | /users/{id} | Delete user |
+
+## Testing
+
+```bash
+# Run all tests
+./mvnw test
+
+# Run with coverage report
+./mvnw test jacoco:report
+# Report: target/site/jacoco/index.html
+
+# Integration tests
+./mvnw verify -P integration-tests
+```
+
+## Docker
+
+```bash
+# Build image
+docker build -t {{projectName}} .
+
+# Run with docker-compose
+docker-compose up --build
+```
+
+## License
+
+MIT

@@ -1,0 +1,23 @@
+{
+  "name": "log-analyzer",
+  "description": "Multi-format log parsing (Nginx, Apache, K8s, Spring Boot), pattern analysis, error correlation, and real-time monitoring",
+  "shortDescription": "Log analysis",
+  "category": "monitoring",
+  "tools": [
+    "parse_logs",
+    "find_errors",
+    "analyze_patterns",
+    "aggregate_stats",
+    "correlate_events",
+    "tail_logs",
+    "search_logs",
+    "compare_logs",
+    "export_report",
+    "watch_logs"
+  ],
+  "envVars": [],
+  "requiredFor": [
+    "devops-expert",
+    "qa-expert"
+  ]
+}

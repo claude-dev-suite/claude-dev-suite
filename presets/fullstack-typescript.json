@@ -1,0 +1,84 @@
+{
+  "name": "Full-Stack TypeScript",
+  "description": "Modern full-stack TypeScript setup with Next.js, NestJS, Prisma, and PostgreSQL",
+  "version": "1.0.0",
+  "config": {
+    "project": {
+      "type": "fullstack"
+    },
+    "stacks": {
+      "frontend": {
+        "framework": "react",
+        "metaFramework": "nextjs",
+        "styling": "tailwindcss",
+        "stateManagement": "zustand",
+        "componentLibrary": "shadcn-ui"
+      },
+      "backend": {
+        "runtime": "nodejs",
+        "framework": "nestjs",
+        "apiStyle": "rest"
+      },
+      "database": {
+        "type": "postgresql",
+        "orm": "prisma"
+      },
+      "infrastructure": {
+        "containerization": "docker",
+        "orchestration": "docker-compose",
+        "cicd": "github-actions"
+      },
+      "testing": {
+        "unit": "vitest",
+        "e2e": "playwright",
+        "coverageThreshold": 80
+      }
+    },
+    "agents": {
+      "enabled": [
+        "architect",
+        "code-reviewer",
+        "react-expert",
+        "nextjs-expert",
+        "nestjs-expert",
+        "prisma-expert",
+        "docker-expert",
+        "vitest-expert",
+        "playwright-expert"
+      ],
+      "config": {
+        "nextjs-expert": {
+          "skills": ["typescript", "nextjs-app-router", "react-server-components", "tailwindcss", "zustand"]
+        },
+        "nestjs-expert": {
+          "skills": ["typescript", "nestjs", "rest-api", "jwt", "prisma"]
+        },
+        "prisma-expert": {
+          "skills": ["prisma", "postgresql", "database-design"]
+        }
+      }
+    },
+    "skills": {
+      "global": ["typescript", "clean-code", "solid-principles", "security", "git-workflow"]
+    },
+    "documentation": {
+      "strategy": "hybrid",
+      "levels": {
+        "level0": { "enabled": true, "maxTokens": 500 },
+        "level1": { "enabled": true, "maxTokens": 1000 },
+        "level2": { "enabled": true, "maxTokens": 3000 },
+        "level3": { "enabled": true, "preferLocal": true, "fallbackToLive": true }
+      }
+    },
+    "hooks": {
+      "formatOnSave": true,
+      "lintOnSave": true,
+      "typeCheckOnSave": false,
+      "securityScan": true,
+      "runAffectedTests": false
+    },
+    "mcp": {
+      "enabled": ["documentation", "database-query", "docker-manager"]
+    }
+  }
+}

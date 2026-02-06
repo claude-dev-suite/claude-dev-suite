@@ -1,0 +1,130 @@
+# {{projectName}}
+
+{{projectDescription}}
+
+## Tech Stack
+
+- **Language**: TypeScript 5.x
+- **Framework**: React 19
+- **Build Tool**: Vite 7
+- **Routing**: TanStack Router (file-based)
+- **Data Fetching**: TanStack Query
+- **State Management**: Zustand
+- **Styling**: Tailwind CSS 4
+- **UI Components**: shadcn/ui (Radix)
+- **Forms**: react-hook-form + Zod
+- **Linting/Formatting**: Biome
+- **Testing**: Vitest, Playwright
+
+## Getting Started
+
+### Prerequisites
+- Node.js 20+
+- npm or pnpm
+
+### Installation
+
+```bash
+npm install
+```
+
+### Development
+
+```bash
+npm run dev
+```
+
+App available at http://localhost:5173
+
+### Build
+
+```bash
+npm run build
+npm run preview
+```
+
+## Project Structure
+
+```
+src/
+├── api/             # API client & endpoints
+├── components/
+│   ├── ui/          # shadcn/ui components
+│   ├── layout/      # Layout components
+│   ├── forms/       # Form components
+│   └── navigation/  # Navigation components
+├── features/        # Feature modules
+│   └── [feature]/
+│       ├── components/
+│       ├── hooks/
+│       └── schemas/
+├── hooks/           # Shared hooks
+├── lib/             # Utilities (cn, etc.)
+├── routes/          # TanStack Router routes
+├── stores/          # Zustand stores
+├── types/           # TypeScript types
+└── utils/           # Helper functions
+```
+
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run Biome linter |
+| `npm run lint:fix` | Fix linting issues |
+| `npm run format` | Format code |
+| `npm test` | Run unit tests |
+| `npm run test:ui` | Run tests with UI |
+| `npm run test:e2e` | Run E2E tests |
+
+## Adding shadcn/ui Components
+
+```bash
+npx shadcn@latest add button
+npx shadcn@latest add card
+npx shadcn@latest add dialog
+# etc.
+```
+
+## Routes
+
+Routes are file-based using TanStack Router:
+
+```
+src/routes/
+├── __root.tsx           # Root layout
+├── _authenticated.tsx   # Auth guard layout
+├── _authenticated/
+│   ├── dashboard.tsx    # /dashboard
+│   └── users/
+│       ├── index.tsx    # /users
+│       └── $userId.tsx  # /users/:userId
+├── login.tsx            # /login
+└── register.tsx         # /register
+```
+
+Generate route tree:
+```bash
+npm run routes:generate
+```
+
+## Testing
+
+```bash
+# Unit tests
+npm test
+
+# Coverage
+npm run test:coverage
+
+# E2E tests
+npm run test:e2e
+npm run test:e2e:ui
+```
+
+## License
+
+MIT

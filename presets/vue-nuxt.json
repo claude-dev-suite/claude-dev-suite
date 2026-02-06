@@ -1,0 +1,79 @@
+{
+  "name": "Vue + Nuxt Full-Stack",
+  "description": "Full-stack Vue 3 with Nuxt 3, Pinia, and Prisma",
+  "version": "1.0.0",
+  "config": {
+    "project": {
+      "type": "fullstack"
+    },
+    "stacks": {
+      "frontend": {
+        "framework": "vue",
+        "metaFramework": "nuxt",
+        "styling": "tailwindcss",
+        "stateManagement": "pinia",
+        "componentLibrary": "none"
+      },
+      "backend": {
+        "runtime": "nodejs",
+        "framework": "nuxt",
+        "apiStyle": "rest"
+      },
+      "database": {
+        "type": "postgresql",
+        "orm": "prisma"
+      },
+      "infrastructure": {
+        "containerization": "docker",
+        "orchestration": "docker-compose",
+        "cicd": "github-actions"
+      },
+      "testing": {
+        "unit": "vitest",
+        "e2e": "playwright",
+        "coverageThreshold": 70
+      }
+    },
+    "agents": {
+      "enabled": [
+        "architect",
+        "code-reviewer",
+        "vue-expert",
+        "nuxt-expert",
+        "prisma-expert",
+        "docker-expert",
+        "vitest-expert"
+      ],
+      "config": {
+        "vue-expert": {
+          "skills": ["typescript", "vue-composition", "pinia", "tailwindcss"]
+        },
+        "nuxt-expert": {
+          "skills": ["typescript", "nuxt3", "vue-composition", "nitro"]
+        }
+      }
+    },
+    "skills": {
+      "global": ["typescript", "clean-code", "vue-composition", "git-workflow"]
+    },
+    "documentation": {
+      "strategy": "hybrid",
+      "levels": {
+        "level0": { "enabled": true, "maxTokens": 500 },
+        "level1": { "enabled": true, "maxTokens": 1000 },
+        "level2": { "enabled": true, "maxTokens": 3000 },
+        "level3": { "enabled": true, "preferLocal": true, "fallbackToLive": true }
+      }
+    },
+    "hooks": {
+      "formatOnSave": true,
+      "lintOnSave": true,
+      "typeCheckOnSave": false,
+      "securityScan": true,
+      "runAffectedTests": false
+    },
+    "mcp": {
+      "enabled": ["documentation", "database-query", "docker-manager"]
+    }
+  }
+}

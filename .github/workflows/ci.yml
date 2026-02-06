@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dashboard dependencies
+        run: npm ci
+        working-directory: configurator/dashboard
+
+      - name: Build server
+        run: npm run build
+        working-directory: configurator/dashboard/server
+
+      - name: Install MCP server dependencies
+        run: npm ci
+        working-directory: mcp-servers
+
+      - name: Build MCP servers
+        run: npm run build
+        working-directory: mcp-servers
+
+      - name: Lint
+        run: npm run lint
+        working-directory: configurator/dashboard
+
+      - name: Test
+        run: npx vitest run
+        working-directory: configurator/dashboard

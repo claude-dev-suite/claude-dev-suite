@@ -1,0 +1,223 @@
+// SPDX-License-Identifier: MIT
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { Layout } from './components/layout';
+import { WizardContainer } from './components/wizard';
+import { ToastContainer, ErrorBoundary, ErrorFallback, LoadingPanel } from './components/common';
+import { ManageModal } from './components/manage/ManageModal';
+import { useToast } from './hooks';
+import { API_BASE } from './utils/api';
+import { useProjectStore } from './stores/project.store';
+import { useUIStore } from './stores/ui.store';
+import { getLogger } from './utils/logger';
+
+// Lazy load heavy panels
+const OrchestratorPanel = lazy(() =>
+  import('./components/orchestrator/OrchestratorPanel').then(module => ({ default: module.OrchestratorPanel }))
+);
+const CodeReviewPanel = lazy(() =>
+  import('./components/manage/CodeReviewPanel').then(module => ({ default: module.CodeReviewPanel }))
+);
+
+export function App() {
+  const logger = getLogger('App');
+
+  // Pending job for orchestrator (from code review)
+  const [pendingJob, setPendingJob] = useState<unknown>(null);
+
+  // Toast notifications (uses global Zustand store)
+  const { success } = useToast();
+
+  // Project store state
+  const projectPath = useProjectStore((s) => s.projectPath);
+  const setProjectPath = useProjectStore((s) => s.setProjectPath);
+  const isInstalled = useProjectStore((s) => s.isInstalled);
+  const setIsInstalled = useProjectStore((s) => s.setIsInstalled);
+
+  // UI store state
+  const currentPanel = useUIStore((s) => s.currentPanel);
+  const setCurrentPanel = useUIStore((s) => s.setPanel);
+  const wizardStep = useUIStore((s) => s.currentStep);
+  const setWizardStep = useUIStore((s) => s.setStep);
+  const setServerConnected = useUIStore((s) => s.setServerConnected);
+
+  // Check server health on mount
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/health`);
+        if (res.ok) {
+          setServerConnected(true);
+        } else {
+          setServerConnected(false);
+        }
+      } catch {
+        setServerConnected(false);
+      }
+    };
+
+    checkHealth();
+
+    // Periodic health check
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Get project path from URL or electron
+  useEffect(() => {
+    // Check URL params
+    const params = new URLSearchParams(window.location.search);
+    const pathParam = params.get('path');
+    if (pathParam) {
+      setProjectPath(pathParam);
+    }
+
+    // Check if we're in Electron
+    if (window.electronAPI?.getProjectPath) {
+      void window.electronAPI.getProjectPath().then((path: string) => {
+        if (path) setProjectPath(path);
+      });
+    }
+  }, [setProjectPath]);
+
+  // Check if dev-suite is installed
+  useEffect(() => {
+    const checkInstalled = async () => {
+      if (!projectPath) return;
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/installed-components?path=${encodeURIComponent(projectPath)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setIsInstalled(data.installed);
+          // If installed, default to orchestrator panel
+          if (data.installed && currentPanel === 'wizard') {
+            setCurrentPanel('orchestrator');
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+
+    checkInstalled();
+  }, [projectPath, currentPanel, setIsInstalled, setCurrentPanel]);
+
+  // Redirect to wizard if not installed and on a panel that requires installation
+  useEffect(() => {
+    if (!isInstalled && (currentPanel === 'orchestrator' || currentPanel === 'code-review')) {
+      setCurrentPanel('wizard');
+      setWizardStep(1);
+    }
+  }, [isInstalled, currentPanel, setCurrentPanel, setWizardStep]);
+
+  // Handle wizard completion
+  const handleWizardComplete = useCallback(() => {
+    setIsInstalled(true);
+    setCurrentPanel('orchestrator');
+    success('Dev-Suite installed successfully!');
+  }, [setIsInstalled, setCurrentPanel, success]);
+
+  // Handle start review - navigate to orchestrator with job
+  const handleStartReview = useCallback((job: unknown) => {
+    setPendingJob(job);
+    setCurrentPanel('orchestrator');
+  }, []);
+
+  // Render current panel content with granular error boundaries
+  // OrchestratorPanel is always mounted to preserve console output state
+  const renderPanel = () => {
+    return (
+      <>
+        {/* Wizard panel */}
+        {currentPanel === 'wizard' && (
+          <ErrorBoundary
+            fallback={
+              <ErrorFallback
+                showHomeButton={false}
+                resetError={() => setWizardStep(1)}
+              />
+            }
+          >
+            <WizardContainer
+              initialPath={projectPath}
+              onComplete={handleWizardComplete}
+              currentStep={wizardStep}
+              onStepChange={setWizardStep}
+            />
+          </ErrorBoundary>
+        )}
+
+        {/* Orchestrator panel - only mounted when installed, hidden when not active */}
+        {projectPath && isInstalled && (
+          <div className={currentPanel === 'orchestrator' ? 'block h-full' : 'hidden'}>
+            <ErrorBoundary
+              fallback={
+                <ErrorFallback
+                  showHomeButton={true}
+                  onHome={() => setCurrentPanel('wizard')}
+                />
+              }
+            >
+              <Suspense fallback={<LoadingPanel message="Loading Orchestrator..." />}>
+                <OrchestratorPanel
+                  projectPath={projectPath}
+                  pendingJob={pendingJob}
+                  onJobSent={() => setPendingJob(null)}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        )}
+
+        {/* Code Review panel - only shown when installed */}
+        {currentPanel === 'code-review' && projectPath && isInstalled && (
+          <div className="p-6">
+            <ErrorBoundary
+              fallback={
+                <ErrorFallback
+                  showHomeButton={true}
+                  onHome={() => setCurrentPanel('orchestrator')}
+                />
+              }
+            >
+              <Suspense fallback={<LoadingPanel message="Loading Code Review..." />}>
+                <CodeReviewPanel projectPath={projectPath} onStartReview={handleStartReview} />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <ErrorBoundary
+      fallback={<ErrorFallback showHomeButton={false} />}
+      onError={(error, errorInfo) => {
+        logger.error('Critical error', { error, errorInfo });
+      }}
+    >
+      <Layout showSidebar={currentPanel === 'wizard'}>
+        {renderPanel()}
+      </Layout>
+
+      {/* Manage Modal - full-screen overlay */}
+      <ManageModal />
+
+      {/* Toast Notifications - reads from global Zustand store */}
+      <ToastContainer />
+    </ErrorBoundary>
+  );
+}
+
+// Extend Window interface for Electron API
+declare global {
+  interface Window {
+    electronAPI?: {
+      getProjectPath?: () => Promise<string>;
+      browseFolder?: () => Promise<string | null>;
+    };
+  }
+}
