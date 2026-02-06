@@ -15,7 +15,7 @@ import {
   createRequestLogger,
   getLogDirectoryPath,
   type Logger,
-} from './logger.js';
+} from '../src/utils/logger.js';
 
 describe('Logger', () => {
   describe('Pre-configured Loggers', () => {
@@ -185,17 +185,17 @@ describe('Logger', () => {
 
   describe('Backward Compatibility', () => {
     it('should export logger as serverLogger alias', async () => {
-      const { logger, serverLogger: server } = await import('./logger.js');
+      const { logger, serverLogger: server } = await import('../src/utils/logger.js');
       expect(logger).toBe(server);
     });
 
     it('should export httpLogger as apiLogger alias', async () => {
-      const { httpLogger, apiLogger: api } = await import('./logger.js');
+      const { httpLogger, apiLogger: api } = await import('../src/utils/logger.js');
       expect(httpLogger).toBe(api);
     });
 
     it('should export log object with convenience methods', async () => {
-      const { log } = await import('./logger.js');
+      const { log } = await import('../src/utils/logger.js');
 
       expect(typeof log.error).toBe('function');
       expect(typeof log.warn).toBe('function');
