@@ -127,9 +127,9 @@ export function CodeReviewPanel({ projectPath, onStartReview }: CodeReviewPanelP
         setFileTree(tree);
         setTotalFiles(data.totalFiles || 0);
 
-        // Collapse all directories by default (except root level)
+        // Collapse all directories by default
         const dirsToCollapse = tree
-          .filter((node: { type: string; depth: number }) => node.type === 'directory' && node.depth === 0)
+          .filter((node: { type: string }) => node.type === 'directory')
           .map((node: { path: string }) => node.path);
         setCollapsedDirs(new Set(dirsToCollapse));
 

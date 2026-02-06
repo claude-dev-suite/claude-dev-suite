@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Constants
-export const DEV_SUITE_VERSION = '2.7.0';
+export const DEV_SUITE_VERSION = '1.0.0';
 export const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 export const FEATURES_REGISTRY_PATH = 'registry/features.json';
 export const BACKUP_DIR_PREFIX = '.dev-suite-backup-';

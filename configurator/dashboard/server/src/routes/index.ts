@@ -63,7 +63,7 @@ export function registerRoutes(app: Express): void {
   app.use('/api', customAgentsRoutes);
 
   // 404 handler for API routes
-  app.use('/api/*', (_req, res) => {
+  app.use('/api/{*path}', (_req, res) => {
     res.status(404).json({
       success: false,
       error: 'API endpoint not found',

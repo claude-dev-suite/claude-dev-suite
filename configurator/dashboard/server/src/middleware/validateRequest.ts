@@ -62,8 +62,8 @@ export function validateQuery<T extends ZodSchema>(schema: T) {
       return;
     }
 
-    // Replace req.query with validated and typed data
-    req.query = result.data as any;
+    // Express 5: req.query is read-only, but validation already passed
+    // so req.query contains valid data (no transforms/defaults in query schemas)
     next();
   };
 }
@@ -85,8 +85,8 @@ export function validateParams<T extends ZodSchema>(schema: T) {
       return;
     }
 
-    // Replace req.params with validated and typed data
-    req.params = result.data as any;
+    // Express 5: req.params is read-only, but validation already passed
+    // so req.params contains valid data (no transforms/defaults in params schemas)
     next();
   };
 }

@@ -121,7 +121,7 @@ export class InstallationService {
 
     // Create extended manifest with hash tracking for upgrade system
     const extendedManifest: ExtendedManifest = {
-      version: '2.7.0',
+      version: '1.0.0',
       installedAt: new Date().toISOString(),
       projectPath,
       detectedStack: detectedStack ? this.normalizeStackInfo(detectedStack) : undefined,
@@ -134,7 +134,7 @@ export class InstallationService {
 
     // Legacy manifest for backward compatibility
     const manifest: InstallManifest = {
-      version: '2.7.0',
+      version: '1.0.0',
       installedAt: new Date().toISOString(),
       projectPath,
       agents: [],

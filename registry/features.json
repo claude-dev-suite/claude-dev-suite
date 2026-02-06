@@ -8,7 +8,7 @@
       "type": "hook",
       "name": "Integration Validator Hook",
       "description": "Automatic API contract validation after subagent completion. Detects when API endpoints or frontend integrations are modified and triggers the integration-validator-expert to ensure consistency between frontend calls and backend contracts.",
-      "addedInVersion": "2.7.0",
+      "addedInVersion": "1.0.0",
       "stackRequirements": {
         "requiresAny": {
           "frontend": ["react", "vue", "svelte", "nextjs", "nuxt", "sveltekit"],

@@ -494,14 +494,7 @@ When modifying initialization logic:
 
 | Version | MCP Servers | Agents | Skills | Major Changes |
 |---------|-------------|--------|--------|---------------|
-| 2.7.0   | 11          | 25+    | 290+   | Fully dynamic init-project, metadata-driven |
-| 2.6.0   | 11          | 25+    | 290+   | Registry system, metadata.json for all servers |
-| 2.5.0   | 10          | 25+    | 290+   | Security scanner, DevOps expert |
-| 2.4.0   | 9           | 24     | 290+   | Rust, Go, Deno experts |
-| 2.3.0   | 9           | 21     | 275+   | Quick mode, preset matching |
-| 2.2.0   | 9           | 21     | 275+   | Performance profiler, log analyzer, dashboard |
-| 2.1.0   | 6           | 19     | 200+   | Git-based knowledge base |
-| 1.0.0   | 6           | 17     | 175+   | Initial release |
+| 1.0.0   | 11          | 34     | 240+   | Initial public release |
 
 ## Links
 
