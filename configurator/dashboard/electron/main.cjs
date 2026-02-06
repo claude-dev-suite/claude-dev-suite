@@ -176,13 +176,7 @@ function findFrontendPath() {
 // ============================================
 
 function createSplashWindow() {
-  const preloadPath = findSplashPreload();
-  const htmlPath = findSplashHtml();
-
-  console.log('[Electron] Creating splash window...');
-  console.log('[Electron] Splash preload:', preloadPath);
-  console.log('[Electron] Splash HTML:', htmlPath);
-
+  // Create window immediately with dark background (visible before HTML loads)
   splashWindow = new BrowserWindow({
     width: 400,
     height: 340,
@@ -193,13 +187,14 @@ function createSplashWindow() {
     alwaysOnTop: true,
     skipTaskbar: false,
     show: true,
+    backgroundColor: '#0f172a',
     webPreferences: {
-      preload: preloadPath,
+      preload: findSplashPreload(),
       contextIsolation: true,
     },
   });
 
-  splashWindow.loadFile(htmlPath);
+  splashWindow.loadFile(findSplashHtml());
   splashWindow.on('closed', () => {
     splashWindow = null;
   });
@@ -517,9 +512,6 @@ async function initialize() {
     createSplashWindow();
     updateSplash('init', 'pending');
 
-    // Initialize logger after splash is visible
-    getLog();
-
     // Wait for user to confirm project path
     const projectPath = await new Promise((resolve) => {
       pathConfirmResolver = resolve;
@@ -530,6 +522,8 @@ async function initialize() {
       return;
     }
 
+    // Initialize logger only after user has selected a project
+    getLog();
     console.log('[Electron] Project selected:', projectPath);
     updateSplash('init', 'done');
 
