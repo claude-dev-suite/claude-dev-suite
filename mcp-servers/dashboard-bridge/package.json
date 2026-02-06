@@ -12,7 +12,7 @@
   "keywords": ["mcp", "claude", "dashboard", "dev-suite", "orchestrator"],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "open": "^10.1.0",
+    "open": "^11.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
