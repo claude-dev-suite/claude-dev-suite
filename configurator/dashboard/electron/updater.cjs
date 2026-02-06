@@ -12,13 +12,11 @@
  * - Delta updates via blockmap files
  */
 
-const { autoUpdater } = require('electron-updater');
 const { ipcMain } = require('electron');
-const log = require('electron-log/main');
 
-// Configure electron-updater to use electron-log
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
+// Lazy-load electron-updater (heavy module) only when initAutoUpdater is called
+let autoUpdater = null;
+let log = null;
 
 // Check interval: 4 hours in milliseconds
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
@@ -48,6 +46,12 @@ function sendToRenderer(channel, data) {
  * @param {Electron.BrowserWindow} window - Main browser window
  */
 function initAutoUpdater(window) {
+  // Load heavy modules now (after splash is shown and main window is ready)
+  autoUpdater = require('electron-updater').autoUpdater;
+  log = require('electron-log/main');
+  autoUpdater.logger = log;
+  autoUpdater.logger.transports.file.level = 'info';
+
   mainWindow = window;
 
   // Configuration

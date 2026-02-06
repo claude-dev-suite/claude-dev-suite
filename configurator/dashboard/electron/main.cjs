@@ -14,16 +14,28 @@ const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
-const log = require('electron-log/main');
-const { initAutoUpdater, stopUpdater } = require('./updater.cjs');
 
-// Initialize electron-log
-log.initialize();
-log.transports.file.level = 'debug';
-log.transports.console.level = 'debug';
+// Lazy-load heavy modules to speed up splash screen display
+let log = null;
+let updaterModule = null;
 
-// Override console.log to use electron-log
-Object.assign(console, log.functions);
+function getLog() {
+  if (!log) {
+    log = require('electron-log/main');
+    log.initialize();
+    log.transports.file.level = 'debug';
+    log.transports.console.level = 'debug';
+    Object.assign(console, log.functions);
+  }
+  return log;
+}
+
+function getUpdater() {
+  if (!updaterModule) {
+    updaterModule = require('./updater.cjs');
+  }
+  return updaterModule;
+}
 
 // Configuration
 const SERVER_PORT = parseInt(process.env.PORT || '3456', 10);
@@ -377,9 +389,9 @@ function createMainWindow() {
     closeSplash();
     mainWindow.show();
 
-    // Initialize auto-updater after window is ready
+    // Initialize auto-updater after window is ready (lazy-loaded)
     if (!isDev) {
-      initAutoUpdater(mainWindow);
+      getUpdater().initAutoUpdater(mainWindow);
     }
   });
 
@@ -501,9 +513,12 @@ ipcMain.handle('confirm-path', (event, projectPath) => {
 
 async function initialize() {
   try {
-    // Show splash and wait for project selection
+    // Show splash FIRST, before any heavy initialization
     createSplashWindow();
     updateSplash('init', 'pending');
+
+    // Initialize logger after splash is visible
+    getLog();
 
     // Wait for user to confirm project path
     const projectPath = await new Promise((resolve) => {
@@ -556,6 +571,6 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
-  stopUpdater();
+  if (updaterModule) updaterModule.stopUpdater();
   stopServer();
 });
