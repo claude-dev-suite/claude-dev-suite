@@ -29,8 +29,7 @@ test-results/
 .kb-cache/
 **/.kb-cache/
 
-# Lock files (reinstalled on npm install)
-package-lock.json
+# Lock files (keep package-lock.json for CI reproducibility)
 yarn.lock
 pnpm-lock.yaml
 
