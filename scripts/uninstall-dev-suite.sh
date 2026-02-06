@@ -34,7 +34,7 @@ FILES_SKIPPED=0
 show_help() {
     echo -e "${BLUE}Dev-Suite Uninstaller${NC}"
     echo ""
-    echo "Usage: ./uninstall-dev-suite.sh <project-path> [OPTIONS]"
+    echo "Usage: ./scripts/uninstall-dev-suite.sh <project-path> [OPTIONS]"
     echo ""
     echo "Rimuove dev-suite da un progetto usando il manifest di installazione."
     echo ""
@@ -48,9 +48,9 @@ show_help() {
     echo "  --config-only      Rimuovi solo file di configurazione"
     echo ""
     echo "Esempio:"
-    echo "  ./uninstall-dev-suite.sh /path/to/my-project"
-    echo "  ./uninstall-dev-suite.sh /path/to/my-project --dry-run"
-    echo "  ./uninstall-dev-suite.sh /path/to/my-project --restore-backup"
+    echo "  ./scripts/uninstall-dev-suite.sh /path/to/my-project"
+    echo "  ./scripts/uninstall-dev-suite.sh /path/to/my-project --dry-run"
+    echo "  ./scripts/uninstall-dev-suite.sh /path/to/my-project --restore-backup"
     exit 0
 }
 
