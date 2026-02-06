@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
         componentStack: errorInfo.componentStack,
       },
       recoveryAttempts: this.state.recoveryAttempts,
-      digest: errorInfo.digest,
+      digest: (errorInfo as Record<string, unknown>).digest,
     });
 
     this.setState({ errorInfo });

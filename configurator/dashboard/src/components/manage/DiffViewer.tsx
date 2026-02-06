@@ -252,8 +252,8 @@ function SplitView({ lines }: ViewProps) {
   // Group lines for split view
   const pairs: Array<{ left?: DiffLine; right?: DiffLine }> = [];
 
-  let leftQueue: DiffLine[] = [];
-  let rightQueue: DiffLine[] = [];
+  const leftQueue: DiffLine[] = [];
+  const rightQueue: DiffLine[] = [];
 
   for (const line of lines) {
     if (line.type === 'removed') {

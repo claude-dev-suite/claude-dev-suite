@@ -49,7 +49,7 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
  * @param isActive - Whether the focus trap is active
  */
 export function useFocusTrap(
-  containerRef: React.RefObject<HTMLElement>,
+  containerRef: React.RefObject<HTMLElement | null>,
   isActive: boolean
 ): void {
   const previousFocusRef = useRef<HTMLElement | null>(null);

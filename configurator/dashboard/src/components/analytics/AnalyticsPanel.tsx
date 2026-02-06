@@ -54,7 +54,7 @@ export function AnalyticsPanel({ projectPath }: AnalyticsPanelProps) {
       } else {
         setError('Failed to load analytics data');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to connect to server');
     } finally {
       setLoading(false);
@@ -78,8 +78,8 @@ export function AnalyticsPanel({ projectPath }: AnalyticsPanelProps) {
     try {
       await fetch(`${API_BASE}/api/analytics/clear`, { method: 'POST' });
       fetchData();
-    } catch (err) {
-      console.error('Failed to clear data:', err);
+    } catch (_err) {
+      console.error('Failed to clear data:', _err);
     }
   };
 

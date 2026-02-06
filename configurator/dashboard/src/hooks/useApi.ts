@@ -153,7 +153,7 @@ export function useApi<T>(
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
-  const fetchDataRef = useRef<() => Promise<void>>();
+  const fetchDataRef = useRef<() => Promise<void>>(undefined);
   // FIX: Track in-flight requests to prevent overlapping polling requests
   const isInFlightRef = useRef<boolean>(false);
 
