@@ -7,6 +7,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import type { ZodSchema, ZodError } from 'zod';
 
 /**
@@ -97,7 +98,7 @@ export function validateParams<T extends ZodSchema>(schema: T) {
 export function validate<T extends ZodSchema>(
   schema: T,
   data: unknown
-): { success: true; data: ReturnType<T['parse']> } | { success: false; error: string; issues: ZodError['issues'] } {
+): { success: true; data: z.infer<T> } | { success: false; error: string; issues: ZodError['issues'] } {
   const result = schema.safeParse(data);
 
   if (!result.success) {

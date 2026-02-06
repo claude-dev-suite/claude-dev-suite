@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
 #!/usr/bin/env node
+// SPDX-License-Identifier: MIT
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {

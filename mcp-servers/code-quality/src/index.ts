@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
 #!/usr/bin/env node
+// SPDX-License-Identifier: MIT
 /**
  * Code Quality MCP Server
  * Provides code analysis tools: complexity, duplication, style, anti-patterns, dead code, dependencies, metrics

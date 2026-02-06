@@ -193,7 +193,7 @@ export class CustomAgentsService {
     // Step 3: Validate with Zod schema
     const schemaResult = CustomAgentFrontmatterSchema.safeParse(frontmatter);
     if (!schemaResult.success) {
-      result.schemaErrors = schemaResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
+      result.schemaErrors = schemaResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`);
       return result;
     }
 

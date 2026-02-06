@@ -27,7 +27,7 @@ const ProjectPathSchema = z.object({
 const EnableRecipeSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
   recipeId: z.string().min(1, 'Recipe ID is required'),
-  customOptions: z.record(z.unknown()).optional(),
+  customOptions: z.record(z.string(), z.unknown()).optional(),
 });
 
 const DisableRecipeSchema = z.object({
@@ -38,13 +38,13 @@ const DisableRecipeSchema = z.object({
 const CustomizeRecipeSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
   recipeId: z.string().min(1, 'Recipe ID is required'),
-  options: z.record(z.unknown()),
+  options: z.record(z.string(), z.unknown()),
 });
 
 const TestRecipeSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
   recipeId: z.string().min(1, 'Recipe ID is required'),
-  customOptions: z.record(z.unknown()).optional(),
+  customOptions: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ============================================

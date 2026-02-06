@@ -416,7 +416,7 @@ gitRoutes.get('/commit/:hash', async (req: Request, res: Response) => {
       } as ApiResponse);
     }
 
-    const details = GitService.getCommitDetails(repoPath, projectPath, commitHash);
+    const details = GitService.getCommitDetails(repoPath, projectPath, String(commitHash));
 
     return res.json({
       success: true,

@@ -67,7 +67,7 @@ hooksRoutes.get('/hooks/status/:repoPath', async (req: Request, res: Response) =
       return res.status(400).json(response);
     }
 
-    const status = hooksService.getHooksStatusForRepo(projectPath, repoPath);
+    const status = hooksService.getHooksStatusForRepo(projectPath, String(repoPath));
 
     const response: ApiResponse = {
       success: true,
@@ -127,7 +127,7 @@ hooksRoutes.post('/hooks/install/:repoPath', async (req: Request, res: Response)
       return res.status(400).json(response);
     }
 
-    const result = hooksService.installHooksForRepo(projectPath, repoPath ?? '', config || {});
+    const result = hooksService.installHooksForRepo(projectPath, String(repoPath ?? ''), config || {});
 
     const response: ApiResponse = {
       success: result.success,
@@ -189,7 +189,7 @@ hooksRoutes.post('/hooks/uninstall/:repoPath', async (req: Request, res: Respons
       return res.status(400).json(response);
     }
 
-    const result = hooksService.uninstallHooksForRepo(projectPath, repoPath ?? '', useHusky);
+    const result = hooksService.uninstallHooksForRepo(projectPath, String(repoPath ?? ''), useHusky);
 
     const response: ApiResponse = {
       success: result.success,

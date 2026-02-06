@@ -87,7 +87,7 @@ export class KBCache {
         .filter(e => e.isFile() && e.name.endsWith('.md'))
         .map(e => {
           // Build relative path from cache root
-          const fullPath = path.join(e.path || e.parentPath || cachePath, e.name);
+          const fullPath = path.join(e.parentPath || cachePath, e.name);
           return path.relative(cachePath, fullPath);
         });
     } catch (error) {

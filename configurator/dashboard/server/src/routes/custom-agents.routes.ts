@@ -127,7 +127,7 @@ router.get('/custom-agents', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -165,7 +165,7 @@ router.get('/custom-agents/:id', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -204,7 +204,7 @@ router.post('/custom-agents', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -311,7 +311,7 @@ router.post('/custom-agents/generate', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -359,7 +359,7 @@ router.put('/custom-agents/:id', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -406,7 +406,7 @@ router.delete('/custom-agents/:id', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -445,7 +445,7 @@ router.post('/custom-agents/validate', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -480,7 +480,7 @@ router.get('/custom-skills', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -514,7 +514,7 @@ router.post('/custom-skills', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }
@@ -557,7 +557,7 @@ router.delete('/custom-skills/:id', async (req: Request, res: Response) => {
     if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: parseResult.error.errors.map((e) => e.message).join(', '),
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
       });
       return;
     }

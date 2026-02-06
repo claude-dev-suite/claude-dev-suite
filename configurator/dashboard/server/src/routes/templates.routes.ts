@@ -67,7 +67,7 @@ router.get(
   validateParams(GetTemplateRequestSchema),
   async (req, res) => {
     try {
-      const id = req.params.id ?? '';
+      const id = String(req.params.id ?? '');
       const template = await templatesService.getTemplate(id);
 
       if (!template) {

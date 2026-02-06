@@ -424,7 +424,7 @@ export const ChatMessagePayloadSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   sessionId: z.string().optional(),
   resumeSession: z.boolean().optional(),
-  context: z.record(z.unknown()).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
   // Job context for token-efficient continuity (preferred over resumeSession)
   jobContext: JobContextSummarySchema.optional(),
 });
