@@ -127,11 +127,7 @@
       "private": false
     },
     "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "target": "portable"
     },
     "linux": {
       "target": "AppImage"
