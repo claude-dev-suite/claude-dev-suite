@@ -176,6 +176,16 @@ export interface UpgradeHistoryEntry {
 }
 
 /**
+ * Snapshot of all available components at install time (for new-component detection)
+ */
+export interface CatalogSnapshot {
+  /** All agent IDs that existed at install time */
+  agents: string[];
+  /** All MCP server names that existed at install time */
+  mcpServers: string[];
+}
+
+/**
  * Extended manifest with upgrade tracking
  */
 export interface ExtendedManifest {
@@ -197,6 +207,26 @@ export interface ExtendedManifest {
   files: TrackedFile[];
   /** Upgrade history */
   upgradeHistory: UpgradeHistoryEntry[];
+  /** Snapshot of all available components at install time (for new-component detection) */
+  availableAtInstall?: CatalogSnapshot;
+}
+
+/**
+ * New component discovered since project installation
+ */
+export interface NewComponent {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+}
+
+/**
+ * Result of checking for new components
+ */
+export interface NewComponentsResult {
+  newAgents: NewComponent[];
+  newMcpServers: NewComponent[];
 }
 
 // ============================================

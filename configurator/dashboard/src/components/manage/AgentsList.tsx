@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect } from 'react';
-import type { Agent } from '@/types';
+import type { Agent, NewComponent } from '@/types';
 import { Button, Card, Badge, Modal, ModalFooter, Checkbox } from '../common';
 import { PanelSection } from '../layout';
 import { API_BASE } from '@/utils/api';
@@ -10,10 +10,11 @@ import { useProjectStore } from '@/stores/project.store';
 export interface AgentsListProps {
   projectPath: string;
   installedAgents: string[];
+  newAgents?: NewComponent[];
   onRefresh: () => void;
 }
 
-export function AgentsList({ projectPath, installedAgents, onRefresh }: AgentsListProps) {
+export function AgentsList({ projectPath, installedAgents, newAgents = [], onRefresh }: AgentsListProps) {
   const logger = useComponentLogger('AgentsList', { logMount: false, logUnmount: false });
   const invalidateComponents = useProjectStore((s) => s.invalidateComponents);
 
@@ -22,6 +23,8 @@ export function AgentsList({ projectPath, installedAgents, onRefresh }: AgentsLi
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
   const [removing, setRemoving] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [addingNewAgent, setAddingNewAgent] = useState<string | null>(null);
+  const [dismissedNew, setDismissedNew] = useState(false);
 
   // Fetch all available agents
   useEffect(() => {
@@ -83,6 +86,42 @@ export function AgentsList({ projectPath, installedAgents, onRefresh }: AgentsLi
     }
   };
 
+  const handleAddNewAgent = async (agentId: string) => {
+    setAddingNewAgent(agentId);
+    try {
+      await fetch(`${API_BASE}/api/add-agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId, projectPath }),
+      });
+      onRefresh();
+      invalidateComponents();
+    } catch (err) {
+      logger.error('Failed to add new agent', err);
+    } finally {
+      setAddingNewAgent(null);
+    }
+  };
+
+  const handleAddAllNew = async () => {
+    setAddingNewAgent('__all__');
+    try {
+      for (const agent of newAgents) {
+        await fetch(`${API_BASE}/api/add-agent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId: agent.id, projectPath }),
+        });
+      }
+      onRefresh();
+      invalidateComponents();
+    } catch (err) {
+      logger.error('Failed to add all new agents', err);
+    } finally {
+      setAddingNewAgent(null);
+    }
+  };
+
   const toggleAgentToAdd = (agentId: string) => {
     setSelectedToAdd((prev) =>
       prev.includes(agentId)
@@ -99,8 +138,64 @@ export function AgentsList({ projectPath, installedAgents, onRefresh }: AgentsLi
   // Available agents to add
   const availableToAdd = allAgents.filter((a) => !installedAgents.includes(a.id));
 
+  const visibleNewAgents = dismissedNew ? [] : newAgents;
+
   return (
     <div className="space-y-6">
+      {/* New Agents Available Section */}
+      {visibleNewAgents.length > 0 && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="info">{visibleNewAgents.length}</Badge>
+              <h3 className="text-sm font-medium text-white">New Agents Available</h3>
+              <span className="text-xs text-surface-400">Added after your installation</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={handleAddAllNew}
+                loading={addingNewAgent === '__all__'}
+                disabled={addingNewAgent !== null}
+              >
+                Add All New
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDismissedNew(true)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {visibleNewAgents.map((agent) => (
+              <Card key={agent.id} padding="sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-white text-sm">{agent.name}</span>
+                      <Badge variant="primary" size="sm">{agent.category}</Badge>
+                      <Badge variant="info" size="sm">NEW</Badge>
+                    </div>
+                    <p className="text-xs text-surface-400 mt-1">{agent.description}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleAddNewAgent(agent.id)}
+                    loading={addingNewAgent === agent.id}
+                    disabled={addingNewAgent !== null}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       <PanelSection
         title="Installed Agents"
         description={`${installedAgents.length} agent(s) installed`}

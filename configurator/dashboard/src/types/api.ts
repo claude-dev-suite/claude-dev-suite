@@ -283,6 +283,25 @@ export interface InstalledComponentsResponse {
 }
 
 /**
+ * New component discovered since project installation
+ */
+export interface NewComponent {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+}
+
+/**
+ * New components API response
+ * GET /api/management/new-components
+ */
+export interface NewComponentsResponse {
+  newAgents: NewComponent[];
+  newMcpServers: NewComponent[];
+}
+
+/**
  * Add agent API request
  * POST /api/add-agent
  */

@@ -182,6 +182,8 @@ export type {
   UninstallResponse,
   // Management types
   InstalledComponentsResponse,
+  NewComponent,
+  NewComponentsResponse,
   AddAgentRequest,
   RemoveAgentRequest,
   AddMcpServerRequest,

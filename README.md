@@ -42,8 +42,8 @@
 Dev-Suite transforms Claude Code into a full-stack development powerhouse by providing:
 
 - **10 MCP Servers** - Extend Claude with 79 tools for documentation, databases, Docker, API testing, logs, performance profiling, security scanning, and more
-- **34 Specialized Agents** - Domain experts for React, Spring Boot, Python, testing, security, DevOps, and infrastructure
-- **240+ Skills** - Framework-specific knowledge bases with quick-reference guides
+- **36 Specialized Agents** - Domain experts for React, Angular, Spring Boot, ASP.NET, Python, testing, security, DevOps, and infrastructure
+- **260+ Skills** - Framework-specific knowledge bases with quick-reference guides
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
 - **10 Project Templates** - Scaffolding for React, Next.js, Spring Boot, FastAPI, NestJS, and more
 - **Task Orchestrator** - Submit complex multi-agent tasks from the GUI with real-time streaming updates
@@ -187,7 +187,7 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 
 ### Specialized Agents
 
-34 domain experts with deep knowledge in specific technologies:
+36 domain experts with deep knowledge in specific technologies:
 
 #### Core Agents
 - **architect** - System design, architecture decisions, trade-offs
@@ -199,6 +199,7 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 - **nextjs-expert** - App Router, RSC, Server Actions, caching
 - **vue-expert** - Vue 3, Composition API, Pinia
 - **svelte-expert** - Svelte 5, SvelteKit, stores
+- **angular-expert** - Angular 17+, signals, standalone components, SSR
 
 #### Backend Agents
 - **spring-boot-expert** - Spring Boot 3, JPA, Security, REST APIs
@@ -207,6 +208,7 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 - **rust-expert** - Actix-web, Axum, Rocket, Warp
 - **go-expert** - Gin, Fiber, Echo, Chi
 - **deno-expert** - Fresh, Oak, TypeScript-first runtime
+- **dotnet-expert** - ASP.NET Core 8+, Entity Framework Core, Blazor, SignalR
 
 #### Database Agents
 - **prisma-expert** - Schema design, queries, migrations
@@ -239,10 +241,10 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 
 ### Skills & Knowledge Base
 
-**240+ Skills** organized by category:
+**260+ Skills** organized by category:
 
 - **Frontend**: React, Vue, Angular, Svelte, Next.js, Nuxt, TailwindCSS, shadcn/ui
-- **Backend**: Spring Boot, NestJS, Express, FastAPI, Rust, Go, Deno frameworks
+- **Backend**: Spring Boot, NestJS, Express, FastAPI, ASP.NET Core, Rust, Go, Deno frameworks
 - **Databases**: PostgreSQL, MySQL, MongoDB, Redis
 - **ORM/ODM**: Prisma, Drizzle, TypeORM, SQLAlchemy, Spring Data JPA
 - **Testing**: Vitest, Jest, Playwright, Cypress, Testcontainers
@@ -364,6 +366,7 @@ Configure Git hooks and Claude Code hooks from the dashboard:
 Keep dev-suite components up to date with intelligent upgrade management:
 
 - **Version Detection** - Check for available updates to agents, skills, and MCP servers
+- **New Component Discovery** - Proactively notifies when new agents or MCP servers are added to dev-suite after your installation, with one-click install
 - **Conflict Detection** - 3-way merge to identify conflicts with local customizations
 - **Upgrade History** - Track all upgrades with rollback capability
 - **Selective Updates** - Choose which components to upgrade
@@ -375,6 +378,7 @@ Keep dev-suite components up to date with intelligent upgrade management:
 The dashboard is available as a native desktop application:
 
 - Cross-platform support (Windows, macOS, Linux)
+- Fast startup with optimized splash screen
 - Auto-updater for seamless version updates
 - Native system tray integration
 - Same features as the web dashboard
@@ -464,10 +468,10 @@ The dashboard can be reopened at any time for project management:
 
 **Dashboard tabs**:
 - **Wizard** - Re-run the initialization wizard or use templates
-- **Manage** - Add/remove agents, MCP servers, hooks, custom agents, recipes
+- **Manage** - Add/remove agents, MCP servers, hooks, custom agents, recipes (with proactive new-component notifications)
 - **Orchestrator** - Submit multi-agent tasks with real-time progress
 - **Analytics** - View knowledge base usage statistics
-- **Git** - Visual git operations (branches, commits, diffs)
+- **Git** - Visual git operations (branches, commits, diffs, GitHub CLI auth detection with automatic login prompts)
 - **Updates** - Check for and apply dev-suite updates
 
 ### Using the Orchestrator
@@ -798,6 +802,7 @@ Control the dashboard and orchestrator from Claude Code.
 | **svelte-expert** | Svelte, SvelteKit, stores | svelte, sveltekit | documentation |
 | **electron-expert** | Electron, desktop apps | electron | documentation |
 | **tauri-expert** | Tauri, Rust desktop apps | tauri | documentation |
+| **angular-expert** | Angular, signals, standalone, SSR, NgRx | angular, angular-routing, angular-forms, angular-http, angular-testing, angular-material, angular-ssr, ngrx, typescript | documentation |
 
 ### Backend Agents
 
@@ -809,6 +814,7 @@ Control the dashboard and orchestrator from Claude Code.
 | **rust-expert** | Rust, Actix-web, Axum, Rocket, Warp | rust, actix-web, axum | documentation |
 | **go-expert** | Go, Gin, Fiber, Echo, Chi | go, gin, fiber | documentation |
 | **deno-expert** | Deno, Fresh, Oak | deno, fresh | documentation |
+| **dotnet-expert** | ASP.NET Core, EF Core, Blazor, SignalR, C# | aspnet-core, aspnet-minimal-api, aspnet-middleware, aspnet-signalr, aspnet-blazor, aspnet-identity, aspnet-validation, entity-framework-core, csharp, xunit | documentation, api-tester |
 
 ### Database Agents
 

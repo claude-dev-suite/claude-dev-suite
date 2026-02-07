@@ -268,7 +268,11 @@ export type {
   AppliedFeature,
   TrackedFile,
   UpgradeHistoryEntry,
+  CatalogSnapshot,
   ExtendedManifest,
+  // New component types
+  NewComponent,
+  NewComponentsResult,
   // Conflict types
   ConflictType,
   ConflictInfo,

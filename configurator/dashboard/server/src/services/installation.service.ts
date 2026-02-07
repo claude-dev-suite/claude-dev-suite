@@ -216,8 +216,18 @@ export class InstallationService {
       }
     }
 
-    // Update CLAUDE.md with agent routing instructions and validation workflow
+    // Record catalog snapshot for new-component detection
     const allAgents = await this.agentsService.getAgents();
+    const allMcpServers = await this.agentsService.getMcpServers();
+    extendedManifest.availableAtInstall = {
+      agents: allAgents.map(a => a.id),
+      mcpServers: allMcpServers.map(s => s.name),
+    };
+
+    // Re-write extended manifest with catalog snapshot
+    fs.writeFileSync(manifestPath, JSON.stringify(extendedManifest, null, 2));
+
+    // Update CLAUDE.md with agent routing instructions and validation workflow
     const installedAgents = allAgents.filter(a => manifest.agents.includes(a.id));
     updateClaudeMd(projectPath, installedAgents, detectedStack, validatorHookConfigured);
 

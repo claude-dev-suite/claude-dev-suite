@@ -10,7 +10,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import type { Agent } from '../types.js';
-import type { ExtendedManifest, TrackedFile } from '../types/upgrade.js';
+import type { ExtendedManifest, TrackedFile, NewComponentsResult } from '../types/upgrade.js';
 import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { createHash } from 'crypto';
@@ -308,9 +308,66 @@ export class ManagementService {
   }
 
   /**
+   * Get new components available since the project was installed.
+   * Compares the current agent/MCP catalog against the catalog snapshot
+   * recorded at install time to identify truly new components.
+   */
+  async getNewComponents(projectPath: string): Promise<NewComponentsResult> {
+    const manifest = this.loadManifest(projectPath);
+
+    // If no manifest or no catalog snapshot (older installs), return empty to avoid false positives
+    if (!manifest?.availableAtInstall) {
+      return { newAgents: [], newMcpServers: [] };
+    }
+
+    const { availableAtInstall, agents: installedAgents, mcpServers: installedMcpServers } = manifest;
+
+    // Get the current full catalog
+    const allAgents = await this.agentsService.getAgents();
+    const allMcpServers = await this.agentsService.getMcpServers();
+
+    // New agents: in current catalog, NOT in availableAtInstall, NOT already installed
+    const newAgents = allAgents
+      .filter(a =>
+        !availableAtInstall.agents.includes(a.id) &&
+        !installedAgents.includes(a.id)
+      )
+      .map(a => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        category: a.category,
+      }));
+
+    // New MCP servers: same logic
+    const newMcpServers = allMcpServers
+      .filter(s =>
+        !availableAtInstall.mcpServers.includes(s.name) &&
+        !installedMcpServers.includes(s.name)
+      )
+      .map(s => ({
+        id: s.name,
+        name: s.name,
+        description: s.shortDescription || s.description,
+        category: s.category,
+      }));
+
+    return { newAgents, newMcpServers };
+  }
+
+  /**
    * Check for dev-suite updates
    */
-  async checkForUpdates(): Promise<{ hasUpdates: boolean; changes?: string[] }> {
+  async checkForUpdates(): Promise<{
+    hasUpdates: boolean;
+    changes?: string[];
+    summary?: {
+      newAgents: number;
+      newMcpServers: number;
+      updatedAgents: number;
+      updatedSkills: number;
+    };
+  }> {
     const devSuiteDir = getDevSuiteDir();
 
     try {
@@ -332,9 +389,29 @@ export class ManagementService {
 
       const changes = diffOutput.trim().split('\n').filter((f) => f);
 
+      // Parse changed files to produce a semantic summary
+      const summary = {
+        newAgents: 0,
+        newMcpServers: 0,
+        updatedAgents: 0,
+        updatedSkills: 0,
+      };
+
+      for (const file of changes) {
+        if (file.match(/^agents\/.*\.md$/)) {
+          // Could be new or updated agent — count generically as updated
+          summary.updatedAgents++;
+        } else if (file.match(/^mcp-servers\/[^/]+\/metadata\.json$/)) {
+          summary.newMcpServers++;
+        } else if (file.match(/^skills\//)) {
+          summary.updatedSkills++;
+        }
+      }
+
       return {
         hasUpdates: true,
         changes,
+        summary,
       };
     } catch (e) {
       throw new Error(`Failed to check for updates: ${e}`);

@@ -97,6 +97,29 @@ describe('InstallationService', () => {
       expect(fs.existsSync(path.join(projectDir, '.dev-suite-manifest.json'))).toBe(true);
     });
 
+    it('should record availableAtInstall catalog snapshot in manifest', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: ['documentation'],
+        envVars: {},
+      });
+
+      const manifestPath = path.join(projectDir, '.dev-suite-manifest.json');
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+      // availableAtInstall should be present
+      expect(manifest.availableAtInstall).toBeDefined();
+      expect(Array.isArray(manifest.availableAtInstall.agents)).toBe(true);
+      expect(Array.isArray(manifest.availableAtInstall.mcpServers)).toBe(true);
+
+      // Should contain at least the agents/servers that exist in mock dev-suite
+      expect(manifest.availableAtInstall.agents).toContain('typescript-expert');
+      expect(manifest.availableAtInstall.agents).toContain('vitest-expert');
+      expect(manifest.availableAtInstall.mcpServers).toContain('documentation');
+      expect(manifest.availableAtInstall.mcpServers).toContain('api-tester');
+    });
+
     it('should handle empty configuration', async () => {
       const manifest = await installationService.install({
         projectPath: projectDir,

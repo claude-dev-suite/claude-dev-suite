@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect } from 'react';
-import type { InstalledComponentsResponse } from '@/types';
+import type { InstalledComponentsResponse, NewComponentsResponse } from '@/types';
 import { AgentsList } from './AgentsList';
 import { McpServersList } from './McpServersList';
 import { HooksConfig } from './HooksConfig';
@@ -22,9 +22,24 @@ type Tab = 'agents' | 'custom-agents' | 'mcp' | 'automations' | 'hooks' | 'updat
 export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('agents');
   const [installedData, setInstalledData] = useState<InstalledComponentsResponse | null>(null);
+  const [newComponents, setNewComponents] = useState<NewComponentsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorObj, setErrorObj] = useState<ApiError | null>(null);
+
+  // Fetch new components available since install
+  const fetchNewComponents = async () => {
+    try {
+      const res = await apiGet<{ success: boolean; data: NewComponentsResponse }>(
+        `/api/management/new-components?path=${encodeURIComponent(projectPath)}`
+      );
+      if (res.data) {
+        setNewComponents(res.data);
+      }
+    } catch {
+      // Non-critical — silently ignore
+    }
+  };
 
   // Fetch installed components
   const fetchInstalled = async () => {
@@ -47,6 +62,7 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
 
   useEffect(() => {
     fetchInstalled();
+    fetchNewComponents();
   }, [projectPath]);
 
   const handleUninstall = async () => {
@@ -127,10 +143,13 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
     );
   }
 
+  const newAgentCount = newComponents?.newAgents?.length ?? 0;
+  const newMcpCount = newComponents?.newMcpServers?.length ?? 0;
+
   const tabs = [
-    { id: 'agents' as Tab, label: 'Agents', count: installedData.agents.length },
+    { id: 'agents' as Tab, label: 'Agents', count: installedData.agents.length, newCount: newAgentCount },
     { id: 'custom-agents' as Tab, label: 'Custom Agents' },
-    { id: 'mcp' as Tab, label: 'MCP Servers', count: installedData.mcpServers.length },
+    { id: 'mcp' as Tab, label: 'MCP Servers', count: installedData.mcpServers.length, newCount: newMcpCount },
     { id: 'automations' as Tab, label: 'Automations' },
     { id: 'hooks' as Tab, label: 'Hooks (Advanced)' },
     { id: 'updates' as Tab, label: 'Updates' },
@@ -176,6 +195,11 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
                   {tab.count}
                 </Badge>
               )}
+              {(tab as { newCount?: number }).newCount ? (
+                <Badge variant="info" className="ml-1">
+                  {(tab as { newCount?: number }).newCount} new
+                </Badge>
+              ) : null}
             </button>
           ))}
         </nav>
@@ -188,7 +212,8 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
             <AgentsList
               projectPath={projectPath}
               installedAgents={installedData.agents}
-              onRefresh={fetchInstalled}
+              newAgents={newComponents?.newAgents ?? []}
+              onRefresh={() => { fetchInstalled(); fetchNewComponents(); }}
             />
           )}
           {activeTab === 'custom-agents' && (
@@ -198,7 +223,8 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
             <McpServersList
               projectPath={projectPath}
               installedServers={installedData.mcpServers}
-              onRefresh={fetchInstalled}
+              newMcpServers={newComponents?.newMcpServers ?? []}
+              onRefresh={() => { fetchInstalled(); fetchNewComponents(); }}
             />
           )}
           {activeTab === 'automations' && (

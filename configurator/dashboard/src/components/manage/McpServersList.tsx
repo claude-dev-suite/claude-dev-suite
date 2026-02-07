@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect } from 'react';
-import type { McpServer } from '@/types';
+import type { McpServer, NewComponent } from '@/types';
 import { Button, Card, Badge, Modal, ModalFooter, Input } from '../common';
 import { PanelSection } from '../layout';
 import { API_BASE } from '@/utils/api';
@@ -12,10 +12,11 @@ const log = getLogger('McpServersList');
 export interface McpServersListProps {
   projectPath: string;
   installedServers: string[];
+  newMcpServers?: NewComponent[];
   onRefresh: () => void;
 }
 
-export function McpServersList({ projectPath, installedServers, onRefresh }: McpServersListProps) {
+export function McpServersList({ projectPath, installedServers, newMcpServers = [], onRefresh }: McpServersListProps) {
   log.info('Component mounting', { projectPath, installedServers });
   const invalidateComponents = useProjectStore((s) => s.invalidateComponents);
 
@@ -26,6 +27,8 @@ export function McpServersList({ projectPath, installedServers, onRefresh }: Mcp
   const [removing, setRemoving] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [addingNewServer, setAddingNewServer] = useState<string | null>(null);
+  const [dismissedNew, setDismissedNew] = useState(false);
 
   // Fetch all available servers
   useEffect(() => {
@@ -115,6 +118,44 @@ export function McpServersList({ projectPath, installedServers, onRefresh }: Mcp
     setEnvVars(defaults);
   };
 
+  const handleAddNewServer = async (serverName: string) => {
+    setAddingNewServer(serverName);
+    try {
+      const res = await fetch(`${API_BASE}/api/add-mcp-server`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serverName, projectPath, envVars: {} }),
+      });
+      if (res.ok) {
+        onRefresh();
+        invalidateComponents();
+      }
+    } catch (err) {
+      log.error('Failed to add new MCP server', err);
+    } finally {
+      setAddingNewServer(null);
+    }
+  };
+
+  const handleAddAllNewServers = async () => {
+    setAddingNewServer('__all__');
+    try {
+      for (const server of newMcpServers) {
+        await fetch(`${API_BASE}/api/add-mcp-server`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serverName: server.id, projectPath, envVars: {} }),
+        });
+      }
+      onRefresh();
+      invalidateComponents();
+    } catch (err) {
+      log.error('Failed to add all new MCP servers', err);
+    } finally {
+      setAddingNewServer(null);
+    }
+  };
+
   // Get server details
   const getServerDetails = (serverName: string) => {
     return allServers.find((s) => s.name === serverName);
@@ -141,8 +182,64 @@ export function McpServersList({ projectPath, installedServers, onRefresh }: Mcp
     );
   }
 
+  const visibleNewServers = dismissedNew ? [] : newMcpServers;
+
   return (
     <div className="space-y-6">
+      {/* New MCP Servers Available Section */}
+      {visibleNewServers.length > 0 && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="info">{visibleNewServers.length}</Badge>
+              <h3 className="text-sm font-medium text-white">New MCP Servers Available</h3>
+              <span className="text-xs text-surface-400">Added after your installation</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={handleAddAllNewServers}
+                loading={addingNewServer === '__all__'}
+                disabled={addingNewServer !== null}
+              >
+                Add All New
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDismissedNew(true)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {visibleNewServers.map((server) => (
+              <Card key={server.id} padding="sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-white text-sm">{server.name}</span>
+                      <Badge variant="default" size="sm">{server.category}</Badge>
+                      <Badge variant="info" size="sm">NEW</Badge>
+                    </div>
+                    <p className="text-xs text-surface-400 mt-1">{server.description}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleAddNewServer(server.id)}
+                    loading={addingNewServer === server.id}
+                    disabled={addingNewServer !== null}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       <PanelSection
         title="Installed MCP Servers"
         description={`${installedServers.length} server(s) installed`}

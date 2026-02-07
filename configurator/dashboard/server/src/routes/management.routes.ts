@@ -161,6 +161,29 @@ managementRoutes.post('/remove-mcp-server', async (req: Request, res: Response) 
   }
 });
 
+// Get new components available since install
+managementRoutes.get('/new-components', async (req: Request, res: Response) => {
+  try {
+    const projectPath = req.query.path as string || process.env.PROJECT_PATH;
+
+    if (!projectPath) {
+      return res.status(400).json({ error: 'Project path is required' });
+    }
+
+    const result = await managementService.getNewComponents(projectPath);
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to check new components',
+    });
+  }
+});
+
 // Check for updates
 managementRoutes.get('/check-updates', async (_req: Request, res: Response) => {
   try {
