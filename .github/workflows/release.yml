@@ -1,6 +1,6 @@
 # Dev-Suite Dashboard Release Workflow
 #
-# Builds the portable Electron .exe and attaches it to the GitHub Release.
+# Builds the NSIS installer .exe and attaches it to the GitHub Release.
 #
 # Triggers on: push of tags matching v* (e.g., v1.0.0, v1.2.3)
 #
@@ -8,6 +8,8 @@
 #   1. Create a tag: git tag -a v1.0.0 -m "v1.0.0"
 #   2. Push: git push origin v1.0.0
 #   3. This workflow builds and uploads the .exe to the release
+#
+# Re-running on the same tag will clean old assets before uploading.
 
 name: Release
 
@@ -80,12 +82,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Clean old release assets
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "Cleaning old assets from release $VERSION"
+          gh release view "$VERSION" --json assets --jq '.assets[].name' | while read -r name; do
+            echo "Deleting: $name"
+            gh release delete-asset "$VERSION" "$name" --yes
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload installer to release
         shell: bash
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
           EXE=$(find configurator/dashboard/dist-electron -name "*Setup*.exe" | head -1)
           echo "Uploading $EXE to release $VERSION"
-          gh release upload "$VERSION" "$EXE" --clobber
+          gh release upload "$VERSION" "$EXE"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
