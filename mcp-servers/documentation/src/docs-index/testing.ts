@@ -15,6 +15,7 @@ export const TESTING_TECHNOLOGIES = [
   "testing-library",
   "spring-boot-test",
   "testcontainers",
+  "xunit",
 ] as const;
 
 export const testingDocs: DocsRecord = {
@@ -127,6 +128,21 @@ export const testingDocs: DocsRecord = {
     lifecycle: {
       local: "testcontainers/lifecycle.md",
       url: "https://java.testcontainers.org/test_framework_integration/junit_5/",
+    },
+  },
+
+  xunit: {
+    basics: {
+      local: "xunit/basics.md",
+      url: "https://xunit.net/docs/getting-started/netcore/cmdline",
+    },
+    assertions: {
+      local: "xunit/assertions.md",
+      url: "https://xunit.net/docs/assertions",
+    },
+    fixtures: {
+      local: "xunit/fixtures.md",
+      url: "https://xunit.net/docs/shared-context",
     },
   },
 };

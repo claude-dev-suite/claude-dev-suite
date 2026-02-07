@@ -15,6 +15,7 @@ export const LANGUAGE_TECHNOLOGIES = [
   "rust",
   "go",
   "deno",
+  "csharp",
 ] as const;
 
 export const languageDocs: DocsRecord = {
@@ -164,6 +165,29 @@ export const languageDocs: DocsRecord = {
     kv: {
       local: "deno/kv.md",
       url: "https://docs.deno.com/deploy/kv/manual/",
+    },
+  },
+
+  csharp: {
+    records: {
+      local: "csharp/records.md",
+      url: "https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/record",
+    },
+    async: {
+      local: "csharp/async.md",
+      url: "https://learn.microsoft.com/dotnet/csharp/asynchronous-programming/",
+    },
+    linq: {
+      local: "csharp/linq.md",
+      url: "https://learn.microsoft.com/dotnet/csharp/linq/",
+    },
+    "pattern-matching": {
+      local: "csharp/pattern-matching.md",
+      url: "https://learn.microsoft.com/dotnet/csharp/fundamentals/functional/pattern-matching",
+    },
+    nullable: {
+      local: "csharp/nullable.md",
+      url: "https://learn.microsoft.com/dotnet/csharp/nullable-references",
     },
   },
 };

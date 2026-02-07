@@ -20,6 +20,85 @@ import { CommitItem } from './CommitItem';
 // Auto-refresh interval in milliseconds (30 seconds)
 const AUTO_REFRESH_INTERVAL = 30000;
 
+// ============================================
+// GitAuthModal
+// ============================================
+
+function GitAuthModal({ code, onClose, onAuthenticated }: {
+  code: string;
+  onClose: () => void;
+  onAuthenticated: () => void;
+}) {
+  const { checkAuthStatus } = useGitStore();
+  const [status, setStatus] = useState<'pending' | 'authenticated' | 'none'>('pending');
+  const [account, setAccount] = useState<string | null>(null);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const result = await checkAuthStatus();
+      setStatus(result.status);
+      if (result.account) setAccount(result.account);
+
+      if (result.status === 'authenticated') {
+        clearInterval(interval);
+        setTimeout(() => {
+          onAuthenticated();
+          onClose();
+        }, 1500);
+      } else if (result.status === 'none') {
+        clearInterval(interval);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [checkAuthStatus, onAuthenticated, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-surface-800 border border-surface-600 rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+        {status === 'authenticated' ? (
+          <div className="text-center">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-sm text-green-400 font-medium">Authenticated successfully</p>
+            {account && <p className="text-xs text-surface-400 mt-1">Signed in as {account}</p>}
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-surface-100">GitHub Authentication</h3>
+              <button onClick={onClose} className="p-1 hover:bg-surface-700 rounded text-surface-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-xs text-surface-300 mb-4">
+              A browser window should have opened. Enter this code to authenticate:
+            </p>
+
+            <div className="bg-surface-900 border border-surface-600 rounded-lg py-4 px-6 text-center mb-4">
+              <span className="text-2xl font-mono font-bold text-accent-400 tracking-widest">{code}</span>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-xs text-surface-400">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Waiting for authentication...</span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Accordion section type
 type Section = 'changes' | 'branches' | 'history' | 'remote';
 
@@ -33,6 +112,7 @@ export function GitPanel() {
     commits,
     loading,
     error,
+    errorType,
     currentDiff,
     commitDetails,
     fetchRepos,
@@ -53,6 +133,7 @@ export function GitPanel() {
     fetch: gitFetch,
     pull,
     push,
+    authLogin,
     clearError,
     refresh,
   } = useGitStore();
@@ -73,6 +154,10 @@ export function GitPanel() {
   // Expanded commits in history
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [loadingCommitDetails, setLoadingCommitDetails] = useState<Set<string>>(new Set());
+
+  // Auth modal state
+  const [authModalCode, setAuthModalCode] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
 
   // Toggle folder expansion for each section
   const toggleStagedFolder = useCallback((path: string) => {
@@ -247,6 +332,20 @@ export function GitPanel() {
     }
   };
 
+  // Handle GitHub auth login
+  const handleAuthLogin = async () => {
+    setAuthLoading(true);
+    const result = await authLogin();
+    setAuthLoading(false);
+    if (result?.code) {
+      setAuthModalCode(result.code);
+    }
+  };
+
+  // Check if error is for SSH remote
+  const isSshRemote = error?.toLowerCase().includes('permission denied (publickey)') ||
+    error?.toLowerCase().includes('host key verification failed');
+
   if (!projectPath) {
     return (
       <div className="flex items-center justify-center h-full text-surface-400">
@@ -258,7 +357,37 @@ export function GitPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Error banner */}
-      {error && (
+      {error && errorType === 'auth' && (
+        <div className="px-3 py-2 bg-amber-500/20 border-b border-amber-500/30 text-amber-300 text-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span>
+                {isSshRemote
+                  ? 'SSH key authentication required — configure your SSH key'
+                  : 'Authentication required to access this repository'}
+              </span>
+            </div>
+            <button onClick={clearError} className="p-0.5 hover:bg-amber-500/30 rounded ml-2 flex-shrink-0">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {!isSshRemote && (
+            <button
+              onClick={handleAuthLogin}
+              disabled={authLoading}
+              className="mt-2 px-3 py-1 text-xs font-medium bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded transition-colors"
+            >
+              {authLoading ? 'Starting...' : 'Login to GitHub'}
+            </button>
+          )}
+        </div>
+      )}
+      {error && errorType !== 'auth' && (
         <div className="px-3 py-2 bg-red-500/20 border-b border-red-500/30 text-red-400 text-xs flex items-center justify-between">
           <span>{error}</span>
           <button onClick={clearError} className="p-0.5 hover:bg-red-500/30 rounded">
@@ -534,6 +663,18 @@ export function GitPanel() {
 
       {/* Diff Preview Modal */}
       {currentDiff && <DiffPreview diff={currentDiff} onClose={clearDiff} />}
+
+      {/* Auth Modal */}
+      {authModalCode && (
+        <GitAuthModal
+          code={authModalCode}
+          onClose={() => setAuthModalCode(null)}
+          onAuthenticated={() => {
+            clearError();
+            if (projectPath) refresh(projectPath);
+          }}
+        />
+      )}
     </div>
   );
 }

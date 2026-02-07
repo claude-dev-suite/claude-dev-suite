@@ -103,6 +103,9 @@ interface GitState {
   /** Error message */
   error: string | null;
 
+  /** Error type for special handling (e.g. auth errors) */
+  errorType: 'auth' | null;
+
   /** Last refresh timestamp */
   lastRefresh: number | null;
 
@@ -179,6 +182,12 @@ interface GitState {
   /** Refresh all data */
   refresh: (projectPath: string) => Promise<void>;
 
+  /** Start GitHub auth login flow */
+  authLogin: () => Promise<{ code: string } | null>;
+
+  /** Check auth status */
+  checkAuthStatus: () => Promise<{ status: 'pending' | 'authenticated' | 'none'; account?: string }>;
+
   /** Clear error */
   clearError: () => void;
 
@@ -209,8 +218,29 @@ const initialState = {
     operation: false,
   },
   error: null as string | null,
+  errorType: null as 'auth' | null,
   lastRefresh: null as number | null,
 };
+
+// ============================================
+// HELPERS
+// ============================================
+
+const AUTH_ERROR_PATTERNS = [
+  'repository not found',
+  'authentication failed',
+  'could not read username',
+  'permission denied',
+  'invalid credentials',
+  'terminal prompts disabled',
+  '401',
+  '403',
+];
+
+function isAuthError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return AUTH_ERROR_PATTERNS.some((p) => lower.includes(p));
+}
 
 // ============================================
 // STORE
@@ -650,15 +680,23 @@ const storeCreator: StateCreator<GitState, [['zustand/devtools', never]], []> = 
         set((state) => ({ loading: { ...state.loading, operation: true } }), false, 'fetch/start');
 
         try {
-          await fetch(`${API_BASE}/fetch?path=${encodeURIComponent(projectPath)}`, {
+          const response = await fetch(`${API_BASE}/fetch?path=${encodeURIComponent(projectPath)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ repoPath: selectedRepo }),
           });
 
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error || 'Failed to fetch');
+
+          set({ error: null, errorType: null }, false, 'fetch/success');
           await get().refresh(projectPath);
         } catch (err) {
-          set({ error: err instanceof Error ? err.message : 'Failed to fetch' }, false, 'fetch/error');
+          const message = err instanceof Error ? err.message : 'Failed to fetch';
+          set({
+            error: message,
+            errorType: isAuthError(message) ? 'auth' : null,
+          }, false, 'fetch/error');
         } finally {
           set((state) => ({ loading: { ...state.loading, operation: false } }), false, 'fetch/end');
         }
@@ -671,15 +709,23 @@ const storeCreator: StateCreator<GitState, [['zustand/devtools', never]], []> = 
         set((state) => ({ loading: { ...state.loading, operation: true } }), false, 'pull/start');
 
         try {
-          await fetch(`${API_BASE}/pull?path=${encodeURIComponent(projectPath)}`, {
+          const response = await fetch(`${API_BASE}/pull?path=${encodeURIComponent(projectPath)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ repoPath: selectedRepo, rebase }),
           });
 
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error || 'Failed to pull');
+
+          set({ error: null, errorType: null }, false, 'pull/success');
           await get().refresh(projectPath);
         } catch (err) {
-          set({ error: err instanceof Error ? err.message : 'Failed to pull' }, false, 'pull/error');
+          const message = err instanceof Error ? err.message : 'Failed to pull';
+          set({
+            error: message,
+            errorType: isAuthError(message) ? 'auth' : null,
+          }, false, 'pull/error');
         } finally {
           set((state) => ({ loading: { ...state.loading, operation: false } }), false, 'pull/end');
         }
@@ -692,15 +738,23 @@ const storeCreator: StateCreator<GitState, [['zustand/devtools', never]], []> = 
         set((state) => ({ loading: { ...state.loading, operation: true } }), false, 'push/start');
 
         try {
-          await fetch(`${API_BASE}/push?path=${encodeURIComponent(projectPath)}`, {
+          const response = await fetch(`${API_BASE}/push?path=${encodeURIComponent(projectPath)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ repoPath: selectedRepo, setUpstream }),
           });
 
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error || 'Failed to push');
+
+          set({ error: null, errorType: null }, false, 'push/success');
           await get().refresh(projectPath);
         } catch (err) {
-          set({ error: err instanceof Error ? err.message : 'Failed to push' }, false, 'push/error');
+          const message = err instanceof Error ? err.message : 'Failed to push';
+          set({
+            error: message,
+            errorType: isAuthError(message) ? 'auth' : null,
+          }, false, 'push/error');
         } finally {
           set((state) => ({ loading: { ...state.loading, operation: false } }), false, 'push/end');
         }
@@ -723,8 +777,30 @@ const storeCreator: StateCreator<GitState, [['zustand/devtools', never]], []> = 
         set({ lastRefresh: Date.now() }, false, 'refresh');
       },
 
+      authLogin: async () => {
+        try {
+          const response = await fetch(`${API_BASE}/auth-login`, { method: 'POST' });
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error);
+          return data.data as { code: string };
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Failed to start auth' }, false, 'authLogin/error');
+          return null;
+        }
+      },
+
+      checkAuthStatus: async () => {
+        try {
+          const response = await fetch(`${API_BASE}/auth-status`);
+          const data = await response.json();
+          return data.data as { status: 'pending' | 'authenticated' | 'none'; account?: string };
+        } catch {
+          return { status: 'none' as const };
+        }
+      },
+
       clearError: () => {
-        set({ error: null }, false, 'clearError');
+        set({ error: null, errorType: null }, false, 'clearError');
       },
 
       reset: () => {

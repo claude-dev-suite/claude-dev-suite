@@ -21,6 +21,7 @@ export const FRONTEND_TECHNOLOGIES = [
   "react-hook-form",
   "shadcn",
   "skeleton",
+  "ngrx",
 ] as const;
 
 export const frontendDocs: DocsRecord = {
@@ -174,6 +175,60 @@ export const frontendDocs: DocsRecord = {
     composables: {
       local: "pinia/composables.md",
       url: "https://pinia.vuejs.org/cookbook/composing-stores.html",
+    },
+  },
+
+  angular: {
+    components: {
+      local: "angular/components.md",
+      url: "https://angular.dev/guide/components",
+    },
+    signals: {
+      local: "angular/signals.md",
+      url: "https://angular.dev/guide/signals",
+    },
+    routing: {
+      local: "angular/routing.md",
+      url: "https://angular.dev/guide/routing",
+    },
+    forms: {
+      local: "angular/forms.md",
+      url: "https://angular.dev/guide/forms",
+    },
+    http: {
+      local: "angular/http.md",
+      url: "https://angular.dev/guide/http",
+    },
+    di: {
+      local: "angular/di.md",
+      url: "https://angular.dev/guide/di",
+    },
+    testing: {
+      local: "angular/testing.md",
+      url: "https://angular.dev/guide/testing",
+    },
+    ssr: {
+      local: "angular/ssr.md",
+      url: "https://angular.dev/guide/ssr",
+    },
+  },
+
+  ngrx: {
+    store: {
+      local: "ngrx/store.md",
+      url: "https://ngrx.io/guide/store",
+    },
+    effects: {
+      local: "ngrx/effects.md",
+      url: "https://ngrx.io/guide/effects",
+    },
+    entity: {
+      local: "ngrx/entity.md",
+      url: "https://ngrx.io/guide/entity",
+    },
+    "component-store": {
+      local: "ngrx/component-store.md",
+      url: "https://ngrx.io/guide/component-store",
     },
   },
 };

@@ -6,6 +6,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
+import { exec, spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { GitService } from '../services/git.service.js';
 import { DetectionService } from '../services/detection.service.js';
 import type { ApiResponse } from '../types.js';
@@ -26,6 +27,11 @@ import type {
 
 export const gitRoutes = Router();
 const detectionService = new DetectionService();
+
+// Module-level state for GitHub auth flow
+let authProcess: ChildProcess | null = null;
+let authStatus: 'none' | 'pending' | 'authenticated' | 'failed' = 'none';
+let authAccount: string | null = null;
 
 // ============================================
 // REPOSITORY STATUS
@@ -814,4 +820,145 @@ gitRoutes.post('/push', async (req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to push',
     } as ApiResponse);
   }
+});
+
+// ============================================
+// AUTHENTICATION
+// ============================================
+
+/**
+ * POST /api/git/auth-login
+ * Start GitHub CLI authentication flow (gh auth login --web)
+ */
+gitRoutes.post('/auth-login', async (_req: Request, res: Response) => {
+  try {
+    // Check if gh CLI is available
+    const ghCheck = spawnSync('gh', ['--version'], { encoding: 'utf-8', shell: true });
+    if (ghCheck.status !== 0) {
+      return res.json({
+        success: false,
+        error: 'GitHub CLI (gh) is not installed. Install it from https://cli.github.com',
+      } as ApiResponse);
+    }
+
+    // Kill any existing auth process
+    if (authProcess && !authProcess.killed) {
+      authProcess.kill();
+    }
+
+    authStatus = 'pending';
+    authAccount = null;
+
+    // Spawn gh auth login --web
+    const proc = spawn('gh', ['auth', 'login', '--web', '--git-protocol', 'https'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: true,
+    });
+
+    authProcess = proc;
+
+    let oneTimeCode: string | null = null;
+    let outputBuffer = '';
+
+    const codePattern = /([A-Z0-9]{4}-[A-Z0-9]{4})/;
+
+    // Wait for the one-time code to appear in output
+    const codePromise = new Promise<string | null>((resolve) => {
+      const timeout = setTimeout(() => resolve(null), 30000);
+
+      const handleData = (chunk: Buffer) => {
+        outputBuffer += chunk.toString();
+
+        const match = outputBuffer.match(codePattern);
+        if (match?.[1] && !oneTimeCode) {
+          oneTimeCode = match[1];
+          clearTimeout(timeout);
+
+          // Send Enter to gh and open the browser ourselves
+          setTimeout(() => {
+            try {
+              proc.stdin?.write('\n');
+            } catch {
+              // stdin may already be closed
+            }
+            // Open browser manually as fallback (gh stdin write may not work on Windows)
+            const openCmd = process.platform === 'win32' ? 'start' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+            exec(`${openCmd} https://github.com/login/device`);
+          }, 500);
+
+          resolve(oneTimeCode);
+        }
+      };
+
+      proc.stdout?.on('data', handleData);
+      proc.stderr?.on('data', handleData);
+
+      proc.on('error', () => {
+        clearTimeout(timeout);
+        resolve(null);
+      });
+    });
+
+    // Handle process exit
+    proc.on('close', (code) => {
+      if (code === 0) {
+        authStatus = 'authenticated';
+
+        // Configure git credentials
+        spawnSync('gh', ['auth', 'setup-git'], { shell: true });
+
+        // Get the authenticated account
+        const whoami = spawnSync('gh', ['auth', 'status'], { encoding: 'utf-8', shell: true });
+        const accountMatch = (whoami.stdout + whoami.stderr).match(/Logged in to [^ ]+ account (\S+)/i)
+          || (whoami.stdout + whoami.stderr).match(/Logged in to [^ ]+ as (\S+)/i);
+        authAccount = accountMatch?.[1] || 'unknown';
+      } else {
+        authStatus = 'failed';
+      }
+      authProcess = null;
+    });
+
+    // Wait for code (up to 30s)
+    const code = await codePromise;
+
+    if (!code) {
+      // Process may have exited or timed out
+      if (authProcess && !authProcess.killed) {
+        authProcess.kill();
+      }
+      authProcess = null;
+      authStatus = 'none';
+
+      return res.json({
+        success: false,
+        error: 'Failed to get one-time code from GitHub CLI',
+      } as ApiResponse);
+    }
+
+    return res.json({
+      success: true,
+      data: { code },
+    } as ApiResponse);
+  } catch (err) {
+    authStatus = 'none';
+    authProcess = null;
+    return res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to start auth',
+    } as ApiResponse);
+  }
+});
+
+/**
+ * GET /api/git/auth-status
+ * Poll for auth completion
+ */
+gitRoutes.get('/auth-status', (_req: Request, res: Response) => {
+  return res.json({
+    success: true,
+    data: {
+      status: authStatus,
+      account: authAccount,
+    },
+  } as ApiResponse);
 });

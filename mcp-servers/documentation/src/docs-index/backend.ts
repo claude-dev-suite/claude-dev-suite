@@ -61,6 +61,11 @@ export const BACKEND_TECHNOLOGIES = [
   // Deno
   "fresh",
   "oak",
+  // .NET/C#
+  "aspnet-core",
+  "entity-framework-core",
+  "signalr",
+  "blazor",
 ] as const;
 
 export const backendDocs: DocsRecord = {
@@ -688,6 +693,91 @@ export const backendDocs: DocsRecord = {
     context: {
       local: "oak/context.md",
       url: "https://oakserver.github.io/oak/",
+    },
+  },
+
+  // .NET/C#
+  "aspnet-core": {
+    controllers: {
+      local: "aspnet-core/controllers.md",
+      url: "https://learn.microsoft.com/aspnet/core/web-api/",
+    },
+    di: {
+      local: "aspnet-core/di.md",
+      url: "https://learn.microsoft.com/aspnet/core/fundamentals/dependency-injection",
+    },
+    middleware: {
+      local: "aspnet-core/middleware.md",
+      url: "https://learn.microsoft.com/aspnet/core/fundamentals/middleware/",
+    },
+    configuration: {
+      local: "aspnet-core/configuration.md",
+      url: "https://learn.microsoft.com/aspnet/core/fundamentals/configuration/",
+    },
+    "minimal-api": {
+      local: "aspnet-core/minimal-api.md",
+      url: "https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis/overview",
+    },
+    security: {
+      local: "aspnet-core/security.md",
+      url: "https://learn.microsoft.com/aspnet/core/security/",
+    },
+    identity: {
+      local: "aspnet-core/identity.md",
+      url: "https://learn.microsoft.com/aspnet/core/security/authentication/identity",
+    },
+  },
+
+  "entity-framework-core": {
+    dbcontext: {
+      local: "entity-framework-core/dbcontext.md",
+      url: "https://learn.microsoft.com/ef/core/dbcontext-configuration/",
+    },
+    migrations: {
+      local: "entity-framework-core/migrations.md",
+      url: "https://learn.microsoft.com/ef/core/managing-schemas/migrations/",
+    },
+    queries: {
+      local: "entity-framework-core/queries.md",
+      url: "https://learn.microsoft.com/ef/core/querying/",
+    },
+    relationships: {
+      local: "entity-framework-core/relationships.md",
+      url: "https://learn.microsoft.com/ef/core/modeling/relationships/",
+    },
+    performance: {
+      local: "entity-framework-core/performance.md",
+      url: "https://learn.microsoft.com/ef/core/performance/",
+    },
+  },
+
+  signalr: {
+    hubs: {
+      local: "signalr/hubs.md",
+      url: "https://learn.microsoft.com/aspnet/core/signalr/hubs",
+    },
+    clients: {
+      local: "signalr/clients.md",
+      url: "https://learn.microsoft.com/aspnet/core/signalr/javascript-client",
+    },
+    streaming: {
+      local: "signalr/streaming.md",
+      url: "https://learn.microsoft.com/aspnet/core/signalr/streaming",
+    },
+  },
+
+  blazor: {
+    components: {
+      local: "blazor/components.md",
+      url: "https://learn.microsoft.com/aspnet/core/blazor/components/",
+    },
+    interop: {
+      local: "blazor/interop.md",
+      url: "https://learn.microsoft.com/aspnet/core/blazor/javascript-interoperability/",
+    },
+    "render-modes": {
+      local: "blazor/render-modes.md",
+      url: "https://learn.microsoft.com/aspnet/core/blazor/components/render-modes",
     },
   },
 };
