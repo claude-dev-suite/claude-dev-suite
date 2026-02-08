@@ -160,6 +160,8 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
       const existingFiles: string[] = [];
 
       for (const relPath of paths) {
+        // SECURITY: Skip paths with traversal sequences
+        if (relPath.includes('..')) continue;
         // Normalize path separators for Windows (like legacy)
         const normalizedPath = relPath.replace(/\//g, path.sep);
         const absPath = path.join(workingDir, normalizedPath);

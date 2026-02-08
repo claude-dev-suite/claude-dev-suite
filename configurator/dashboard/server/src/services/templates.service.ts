@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 
 // ES Module dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -357,6 +357,7 @@ export class TemplatesService {
   ): Promise<VariableValidationResult> {
     // Validate projectPath if present in variables
     if (variables.projectPath) {
+      if (variables.projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
       try {
         variables.projectPath = resolveProjectPath(variables.projectPath);
       } catch {
@@ -476,11 +477,8 @@ export class TemplatesService {
    * Scaffold a new project from a template
    */
   async scaffoldProject(config: ScaffoldConfig): Promise<ScaffoldResult> {
+    if (config.projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     config.projectPath = resolveProjectPath(config.projectPath);
-    // SECURITY: Additional path traversal check after resolution
-    if (config.projectPath.includes('..')) {
-      throw new Error('Path traversal not allowed');
-    }
     // SECURITY: Validate templateId before path construction
     if (!/^[a-zA-Z0-9_.-]+$/.test(config.templateId)) {
       throw new Error('Invalid template ID');
@@ -635,7 +633,7 @@ export class TemplatesService {
   private async getTemplateFiles(templatePath: string, basePath = ''): Promise<string[]> {
     // SECURITY: Path traversal check for private method
     if (templatePath.includes('..')) {
-      throw new Error('Path traversal not allowed');
+      throw new PathValidationError('Path traversal not allowed');
     }
     const files: string[] = [];
     const currentPath = basePath ? path.join(templatePath, basePath) : templatePath;
@@ -687,11 +685,8 @@ export class TemplatesService {
     template: TemplateInfo,
     existingDirs: string[]
   ): Promise<void> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    // SECURITY: Path traversal check after resolution
-    if (projectPath.includes('..')) {
-      throw new Error('Path traversal not allowed');
-    }
     if (!template.structure) return;
 
     const createDir = (relativePath: string) => {

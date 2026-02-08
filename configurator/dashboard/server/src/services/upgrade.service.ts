@@ -46,8 +46,8 @@ export class UpgradeService {
    * Check for available upgrades
    */
   async checkUpgrades(projectPath: string): Promise<UpgradeCheckResult> {
-    projectPath = resolveProjectPath(projectPath);
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
     const registry = loadFeatureRegistry();
     const manifest = loadManifest(projectPath);
 
@@ -146,8 +146,8 @@ export class UpgradeService {
    * Preview an upgrade (dry run)
    */
   async previewUpgrade(projectPath: string, featureIds?: string[]): Promise<UpgradePreviewResult> {
-    projectPath = resolveProjectPath(projectPath);
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
     const checkResult = await this.checkUpgrades(projectPath);
 
     if (!checkResult.hasValidManifest) {
@@ -385,8 +385,8 @@ export class UpgradeService {
    * Get upgrade history for a project
    */
   async getUpgradeHistory(projectPath: string): Promise<UpgradeHistoryEntry[]> {
-    projectPath = resolveProjectPath(projectPath);
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
     const manifest = loadManifest(projectPath);
     return manifest?.upgradeHistory || [];
   }
@@ -417,8 +417,8 @@ export class UpgradeService {
     packages: string[],
     dev: boolean = true
   ): Promise<{ success: boolean; installed: string[]; error?: string }> {
-    projectPath = resolveProjectPath(projectPath);
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
     return this.packageInstaller.installPackages(projectPath, packages, dev);
   }
 
@@ -429,8 +429,8 @@ export class UpgradeService {
     projectPath: string,
     agentId: string
   ): Promise<{ success: boolean; agentPath?: string; error?: string }> {
-    projectPath = resolveProjectPath(projectPath);
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
     return this.packageInstaller.installAgent(
       projectPath,
       agentId,

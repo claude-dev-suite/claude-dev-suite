@@ -21,9 +21,11 @@ const logger = getLogger('InstallationSecurity');
  */
 export function validatePathWithinBase(targetPath: string, baseDir: string, allowBase = true): string {
   if (targetPath.includes('..')) throw new Error('Path traversal not allowed');
+  if (baseDir.includes('..')) throw new Error('Path traversal not allowed');
   // Resolve both paths to their absolute canonical forms
   const resolvedBase = path.resolve(baseDir);
   const resolvedTarget = path.resolve(targetPath);
+  if (resolvedTarget.includes('..')) throw new Error('Path traversal not allowed');
 
   // Check that the resolved path starts with the base directory
   const isWithinBase = resolvedTarget.startsWith(resolvedBase + path.sep);

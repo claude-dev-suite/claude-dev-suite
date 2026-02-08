@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { FileTreeNode, SourceFilesResult, DiffResult } from './types.js';
 import { SOURCE_EXTENSIONS, INCLUDE_FILES, EXCLUDED_DIRS } from './constants.js';
 
@@ -26,6 +26,7 @@ export function shouldIncludeFile(filePath: string): boolean {
  * List source files in a project
  */
 export function listSourceFiles(projectPath: string, isValidPath: (p: string) => boolean): SourceFilesResult {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
   if (!isValidPath(projectPath)) {
     throw new Error(`Invalid or non-existent path: ${projectPath}`);
@@ -44,6 +45,7 @@ export function listSourceFiles(projectPath: string, isValidPath: (p: string) =>
 
     for (const relPath of rawFiles) {
       const absPath = path.join(projectPath, relPath);
+      if (absPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
       if (fs.existsSync(absPath)) {
         allFiles.push(relPath);
       }
@@ -51,6 +53,7 @@ export function listSourceFiles(projectPath: string, isValidPath: (p: string) =>
   } catch {
     // Git command failed - fallback to directory scan
     const scanDir = (dir: string, base = ''): void => {
+      if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
       try {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
@@ -175,6 +178,7 @@ export function getFullProjectCode(
   projectPath: string,
   options: { maxFiles?: number; maxSize?: number; paths?: string[] } = {},
 ): DiffResult {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
   const MAX_FILES = options.maxFiles || 100;
   const MAX_TOTAL_SIZE = options.maxSize || 500 * 1024;
@@ -194,6 +198,7 @@ export function getFullProjectCode(
     // Git command failed - fallback to directory scan
     allFiles = [];
     const scanDir = (dir: string, base = ''): void => {
+      if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
       try {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
@@ -237,6 +242,7 @@ export function getFullProjectCode(
     if (totalSize >= MAX_TOTAL_SIZE) break;
 
     const fullPath = path.join(projectPath, file);
+    if (fullPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     try {
       const content = fs.readFileSync(fullPath, 'utf8');
       const lines = content.split('\n');

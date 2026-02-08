@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Job } from '../types.js';
 import { getLogger } from '../utils/logger.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 
 const logger = getLogger('Analytics');
 
@@ -87,6 +87,7 @@ export class AnalyticsService {
    * Get analytics file path for a project
    */
   getAnalyticsPath(projectPath: string): string {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     return path.join(projectPath, ANALYTICS_DIR, KB_USAGE_FILE);
   }
@@ -95,6 +96,7 @@ export class AnalyticsService {
    * Read KB usage analytics data
    */
   readKBUsage(projectPath: string): KBUsageData {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const filePath = this.getAnalyticsPath(projectPath);
 
@@ -315,6 +317,7 @@ export class AnalyticsService {
    * Clear KB analytics data
    */
   clearKBUsage(projectPath: string): { success: boolean; message?: string; error?: string } {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const filePath = this.getAnalyticsPath(projectPath);
 

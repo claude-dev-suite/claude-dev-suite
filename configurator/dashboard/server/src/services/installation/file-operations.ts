@@ -63,6 +63,7 @@ export function copyDirSync(src: string, dest: string, baseDestDir?: string): vo
   // SECURITY: Validate source and destination paths
   const resolvedSrc = path.resolve(src);
   const resolvedDest = path.resolve(dest);
+  if (resolvedSrc.includes('..') || resolvedDest.includes('..')) throw new Error('Path traversal not allowed');
 
   // Validate dest stays within base destination
   validatePathWithinBase(resolvedDest, destBase, true);

@@ -220,10 +220,13 @@ async function getSessionMetadata(filePath: string): Promise<{ firstMessage: str
 orchestratorRoutes.get('/orchestrator/sessions/:id/history', async (req: Request, res: Response) => {
   try {
     const sessionId = req.params.id;
-    const projectPath = resolveProjectPath(req.query.project_path);
+    const rawProjectPath = req.query.project_path;
+    if (typeof rawProjectPath === 'string' && rawProjectPath.includes('..')) throw new Error('Path traversal not allowed');
+    const projectPath = resolveProjectPath(rawProjectPath);
 
     // Find Claude's project sessions folder
     let claudeDir = path.join(os.homedir(), '.claude', 'projects');
+    if (claudeDir.includes('..')) throw new Error('Path traversal not allowed');
     claudeDir = resolveProjectPath(claudeDir);
     const encodedPath = encodeProjectPath(projectPath);
     const sessionFile = path.join(claudeDir, encodedPath, `${sessionId}.jsonl`);

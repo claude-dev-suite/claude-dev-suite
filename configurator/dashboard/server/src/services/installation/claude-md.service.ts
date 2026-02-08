@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { Agent } from '../../types.js';
 import { HooksService } from '../hooks.service.js';
 
@@ -29,6 +29,7 @@ export function updateClaudeMd(
   detectedStack?: DetectedStackInfo,
   validatorHookConfigured = false
 ): void {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
   const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
   const section = generateDevSuiteSection(agents, detectedStack, validatorHookConfigured);
@@ -56,6 +57,7 @@ export function updateClaudeMd(
  * Remove the dev-suite section from CLAUDE.md
  */
 export function cleanClaudeMdSection(projectPath: string): void {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
   const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
   if (!fs.existsSync(claudeMdPath)) return;

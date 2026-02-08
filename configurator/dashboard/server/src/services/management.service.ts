@@ -14,7 +14,7 @@ import type { ExtendedManifest, TrackedFile, NewComponentsResult } from '../type
 import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { createHash } from 'crypto';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 
 const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 
@@ -47,6 +47,7 @@ export class ManagementService {
    * Load project manifest
    */
   private loadManifest(projectPath: string): ExtendedManifest | null {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
     return readJsonSync<ExtendedManifest>(manifestPath);
   }
@@ -55,6 +56,7 @@ export class ManagementService {
    * Save project manifest
    */
   private saveManifest(projectPath: string, manifest: ExtendedManifest): boolean {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
     try {
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -68,6 +70,7 @@ export class ManagementService {
    * Calculate SHA256 hash of file content
    */
   private calculateFileHash(filePath: string): string | null {
+    if (filePath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     try {
       const content = fs.readFileSync(filePath);
       return createHash('sha256').update(content).digest('hex');
@@ -80,6 +83,7 @@ export class ManagementService {
    * Get installed components from a project
    */
   async getInstalledComponents(projectPath: string): Promise<{ agents: string[]; mcpServers: string[] }> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const result = { agents: [] as string[], mcpServers: [] as string[] };
 
@@ -120,6 +124,7 @@ export class ManagementService {
    * Add an agent to the project
    */
   async addAgent(projectPath: string, agentId: string): Promise<void> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
     const devSuiteDir = getDevSuiteDir();
@@ -200,6 +205,7 @@ export class ManagementService {
    * Remove an agent from the project
    */
   async removeAgent(projectPath: string, agentId: string): Promise<void> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
     const agentPath = path.join(projectPath, '.claude', 'agents', agentId + '.md');
@@ -238,6 +244,7 @@ export class ManagementService {
    * Add an MCP server to the project
    */
   async addMcpServer(projectPath: string, serverName: string, envVars: Record<string, string> = {}): Promise<void> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
     const devSuiteDir = getDevSuiteDir();
@@ -294,6 +301,7 @@ export class ManagementService {
    * Remove an MCP server from the project
    */
   async removeMcpServer(projectPath: string, serverName: string): Promise<void> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
     const serverDir = path.join(projectPath, '.mcp-servers', serverName);
@@ -324,6 +332,7 @@ export class ManagementService {
    * recorded at install time to identify truly new components.
    */
   async getNewComponents(projectPath: string): Promise<NewComponentsResult> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const manifest = this.loadManifest(projectPath);
 
@@ -459,6 +468,7 @@ export class ManagementService {
   // ========== Private methods ==========
 
   private findAgentFile(dir: string, filename: string): string | null {
+    if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
     if (!fs.existsSync(dir)) return null;
 
     const entries = fs.readdirSync(dir, { withFileTypes: true });

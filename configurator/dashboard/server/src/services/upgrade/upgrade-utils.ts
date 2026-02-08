@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { readJsonSync } from '../../utils/fs-utils.js';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { FeatureRegistry, ExtendedManifest, TrackedFile } from '../../types/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -44,7 +44,7 @@ export function calculateFileHash(content: string): string {
  * Calculate hash from file path
  */
 export function calculateFileHashFromPath(filePath: string): string | null {
-  if (filePath.includes('..')) throw new Error('Path traversal not allowed');
+  if (filePath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   try {
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -60,8 +60,8 @@ export function calculateFileHashFromPath(filePath: string): string | null {
  * Load project manifest
  */
 export function loadManifest(projectPath: string): ExtendedManifest | null {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
   return readJsonSync<ExtendedManifest>(manifestPath);
 }
@@ -70,8 +70,8 @@ export function loadManifest(projectPath: string): ExtendedManifest | null {
  * Save project manifest
  */
 export function saveManifest(projectPath: string, manifest: ExtendedManifest): boolean {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
   try {
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -85,8 +85,8 @@ export function saveManifest(projectPath: string, manifest: ExtendedManifest): b
  * Check if a file has been modified by the user
  */
 export function isFileModified(projectPath: string, trackedFile: TrackedFile): boolean {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const filePath = path.join(projectPath, trackedFile.path);
   const currentHash = calculateFileHashFromPath(filePath);
 
@@ -102,8 +102,8 @@ export function isFileModified(projectPath: string, trackedFile: TrackedFile): b
  * Create backup of files
  */
 export function createBackup(projectPath: string, files: string[]): string | null {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   if (files.length === 0) return null;
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -137,8 +137,8 @@ export function createTrackedFile(
   type: TrackedFile['type'],
   source?: string
 ): TrackedFile | null {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const fullPath = path.join(projectPath, relativePath);
   const hash = calculateFileHashFromPath(fullPath);
 
@@ -164,8 +164,8 @@ export function initializeExtendedManifest(
   detectedStack?: ExtendedManifest['detectedStack'],
   existingFiles?: Array<{ path: string; type: TrackedFile['type']; source?: string }>
 ): ExtendedManifest {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const trackedFiles: TrackedFile[] = [];
 
   // Track provided files

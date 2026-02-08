@@ -150,11 +150,14 @@ export function resolveProjectPath(raw: unknown): string {
   if (!path.isAbsolute(raw)) {
     throw new PathValidationError('Path must be absolute');
   }
-  if (!fs.existsSync(raw)) {
+  // Normalize path before existence check
+  const normalized = path.resolve(raw);
+  if (normalized.includes('..')) throw new PathValidationError('Path traversal not allowed');
+  if (!fs.existsSync(normalized)) {
     throw new PathValidationError('Path does not exist');
   }
   // Resolve to canonical form for safe filesystem access
-  const resolved = fs.realpathSync(raw);
+  const resolved = fs.realpathSync(normalized);
   // SECURITY: Verify resolved path is rooted (CodeQL StartsWithDirSanitizer barrier)
   if (!resolved.startsWith('/')) {
     // Windows: verify drive letter root (e.g., C:\)

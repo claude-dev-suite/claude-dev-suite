@@ -11,7 +11,7 @@ import type { EnvironmentFile } from '../../types.js';
 import { EXCLUDED_DIRS, ENV_FILE_PATTERNS, extractEnvVar } from '../../utils/fs-utils.js';
 import { timeOperation, TIMING_THRESHOLDS } from '../../utils/performance.js';
 import { getLogger } from '../../utils/logger.js';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 
 const logger = getLogger('EnvironmentDetectionService');
 
@@ -21,6 +21,7 @@ export class EnvironmentDetectionService {
    * Recursively searches all subdirectories (excluding node_modules, .git, etc.)
    */
   async detectEnvironments(projectPath: string): Promise<EnvironmentFile[]> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const endTimer = timeOperation(logger, 'detectEnvironments', TIMING_THRESHOLDS.DETECTION_ENV, { data: { projectPath } });
     const environments: Record<string, EnvironmentFile> = {};
@@ -68,6 +69,7 @@ export class EnvironmentDetectionService {
    * Stops at depth 4 to avoid extremely deep searches
    */
   collectSearchDirs(dir: string, projectRoot: string, depth = 0, maxDepth = 4): string[] {
+    if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
     dir = resolveProjectPath(dir);
     const dirs: string[] = [dir];
 

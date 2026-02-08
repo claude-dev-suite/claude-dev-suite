@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { execSync, execFileSync } from 'child_process';
 import type { InstallConfig, InstallManifest } from '../types.js';
 import type { TrackedFile, ExtendedManifest, StackInfo } from '../types/index.js';
@@ -119,11 +119,8 @@ export class InstallationService {
    */
   async install(config: InstallConfig): Promise<InstallManifest> {
     let { projectPath } = config;
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    // SECURITY: Path traversal check after resolution
-    if (projectPath.includes('..')) {
-      throw new Error('Path traversal not allowed');
-    }
     const { agents, mcpServers, envVars, detectedStack } = config;
     const devSuiteDir = getDevSuiteDir();
 
@@ -246,11 +243,8 @@ export class InstallationService {
    * Uninstall dev-suite from a project
    */
   async uninstall(projectPath: string): Promise<{ removed: string[]; errors: string[] }> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    // SECURITY: Path traversal check after resolution
-    if (projectPath.includes('..')) {
-      throw new Error('Path traversal not allowed');
-    }
     const removed: string[] = [];
     const errors: string[] = [];
 
@@ -345,11 +339,8 @@ export class InstallationService {
    * Get installation status
    */
   async getStatus(projectPath: string): Promise<{ installed: boolean; manifest?: InstallManifest }> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    // SECURITY: Path traversal check after resolution
-    if (projectPath.includes('..')) {
-      throw new Error('Path traversal not allowed');
-    }
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
 
     if (!fs.existsSync(manifestPath)) {

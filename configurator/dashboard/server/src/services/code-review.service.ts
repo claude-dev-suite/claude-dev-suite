@@ -44,6 +44,7 @@ export class CodeReviewService {
    */
   isValidPath(targetPath: string): boolean {
     if (!targetPath || typeof targetPath !== 'string') return false;
+    if (targetPath.includes('..')) return false;
 
     const normalized = path.normalize(targetPath);
     if (normalized.includes('..') && !path.isAbsolute(normalized)) return false;
@@ -77,6 +78,7 @@ export class CodeReviewService {
    * Get base branch (main or master)
    */
   getBaseBranch(cwd: string): string {
+    if (cwd.includes('..')) throw new Error('Path traversal not allowed');
     cwd = resolveProjectPath(cwd);
     if (!this.isValidPath(cwd)) return 'main';
 
@@ -116,6 +118,7 @@ export class CodeReviewService {
    * List source files in a project
    */
   listSourceFiles(projectPath: string): SourceFilesResult {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     return listSourceFilesImpl(projectPath, this.isValidPath.bind(this));
   }
@@ -127,6 +130,7 @@ export class CodeReviewService {
     projectPath: string,
     options: { maxFiles?: number; maxSize?: number; paths?: string[] } = {},
   ): DiffResult {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     return getFullProjectCode(projectPath, options);
   }
@@ -140,6 +144,7 @@ export class CodeReviewService {
     repoPath: string | null = null,
     options: { maxFiles?: number; maxSize?: number; paths?: string[] } = {},
   ): DiffResult {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const cwd = repoPath ? path.join(projectPath, repoPath) : projectPath;
 

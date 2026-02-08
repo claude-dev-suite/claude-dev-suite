@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import { getLogger } from '../../utils/logger.js';
 import { readJsonSync } from '../../utils/fs-utils.js';
 import { getDevSuiteDir, calculateFileHashFromPath } from './upgrade-utils.js';
@@ -35,8 +35,8 @@ export function applyHookMerge(
   registry: FeatureRegistry,
   hooksService: HooksService
 ): FeatureUpgradeResult {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const config = feature.apply as HookMergeConfig;
 
   try {
@@ -106,6 +106,7 @@ export function applyHookMerge(
 
     // Generic hook merge for other features
     const settingsPath = path.join(projectPath, config.target);
+    if (settingsPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const settings = readJsonSync<{ hooks?: Record<string, unknown[]> }>(settingsPath) || {};
 
     if (!settings.hooks) {
@@ -190,8 +191,8 @@ export function applyAgentReplace(
   feature: Feature,
   manifest: ExtendedManifest
 ): FeatureUpgradeResult {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const config = feature.apply as AgentReplaceConfig;
   const devSuiteDir = getDevSuiteDir();
 
@@ -262,8 +263,8 @@ export function applyFeature(
   hooksService: HooksService,
   resolutions?: ConflictResolutions
 ): FeatureUpgradeResult {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
-  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const featureResolutions = resolutions?.[feature.id];
 
   // Check for conflicts that need resolution

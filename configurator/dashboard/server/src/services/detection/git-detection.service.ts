@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { GitRepoInfo } from '../../types.js';
 import { EXCLUDED_DIRS } from '../../utils/fs-utils.js';
 import { getLogger } from '../../utils/logger.js';
@@ -19,10 +19,12 @@ export class GitDetectionService {
    * Detect git repositories in the project
    */
   async detectGitRepos(projectPath: string): Promise<GitRepoInfo[]> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const repos: GitRepoInfo[] = [];
 
     const scanDir = (dir: string, relativePath = ''): void => {
+      if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
       const gitDir = path.join(dir, '.git');
 
       try {
@@ -70,6 +72,7 @@ export class GitDetectionService {
    * Parse git config to extract remote URL and name
    */
   parseGitConfig(gitDir: string): { remoteUrl: string | null; remoteName: string | null } {
+    if (gitDir.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const configPath = path.join(gitDir, 'config');
     if (!fs.existsSync(configPath)) return { remoteUrl: null, remoteName: null };
 
@@ -95,6 +98,7 @@ export class GitDetectionService {
    * Parse current git branch from HEAD file
    */
   parseCurrentBranch(gitDir: string): string | null {
+    if (gitDir.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const headPath = path.join(gitDir, 'HEAD');
     if (!fs.existsSync(headPath)) return null;
 

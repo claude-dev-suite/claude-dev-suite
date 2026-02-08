@@ -110,6 +110,7 @@ installationRoutes.get('/install-status', validateQuery(InstallStatusRequestSche
 installationRoutes.get('/available-commands', validateQuery(AvailableCommandsRequestSchema), async (req: Request, res: Response) => {
   try {
     const { path: rawPath } = req.query as { path: string };
+    if (typeof rawPath === 'string' && rawPath.includes('..')) throw new Error('Path traversal not allowed');
     const projectPath = resolveProjectPath(rawPath);
 
     const commandsDir = path.join(projectPath, '.claude', 'commands');
@@ -120,6 +121,7 @@ installationRoutes.get('/available-commands', validateQuery(AvailableCommandsReq
       const mdFiles = files.filter(f => f.endsWith('.md') && f !== 'README.md');
 
       for (const file of mdFiles) {
+        if (file.includes('..')) continue;
         const name = file.replace('.md', '');
         const filePath = path.join(commandsDir, file);
         try {

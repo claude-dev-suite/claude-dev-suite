@@ -7,7 +7,7 @@
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import type { FileChange, FileStatus } from '../../types/git.js';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 
 /**
  * Execute a git command in a specific directory using spawnSync with array arguments.
@@ -19,6 +19,7 @@ export function execGit(
   cwd: string,
   options: SpawnSyncOptions = {}
 ): string {
+  if (cwd.includes('..')) throw new PathValidationError('Path traversal not allowed');
   cwd = resolveProjectPath(cwd);
   const result = spawnSync('git', args, {
     cwd,

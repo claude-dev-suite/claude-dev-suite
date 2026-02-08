@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { getLogger } from '../../utils/logger.js';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { TrackedFile, ExtendedManifest } from '../../types/index.js';
 
 const logger = getLogger('PackageInstaller');
@@ -42,8 +42,8 @@ export class PackageInstallerService {
    * Detect which package manager is used in the project
    */
   detectPackageManager(projectPath: string): PackageManager {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     // Check for lock files in root and common subdirs
     const dirsToCheck = [
       projectPath,
@@ -65,8 +65,8 @@ export class PackageInstallerService {
    * Find the directory containing package.json (for monorepos)
    */
   findPackageJsonDir(projectPath: string): string {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const dirsToCheck = [
       projectPath,
       path.join(projectPath, 'frontend'),
@@ -92,8 +92,8 @@ export class PackageInstallerService {
     packages: string[],
     dev: boolean = true
   ): Promise<InstallPackagesResult> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const packageManager = this.detectPackageManager(projectPath);
     const workDir = this.findPackageJsonDir(projectPath);
 
@@ -179,8 +179,8 @@ export class PackageInstallerService {
     saveManifest: (projectPath: string, manifest: ExtendedManifest) => boolean,
     createTrackedFile: (projectPath: string, relativePath: string, type: TrackedFile['type'], source?: string) => TrackedFile | null
   ): Promise<InstallAgentResult> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
 
     // Validate agentId to prevent path injection
     if (!agentId || agentId.includes('..') || agentId.includes('/') || agentId.includes('\\')) {

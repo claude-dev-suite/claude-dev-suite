@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveProjectPath } from './utilities.js';
+import { resolveProjectPath, PathValidationError } from './utilities.js';
 
 export const EXCLUDED_DIRS = Object.freeze([
   'node_modules',
@@ -30,9 +30,8 @@ export const ENV_FILE_PATTERNS = Object.freeze([
 ]);
 
 export function fileExists(dir: string, filename: string): boolean {
+  if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
   dir = resolveProjectPath(dir);
-  // SECURITY: Redundant path traversal check after resolution
-  if (dir.includes('..')) throw new Error('Path traversal not allowed');
   try {
     return fs.existsSync(path.join(dir, filename));
   } catch {
@@ -41,9 +40,8 @@ export function fileExists(dir: string, filename: string): boolean {
 }
 
 export function fileContains(dir: string, filename: string, pattern: string): boolean {
+  if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
   dir = resolveProjectPath(dir);
-  // SECURITY: Redundant path traversal check after resolution
-  if (dir.includes('..')) throw new Error('Path traversal not allowed');
   const filePath = path.join(dir, filename);
   try {
     if (fs.existsSync(filePath)) {
@@ -59,7 +57,7 @@ export function fileContains(dir: string, filename: string, pattern: string): bo
 export function readFileContent(filePath: string): string | null {
   // SECURITY: Path traversal check (for consistency with other utils)
   if (typeof filePath === 'string' && filePath.includes('..')) {
-    throw new Error('Path traversal not allowed');
+    throw new PathValidationError('Path traversal not allowed');
   }
   try {
     if (fs.existsSync(filePath)) {
@@ -74,7 +72,7 @@ export function readFileContent(filePath: string): string | null {
 export function readJsonSync<T>(filePath: string): T | null {
   // SECURITY: Path traversal check at entry
   if (typeof filePath === 'string' && filePath.includes('..')) {
-    throw new Error('Path traversal not allowed');
+    throw new PathValidationError('Path traversal not allowed');
   }
   try {
     if (fs.existsSync(filePath)) {

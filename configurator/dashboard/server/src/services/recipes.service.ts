@@ -9,7 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 // HooksService available for future advanced hook operations
 // import { HooksService } from './hooks.service.js';
@@ -109,6 +109,7 @@ export class RecipesService {
    * Get enabled automations for a project
    */
   getEnabledAutomations(projectPath: string): EnabledAutomation[] {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
     const manifest = readJsonSync<{ automations?: EnabledAutomation[] }>(manifestPath);
@@ -119,7 +120,7 @@ export class RecipesService {
    * Save enabled automations to manifest
    */
   private saveEnabledAutomations(projectPath: string, automations: EnabledAutomation[]): boolean {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
     const manifest = readJsonSync<Record<string, unknown>>(manifestPath) ?? {};
 
@@ -138,8 +139,8 @@ export class RecipesService {
    * Detect tools installed in a project
    */
   detectTools(projectPath: string): DetectedTools {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const result: DetectedTools = {
       formatters: [],
       linters: [],
@@ -226,6 +227,7 @@ export class RecipesService {
    * Get recommended recipes for a project
    */
   getRecommendedRecipes(projectPath: string): RecipeRecommendation[] {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     const tools = this.detectTools(projectPath);
     const enabledAutomations = this.getEnabledAutomations(projectPath);
@@ -323,6 +325,7 @@ export class RecipesService {
     recipeId: string,
     customOptions?: Record<string, unknown>
   ): Promise<RecipeOperationResult> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     // Validate recipeId to prevent injection
     if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
@@ -436,6 +439,7 @@ export class RecipesService {
    * Disable a recipe
    */
   async disableRecipe(projectPath: string, recipeId: string): Promise<RecipeOperationResult> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     // Validate recipeId to prevent injection
     if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
@@ -505,6 +509,7 @@ export class RecipesService {
     recipeId: string,
     customOptions?: Record<string, unknown>
   ): Promise<RecipeTestResult> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     // Validate recipeId to prevent injection
     if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
@@ -598,7 +603,7 @@ export class RecipesService {
     recipe: AutomationRecipe,
     command: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const impl = recipe.implementation;
     if (!impl.event) {
       return { success: false, error: 'Missing event in recipe implementation' };
@@ -697,7 +702,7 @@ export class RecipesService {
     projectPath: string,
     recipe: AutomationRecipe
   ): Promise<{ success: boolean; error?: string }> {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const settingsPath = path.join(projectPath, '.claude', 'settings.json');
 
     type Settings = { hooks?: Record<string, unknown[]> };
@@ -738,7 +743,7 @@ export class RecipesService {
     recipe: AutomationRecipe,
     command: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     const impl = recipe.implementation;
     if (!impl.hookType) {
       return { success: false, error: 'Missing hookType in recipe implementation' };
