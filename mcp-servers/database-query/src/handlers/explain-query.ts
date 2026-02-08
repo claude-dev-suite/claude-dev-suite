@@ -58,16 +58,15 @@ export const handleExplainQuery: Handler = async (args): Promise<HandlerResult> 
   }
 
   // Get index suggestions based on the query
-  const tableMatches = sql.match(/FROM\s+(\w+)/gi) || [];
-  const tables = tableMatches.map(m => m.replace(/^FROM\s+/i, ''));
+  const tables: string[] = [];
+  for (const match of sql.matchAll(/FROM\s+(\w+)/gi)) {
+    if (match[1]) tables.push(match[1]);
+  }
 
-  const whereMatches = sql.match(/WHERE\s+(\w+)\s*[=<>]/gi) || [];
-  const whereColumns = whereMatches.map(m => {
-    let s = m;
-    let prev;
-    do { prev = s; s = s.replace(/WHERE\s+/gi, ''); } while (s !== prev);
-    return s.replace(/\s*[=<>].*/, '');
-  });
+  const whereColumns: string[] = [];
+  for (const match of sql.matchAll(/WHERE\s+(\w+)\s*[=<>]/gi)) {
+    if (match[1]) whereColumns.push(match[1]);
+  }
 
   if (whereColumns.length > 0) {
     insights.push(`Consider indexes on: ${whereColumns.join(', ')}`);
