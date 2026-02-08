@@ -174,8 +174,10 @@ function extractResponseBody(
  * Convert OpenAPI path to regex pattern
  */
 function pathToRegex(path: string): RegExp {
-  // Convert {param} to named capture groups
-  const pattern = path
+  // First, escape all regex-special characters except { and }
+  const escaped = path.replace(/[.*+?^$|()[\]\\]/g, '\\$&');
+  // Then convert {param} to named capture groups
+  const pattern = escaped
     .replace(/\{([^}]+)\}/g, '(?<$1>[^/]+)')
     .replace(/\//g, '\\/');
   return new RegExp(`^${pattern}$`);

@@ -137,6 +137,28 @@ export function validateProjectPath(projectPath: string): { valid: boolean; path
 }
 
 /**
+ * SECURITY: Extract and validate a project path from request.
+ * Returns validated absolute path or throws PathValidationError.
+ */
+export function resolveProjectPath(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw) {
+    throw new PathValidationError('Project path is required');
+  }
+  const result = validateProjectPath(raw);
+  if (!result.valid) {
+    throw new PathValidationError(result.error || 'Invalid project path');
+  }
+  return result.path!;
+}
+
+export class PathValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PathValidationError';
+  }
+}
+
+/**
  * Escape path for shell command
  */
 export function escapeShellArg(arg: string): string {

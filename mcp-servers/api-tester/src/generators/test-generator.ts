@@ -463,7 +463,7 @@ function generateJsTestCode(tests: GeneratedTest[], framework: 'vitest' | 'jest'
     const headersStr = JSON.stringify(test.headers, null, 2);
 
     return `
-  it('${test.name.replace(/'/g, "\\'")}', async () => {
+  it(${JSON.stringify(test.name)}, async () => {
     const response = await fetch('${test.url}', {
       method: '${test.method}',
       headers: ${headersStr},

@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import type { InstallConfig, InstallManifest } from '../types.js';
 import type { TrackedFile, ExtendedManifest, StackInfo } from '../types/index.js';
 import { AgentsService } from './agents.service.js';
@@ -89,10 +89,11 @@ export class InstallationService {
       }
 
       try {
-        execSync(`npm run build --workspace=${serverName}`, {
+        execFileSync('npm', ['run', 'build', `--workspace=${serverName}`], {
           cwd: mcpRoot,
           stdio: 'pipe',
           timeout: TIMEOUTS.COMMAND_DEFAULT,
+          shell: process.platform === 'win32',
         });
 
         if (fs.existsSync(distPath)) {

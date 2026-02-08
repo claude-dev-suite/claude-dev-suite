@@ -9,6 +9,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
+import { resolveProjectPath } from '../utils/utilities.js';
 import { WorkflowsService } from '../services/workflows.service.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -52,14 +53,7 @@ orchestratorRoutes.post('/orchestrator/analyze-mcp', mcpSuggestionsHandler);
 // GET /api/orchestrator/workflows - Get all workflows (builtin + custom)
 orchestratorRoutes.get('/orchestrator/workflows', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.project_path as string;
-
-    if (!projectPath) {
-      return res.status(400).json({
-        success: false,
-        error: 'project_path query parameter is required',
-      });
-    }
+    const projectPath = resolveProjectPath(req.query.project_path);
 
     const workflows = await workflowsService.getAllWorkflows(projectPath);
 
@@ -226,14 +220,7 @@ async function getSessionMetadata(filePath: string): Promise<{ firstMessage: str
 orchestratorRoutes.get('/orchestrator/sessions/:id/history', async (req: Request, res: Response) => {
   try {
     const sessionId = req.params.id;
-    const projectPath = req.query.project_path as string;
-
-    if (!projectPath) {
-      return res.status(400).json({
-        success: false,
-        error: 'project_path query parameter is required',
-      });
-    }
+    const projectPath = resolveProjectPath(req.query.project_path);
 
     // Find Claude's project sessions folder
     const claudeDir = path.join(os.homedir(), '.claude', 'projects');
@@ -327,14 +314,7 @@ orchestratorRoutes.get('/orchestrator/sessions/:id/history', async (req: Request
 // GET /api/orchestrator/sessions - List available sessions for a project
 orchestratorRoutes.get('/orchestrator/sessions', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.project_path as string;
-
-    if (!projectPath) {
-      return res.status(400).json({
-        success: false,
-        error: 'project_path query parameter is required',
-      });
-    }
+    const projectPath = resolveProjectPath(req.query.project_path);
 
     // Find Claude's project sessions folder
     const claudeDir = path.join(os.homedir(), '.claude', 'projects');

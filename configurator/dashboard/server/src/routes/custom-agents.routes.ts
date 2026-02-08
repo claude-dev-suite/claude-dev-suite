@@ -15,6 +15,7 @@ import multer, { type FileFilterCallback, MulterError } from 'multer';
 import rateLimit from 'express-rate-limit';
 import { CustomAgentsService } from '../services/custom-agents.service.js';
 import { getLogger } from '../utils/logger.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import {
   ListCustomAgentsRequestSchema,
   GetCustomAgentRequestSchema,
@@ -262,16 +263,8 @@ router.post(
       return;
     }
 
-    const projectPath = req.body.projectPath as string | undefined;
+    const projectPath = resolveProjectPath(req.body.projectPath);
     const bypassWarnings = req.body.bypassWarnings === 'true';
-
-    if (!projectPath) {
-      res.status(400).json({
-        success: false,
-        error: 'Project path is required',
-      });
-      return;
-    }
 
     const content = req.file.buffer.toString('utf-8');
     const result = await customAgentsService.createCustomAgent(projectPath, content, bypassWarnings);

@@ -466,7 +466,7 @@ async function hasAnyProjectFile(dirPath: string): Promise<boolean> {
       for (const pattern of ECOSYSTEM_FILES[ecosystem]) {
         if (pattern.includes("*")) {
           // Glob pattern
-          const ext = pattern.replace("*", "");
+          const ext = pattern.replaceAll("*", "");
           if (entries.some((e) => e.endsWith(ext))) {
             return true;
           }
@@ -580,7 +580,7 @@ async function detectEcosystem(dirPath: string): Promise<Ecosystem | null> {
     for (const ecosystem of ecosystemOrder) {
       for (const pattern of ECOSYSTEM_FILES[ecosystem]) {
         if (pattern.includes("*")) {
-          const ext = pattern.replace("*", "");
+          const ext = pattern.replaceAll("*", "");
           if (entries.some((e) => e.endsWith(ext))) {
             return ecosystem;
           }
@@ -611,7 +611,7 @@ async function getDependencyFileContent(
     try {
       if (file.includes("*")) {
         // Handle glob pattern (e.g., *.csproj)
-        const ext = file.replace("*", "");
+        const ext = file.replaceAll("*", "");
         const entries = await readdir(dirPath);
         const matching = entries.find((e) => e.endsWith(ext));
         if (matching) {

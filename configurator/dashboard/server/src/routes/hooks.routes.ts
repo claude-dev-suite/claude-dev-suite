@@ -10,6 +10,7 @@ import { HooksService } from '../services/hooks.service.js';
 import { DetectionService } from '../services/detection.service.js';
 import type { ApiResponse, HooksInstallConfig, ClaudeHookConfig, ClaudeHooksExport } from '../types.js';
 import { validateBody, validateQuery } from '../middleware/validateRequest.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import {
   HooksRepositoriesRequestSchema,
   HooksStatusRequestSchema,
@@ -56,16 +57,8 @@ hooksRoutes.get('/hooks/status', validateQuery(HooksStatusRequestSchema), async 
 // Get hooks status for a specific repository
 hooksRoutes.get('/hooks/status/:repoPath', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.params.repoPath;
-
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const status = hooksService.getHooksStatusForRepo(projectPath, String(repoPath));
 
@@ -113,19 +106,13 @@ hooksRoutes.post('/hooks/install', validateBody(InstallHooksRequestSchema), asyn
 // Install hooks for a specific repository
 hooksRoutes.post('/hooks/install/:repoPath', async (req: Request, res: Response) => {
   try {
-    const { projectPath, config } = req.body as {
+    const { projectPath: rawPath, config } = req.body as {
       projectPath: string;
       config: HooksInstallConfig;
     };
     const repoPath = req.params.repoPath;
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'projectPath is required',
-      };
-      return res.status(400).json(response);
-    }
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = hooksService.installHooksForRepo(projectPath, String(repoPath ?? ''), config || {});
 
@@ -148,15 +135,9 @@ hooksRoutes.post('/hooks/install/:repoPath', async (req: Request, res: Response)
 // Uninstall Git hooks
 hooksRoutes.post('/hooks/uninstall', async (req: Request, res: Response) => {
   try {
-    const { projectPath, useHusky } = req.body as { projectPath: string; useHusky?: boolean };
+    const { projectPath: rawPath, useHusky } = req.body as { projectPath: string; useHusky?: boolean };
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'projectPath is required',
-      };
-      return res.status(400).json(response);
-    }
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = hooksService.uninstallHooks(projectPath, useHusky);
 
@@ -211,11 +192,7 @@ hooksRoutes.post('/hooks/uninstall/:repoPath', async (req: Request, res: Respons
 // Get Claude hooks status
 hooksRoutes.get('/claude-hooks/status', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
-
-    if (!projectPath) {
-      return res.status(400).json({ error: 'Project path is required' });
-    }
+    const projectPath = resolveProjectPath(req.query.path);
 
     const status = hooksService.getClaudeHooksStatus(projectPath);
 
@@ -229,15 +206,7 @@ hooksRoutes.get('/claude-hooks/status', async (req: Request, res: Response) => {
 // Add Claude hook
 hooksRoutes.post('/claude-hooks/add', async (req: Request, res: Response) => {
   try {
-    const { projectPath, hook } = req.body as { projectPath: string; hook: ClaudeHookConfig };
-
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'projectPath is required',
-      };
-      return res.status(400).json(response);
-    }
+    const { projectPath: rawPath, hook } = req.body as { projectPath: string; hook: ClaudeHookConfig };
 
     if (!hook) {
       const response: ApiResponse = {
@@ -246,6 +215,8 @@ hooksRoutes.post('/claude-hooks/add', async (req: Request, res: Response) => {
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = hooksService.addClaudeHook(projectPath, hook);
 
@@ -268,19 +239,21 @@ hooksRoutes.post('/claude-hooks/add', async (req: Request, res: Response) => {
 // Update Claude hook
 hooksRoutes.post('/claude-hooks/update', async (req: Request, res: Response) => {
   try {
-    const { projectPath, hookId, config } = req.body as {
+    const { projectPath: rawPath, hookId, config } = req.body as {
       projectPath: string;
       hookId: string;
       config: Partial<ClaudeHookConfig>;
     };
 
-    if (!projectPath || !hookId) {
+    if (!hookId) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and hookId are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = hooksService.updateClaudeHook(projectPath, hookId, config);
 
@@ -303,15 +276,17 @@ hooksRoutes.post('/claude-hooks/update', async (req: Request, res: Response) => 
 // Remove Claude hook
 hooksRoutes.post('/claude-hooks/remove', async (req: Request, res: Response) => {
   try {
-    const { projectPath, hookId } = req.body as { projectPath: string; hookId: string };
+    const { projectPath: rawPath, hookId } = req.body as { projectPath: string; hookId: string };
 
-    if (!projectPath || !hookId) {
+    if (!hookId) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and hookId are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = hooksService.removeClaudeHook(projectPath, hookId);
 
@@ -334,15 +309,17 @@ hooksRoutes.post('/claude-hooks/remove', async (req: Request, res: Response) => 
 // Apply Claude hook template
 hooksRoutes.post('/claude-hooks/apply-template', async (req: Request, res: Response) => {
   try {
-    const { projectPath, templateId } = req.body as { projectPath: string; templateId: string };
+    const { projectPath: rawPath, templateId } = req.body as { projectPath: string; templateId: string };
 
-    if (!projectPath || !templateId) {
+    if (!templateId) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and templateId are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = hooksService.applyClaudeTemplate(projectPath, templateId);
 
@@ -365,15 +342,9 @@ hooksRoutes.post('/claude-hooks/apply-template', async (req: Request, res: Respo
 // Clear all Claude hooks
 hooksRoutes.post('/claude-hooks/clear', async (req: Request, res: Response) => {
   try {
-    const { projectPath } = req.body as { projectPath: string };
+    const { projectPath: rawPath } = req.body as { projectPath: string };
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'projectPath is required',
-      };
-      return res.status(400).json(response);
-    }
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = hooksService.clearAllClaudeHooks(projectPath);
 
@@ -396,15 +367,7 @@ hooksRoutes.post('/claude-hooks/clear', async (req: Request, res: Response) => {
 // Export Claude hooks
 hooksRoutes.get('/claude-hooks/export', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
-
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
+    const projectPath = resolveProjectPath(req.query.path);
 
     const exported = hooksService.exportClaudeHooks(projectPath);
 
@@ -426,19 +389,21 @@ hooksRoutes.get('/claude-hooks/export', async (req: Request, res: Response) => {
 // Import Claude hooks
 hooksRoutes.post('/claude-hooks/import', async (req: Request, res: Response) => {
   try {
-    const { projectPath, exported, merge } = req.body as {
+    const { projectPath: rawPath, exported, merge } = req.body as {
       projectPath: string;
       exported: ClaudeHooksExport;
       merge?: boolean;
     };
 
-    if (!projectPath || !exported) {
+    if (!exported) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and exported data are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = hooksService.importClaudeHooks(projectPath, exported, merge !== false);
 

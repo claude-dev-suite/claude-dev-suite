@@ -267,9 +267,6 @@ export async function benchmarkCode(
   const tempDir = await createTempDir('python-benchmark');
   const benchmarkPath = join(tempDir, 'benchmark.py');
 
-  // Escape the code for embedding
-  const escapedCode = code.replace(/'/g, "\\'").replace(/"/g, '\\"');
-
   const benchmarkScript = `
 import time
 import json

@@ -59,10 +59,10 @@ export const handleExplainQuery: Handler = async (args): Promise<HandlerResult> 
 
   // Get index suggestions based on the query
   const tableMatches = sql.match(/FROM\s+(\w+)/gi) || [];
-  const tables = tableMatches.map(m => m.replace(/FROM\s+/i, ''));
+  const tables = tableMatches.map(m => m.replace(/^FROM\s+/i, ''));
 
   const whereMatches = sql.match(/WHERE\s+(\w+)\s*[=<>]/gi) || [];
-  const whereColumns = whereMatches.map(m => m.replace(/WHERE\s+/i, '').replace(/\s*[=<>].*/, ''));
+  const whereColumns = whereMatches.map(m => m.replace(/^WHERE\s+/i, '').replace(/\s*[=<>].*/, ''));
 
   if (whereColumns.length > 0) {
     insights.push(`Consider indexes on: ${whereColumns.join(', ')}`);

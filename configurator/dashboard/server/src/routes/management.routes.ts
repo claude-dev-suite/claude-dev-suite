@@ -8,6 +8,7 @@
 import { Router, type Request, type Response } from 'express';
 import { ManagementService } from '../services/management.service.js';
 import type { ApiResponse } from '../types.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 
 export const managementRoutes = Router();
 const managementService = new ManagementService();
@@ -15,11 +16,7 @@ const managementService = new ManagementService();
 // Get installed components
 managementRoutes.get('/installed-components', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string || process.env.PROJECT_PATH;
-
-    if (!projectPath) {
-      return res.status(400).json({ error: 'Project path is required' });
-    }
+    const projectPath = resolveProjectPath(req.query.path || process.env.PROJECT_PATH);
 
     const components = await managementService.getInstalledComponents(projectPath);
 
@@ -40,15 +37,17 @@ managementRoutes.get('/installed-components', async (req: Request, res: Response
 // Add agent to project
 managementRoutes.post('/add-agent', async (req: Request, res: Response) => {
   try {
-    const { projectPath, agentId } = req.body as { projectPath: string; agentId: string };
+    const { projectPath: rawPath, agentId } = req.body as { projectPath: string; agentId: string };
 
-    if (!projectPath || !agentId) {
+    if (!agentId) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and agentId are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     await managementService.addAgent(projectPath, agentId);
 
@@ -70,15 +69,17 @@ managementRoutes.post('/add-agent', async (req: Request, res: Response) => {
 // Remove agent from project
 managementRoutes.post('/remove-agent', async (req: Request, res: Response) => {
   try {
-    const { projectPath, agentId } = req.body as { projectPath: string; agentId: string };
+    const { projectPath: rawPath, agentId } = req.body as { projectPath: string; agentId: string };
 
-    if (!projectPath || !agentId) {
+    if (!agentId) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and agentId are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     await managementService.removeAgent(projectPath, agentId);
 
@@ -100,19 +101,21 @@ managementRoutes.post('/remove-agent', async (req: Request, res: Response) => {
 // Add MCP server to project
 managementRoutes.post('/add-mcp-server', async (req: Request, res: Response) => {
   try {
-    const { projectPath, serverName, envVars } = req.body as {
+    const { projectPath: rawPath, serverName, envVars } = req.body as {
       projectPath: string;
       serverName: string;
       envVars?: Record<string, string>;
     };
 
-    if (!projectPath || !serverName) {
+    if (!serverName) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and serverName are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     await managementService.addMcpServer(projectPath, serverName, envVars);
 
@@ -134,15 +137,17 @@ managementRoutes.post('/add-mcp-server', async (req: Request, res: Response) => 
 // Remove MCP server from project
 managementRoutes.post('/remove-mcp-server', async (req: Request, res: Response) => {
   try {
-    const { projectPath, serverName } = req.body as { projectPath: string; serverName: string };
+    const { projectPath: rawPath, serverName } = req.body as { projectPath: string; serverName: string };
 
-    if (!projectPath || !serverName) {
+    if (!serverName) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and serverName are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     await managementService.removeMcpServer(projectPath, serverName);
 
@@ -164,11 +169,7 @@ managementRoutes.post('/remove-mcp-server', async (req: Request, res: Response) 
 // Get new components available since install
 managementRoutes.get('/new-components', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string || process.env.PROJECT_PATH;
-
-    if (!projectPath) {
-      return res.status(400).json({ error: 'Project path is required' });
-    }
+    const projectPath = resolveProjectPath(req.query.path || process.env.PROJECT_PATH);
 
     const result = await managementService.getNewComponents(projectPath);
 

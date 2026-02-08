@@ -36,15 +36,11 @@ let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 const FLUSH_INTERVAL = 500; // ms
 const MAX_QUEUE_SIZE = 50;
 
-// Correlation ID generation (simple nanoid implementation)
+// Correlation ID generation (cryptographically secure)
 function generateCorrelationId(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let id = '';
-  for (let i = 0; i < 21; i++) {
-    const char = chars[Math.floor(Math.random() * chars.length)];
-    id += char ?? '';
-  }
-  return id;
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('').slice(0, 21);
 }
 
 // Session correlation ID (persists for the session)

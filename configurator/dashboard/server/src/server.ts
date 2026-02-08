@@ -48,7 +48,16 @@ export function createServer(): Express {
 
   // Security middleware
   app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for development
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "ws://localhost:*", "ws://127.0.0.1:*"],
+        fontSrc: ["'self'"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
   }));
 

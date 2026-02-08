@@ -30,6 +30,10 @@ export function validatePath(userPath: string, baseDir: string): string {
  * Only allows alphanumeric, dash, underscore, dot, and forward slash.
  */
 export function validateGitRef(ref: string): string {
+  if (typeof ref !== 'string') {
+    throw new Error('Invalid git reference: expected string');
+  }
+
   // Git refs should only contain safe characters
   // See: https://git-scm.com/docs/git-check-ref-format
   const safeRefPattern = /^[a-zA-Z0-9._\-\/]+$/;
@@ -66,6 +70,10 @@ export function validateCommitHash(hash: string): string {
  * Validates characters and prevents command injection.
  */
 export function sanitizeFilePath(filePath: string): string {
+  if (typeof filePath !== 'string') {
+    throw new Error('File path must be a string');
+  }
+
   if (!filePath) {
     throw new Error('File path cannot be empty');
   }

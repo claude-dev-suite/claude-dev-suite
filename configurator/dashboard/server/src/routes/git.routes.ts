@@ -10,6 +10,7 @@ import { exec, spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { GitService } from '../services/git.service.js';
 import { DetectionService } from '../services/detection.service.js';
 import type { ApiResponse } from '../types.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import type {
   StageFilesRequest,
   DiscardChangesRequest,
@@ -43,14 +44,7 @@ let authAccount: string | null = null;
  */
 gitRoutes.get('/repos', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
-
-    if (!projectPath) {
-      return res.status(400).json({
-        success: false,
-        error: 'Project path is required',
-      } as ApiResponse);
-    }
+    const projectPath = resolveProjectPath(req.query.path);
 
     // Detect git repos
     const repos = await detectionService.detectGitRepos(projectPath);
@@ -93,13 +87,13 @@ gitRoutes.get('/repos', async (req: Request, res: Response) => {
  */
 gitRoutes.get('/status', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.query.repo as string;
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -127,13 +121,13 @@ gitRoutes.get('/status', async (req: Request, res: Response) => {
  */
 gitRoutes.get('/changes', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.query.repo as string;
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -157,15 +151,15 @@ gitRoutes.get('/changes', async (req: Request, res: Response) => {
  */
 gitRoutes.get('/diff', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.query.repo as string;
     const filePath = req.query.file as string;
     const staged = req.query.staged === 'true';
 
-    if (!projectPath || !repoPath || !filePath) {
+    if (!repoPath || !filePath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and file path are required',
+        error: 'Repo path and file path are required',
       } as ApiResponse);
     }
 
@@ -193,13 +187,13 @@ gitRoutes.get('/diff', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/stage', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, files } = req.body as StageFilesRequest;
 
-    if (!projectPath || !repoPath || !files?.length) {
+    if (!repoPath || !files?.length) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and files are required',
+        error: 'Repo path and files are required',
       } as ApiResponse);
     }
 
@@ -223,13 +217,13 @@ gitRoutes.post('/stage', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/stage-all', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath } = req.body as { repoPath: string };
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -253,13 +247,13 @@ gitRoutes.post('/stage-all', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/unstage', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, files } = req.body as StageFilesRequest;
 
-    if (!projectPath || !repoPath || !files?.length) {
+    if (!repoPath || !files?.length) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and files are required',
+        error: 'Repo path and files are required',
       } as ApiResponse);
     }
 
@@ -283,13 +277,13 @@ gitRoutes.post('/unstage', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/unstage-all', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath } = req.body as { repoPath: string };
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -313,13 +307,13 @@ gitRoutes.post('/unstage-all', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/discard', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, files, staged } = req.body as DiscardChangesRequest;
 
-    if (!projectPath || !repoPath || !files?.length) {
+    if (!repoPath || !files?.length) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and files are required',
+        error: 'Repo path and files are required',
       } as ApiResponse);
     }
 
@@ -347,13 +341,13 @@ gitRoutes.post('/discard', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/commit', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, message, amend } = req.body as CreateCommitRequest;
 
-    if (!projectPath || !repoPath || !message) {
+    if (!repoPath || !message) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and message are required',
+        error: 'Repo path and message are required',
       } as ApiResponse);
     }
 
@@ -378,16 +372,16 @@ gitRoutes.post('/commit', async (req: Request, res: Response) => {
  */
 gitRoutes.get('/log', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.query.repo as string;
     const limit = parseInt(req.query.limit as string) || 50;
     const from = req.query.from as string;
     const to = req.query.to as string;
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -411,14 +405,14 @@ gitRoutes.get('/log', async (req: Request, res: Response) => {
  */
 gitRoutes.get('/commit/:hash', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.query.repo as string;
     const commitHash = req.params.hash;
 
-    if (!projectPath || !repoPath || !commitHash) {
+    if (!repoPath || !commitHash) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and commit hash are required',
+        error: 'Repo path and commit hash are required',
       } as ApiResponse);
     }
 
@@ -442,13 +436,13 @@ gitRoutes.get('/commit/:hash', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/cherry-pick', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, commits, noCommit } = req.body as CherryPickRequest;
 
-    if (!projectPath || !repoPath || !commits?.length) {
+    if (!repoPath || !commits?.length) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and commits are required',
+        error: 'Repo path and commits are required',
       } as ApiResponse);
     }
 
@@ -472,13 +466,13 @@ gitRoutes.post('/cherry-pick', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/revert', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, commit, noCommit } = req.body as RevertRequest;
 
-    if (!projectPath || !repoPath || !commit) {
+    if (!repoPath || !commit) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and commit are required',
+        error: 'Repo path and commit are required',
       } as ApiResponse);
     }
 
@@ -506,13 +500,13 @@ gitRoutes.post('/revert', async (req: Request, res: Response) => {
  */
 gitRoutes.get('/branches', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.query.repo as string;
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -536,14 +530,14 @@ gitRoutes.get('/branches', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/branch/create', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, branchName, startPoint, checkout } =
       req.body as CreateBranchRequest;
 
-    if (!projectPath || !repoPath || !branchName) {
+    if (!repoPath || !branchName) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and branch name are required',
+        error: 'Repo path and branch name are required',
       } as ApiResponse);
     }
 
@@ -567,13 +561,13 @@ gitRoutes.post('/branch/create', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/branch/checkout', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, branchName, create } = req.body as CheckoutBranchRequest;
 
-    if (!projectPath || !repoPath || !branchName) {
+    if (!repoPath || !branchName) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and branch name are required',
+        error: 'Repo path and branch name are required',
       } as ApiResponse);
     }
 
@@ -597,13 +591,13 @@ gitRoutes.post('/branch/checkout', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/branch/delete', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, branchName, force } = req.body as DeleteBranchRequest;
 
-    if (!projectPath || !repoPath || !branchName) {
+    if (!repoPath || !branchName) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and branch name are required',
+        error: 'Repo path and branch name are required',
       } as ApiResponse);
     }
 
@@ -627,14 +621,14 @@ gitRoutes.post('/branch/delete', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/branch/merge', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, sourceBranch, noFastForward, message } =
       req.body as MergeBranchRequest;
 
-    if (!projectPath || !repoPath || !sourceBranch) {
+    if (!repoPath || !sourceBranch) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, and source branch are required',
+        error: 'Repo path and source branch are required',
       } as ApiResponse);
     }
 
@@ -658,15 +652,15 @@ gitRoutes.post('/branch/merge', async (req: Request, res: Response) => {
  */
 gitRoutes.get('/branch/compare', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.query.repo as string;
     const baseBranch = req.query.base as string;
     const compareBranch = req.query.compare as string;
 
-    if (!projectPath || !repoPath || !baseBranch || !compareBranch) {
+    if (!repoPath || !baseBranch || !compareBranch) {
       return res.status(400).json({
         success: false,
-        error: 'Project path, repo path, base branch, and compare branch are required',
+        error: 'Repo path, base branch, and compare branch are required',
       } as ApiResponse);
     }
 
@@ -699,13 +693,13 @@ gitRoutes.get('/branch/compare', async (req: Request, res: Response) => {
  */
 gitRoutes.get('/remotes', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const repoPath = req.query.repo as string;
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -729,13 +723,13 @@ gitRoutes.get('/remotes', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/fetch', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, remote, prune, all } = req.body as FetchRequest;
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -759,13 +753,13 @@ gitRoutes.post('/fetch', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/pull', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, remote, branch, rebase } = req.body as PullRequest;
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 
@@ -789,14 +783,14 @@ gitRoutes.post('/pull', async (req: Request, res: Response) => {
  */
 gitRoutes.post('/push', async (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const { repoPath, remote, branch, setUpstream, force, forceWithLease } =
       req.body as PushRequest;
 
-    if (!projectPath || !repoPath) {
+    if (!repoPath) {
       return res.status(400).json({
         success: false,
-        error: 'Project path and repo path are required',
+        error: 'Repo path is required',
       } as ApiResponse);
     }
 

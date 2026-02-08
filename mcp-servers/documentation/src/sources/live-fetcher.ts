@@ -52,22 +52,23 @@ function extractMainContent(html: string, url: string): string {
 
   // Site-specific selectors
   let mainContent: string;
+  const hostname = new URL(url).hostname;
 
-  if (url.includes("nextjs.org")) {
+  if (hostname === "nextjs.org" || hostname.endsWith(".nextjs.org")) {
     mainContent = $("article, .docs-content, main").first().text();
-  } else if (url.includes("react.dev")) {
+  } else if (hostname === "react.dev" || hostname.endsWith(".react.dev")) {
     mainContent = $("article, main").first().text();
-  } else if (url.includes("prisma.io")) {
+  } else if (hostname === "prisma.io" || hostname.endsWith(".prisma.io")) {
     mainContent = $(".article-content, article, main").first().text();
-  } else if (url.includes("docs.nestjs.com")) {
+  } else if (hostname === "docs.nestjs.com" || hostname.endsWith(".nestjs.com")) {
     mainContent = $(".content, article, main").first().text();
-  } else if (url.includes("tailwindcss.com")) {
+  } else if (hostname === "tailwindcss.com" || hostname.endsWith(".tailwindcss.com")) {
     mainContent = $("#content-wrapper, article, main").first().text();
-  } else if (url.includes("vitest.dev")) {
+  } else if (hostname === "vitest.dev" || hostname.endsWith(".vitest.dev")) {
     mainContent = $(".VPDoc, article, main").first().text();
-  } else if (url.includes("playwright.dev")) {
+  } else if (hostname === "playwright.dev" || hostname.endsWith(".playwright.dev")) {
     mainContent = $("article, main").first().text();
-  } else if (url.includes("typescriptlang.org")) {
+  } else if (hostname === "typescriptlang.org" || hostname.endsWith(".typescriptlang.org")) {
     mainContent = $("#handbook-content, article, main").first().text();
   } else {
     // Generic fallback

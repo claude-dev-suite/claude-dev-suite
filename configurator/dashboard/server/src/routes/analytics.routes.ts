@@ -8,6 +8,7 @@
 import { Router, type Request, type Response } from 'express';
 import { AnalyticsService } from '../services/analytics.service.js';
 import type { ApiResponse, Job } from '../types.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 
 export const analyticsRoutes = Router();
 const analyticsService = new AnalyticsService();
@@ -15,15 +16,8 @@ const analyticsService = new AnalyticsService();
 // Check if analytics exist
 analyticsRoutes.get('/analytics/status', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const summary = analyticsService.getAnalyticsSummary(projectPath);
 
@@ -45,15 +39,8 @@ analyticsRoutes.get('/analytics/status', (req: Request, res: Response) => {
 // Get KB usage entries with filters and pagination
 analyticsRoutes.get('/analytics/kb-usage', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const options = {
       technology: req.query.technology as string | undefined,
@@ -86,15 +73,8 @@ analyticsRoutes.get('/analytics/kb-usage', (req: Request, res: Response) => {
 // Get aggregated KB usage statistics
 analyticsRoutes.get('/analytics/kb-stats', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const options = {
       since: req.query.since as string | undefined,
@@ -120,19 +100,21 @@ analyticsRoutes.get('/analytics/kb-stats', (req: Request, res: Response) => {
 // Correlate KB usage with jobs
 analyticsRoutes.post('/analytics/kb-jobs', (req: Request, res: Response) => {
   try {
-    const { projectPath, jobs, windowMs } = req.body as {
+    const { projectPath: rawPath, jobs, windowMs } = req.body as {
       projectPath: string;
       jobs: Job[];
       windowMs?: number;
     };
 
-    if (!projectPath || !jobs) {
+    if (!jobs) {
       const response: ApiResponse = {
         success: false,
         error: 'projectPath and jobs are required',
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     const correlatedJobs = analyticsService.correlateWithJobs(projectPath, jobs, windowMs);
 
@@ -154,15 +136,8 @@ analyticsRoutes.post('/analytics/kb-jobs', (req: Request, res: Response) => {
 // Get unique technologies used
 analyticsRoutes.get('/analytics/technologies', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const technologies = analyticsService.getUsedTechnologies(projectPath);
 
@@ -184,15 +159,8 @@ analyticsRoutes.get('/analytics/technologies', (req: Request, res: Response) => 
 // Get unique tools used
 analyticsRoutes.get('/analytics/tools', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const tools = analyticsService.getUsedTools(projectPath);
 
@@ -214,15 +182,8 @@ analyticsRoutes.get('/analytics/tools', (req: Request, res: Response) => {
 // Get unique sources used
 analyticsRoutes.get('/analytics/sources', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const sources = analyticsService.getUsedSources(projectPath);
 
@@ -244,15 +205,9 @@ analyticsRoutes.get('/analytics/sources', (req: Request, res: Response) => {
 // Clear KB analytics data
 analyticsRoutes.post('/analytics/clear', (req: Request, res: Response) => {
   try {
-    const { projectPath } = req.body as { projectPath: string };
+    const { projectPath: rawPath } = req.body as { projectPath: string };
 
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'projectPath is required',
-      };
-      return res.status(400).json(response);
-    }
+    const projectPath = resolveProjectPath(rawPath);
 
     const result = analyticsService.clearKBUsage(projectPath);
 

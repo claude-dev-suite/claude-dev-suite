@@ -11,6 +11,7 @@ import { Router, type Request, type Response } from 'express';
 import { CodeReviewService } from '../services/code-review.service.js';
 import type { ApiResponse } from '../types.js';
 import { getLogger } from '../utils/logger.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 
 const logger = getLogger('CodeReview');
 
@@ -40,15 +41,7 @@ codeReviewRoutes.get('/code-review/options', (_req: Request, res: Response) => {
 // List source files for review
 codeReviewRoutes.get('/code-review/files', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
-
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
+    const projectPath = resolveProjectPath(req.query.path);
 
     const result = codeReviewService.listSourceFiles(projectPath);
 
@@ -70,17 +63,9 @@ codeReviewRoutes.get('/code-review/files', (req: Request, res: Response) => {
 // Get diff for review
 codeReviewRoutes.get('/code-review/diff', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const scope = (req.query.scope as 'uncommitted' | 'full-project') || 'uncommitted';
     const repoPath = req.query.repo as string | undefined;
-
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const result = codeReviewService.getDiffForReview(projectPath, scope, repoPath);
 
@@ -102,17 +87,9 @@ codeReviewRoutes.get('/code-review/diff', (req: Request, res: Response) => {
 // Get full project code (for full-project review)
 codeReviewRoutes.get('/code-review/full-code', (req: Request, res: Response) => {
   try {
-    const projectPath = req.query.path as string;
+    const projectPath = resolveProjectPath(req.query.path);
     const maxFiles = req.query.maxFiles ? parseInt(req.query.maxFiles as string, 10) : undefined;
     const maxSize = req.query.maxSize ? parseInt(req.query.maxSize as string, 10) : undefined;
-
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Project path is required',
-      };
-      return res.status(400).json(response);
-    }
 
     const result = codeReviewService.getFullProjectCode(projectPath, {
       maxFiles,
@@ -137,7 +114,7 @@ codeReviewRoutes.get('/code-review/full-code', (req: Request, res: Response) => 
 // Build review job
 codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) => {
   try {
-    const { projectPath, scope, selectedAgents, paths, repo } = req.body as {
+    const { projectPath: rawPath, scope, selectedAgents, paths, repo } = req.body as {
       projectPath: string;
       scope: 'uncommitted' | 'full-project';
       selectedAgents: string[];
@@ -146,14 +123,6 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
     };
 
     // Validate required fields
-    if (!projectPath) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'projectPath is required',
-      };
-      return res.status(400).json(response);
-    }
-
     if (!scope || !selectedAgents || selectedAgents.length === 0) {
       const response: ApiResponse = {
         success: false,
@@ -170,6 +139,8 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
       };
       return res.status(400).json(response);
     }
+
+    const projectPath = resolveProjectPath(rawPath);
 
     // Calculate working directory (like legacy)
     const workingDir = repo ? path.join(projectPath, repo) : projectPath;
