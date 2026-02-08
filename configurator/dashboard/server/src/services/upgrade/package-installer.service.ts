@@ -43,6 +43,7 @@ export class PackageInstallerService {
    */
   detectPackageManager(projectPath: string): PackageManager {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     // Check for lock files in root and common subdirs
     const dirsToCheck = [
       projectPath,
@@ -65,6 +66,7 @@ export class PackageInstallerService {
    */
   findPackageJsonDir(projectPath: string): string {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const dirsToCheck = [
       projectPath,
       path.join(projectPath, 'frontend'),
@@ -91,6 +93,7 @@ export class PackageInstallerService {
     dev: boolean = true
   ): Promise<InstallPackagesResult> {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const packageManager = this.detectPackageManager(projectPath);
     const workDir = this.findPackageJsonDir(projectPath);
 
@@ -177,6 +180,16 @@ export class PackageInstallerService {
     createTrackedFile: (projectPath: string, relativePath: string, type: TrackedFile['type'], source?: string) => TrackedFile | null
   ): Promise<InstallAgentResult> {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+
+    // Validate agentId to prevent path injection
+    if (!agentId || agentId.includes('..') || agentId.includes('/') || agentId.includes('\\')) {
+      return {
+        success: false,
+        error: 'Invalid agent ID',
+      };
+    }
+
     const devSuiteDir = getDevSuiteDir();
 
     // Find the agent file in dev-suite

@@ -120,6 +120,10 @@ export class InstallationService {
   async install(config: InstallConfig): Promise<InstallManifest> {
     let { projectPath } = config;
     projectPath = resolveProjectPath(projectPath);
+    // SECURITY: Path traversal check after resolution
+    if (projectPath.includes('..')) {
+      throw new Error('Path traversal not allowed');
+    }
     const { agents, mcpServers, envVars, detectedStack } = config;
     const devSuiteDir = getDevSuiteDir();
 
@@ -243,6 +247,10 @@ export class InstallationService {
    */
   async uninstall(projectPath: string): Promise<{ removed: string[]; errors: string[] }> {
     projectPath = resolveProjectPath(projectPath);
+    // SECURITY: Path traversal check after resolution
+    if (projectPath.includes('..')) {
+      throw new Error('Path traversal not allowed');
+    }
     const removed: string[] = [];
     const errors: string[] = [];
 
@@ -338,6 +346,10 @@ export class InstallationService {
    */
   async getStatus(projectPath: string): Promise<{ installed: boolean; manifest?: InstallManifest }> {
     projectPath = resolveProjectPath(projectPath);
+    // SECURITY: Path traversal check after resolution
+    if (projectPath.includes('..')) {
+      throw new Error('Path traversal not allowed');
+    }
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
 
     if (!fs.existsSync(manifestPath)) {
@@ -425,6 +437,11 @@ export class InstallationService {
       logger.warn('Invalid agent ID - potential path traversal', { context: { agentId } });
       return false;
     }
+    // SECURITY: Path traversal check for projectPath
+    if (projectPath.includes('..')) {
+      logger.warn('Invalid projectPath - path traversal detected', { context: { projectPath } });
+      return false;
+    }
 
     const agentFile = findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
     if (!agentFile) return false;
@@ -494,6 +511,11 @@ export class InstallationService {
     // SECURITY: Validate serverName doesn't contain path traversal
     if (!validateEntryName(serverName)) {
       logger.warn('Invalid server name - potential path traversal', { context: { serverName } });
+      return false;
+    }
+    // SECURITY: Path traversal check for projectPath
+    if (projectPath.includes('..')) {
+      logger.warn('Invalid projectPath - path traversal detected', { context: { projectPath } });
       return false;
     }
 

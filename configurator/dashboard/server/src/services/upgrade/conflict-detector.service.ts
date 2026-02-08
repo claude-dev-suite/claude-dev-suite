@@ -27,6 +27,7 @@ export function detectConflicts(
   manifest: ExtendedManifest
 ): ConflictInfo[] {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const conflicts: ConflictInfo[] = [];
 
   if (feature.apply.type === 'hook-merge') {

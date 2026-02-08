@@ -47,6 +47,7 @@ export class UpgradeService {
    */
   async checkUpgrades(projectPath: string): Promise<UpgradeCheckResult> {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const registry = loadFeatureRegistry();
     const manifest = loadManifest(projectPath);
 
@@ -146,6 +147,7 @@ export class UpgradeService {
    */
   async previewUpgrade(projectPath: string, featureIds?: string[]): Promise<UpgradePreviewResult> {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const checkResult = await this.checkUpgrades(projectPath);
 
     if (!checkResult.hasValidManifest) {
@@ -384,6 +386,7 @@ export class UpgradeService {
    */
   async getUpgradeHistory(projectPath: string): Promise<UpgradeHistoryEntry[]> {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const manifest = loadManifest(projectPath);
     return manifest?.upgradeHistory || [];
   }
@@ -415,6 +418,7 @@ export class UpgradeService {
     dev: boolean = true
   ): Promise<{ success: boolean; installed: string[]; error?: string }> {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     return this.packageInstaller.installPackages(projectPath, packages, dev);
   }
 
@@ -426,6 +430,7 @@ export class UpgradeService {
     agentId: string
   ): Promise<{ success: boolean; agentPath?: string; error?: string }> {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     return this.packageInstaller.installAgent(
       projectPath,
       agentId,

@@ -121,6 +121,7 @@ export class ManagementService {
    */
   async addAgent(projectPath: string, agentId: string): Promise<void> {
     projectPath = resolveProjectPath(projectPath);
+    if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
     const devSuiteDir = getDevSuiteDir();
     const agentFile = this.findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
 
@@ -143,6 +144,7 @@ export class ManagementService {
     const skillsSource = path.join(devSuiteDir, 'skills');
 
     for (const skillPath of skills) {
+      if (!/^[a-zA-Z0-9_.\/-]+$/.test(skillPath)) throw new Error('Invalid skill path');
       const srcSkillDir = path.join(skillsSource, skillPath);
       const destSkillDir = path.join(skillsDir, skillPath);
       if (fs.existsSync(srcSkillDir) && !fs.existsSync(destSkillDir)) {
@@ -199,6 +201,7 @@ export class ManagementService {
    */
   async removeAgent(projectPath: string, agentId: string): Promise<void> {
     projectPath = resolveProjectPath(projectPath);
+    if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
     const agentPath = path.join(projectPath, '.claude', 'agents', agentId + '.md');
 
     if (!fs.existsSync(agentPath)) {
@@ -236,6 +239,7 @@ export class ManagementService {
    */
   async addMcpServer(projectPath: string, serverName: string, envVars: Record<string, string> = {}): Promise<void> {
     projectPath = resolveProjectPath(projectPath);
+    if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
     const devSuiteDir = getDevSuiteDir();
     const serverSource = path.join(devSuiteDir, 'mcp-servers', serverName);
 
@@ -291,6 +295,7 @@ export class ManagementService {
    */
   async removeMcpServer(projectPath: string, serverName: string): Promise<void> {
     projectPath = resolveProjectPath(projectPath);
+    if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
     const serverDir = path.join(projectPath, '.mcp-servers', serverName);
 
     if (!fs.existsSync(serverDir)) {
@@ -485,6 +490,7 @@ export class ManagementService {
   }
 
   private copyDirSync(src: string, dest: string): void {
+    if (src.includes('..') || dest.includes('..')) throw new Error('Path traversal not allowed');
     if (!fs.existsSync(dest)) {
       fs.mkdirSync(dest, { recursive: true });
     }
@@ -505,6 +511,7 @@ export class ManagementService {
   }
 
   private updateDevSuiteConfig(projectPath: string, updater: (config: { agents: { enabled: string[] }; mcpServers: { enabled: string[] } }) => void): void {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const devSuiteJsonPath = path.join(projectPath, '.dev-suite.json');
     let config = {
       agents: { enabled: [] as string[] },
@@ -528,6 +535,7 @@ export class ManagementService {
    * Regenerate CLAUDE.md with full agent routing instructions
    */
   private async regenerateClaudeMd(projectPath: string): Promise<void> {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const currentAgentIds = (await this.getInstalledComponents(projectPath)).agents;
     const allAgents = await this.agentsService.getAgents();
     const installedAgents = allAgents.filter(a => currentAgentIds.includes(a.id));
@@ -542,6 +550,7 @@ export class ManagementService {
    * Get list of custom agents from project
    */
   private async getCustomAgentsList(projectPath: string): Promise<Array<{ id: string; name: string; description: string }>> {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const customAgentsDir = path.join(projectPath, '.claude', 'agents', 'custom');
     const agents: Array<{ id: string; name: string; description: string }> = [];
 
@@ -588,6 +597,7 @@ export class ManagementService {
     agents: Agent[],
     customAgents: Array<{ id: string; name: string; description: string }> = []
   ): void {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
     const section = this.generateDevSuiteSection(agents, customAgents);
 

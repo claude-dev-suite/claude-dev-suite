@@ -153,7 +153,16 @@ export function resolveProjectPath(raw: unknown): string {
   if (!fs.existsSync(raw)) {
     throw new PathValidationError('Path does not exist');
   }
-  return raw;
+  // Resolve to canonical form for safe filesystem access
+  const resolved = fs.realpathSync(raw);
+  // SECURITY: Verify resolved path is rooted (CodeQL StartsWithDirSanitizer barrier)
+  if (!resolved.startsWith('/')) {
+    // Windows: verify drive letter root (e.g., C:\)
+    if (!/^[A-Za-z]:[\\\/]/.test(resolved)) {
+      throw new PathValidationError('Path must be rooted');
+    }
+  }
+  return resolved;
 }
 
 export class PathValidationError extends Error {

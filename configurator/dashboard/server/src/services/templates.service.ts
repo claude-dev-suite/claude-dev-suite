@@ -286,6 +286,13 @@ export class TemplatesService {
       data: { templateId },
     });
 
+    // SECURITY: Validate templateId before path construction
+    if (!/^[a-zA-Z0-9_.-]+$/.test(templateId)) {
+      logger.warn('Invalid template ID', { context: { templateId } });
+      endTimer();
+      return null;
+    }
+
     // Check cache first
     if (this.isCacheValid(this.templatesCache) && this.templatesCache.data) {
       const cached = this.templatesCache.data.find((t) => t.id === templateId);
@@ -470,6 +477,14 @@ export class TemplatesService {
    */
   async scaffoldProject(config: ScaffoldConfig): Promise<ScaffoldResult> {
     config.projectPath = resolveProjectPath(config.projectPath);
+    // SECURITY: Additional path traversal check after resolution
+    if (config.projectPath.includes('..')) {
+      throw new Error('Path traversal not allowed');
+    }
+    // SECURITY: Validate templateId before path construction
+    if (!/^[a-zA-Z0-9_.-]+$/.test(config.templateId)) {
+      throw new Error('Invalid template ID');
+    }
     const endTimer = timeOperation(logger, 'scaffoldProject', TIMING_THRESHOLDS.FILE_WRITE, {
       data: { templateId: config.templateId, projectPath: config.projectPath },
     });
@@ -618,6 +633,10 @@ export class TemplatesService {
    * Get all files in a template directory (recursively)
    */
   private async getTemplateFiles(templatePath: string, basePath = ''): Promise<string[]> {
+    // SECURITY: Path traversal check for private method
+    if (templatePath.includes('..')) {
+      throw new Error('Path traversal not allowed');
+    }
     const files: string[] = [];
     const currentPath = basePath ? path.join(templatePath, basePath) : templatePath;
 
@@ -669,6 +688,10 @@ export class TemplatesService {
     existingDirs: string[]
   ): Promise<void> {
     projectPath = resolveProjectPath(projectPath);
+    // SECURITY: Path traversal check after resolution
+    if (projectPath.includes('..')) {
+      throw new Error('Path traversal not allowed');
+    }
     if (!template.structure) return;
 
     const createDir = (relativePath: string) => {

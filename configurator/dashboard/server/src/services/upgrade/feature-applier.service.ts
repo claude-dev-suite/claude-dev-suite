@@ -36,6 +36,7 @@ export function applyHookMerge(
   hooksService: HooksService
 ): FeatureUpgradeResult {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const config = feature.apply as HookMergeConfig;
 
   try {
@@ -190,6 +191,7 @@ export function applyAgentReplace(
   manifest: ExtendedManifest
 ): FeatureUpgradeResult {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const config = feature.apply as AgentReplaceConfig;
   const devSuiteDir = getDevSuiteDir();
 
@@ -261,6 +263,7 @@ export function applyFeature(
   resolutions?: ConflictResolutions
 ): FeatureUpgradeResult {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const featureResolutions = resolutions?.[feature.id];
 
   // Check for conflicts that need resolution

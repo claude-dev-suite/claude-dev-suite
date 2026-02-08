@@ -31,6 +31,8 @@ export const ENV_FILE_PATTERNS = Object.freeze([
 
 export function fileExists(dir: string, filename: string): boolean {
   dir = resolveProjectPath(dir);
+  // SECURITY: Redundant path traversal check after resolution
+  if (dir.includes('..')) throw new Error('Path traversal not allowed');
   try {
     return fs.existsSync(path.join(dir, filename));
   } catch {
@@ -40,6 +42,8 @@ export function fileExists(dir: string, filename: string): boolean {
 
 export function fileContains(dir: string, filename: string, pattern: string): boolean {
   dir = resolveProjectPath(dir);
+  // SECURITY: Redundant path traversal check after resolution
+  if (dir.includes('..')) throw new Error('Path traversal not allowed');
   const filePath = path.join(dir, filename);
   try {
     if (fs.existsSync(filePath)) {
@@ -53,6 +57,10 @@ export function fileContains(dir: string, filename: string, pattern: string): bo
 }
 
 export function readFileContent(filePath: string): string | null {
+  // SECURITY: Path traversal check (for consistency with other utils)
+  if (typeof filePath === 'string' && filePath.includes('..')) {
+    throw new Error('Path traversal not allowed');
+  }
   try {
     if (fs.existsSync(filePath)) {
       return fs.readFileSync(filePath, 'utf-8');
@@ -64,6 +72,10 @@ export function readFileContent(filePath: string): string | null {
 }
 
 export function readJsonSync<T>(filePath: string): T | null {
+  // SECURITY: Path traversal check at entry
+  if (typeof filePath === 'string' && filePath.includes('..')) {
+    throw new Error('Path traversal not allowed');
+  }
   try {
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');

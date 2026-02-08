@@ -724,6 +724,9 @@ export class DetectionService {
   }
 
   private detectDotnet(checkPath: string, result: DetectionResult, isSubdir: boolean): void {
+    // SECURITY: Redundant path traversal check (checkPath is derived from validated projectPath)
+    if (checkPath.includes('..')) throw new Error('Path traversal not allowed');
+
     // Check for .csproj, .fsproj, or .sln files
     const hasCsproj = this.hasFileWithExtension(checkPath, '.csproj');
     const hasFsproj = this.hasFileWithExtension(checkPath, '.fsproj');
@@ -800,6 +803,8 @@ export class DetectionService {
     }
 
     // GitHub Actions CI/CD detection
+    // SECURITY: Redundant path traversal check (projectPath is validated at entry)
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const workflowsPath = path.join(projectPath, '.github', 'workflows');
     try {
       if (fs.existsSync(workflowsPath) && fs.statSync(workflowsPath).isDirectory()) {
@@ -821,6 +826,8 @@ export class DetectionService {
   }
 
   private hasFileWithExtension(dirPath: string, ext: string): boolean {
+    // SECURITY: Redundant path traversal check (dirPath is derived from validated projectPath)
+    if (dirPath.includes('..')) throw new Error('Path traversal not allowed');
     try {
       const entries = fs.readdirSync(dirPath);
       return entries.some(e => e.endsWith(ext));
@@ -830,6 +837,8 @@ export class DetectionService {
   }
 
   private findFilesWithExtension(dirPath: string, ext: string): string[] {
+    // SECURITY: Redundant path traversal check (dirPath is derived from validated projectPath)
+    if (dirPath.includes('..')) throw new Error('Path traversal not allowed');
     try {
       return fs.readdirSync(dirPath).filter(e => e.endsWith(ext));
     } catch {

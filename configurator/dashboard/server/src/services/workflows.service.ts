@@ -265,6 +265,8 @@ export class WorkflowsService {
    */
   async loadCustomWorkflows(projectPath: string): Promise<Workflow[]> {
     projectPath = resolveProjectPath(projectPath);
+    // SECURITY: Redundant path traversal check after resolution
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const workflowsPath = path.join(projectPath, '.dev-suite-workflows.json');
     try {
       const content = await fs.readFile(workflowsPath, 'utf-8');
@@ -281,6 +283,8 @@ export class WorkflowsService {
    */
   async saveCustomWorkflows(projectPath: string, customWorkflows: Workflow[]): Promise<void> {
     projectPath = resolveProjectPath(projectPath);
+    // SECURITY: Redundant path traversal check after resolution
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const workflowsPath = path.join(projectPath, '.dev-suite-workflows.json');
     const data = {
       version: '1.0.0',

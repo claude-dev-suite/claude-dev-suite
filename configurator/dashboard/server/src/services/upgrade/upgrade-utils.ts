@@ -44,6 +44,7 @@ export function calculateFileHash(content: string): string {
  * Calculate hash from file path
  */
 export function calculateFileHashFromPath(filePath: string): string | null {
+  if (filePath.includes('..')) throw new Error('Path traversal not allowed');
   try {
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -60,6 +61,7 @@ export function calculateFileHashFromPath(filePath: string): string | null {
  */
 export function loadManifest(projectPath: string): ExtendedManifest | null {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
   return readJsonSync<ExtendedManifest>(manifestPath);
 }
@@ -69,6 +71,7 @@ export function loadManifest(projectPath: string): ExtendedManifest | null {
  */
 export function saveManifest(projectPath: string, manifest: ExtendedManifest): boolean {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
   try {
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -83,6 +86,7 @@ export function saveManifest(projectPath: string, manifest: ExtendedManifest): b
  */
 export function isFileModified(projectPath: string, trackedFile: TrackedFile): boolean {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const filePath = path.join(projectPath, trackedFile.path);
   const currentHash = calculateFileHashFromPath(filePath);
 
@@ -99,6 +103,7 @@ export function isFileModified(projectPath: string, trackedFile: TrackedFile): b
  */
 export function createBackup(projectPath: string, files: string[]): string | null {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   if (files.length === 0) return null;
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -133,6 +138,7 @@ export function createTrackedFile(
   source?: string
 ): TrackedFile | null {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const fullPath = path.join(projectPath, relativePath);
   const hash = calculateFileHashFromPath(fullPath);
 
@@ -159,6 +165,7 @@ export function initializeExtendedManifest(
   existingFiles?: Array<{ path: string; type: TrackedFile['type']; source?: string }>
 ): ExtendedManifest {
   projectPath = resolveProjectPath(projectPath);
+  if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   const trackedFiles: TrackedFile[] = [];
 
   // Track provided files

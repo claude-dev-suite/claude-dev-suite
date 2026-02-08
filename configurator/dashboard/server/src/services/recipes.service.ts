@@ -119,6 +119,7 @@ export class RecipesService {
    * Save enabled automations to manifest
    */
   private saveEnabledAutomations(projectPath: string, automations: EnabledAutomation[]): boolean {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
     const manifest = readJsonSync<Record<string, unknown>>(manifestPath) ?? {};
 
@@ -138,6 +139,7 @@ export class RecipesService {
    */
   detectTools(projectPath: string): DetectedTools {
     projectPath = resolveProjectPath(projectPath);
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const result: DetectedTools = {
       formatters: [],
       linters: [],
@@ -274,6 +276,8 @@ export class RecipesService {
       // Check files
       if (recommendedFor.hasFiles && !recommendations.some(r => r.recipe.id === recipe.id)) {
         for (const file of recommendedFor.hasFiles) {
+          // Validate file parameter to prevent path traversal
+          if (file.includes('..')) continue;
           const filePath = path.join(projectPath, file);
           if (fs.existsSync(filePath)) {
             recommendations.push({
@@ -320,6 +324,14 @@ export class RecipesService {
     customOptions?: Record<string, unknown>
   ): Promise<RecipeOperationResult> {
     projectPath = resolveProjectPath(projectPath);
+    // Validate recipeId to prevent injection
+    if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
+      return {
+        success: false,
+        recipeId,
+        error: 'Invalid recipe ID format',
+      };
+    }
     const recipe = getRecipeById(recipeId);
     if (!recipe) {
       return {
@@ -425,6 +437,14 @@ export class RecipesService {
    */
   async disableRecipe(projectPath: string, recipeId: string): Promise<RecipeOperationResult> {
     projectPath = resolveProjectPath(projectPath);
+    // Validate recipeId to prevent injection
+    if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
+      return {
+        success: false,
+        recipeId,
+        error: 'Invalid recipe ID format',
+      };
+    }
     const recipe = getRecipeById(recipeId);
     if (!recipe) {
       return {
@@ -486,6 +506,13 @@ export class RecipesService {
     customOptions?: Record<string, unknown>
   ): Promise<RecipeTestResult> {
     projectPath = resolveProjectPath(projectPath);
+    // Validate recipeId to prevent injection
+    if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
+      return {
+        success: false,
+        error: 'Invalid recipe ID format',
+      };
+    }
     const recipe = getRecipeById(recipeId);
     if (!recipe) {
       return {
@@ -571,9 +598,14 @@ export class RecipesService {
     recipe: AutomationRecipe,
     command: string
   ): Promise<{ success: boolean; error?: string }> {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const impl = recipe.implementation;
     if (!impl.event) {
       return { success: false, error: 'Missing event in recipe implementation' };
+    }
+    // Validate event name to prevent injection
+    if (!/^[a-zA-Z0-9_.-]+$/.test(impl.event)) {
+      return { success: false, error: 'Invalid event name format' };
     }
 
     // Parse the command - it might be a JSON object for prompt hooks
@@ -665,6 +697,7 @@ export class RecipesService {
     projectPath: string,
     recipe: AutomationRecipe
   ): Promise<{ success: boolean; error?: string }> {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const settingsPath = path.join(projectPath, '.claude', 'settings.json');
 
     type Settings = { hooks?: Record<string, unknown[]> };
@@ -705,9 +738,20 @@ export class RecipesService {
     recipe: AutomationRecipe,
     command: string
   ): Promise<{ success: boolean; error?: string }> {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const impl = recipe.implementation;
     if (!impl.hookType) {
       return { success: false, error: 'Missing hookType in recipe implementation' };
+    }
+
+    // Validate hookType to prevent path injection
+    if (!/^[a-z-]+$/.test(impl.hookType)) {
+      return { success: false, error: 'Invalid hook type format' };
+    }
+
+    // Validate recipe.id to prevent injection in file content
+    if (!/^[a-zA-Z0-9_.-]+$/.test(recipe.id)) {
+      return { success: false, error: 'Invalid recipe ID format' };
     }
 
     try {
