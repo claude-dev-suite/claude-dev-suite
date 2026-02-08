@@ -10,14 +10,14 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # Zod - Quick Reference
 
-## Quando Usare Questa Skill
-- Validazione form con React Hook Form
-- Parsing/validazione dati API
-- Type inference da schema
+## When to Use This Skill
+- Form validation with React Hook Form
+- API data parsing/validation
+- Type inference from schemas
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `zod` for comprehensive documentation.
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Basic Schema
 ```typescript
@@ -38,7 +38,7 @@ const user = userSchema.parse(data); // throws ZodError
 const result = userSchema.safeParse(data); // { success, data/error }
 ```
 
-### Validazioni Comuni
+### Common Validations
 ```typescript
 // String
 z.string().min(1).max(100).email().url().uuid()
@@ -86,10 +86,10 @@ userSchema.extend({ phone: z.string() }) // Extend
 - **Compile-time only checks** - TypeScript types are sufficient
 - **Simple PropTypes** - React PropTypes might be enough
 
-## Anti-Pattern da Evitare
-- Non definire schema dentro componenti (performance)
-- Non usare `.parse()` per user input senza try/catch
-- Non dimenticare messaggi di errore custom
+## Anti-Patterns to Avoid
+- Do not define schemas inside components (performance)
+- Do not use `.parse()` for user input without try/catch
+- Do not forget custom error messages
 
 ## Anti-Patterns
 
@@ -322,7 +322,7 @@ const dateSchema = z.coerce.date();
 - [ ] Integration with React Hook Form
 - [ ] OpenAPI generation (zod-to-openapi)
 
-## Approfondimenti
-> Per validazioni avanzate: `mcp__documentation__fetch_docs`
-> - Technology: `zod` (disponibile in MCP)
+## Further Reading
+> For advanced validations: `mcp__documentation__fetch_docs`
+> - Technology: `zod` (available in MCP)
 > - [Zod Docs](https://zod.dev/)

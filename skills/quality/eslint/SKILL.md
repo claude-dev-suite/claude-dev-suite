@@ -10,10 +10,10 @@ allowed-tools: Read, Grep, Glob
 ---
 # ESLint - Quick Reference
 
-## Quando Usare Questa Skill
-- Configurare linting per progetti JavaScript/TypeScript
-- Creare regole custom
-- Integrare con prettier e altri tool
+## When to Use This Skill
+- Configure linting for JavaScript/TypeScript projects
+- Create custom rules
+- Integrate with Prettier and other tools
 
 ## When NOT to Use This Skill
 - **ESLint 9 flat config + Biome** - Use `eslint-biome` skill for modern setup
@@ -23,7 +23,7 @@ allowed-tools: Read, Grep, Glob
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `eslint` for comprehensive documentation.
 
-## Setup Base
+## Basic Setup
 
 ```bash
 npm install -D eslint @eslint/js
@@ -53,7 +53,7 @@ export default [
 ];
 ```
 
-### Con Prettier
+### With Prettier
 ```javascript
 import eslintConfigPrettier from 'eslint-config-prettier';
 

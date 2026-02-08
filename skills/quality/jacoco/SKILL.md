@@ -10,10 +10,10 @@ allowed-tools: Read, Grep, Glob
 ---
 # JaCoCo - Quick Reference
 
-## Quando Usare Questa Skill
-- Configurare code coverage in progetti Java/Maven
-- Impostare threshold di copertura
-- Integrare coverage in CI/CD
+## When to Use This Skill
+- Configure code coverage in Java/Maven projects
+- Set coverage thresholds
+- Integrate coverage in CI/CD
 
 ## When NOT to Use This Skill
 - **JavaScript/TypeScript coverage** - Use Vitest skill for frontend coverage
@@ -23,7 +23,7 @@ allowed-tools: Read, Grep, Glob
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `jacoco` for comprehensive documentation.
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Maven Configuration
 ```xml
@@ -73,19 +73,19 @@ allowed-tools: Read, Grep, Glob
 </excludes>
 ```
 
-### Comandi
+### Commands
 ```bash
 mvn clean verify           # Test + coverage check
-mvn jacoco:report          # Genera report
-open target/site/jacoco/index.html  # Visualizza
+mvn jacoco:report          # Generate report
+open target/site/jacoco/index.html  # View report
 ```
 
 ## Counter Types
-| Counter | Descrizione |
+| Counter | Description |
 |---------|-------------|
-| `LINE` | Righe di codice |
+| `LINE` | Lines of code |
 | `BRANCH` | Branch if/switch |
-| `METHOD` | Metodi |
+| `METHOD` | Methods |
 
 ## Anti-Patterns
 
@@ -109,7 +109,7 @@ open target/site/jacoco/index.html  # Visualizza
 | Coverage lower in CI than local | Different test execution | Ensure CI runs all test phases |
 | SonarQube shows no coverage | Wrong report path | Check `sonar.coverage.jacoco.xmlReportPaths` |
 
-## Approfondimenti
-> Per configurazioni avanzate: `mcp__documentation__fetch_docs`
+## Further Reading
+> For advanced configurations: `mcp__documentation__fetch_docs`
 > - Technology: `jacoco` (not yet in MCP - use official docs)
 > - [JaCoCo Docs](https://www.jacoco.org/jacoco/trunk/doc/)

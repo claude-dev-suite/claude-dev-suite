@@ -13,20 +13,20 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # Winston Logger - Quick Reference
 
-## Quando Usare Questa Skill
-- Logging con multiple transports (file, console, HTTP)
-- Logging strutturato con livelli custom
-- Rotazione automatica dei file di log
+## When to Use This Skill
+- Logging with multiple transports (file, console, HTTP)
+- Structured logging with custom levels
+- Automatic log file rotation
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `winston` for comprehensive documentation.
 
-## Setup Base
+## Basic Setup
 
 ```bash
 npm install winston
 ```
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Logger Base
 ```typescript

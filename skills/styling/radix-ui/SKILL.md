@@ -10,10 +10,10 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # Radix UI - Quick Reference
 
-## Quando Usare Questa Skill
-- Dialog/Modal accessibili
+## When to Use This Skill
+- Accessible Dialog/Modal components
 - Dropdown menu, Select, Popover
-- Componenti headless da stilare con Tailwind
+- Headless components to style with Tailwind
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `radix-ui` for comprehensive documentation.
 
@@ -24,7 +24,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 - **Vue/Svelte projects** - Use Headless UI or framework-specific libraries
 - **Simple use cases** - Native HTML elements might suffice
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Dialog (Modal)
 ```tsx
@@ -94,18 +94,18 @@ const [open, setOpen] = useState(false);
 <Dialog.Root open={open} onOpenChange={setOpen}>
 ```
 
-## Props Comuni
-| Prop | Uso |
-|------|-----|
-| `asChild` | Merge props al child |
+## Common Props
+| Prop | Usage |
+|------|-------|
+| `asChild` | Merge props to child |
 | `open/onOpenChange` | Controlled state |
 | `side/align` | Positioning |
 | `sideOffset` | Distance offset |
 
-## Anti-Pattern da Evitare
-- Non dimenticare `Portal` per z-index
-- Non dimenticare `asChild` per evitare wrapper div
-- Non trascurare accessibilita (ARIA labels)
+## Anti-Patterns to Avoid
+- Do not forget `Portal` for z-index
+- Do not forget `asChild` to avoid wrapper divs
+- Do not neglect accessibility (ARIA labels)
 
 ## Anti-Patterns
 
@@ -129,5 +129,5 @@ const [open, setOpen] = useState(false);
 | Keyboard nav broken | Preventing default | Don't preventDefault on Radix events |
 | Type errors | Wrong component import | Check @radix-ui/react-[component] package |
 
-## Approfondimenti
-> Per API complete: [Radix UI Docs](https://www.radix-ui.com/primitives)
+## Further Reading
+> For complete API reference: [Radix UI Docs](https://www.radix-ui.com/primitives)

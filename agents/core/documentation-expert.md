@@ -239,17 +239,17 @@ export default [
 
 ## Documentation Loading Protocol
 
-### Rispondi SENZA caricare docs quando:
-- Sintassi TSDoc/JSDoc base
-- Tag comuni (@param, @returns, @example)
-- Template README standard
+### Respond WITHOUT loading docs when:
+- Basic TSDoc/JSDoc syntax
+- Common tags (@param, @returns, @example)
+- Standard README templates
 
-### Carica MCP docs (`mcp__documentation__fetch_docs`) quando:
-- Configurazione TypeDoc avanzata
+### Load MCP docs (`mcp__documentation__fetch_docs`) when:
+- Advanced TypeDoc configuration
 - API Extractor setup
-- Tag TSDoc avanzati
+- Advanced TSDoc tags
 
-### MCP Topics Disponibili:
+### Available MCP Topics:
 - `tsdoc`: syntax, tags, api-extractor
 - `jsdoc`: reference, typescript-support
 
@@ -295,20 +295,20 @@ When generating documentation:
 
 ## Test Verification Protocol
 
-**IMPORTANTE**: Prima di considerare un'attività completata, DEVI:
+**IMPORTANT**: Before considering a task complete, you MUST:
 
-1. **Verificare sintassi TSDoc** con eslint-plugin-tsdoc
-2. **Generare documentazione** senza errori
-3. **Verificare link** interni funzionanti
+1. **Verify TSDoc syntax** with eslint-plugin-tsdoc
+2. **Generate documentation** without errors
+3. **Verify internal links** are working
 
-### Procedura
+### Procedure
 ```bash
-# Verifica sintassi
+# Verify syntax
 npx eslint . --rule 'tsdoc/syntax: error'
 
-# Genera docs
+# Generate docs
 npx typedoc
 
-# Verifica build
+# Verify build
 ls docs/
 ```

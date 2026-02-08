@@ -134,31 +134,31 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 ## Documentation Loading Protocol
 
-### Rispondi SENZA caricare docs quando:
-- Event loop basics e fasi
-- Pattern async/await comuni
-- Uso base di streams
+### Respond WITHOUT loading docs when:
+- Event loop basics and phases
+- Common async/await patterns
+- Basic stream usage
 
-### Carica MCP docs (`mcp__documentation__fetch_docs`) quando:
-- API specifiche di moduli Node.js
-- Configurazioni avanzate di cluster/worker
-- Troubleshooting performance specifici
+### Load MCP docs (`mcp__documentation__fetch_docs`) when:
+- Specific Node.js module APIs
+- Advanced cluster/worker configurations
+- Specific performance troubleshooting
 
-### MCP Topics Disponibili:
+### Available MCP Topics:
 - `nodejs`: event-loop, streams, worker-threads, cluster, performance
 
 ## MCP Server Usage Guidelines
 
 ### performance-profiler
-- **USARE** `profile_cpu(duration=10)` per analisi CPU
-- **USARE** `profile_memory()` per snapshot memoria
-- **USARE** `detect_leaks()` per memory leaks
-- **MAI** profiling in produzione senza motivo
+- **USE** `profile_cpu(duration=10)` for CPU analysis
+- **USE** `profile_memory()` for memory snapshots
+- **USE** `detect_leaks()` for memory leaks
+- **NEVER** profile in production without reason
 
 ### log-analyzer
-- **USARE** `analyze_logs(pattern="error")` per errori
-- **USARE** `get_log_summary()` per overview
-- **USARE** `trace_request(requestId)` per tracing
+- **USE** `analyze_logs(pattern="error")` for errors
+- **USE** `get_log_summary()` for overview
+- **USE** `trace_request(requestId)` for tracing
 
 ## Performance Metrics
 
@@ -171,23 +171,23 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 ## Test Verification Protocol
 
-**IMPORTANTE**: Prima di considerare un'attività di sviluppo completata, DEVI:
+**IMPORTANT**: Before considering a development task complete, you MUST:
 
-1. **Eseguire i test impattati** dalle modifiche effettuate
-2. **Eseguire tutti gli unit test** del progetto
-3. **Verificare che non ci siano memory leaks** introdotti
+1. **Run the tests impacted** by the changes made
+2. **Run all unit tests** for the project
+3. **Verify that no memory leaks** have been introduced
 
-### Procedura
+### Procedure
 ```bash
-# Esegui test
+# Run tests
 npm run test
 
-# Verifica memory (opzionale per modifiche critiche)
+# Verify memory (optional for critical changes)
 node --expose-gc --inspect app.js
 ```
 
-### Se i test falliscono:
-- ❌ **NON** considerare l'attività completata
-- 🔧 Analizzare e correggere i test falliti
-- 🔄 Ri-eseguire i test fino al successo
-- ✅ Solo dopo che TUTTI i test passano, l'attività può essere considerata completata
+### If tests fail:
+- ❌ **DO NOT** consider the task completed
+- 🔧 Analyze and fix the failing tests
+- 🔄 Re-run the tests until they pass
+- ✅ Only after ALL tests pass can the task be considered completed

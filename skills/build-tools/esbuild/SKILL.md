@@ -20,11 +20,11 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash
 - **CSS modules, PostCSS** - Vite handles these better
 - **HMR required** - Vite provides full HMR experience
 
-## Quando Usare Questa Skill
-- Bundle semplici ultra-veloci
-- Build di librerie TypeScript
-- Comprendere come funziona Vite
-- Script di build custom
+## When to Use This Skill
+- Ultra-fast simple bundling
+- TypeScript library builds
+- Understanding how Vite works
+- Custom build scripts
 
 ## Setup
 
@@ -366,12 +366,12 @@ execSync('tsc --emitDeclarationOnly --declaration --outDir dist');
 | Legacy support | Webpack |
 | Need plugins | Vite or Rollup |
 
-## Anti-Pattern da Evitare
+## Anti-Patterns to Avoid
 
-- Non usare per app complesse (usa Vite)
-- Non aspettarsi HMR avanzato
-- Non dimenticare tsc per .d.ts
-- Non ignorare external per libraries
+- Do not use for complex apps (use Vite)
+- Do not expect advanced HMR
+- Do not forget tsc for .d.ts
+- Do not ignore external for libraries
 
 ## Anti-Patterns
 
@@ -406,13 +406,13 @@ execSync('tsc --emitDeclarationOnly --declaration --outDir dist');
 
 ## Checklist
 
-- [ ] Target browsers/node configurato
-- [ ] External packages per libraries
-- [ ] Minify + sourcemap per production
-- [ ] Metafile per analisi bundle
-- [ ] tsc per generare .d.ts
+- [ ] Target browsers/node configured
+- [ ] External packages for libraries
+- [ ] Minify + sourcemap for production
+- [ ] Metafile for bundle analysis
+- [ ] tsc to generate .d.ts
 
-## Approfondimenti
-> Per configurazioni avanzate: `mcp__documentation__fetch_docs`
+## Further Reading
+> For advanced configurations: `mcp__documentation__fetch_docs`
 > - Technology: `esbuild`
 > - [esbuild Docs](https://esbuild.github.io/)

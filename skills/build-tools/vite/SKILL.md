@@ -10,10 +10,10 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # Vite - Quick Reference
 
-## Quando Usare Questa Skill
-- Setup progetti React/Vue/Svelte
-- Configurare dev server e proxy
-- Ottimizzare build di produzione
+## When to Use This Skill
+- Set up React/Vue/Svelte projects
+- Configure dev server and proxy
+- Optimize production builds
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `vite` for comprehensive documentation.
 
@@ -24,7 +24,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 - **Create React App** - Still uses Webpack (consider migrating)
 - **Pure Rollup** - Use Rollup directly for libraries
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Setup
 ```bash
@@ -104,16 +104,16 @@ export default defineConfig({
 ```
 
 ## Commands
-| Command | Uso |
-|---------|-----|
+| Command | Usage |
+|---------|-------|
 | `npm run dev` | Dev server HMR |
 | `npm run build` | Build production |
 | `npm run preview` | Preview build |
 
-## Anti-Pattern da Evitare
-- Non dimenticare prefisso `VITE_` per env vars
-- Non usare path relativi (usa alias)
-- Non ignorare warning chunk size
+## Anti-Patterns to Avoid
+- Do not forget the `VITE_` prefix for env vars
+- Do not use relative paths (use aliases)
+- Do not ignore chunk size warnings
 
 ## Anti-Patterns
 
@@ -359,7 +359,7 @@ jobs:
 - [ ] Vitest configured with coverage
 - [ ] CI/CD pipeline
 
-## Approfondimenti
-> Per configurazioni avanzate: `mcp__documentation__fetch_docs`
+## Further Reading
+> For advanced configurations: `mcp__documentation__fetch_docs`
 > - Technology: `vite`
 > - [Vite Docs](https://vite.dev/)

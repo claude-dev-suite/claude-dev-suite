@@ -10,10 +10,10 @@ allowed-tools: Read, Grep, Glob
 ---
 # typescript-eslint - Quick Reference
 
-## Quando Usare Questa Skill
-- Configurare ESLint per progetti TypeScript
-- Regole type-aware per TypeScript
-- Migrazione da TSLint
+## When to Use This Skill
+- Configure ESLint for TypeScript projects
+- Type-aware rules for TypeScript
+- Migration from TSLint
 
 ## When NOT to Use This Skill
 - **Full ESLint 9 setup** - Use `eslint-biome` skill for complete configuration
@@ -23,7 +23,7 @@ allowed-tools: Read, Grep, Glob
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `typescript-eslint` for comprehensive documentation.
 
-## Setup Base
+## Basic Setup
 
 ```bash
 npm install -D eslint typescript-eslint

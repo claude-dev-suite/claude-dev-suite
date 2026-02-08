@@ -270,17 +270,17 @@ import * as yup from 'yup';
 // Set default messages
 yup.setLocale({
   mixed: {
-    required: 'Campo obbligatorio',
-    notType: 'Tipo non valido',
+    required: 'Required field',
+    notType: 'Invalid type',
   },
   string: {
-    email: 'Email non valida',
-    min: 'Deve avere almeno ${min} caratteri',
-    max: 'Deve avere al massimo ${max} caratteri',
+    email: 'Invalid email',
+    min: 'Must have at least ${min} characters',
+    max: 'Must have at most ${max} characters',
   },
   number: {
-    min: 'Deve essere almeno ${min}',
-    max: 'Deve essere al massimo ${max}',
+    min: 'Must be at least ${min}',
+    max: 'Must be at most ${max}',
   },
 });
 ```

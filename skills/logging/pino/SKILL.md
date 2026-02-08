@@ -13,20 +13,20 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # Pino Logger - Quick Reference
 
-## Quando Usare Questa Skill
-- Logging strutturato in applicazioni Node.js
-- Logging ad alte performance
-- Integrazione con sistemi di log aggregation
+## When to Use This Skill
+- Structured logging in Node.js applications
+- High-performance logging
+- Integration with log aggregation systems
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `pino` for comprehensive documentation.
 
-## Setup Base
+## Basic Setup
 
 ```bash
 npm install pino pino-pretty
 ```
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Logger Base
 ```typescript

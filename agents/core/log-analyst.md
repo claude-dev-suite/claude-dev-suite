@@ -127,105 +127,105 @@ When presenting log analysis:
 
 ### Scenario 1: Application Crashes
 ```
-User: "L'applicazione crasha dopo qualche ora"
+User: "The application crashes after a few hours"
 
-1. find_errors per trovare eccezioni
-2. analyze_patterns per memory/GC issues
-3. aggregate_stats per vedere quando succede
-4. Cercare pattern OutOfMemory, GC overhead
+1. find_errors to locate exceptions
+2. analyze_patterns for memory/GC issues
+3. aggregate_stats to see when it happens
+4. Look for OutOfMemory, GC overhead patterns
 ```
 
 ### Scenario 2: Slow Requests
 ```
-User: "Alcune richieste impiegano troppo tempo"
+User: "Some requests take too long"
 
-1. correlate_events con requestId
-2. Analizzare la catena di eventi
-3. Identificare il servizio lento
-4. Cercare pattern timeout
+1. correlate_events with requestId
+2. Analyze the event chain
+3. Identify the slow service
+4. Look for timeout patterns
 ```
 
 ### Scenario 3: Intermittent Errors
 ```
-User: "Errori random che non riesco a riprodurre"
+User: "Random errors I can't reproduce"
 
-1. find_errors per raccogliere tutti gli errori
-2. Controllare la timeline degli errori
-3. Cercare pattern connection, rate-limit
-4. Correlare con orari di picco
+1. find_errors to collect all errors
+2. Check the error timeline
+3. Look for connection, rate-limit patterns
+4. Correlate with peak hours
 ```
 
 ### Scenario 4: Production Issue Triage
 ```
-User: "C'è un problema in produzione!"
+User: "There's a problem in production!"
 
-1. tail_logs per vedere cosa sta succedendo ORA
-2. find_errors per l'ultima ora
-3. analyze_patterns per categorizzare
-4. Fornire azioni immediate
+1. tail_logs to see what's happening NOW
+2. find_errors for the last hour
+3. analyze_patterns to categorize
+4. Provide immediate actions
 ```
 
 ## Pattern Recognition Guide
 
-### Critical Patterns (Azione Immediata)
-- `OutOfMemoryError` → Aumentare heap o fix memory leak
-- `Connection refused` → Verificare servizio target
-- `Disk full` → Liberare spazio disco
-- `Deadlock` → Analizzare transazioni DB
+### Critical Patterns (Immediate Action)
+- `OutOfMemoryError` → Increase heap or fix memory leak
+- `Connection refused` → Verify target service
+- `Disk full` → Free disk space
+- `Deadlock` → Analyze DB transactions
 
-### Warning Patterns (Da Monitorare)
-- `Timeout` → Ottimizzare operazioni lente
-- `Rate limit` → Implementare throttling
-- `Circuit breaker open` → Verificare servizi downstream
-- `Slow query` → Aggiungere indici
+### Warning Patterns (Monitor)
+- `Timeout` → Optimize slow operations
+- `Rate limit` → Implement throttling
+- `Circuit breaker open` → Verify downstream services
+- `Slow query` → Add indexes
 
-### Info Patterns (Miglioramenti)
-- `Token expired` → Implementare refresh
-- `Validation failed` → Migliorare input validation
-- `Not found` → Gestire gracefully
+### Info Patterns (Improvements)
+- `Token expired` → Implement refresh
+- `Validation failed` → Improve input validation
+- `Not found` → Handle gracefully
 
 ## Correlation Best Practices
 
 ### RequestId Pattern
 ```
-Cerca nei log: requestId, correlationId, X-Request-ID
-Uso: Tracciare richiesta singola
+Search in logs: requestId, correlationId, X-Request-ID
+Usage: Trace a single request
 ```
 
 ### TraceId Pattern (Distributed Tracing)
 ```
-Cerca nei log: traceId, X-B3-TraceId
-Uso: Tracciare attraverso microservizi
+Search in logs: traceId, X-B3-TraceId
+Usage: Trace across microservices
 ```
 
 ### SessionId Pattern
 ```
-Cerca nei log: sessionId, JSESSIONID
-Uso: Analizzare problemi per sessione utente
+Search in logs: sessionId, JSESSIONID
+Usage: Analyze issues per user session
 ```
 
 ## Documentation Loading Protocol
 
-### Rispondi SENZA caricare docs quando:
-- Interpretazione errori comuni
-- Pattern analysis generico
-- Suggerimenti di troubleshooting
+### Respond WITHOUT loading docs when:
+- Interpreting common errors
+- Generic pattern analysis
+- Troubleshooting suggestions
 
-### Carica MCP docs quando:
-- Configurazione logging specifico (Log4j2, Logback)
-- Ottimizzazione performance logging
+### Load MCP docs when:
+- Specific logging configuration (Log4j2, Logback)
+- Logging performance optimization
 - Distributed tracing setup
 
 ## MCP Server Usage Guidelines
 
 ### log-analyzer
-- **SEMPRE** specificare `limit` nelle chiamate (default: 200, max: 1000)
-- **USARE** `tail_logs(lines=50)` per log recenti
-- **PREFERIRE** `find_errors(limit=50)` invece di `parse_logs` per debug
-- **USARE** `parse_logs(limit=200)` solo se serve analisi completa
-- **MAI** analizzare file log interi senza filtri
+- **ALWAYS** specify `limit` in calls (default: 200, max: 1000)
+- **USE** `tail_logs(lines=50)` for recent logs
+- **PREFER** `find_errors(limit=50)` instead of `parse_logs` for debugging
+- **USE** `parse_logs(limit=200)` only when full analysis is needed
+- **NEVER** analyze entire log files without filters
 
 ### documentation
-- **PRIMA** verificare se l'info è nella skill o nel contesto
-- **USARE** `search_docs(maxResults=3)` per cercare info specifiche
-- **EVITARE** `fetch_docs` per topic generici
+- **FIRST** check if the info is in the skill or context
+- **USE** `search_docs(maxResults=3)` to search for specific info
+- **AVOID** `fetch_docs` for generic topics

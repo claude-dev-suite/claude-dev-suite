@@ -130,7 +130,7 @@ private boolean isValidStatusTransition(OrderStatus from, OrderStatus to) {
 R2DBC doesn't support automatic relations like JPA. Manage them manually:
 
 ```java
-// Entità con ID relazione
+// Entity with relation ID
 @Table("order_items")
 public record OrderItem(
     @Id Long id,
@@ -140,7 +140,7 @@ public record OrderItem(
     BigDecimal unitPrice
 ) {}
 
-// Aggregato con dati caricati
+// Aggregate with loaded data
 public record OrderAggregate(
     Order order,
     List<OrderItemDetail> items,
@@ -254,9 +254,9 @@ public class ProductService {
             .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
 
-    // Slice (senza count totale - più efficiente)
+    // Slice (without total count - more efficient)
     public Mono<Slice<Product>> getActiveProductsSlice(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size + 1); // +1 per determinare hasNext
+        Pageable pageable = PageRequest.of(page, size + 1); // +1 to determine hasNext
 
         return productRepository.findByActiveTrue(pageable)
             .collectList()

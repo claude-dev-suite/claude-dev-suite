@@ -13,20 +13,20 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # structlog - Quick Reference
 
-## Quando Usare Questa Skill
-- Logging strutturato in Python
-- Integrazione con JSON logging
-- Context binding per request tracing
+## When to Use This Skill
+- Structured logging in Python
+- Integration with JSON logging
+- Context binding for request tracing
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `structlog` for comprehensive documentation.
 
-## Setup Base
+## Basic Setup
 
 ```bash
 pip install structlog
 ```
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Basic Configuration
 ```python

@@ -16,11 +16,11 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `bun` for comprehensive documentation.
 
-## Quando Usare Questa Skill
-- Progetti che richiedono performance elevate
-- Sostituzione di Node.js + npm + bundler
-- Test runner veloce alternativo a Vitest/Jest
-- Script veloci con TypeScript nativo
+## When to Use This Skill
+- Projects requiring high performance
+- Replacement for Node.js + npm + bundler
+- Fast test runner alternative to Vitest/Jest
+- Quick scripts with native TypeScript
 
 ## Setup
 
@@ -436,12 +436,12 @@ CMD ["bun", "run", "dist/index.js"]
 
 ## Checklist
 
-- [ ] Bun installato (v1.0+)
-- [ ] bunfig.toml configurato
-- [ ] Test suite con bun:test
-- [ ] Build script configurato
-- [ ] Docker multi-stage per production
-- [ ] Verificata compatibilità npm packages
+- [ ] Bun installed (v1.0+)
+- [ ] bunfig.toml configured
+- [ ] Test suite with bun:test
+- [ ] Build script configured
+- [ ] Docker multi-stage for production
+- [ ] npm package compatibility verified
 
 ---
 

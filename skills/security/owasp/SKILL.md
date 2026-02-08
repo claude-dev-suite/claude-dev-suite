@@ -10,10 +10,10 @@ allowed-tools: Read, Grep, Glob
 ---
 # OWASP Security - Quick Reference
 
-## Quando Usare Questa Skill
-- Identificare vulnerabilità comuni
-- Implementare controlli di sicurezza
-- Code review per security issues
+## When to Use This Skill
+- Identify common vulnerabilities
+- Implement security controls
+- Code review for security issues
 
 ## When NOT to Use This Skill
 - **OWASP Top 10:2025** - Use `owasp-top-10` skill for latest 2025 standards

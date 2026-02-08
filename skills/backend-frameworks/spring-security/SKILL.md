@@ -11,14 +11,14 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # Spring Security - Quick Reference
 
-## Quando Usare Questa Skill
-- Configurare JWT authentication
+## When to Use This Skill
+- Configure JWT authentication
 - Role-based access control
 - Method-level security
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `spring-security` for comprehensive documentation.
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Security Config
 ```java
@@ -107,17 +107,17 @@ public class UserPrincipal implements UserDetails {
 }
 ```
 
-## Annotations Comuni
-| Annotation | Uso |
-|------------|-----|
-| `@PreAuthorize` | Check prima del metodo |
-| `hasRole('X')` | Richiede ruolo |
-| `hasAnyRole` | Uno dei ruoli |
+## Common Annotations
+| Annotation | Usage |
+|------------|-------|
+| `@PreAuthorize` | Check before method execution |
+| `hasRole('X')` | Requires role |
+| `hasAnyRole` | Any of the roles |
 
-## Anti-Pattern da Evitare
-- Non disabilitare CSRF senza stateless
-- Non dimenticare CORS per frontend
-- Non hardcodare secret JWT
+## Anti-Patterns to Avoid
+- Do not disable CSRF without stateless
+- Do not forget CORS for frontend
+- Do not hardcode JWT secret
 
 ## Production Readiness
 
@@ -342,7 +342,7 @@ class UserControllerSecurityTest {
 | JWT parsing fails | Wrong secret key | Verify JWT_SECRET matches |
 | Authentication null | Filter not applied | Ensure `SecurityContextHolder` is set |
 
-## Approfondimenti
-> Per configurazioni avanzate: `mcp__documentation__fetch_docs`
+## Further Reading
+> For advanced configurations: `mcp__documentation__fetch_docs`
 > - Technology: `spring-security`, Topic: `basics`
 > - [Spring Security Docs](https://docs.spring.io/spring-security/reference/)

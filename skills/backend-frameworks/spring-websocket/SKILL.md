@@ -34,11 +34,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // Prefisso per messaggi dal server ai client (subscribe)
+        // Prefix for messages from server to clients (subscribe)
         registry.enableSimpleBroker("/topic", "/queue");
-        // Prefisso per messaggi dai client al server
+        // Prefix for messages from clients to server
         registry.setApplicationDestinationPrefixes("/app");
-        // Prefisso per messaggi privati a utente specifico
+        // Prefix for private messages to a specific user
         registry.setUserDestinationPrefix("/user");
     }
 
@@ -46,7 +46,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
             .setAllowedOrigins("http://localhost:3000")
-            .withSockJS();  // Fallback per browser senza WebSocket
+            .withSockJS();  // Fallback for browsers without WebSocket
     }
 }
 ```
@@ -63,7 +63,7 @@ public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    // Riceve messaggio e broadcast a tutti i subscriber di /topic/chat
+    // Receives message and broadcasts to all subscribers of /topic/chat
     @MessageMapping("/chat.send")
     @SendTo("/topic/chat")
     public ChatMessage sendMessage(ChatMessage message, Principal principal) {
@@ -72,7 +72,7 @@ public class ChatController {
         return message;
     }
 
-    // Risposta diretta a chi ha inviato
+    // Direct reply to the sender
     @MessageMapping("/chat.echo")
     @SendToUser("/queue/reply")
     public ChatMessage echoMessage(ChatMessage message) {
@@ -80,7 +80,7 @@ public class ChatController {
         return message;
     }
 
-    // Invio programmatico a utente specifico
+    // Programmatic send to a specific user
     @MessageMapping("/chat.private")
     public void sendPrivateMessage(PrivateMessage message, Principal principal) {
         message.setSender(principal.getName());
@@ -91,7 +91,7 @@ public class ChatController {
         );
     }
 
-    // Broadcast a tutti
+    // Broadcast to all
     public void broadcastNotification(NotificationMessage notification) {
         messagingTemplate.convertAndSend("/topic/notifications", notification);
     }
@@ -195,7 +195,7 @@ public class ChatController {
             @Header("simpSessionId") String sessionId,
             SimpMessageHeaderAccessor headerAccessor) {
 
-        // Salva attributi nella sessione WebSocket
+        // Save attributes in the WebSocket session
         headerAccessor.getSessionAttributes().put("username", request.username());
         headerAccessor.getSessionAttributes().put("roomId", request.roomId());
 

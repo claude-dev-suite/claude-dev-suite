@@ -83,17 +83,17 @@ When proposing architecture:
 
 ## Documentation Loading Protocol
 
-### Rispondi SENZA caricare docs quando:
-- Pattern architetturali base (MVC, Repository, Service)
-- Trade-off comuni e ben noti
-- Decisioni architetturali standard
+### Respond WITHOUT loading docs when:
+- Basic architectural patterns (MVC, Repository, Service)
+- Common and well-known trade-offs
+- Standard architectural decisions
 
-### Carica MCP docs (`mcp__documentation__fetch_docs`) quando:
-- Pattern specifici richiesti (CQRS, Event Sourcing)
-- Best practices dettagliate
-- Configurazioni infrastructure complesse
+### Load MCP docs (`mcp__documentation__fetch_docs`) when:
+- Specific patterns requested (CQRS, Event Sourcing)
+- Detailed best practices
+- Complex infrastructure configurations
 
-### MCP Topics Disponibili:
+### Available MCP Topics:
 - `rest-api`: conventions, error-handling
 - `graphql`: schema, resolvers
 - `docker`: dockerfile, compose, best-practices
@@ -104,16 +104,16 @@ When proposing architecture:
 ## MCP Server Usage Guidelines
 
 ### api-explorer
-- **MAI** usare `get_api_schema(format="full")` a meno che strettamente necessario
-- **PREFERIRE** `list_api_paths(limit=50)` per overview API
-- **PREFERIRE** `get_api_endpoint_details(path, method)` per singoli endpoint
-- **USARE** `get_api_models(compact=true)` per lista modelli senza schema completo
-- **USARE** `search_api(limit=10)` per ricerche mirate
+- **NEVER** use `get_api_schema(format="full")` unless strictly necessary
+- **PREFER** `list_api_paths(limit=50)` for API overview
+- **PREFER** `get_api_endpoint_details(path, method)` for individual endpoints
+- **USE** `get_api_models(compact=true)` for model list without full schema
+- **USE** `search_api(limit=10)` for targeted searches
 
 ### documentation
-- **PRIMA** verificare se l'info è nella skill o nel contesto
-- **USARE** `search_docs(maxResults=3)` per cercare info specifiche
-- **EVITARE** `fetch_docs` per topic generici
+- **FIRST** check if the info is in the skill or context
+- **USE** `search_docs(maxResults=3)` to search for specific info
+- **AVOID** `fetch_docs` for generic topics
 
 ## Skills Reference
 - clean-code, solid-principles, design-patterns
@@ -122,27 +122,27 @@ When proposing architecture:
 
 ## Test Verification Protocol
 
-**IMPORTANTE**: Prima di considerare un'attività di sviluppo completata, DEVI:
+**IMPORTANT**: Before considering a development task complete, you MUST:
 
-1. **Eseguire i test impattati** dalle modifiche effettuate
-2. **Eseguire tutti gli unit test** del progetto
-3. **Eseguire tutti gli integration test** del progetto
-4. **ESCLUDERE i test Playwright** (E2E) - questi sono gestiti dal `playwright-expert`
+1. **Run the tests impacted** by the changes made
+2. **Run all unit tests** for the project
+3. **Run all integration tests** for the project
+4. **EXCLUDE Playwright tests** (E2E) - these are handled by the `playwright-expert`
 
-### Procedura
+### Procedure
 ```bash
-# Per progetti Node.js
+# For Node.js projects
 npm run test
 
-# Per progetti Python
+# For Python projects
 pytest
 
-# Per progetti Java
+# For Java projects
 ./mvnw test
 ```
 
-### Se i test falliscono:
-- ❌ **NON** considerare l'attività completata
-- 🔧 Analizzare e correggere i test falliti
-- 🔄 Ri-eseguire i test fino al successo
-- ✅ Solo dopo che TUTTI i test passano, l'attività può essere considerata completata
+### If tests fail:
+- ❌ **DO NOT** consider the task completed
+- 🔧 Analyze and fix the failing tests
+- 🔄 Re-run the tests until they pass
+- ✅ Only after ALL tests pass can the task be considered completed

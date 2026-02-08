@@ -2,7 +2,7 @@
 
 ## Property Sources
 
-### Ordine di Precedenza (dal più alto al più basso)
+### Precedence Order (from highest to lowest)
 
 1. Command line arguments (`--server.port=8080`)
 2. SPRING_APPLICATION_JSON
@@ -26,12 +26,12 @@
 @PropertySource(value = "file:/etc/myapp/config.properties", ignoreResourceNotFound = true)
 public class PropertyConfig {}
 
-// Property Source con profilo
+// Property Source with profile
 @Configuration
 @PropertySource("classpath:config-${spring.profiles.active}.properties")
 public class ProfilePropertyConfig {}
 
-// YAML property source (richiede factory custom)
+// YAML property source (requires custom factory)
 @Configuration
 @PropertySource(value = "classpath:custom.yml", factory = YamlPropertySourceFactory.class)
 public class YamlConfig {}
@@ -63,7 +63,7 @@ public class EnvironmentReader {
         // Single property
         String port = environment.getProperty("server.port");
 
-        // Con default
+        // With default
         String name = environment.getProperty("app.name", "DefaultApp");
 
         // Type conversion
@@ -89,20 +89,20 @@ public class EnvironmentReader {
 
 ## Profile-Specific Configuration Files
 
-### Struttura File
+### File Structure
 
 ```
 src/main/resources/
-├── application.yml              # Configurazione comune
-├── application-dev.yml          # Sviluppo locale
-├── application-test.yml         # Test automatici
+├── application.yml              # Common configuration
+├── application-dev.yml          # Local development
+├── application-test.yml         # Automated tests
 ├── application-staging.yml      # Staging
-├── application-prod.yml         # Produzione
+├── application-prod.yml         # Production
 ├── application-docker.yml       # Docker
 └── application-kubernetes.yml   # Kubernetes
 ```
 
-### application.yml (comune)
+### application.yml (common)
 
 ```yaml
 spring:

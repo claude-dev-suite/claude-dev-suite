@@ -13,14 +13,14 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # SLF4J - Quick Reference
 
-## Quando Usare Questa Skill
-- API di logging standard per Java
-- Integrazione con Logback, Log4j2
-- Best practices per logging Java
+## When to Use This Skill
+- Standard logging API for Java
+- Integration with Logback, Log4j2
+- Java logging best practices
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `slf4j` for comprehensive documentation.
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Logger Declaration
 ```java

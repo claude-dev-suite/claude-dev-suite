@@ -454,34 +454,34 @@ export class ClaudeHooksService {
    * Get the validation prompt for integration-validator hook
    */
   private getIntegrationValidatorPrompt(): string {
-    return `Analizza il lavoro completato dall'agente e determina se è necessaria la validazione dell'integrazione API.
+    return `Analyze the completed agent work and determine if API integration validation is needed.
 
-CONTESTO: $ARGUMENTS
+CONTEXT: $ARGUMENTS
 
-CRITERI DI TRIGGER (rispondi {ok: false} per continuare con integration-validator):
+TRIGGER CRITERIA (respond {ok: false} to continue with integration-validator):
 
 **Backend:**
-- Modifiche a controller/routes/handlers HTTP
-- Nuovi endpoint REST o GraphQL
-- Modifiche a DTO/request/response types
-- Cambi a middleware di autenticazione API
+- Changes to HTTP controllers/routes/handlers
+- New REST or GraphQL endpoints
+- Changes to DTO/request/response types
+- Changes to API authentication middleware
 
 **Frontend:**
-- Nuove chiamate API (fetch, axios, ky, ofetch)
-- Modifiche a hooks di data fetching (useQuery, useMutation, useSWR)
-- Modifiche a composables/services che chiamano API
-- Modifiche a tipi TypeScript per request/response API
+- New API calls (fetch, axios, ky, ofetch)
+- Changes to data fetching hooks (useQuery, useMutation, useSWR)
+- Changes to composables/services that call APIs
+- Changes to TypeScript types for API request/response
 
-NON TRIGGERA (rispondi {ok: true} per fermarti):
-- Solo modifiche CSS/styling
-- Solo cambi di testo/label
-- Refactoring interno senza toccare API
-- Modifiche a componenti UI senza data fetching
-- Test unitari senza integration test
+DO NOT TRIGGER (respond {ok: true} to stop):
+- CSS/styling changes only
+- Text/label changes only
+- Internal refactoring without touching APIs
+- UI component changes without data fetching
+- Unit tests without integration tests
 
-Rispondi SOLO con JSON valido:
-{"ok": false, "reason": "API integration detected: [descrizione]"} per triggerare validation
-{"ok": true} per terminare senza validation`;
+Respond ONLY with valid JSON:
+{"ok": false, "reason": "API integration detected: [description]"} to trigger validation
+{"ok": true} to stop without validation`;
   }
 
   /**

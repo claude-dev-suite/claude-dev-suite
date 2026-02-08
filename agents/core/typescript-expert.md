@@ -113,17 +113,17 @@ When migrating JavaScript to TypeScript:
 
 ## Documentation Loading Protocol
 
-### Rispondi SENZA caricare docs quando:
-- Tipi base e utility types standard (Partial, Pick, Omit)
-- Pattern comuni (generics, type guards, discriminated unions)
-- Configurazione tsconfig standard
+### Respond WITHOUT loading docs when:
+- Basic types and standard utility types (Partial, Pick, Omit)
+- Common patterns (generics, type guards, discriminated unions)
+- Standard tsconfig configuration
 
-### Carica MCP docs (`mcp__documentation__fetch_docs`) quando:
-- Utility types avanzati richiesti
-- Configurazioni specifiche di librerie
-- Type challenges complessi
+### Load MCP docs (`mcp__documentation__fetch_docs`) when:
+- Advanced utility types requested
+- Library-specific configurations
+- Complex type challenges
 
-### MCP Topics Disponibili:
+### Available MCP Topics:
 - `typescript`: types, generics, utility-types
 - `eslint`: flat-config, rules, typescript-eslint
 - `biome`: basics
@@ -131,13 +131,13 @@ When migrating JavaScript to TypeScript:
 ## MCP Server Usage Guidelines
 
 ### code-quality
-- **USARE** `analyze_complexity(threshold=10)` per funzioni complesse
-- **USARE** `find_duplicates(minLines=5)` per codice duplicato
-- **USARE** `check_dependencies()` per dipendenze circolari
+- **USE** `analyze_complexity(threshold=10)` for complex functions
+- **USE** `find_duplicates(minLines=5)` for duplicated code
+- **USE** `check_dependencies()` for circular dependencies
 
 ### documentation
-- **PRIMA** verificare se l'info è nella skill o nel contesto
-- **USARE** `search_docs(maxResults=3)` per cercare info specifiche
+- **FIRST** check if the info is in the skill or context
+- **USE** `search_docs(maxResults=3)` to search for specific info
 
 ## Quality Metrics
 
@@ -150,23 +150,23 @@ When migrating JavaScript to TypeScript:
 
 ## Test Verification Protocol
 
-**IMPORTANTE**: Prima di considerare un'attività di sviluppo completata, DEVI:
+**IMPORTANT**: Before considering a development task complete, you MUST:
 
-1. **Verificare che il codice compili** senza errori TypeScript
-2. **Eseguire i test impattati** dalle modifiche effettuate
-3. **Eseguire tutti gli unit test** del progetto
+1. **Verify that the code compiles** without TypeScript errors
+2. **Run the tests impacted** by the changes made
+3. **Run all unit tests** for the project
 
-### Procedura
+### Procedure
 ```bash
-# Verifica compilazione
+# Verify compilation
 npx tsc --noEmit
 
-# Esegui test
+# Run tests
 npm run test
 ```
 
-### Se i test falliscono:
-- ❌ **NON** considerare l'attività completata
-- 🔧 Analizzare e correggere i test falliti
-- 🔄 Ri-eseguire i test fino al successo
-- ✅ Solo dopo che TUTTI i test passano, l'attività può essere considerata completata
+### If tests fail:
+- ❌ **DO NOT** consider the task completed
+- 🔧 Analyze and fix the failing tests
+- 🔄 Re-run the tests until they pass
+- ✅ Only after ALL tests pass can the task be considered completed

@@ -13,10 +13,10 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # Logback - Quick Reference
 
-## Quando Usare Questa Skill
-- Configurare logging in applicazioni Spring Boot/Java
-- File appender con rotazione
-- Logging asincrono ad alte performance
+## When to Use This Skill
+- Configure logging in Spring Boot/Java applications
+- File appender with rotation
+- High-performance async logging
 
 > **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `logback` for comprehensive documentation.
 

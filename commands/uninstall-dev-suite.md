@@ -128,11 +128,11 @@ fi
 
 Use `AskUserQuestion` to confirm:
 
-**Domanda**: "Procedere con la disinstallazione?"
-**Header**: "Conferma"
-**Opzioni**:
-1. `Sì, procedi` - "Rimuovi i componenti dev-suite (contenuto utente preservato)"
-2. `Annulla` - "Non rimuovere nulla"
+**Question**: "Proceed with uninstallation?"
+**Header**: "Confirm"
+**Options**:
+1. `Yes, proceed` - "Remove dev-suite components (user content preserved)"
+2. `Cancel` - "Don't remove anything"
 
 ---
 

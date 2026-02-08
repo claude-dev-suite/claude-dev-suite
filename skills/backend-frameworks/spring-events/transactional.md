@@ -2,51 +2,51 @@
 
 ## @TransactionalEventListener
 
-Per eseguire listener solo quando la transazione completa con successo.
+To execute listeners only when the transaction completes successfully.
 
 ```java
 @Component
 @Slf4j
 public class TransactionalEventListeners {
 
-    // Esegue DOPO il commit della transazione (default)
+    // Executes AFTER the transaction commit (default)
     @TransactionalEventListener
     public void handleAfterCommit(OrderCreatedEvent event) {
         log.info("Transaction committed, sending email for order: {}", event.orderId());
         emailService.sendOrderConfirmation(event.orderId());
     }
 
-    // Esegue DOPO il commit - esplicito
+    // Executes AFTER commit - explicit
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleAfterCommitExplicit(OrderCreatedEvent event) {
-        // External API call - safe dopo commit
+        // External API call - safe after commit
         externalService.notifyOrder(event);
     }
 
-    // Esegue DOPO il rollback
+    // Executes AFTER rollback
     @TransactionalEventListener(phase = TransactionPhase.AFTER_ROLLBACK)
     public void handleAfterRollback(OrderCreatedEvent event) {
         log.warn("Order creation rolled back: {}", event.orderId());
         alertService.notifyRollback(event);
     }
 
-    // Esegue DOPO il completamento (commit o rollback)
+    // Executes AFTER completion (commit or rollback)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMPLETION)
     public void handleAfterCompletion(OrderCreatedEvent event) {
         log.info("Transaction completed for order: {}", event.orderId());
     }
 
-    // Esegue PRIMA del commit (nel contesto della transazione)
+    // Executes BEFORE commit (within the transaction context)
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleBeforeCommit(OrderCreatedEvent event) {
-        // Ultimo check prima del commit
+        // Final check before commit
         validateOrderBeforeCommit(event);
     }
 
-    // Fallback se non c'è transazione attiva
+    // Fallback if there is no active transaction
     @TransactionalEventListener(fallbackExecution = true)
     public void handleWithFallback(OrderCreatedEvent event) {
-        // Esegue anche se non c'è transazione
+        // Executes even if there is no active transaction
     }
 }
 ```
@@ -69,7 +69,7 @@ public class OrderService {
         // 1. Create order in DB
         Order order = orderRepository.save(new Order(request));
 
-        // 2. Publish event (sarà processato dopo commit)
+        // 2. Publish event (will be processed after commit)
         eventPublisher.publishEvent(new OrderCreatedEvent(
             order.getId(),
             order.getCustomerId(),
@@ -90,21 +90,21 @@ public class OrderCreatedEventHandler {
     private final InventoryService inventoryService;
     private final AnalyticsService analyticsService;
 
-    // Email - dopo commit, non critico
+    // Email - after commit, not critical
     @TransactionalEventListener
     @Async
     public void sendConfirmationEmail(OrderCreatedEvent event) {
         emailService.sendOrderConfirmation(event.orderId(), event.customerId());
     }
 
-    // Inventory - dopo commit, importante
+    // Inventory - after commit, important
     @TransactionalEventListener
     @Order(1)
     public void reserveInventory(OrderCreatedEvent event) {
         inventoryService.reserveForOrder(event.orderId());
     }
 
-    // Analytics - dopo commit, non critico
+    // Analytics - after commit, not critical
     @TransactionalEventListener
     @Async
     public void trackOrder(OrderCreatedEvent event) {
@@ -146,18 +146,18 @@ public class AsyncEventListeners {
         // Long running operation
     }
 
-    // Async transactional (attenzione: transazione già committata)
+    // Async transactional (note: transaction already committed)
     @Async
     @TransactionalEventListener
     public void handleAsyncTransactional(OrderCreatedEvent event) {
-        // Safe - eseguito dopo commit in thread separato
+        // Safe - executed after commit in a separate thread
     }
 }
 ```
 
 ---
 
-## Async Event con Error Handling
+## Async Event with Error Handling
 
 ```java
 @Component
@@ -260,7 +260,7 @@ public class ApplicationLifecycleListener {
 ## Testing Transactional Events
 
 ```java
-// Test transactional event
+// Test for transactional events
 @SpringBootTest
 @Transactional
 class TransactionalEventTest {
@@ -275,14 +275,14 @@ class TransactionalEventTest {
     void shouldProcessAfterCommit() {
         orderService.createOrder(new CreateOrderRequest());
 
-        // TransactionalEventListener non ancora eseguito (dentro transaction)
+        // TransactionalEventListener not yet executed (inside transaction)
         verify(eventHandler, never()).sendConfirmationEmail(any());
 
         // Commit transaction
         TestTransaction.flagForCommit();
         TestTransaction.end();
 
-        // Ora dovrebbe essere eseguito
+        // Now it should have been executed
         verify(eventHandler).sendConfirmationEmail(any());
     }
 }

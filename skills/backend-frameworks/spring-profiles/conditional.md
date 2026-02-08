@@ -6,14 +6,14 @@
 @Configuration
 public class FeatureConfig {
 
-    // Bean creato solo se property è true
+    // Bean created only if property is true
     @Bean
     @ConditionalOnProperty(name = "feature.email.enabled", havingValue = "true")
     public EmailService emailService() {
         return new RealEmailService();
     }
 
-    // Bean creato se property è false o assente
+    // Bean created if property is false or absent
     @Bean
     @ConditionalOnProperty(
         name = "feature.email.enabled",
@@ -24,7 +24,7 @@ public class FeatureConfig {
         return new NoOpEmailService();
     }
 
-    // Bean creato se property esiste (qualsiasi valore)
+    // Bean created if property exists (any value)
     @Bean
     @ConditionalOnProperty(name = "app.custom-datasource.url")
     public DataSource customDataSource(
@@ -55,7 +55,7 @@ public class ProfileConditionalConfig {
     }
 
     @Bean
-    @Profile("!test")  // Tutti tranne test
+    @Profile("!test")  // All except test
     public AuditService auditService() {
         return new RealAuditService();
     }
@@ -77,7 +77,7 @@ public class DefaultConfig {
     }
 }
 
-// In altro modulo - sovrascrive il default
+// In another module - overrides the default
 @Configuration
 @Profile("custom")
 public class CustomConfig {
@@ -116,7 +116,7 @@ public @interface ConditionalOnFeatureFlag {
     String value();
 }
 
-// Uso
+// Usage
 @Bean
 @ConditionalOnFeatureFlag("new-algorithm")
 public AlgorithmService newAlgorithm() {
@@ -182,26 +182,26 @@ public @interface ValidPortRange {
 ## Testing Configuration
 
 ```java
-// Test con profilo specifico
+// Test with specific profile
 @SpringBootTest
 @ActiveProfiles("test")
 class ServiceTest {
     // Uses application-test.yml
 }
 
-// Test con properties override
+// Test with properties override
 @SpringBootTest(properties = {
     "app.feature.enabled=true",
     "app.timeout=5000"
 })
 class FeatureTest {}
 
-// Test con @TestPropertySource
+// Test with @TestPropertySource
 @SpringBootTest
 @TestPropertySource(locations = "classpath:test-config.properties")
 class ConfiguredTest {}
 
-// Test con @TestPropertySource inline
+// Test with @TestPropertySource inline
 @SpringBootTest
 @TestPropertySource(properties = {
     "app.name=test-app",
@@ -223,7 +223,7 @@ class ConfigurationPropertiesTest {
     }
 }
 
-// Test con Environment
+// Test with Environment
 @SpringBootTest
 class EnvironmentTest {
 

@@ -17,13 +17,13 @@ NC='\033[0m'
 # DETERMINE PROJECT ROOT
 # ============================================
 
-# Trova la root del progetto (dove si trova dev-suite come sottocartella)
+# Find the project root (where dev-suite exists as a subfolder)
 if [ -d "./dev-suite" ]; then
     PROJECT_ROOT="$(pwd)"
 elif [ "$(basename "$(pwd)")" = "dev-suite" ] && [ -d "../.claude" ]; then
     PROJECT_ROOT="$(cd .. && pwd)"
 else
-    # Cerca risalendo nella gerarchia
+    # Search upward through the hierarchy
     PROJECT_ROOT="$(pwd)"
     while [ ! -d "$PROJECT_ROOT/dev-suite" ] && [ "$PROJECT_ROOT" != "/" ]; do
         PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
@@ -31,12 +31,12 @@ else
 fi
 
 if [ ! -d "$PROJECT_ROOT/dev-suite" ]; then
-    echo -e "${RED}Errore: impossibile determinare la root del progetto${NC}"
-    echo "Assicurati di eseguire il comando dalla directory del progetto o da dev-suite"
+    echo -e "${RED}Error: unable to determine the project root${NC}"
+    echo "Make sure to run the command from the project directory or from dev-suite"
     exit 1
 fi
 
-# Path assoluti basati su PROJECT_ROOT
+# Absolute paths based on PROJECT_ROOT
 DEV_SUITE_DIR="$PROJECT_ROOT/dev-suite"
 CLAUDE_DIR="$PROJECT_ROOT/.claude"
 AGENTS_TARGET="$CLAUDE_DIR/agents"
@@ -73,14 +73,14 @@ INTEGRITY_ERRORS=()
 # ============================================
 
 if [ ! -d "$DEV_SUITE_DIR/agents" ]; then
-    echo -e "${RED}Errore: dev-suite non trovato in $DEV_SUITE_DIR${NC}"
-    echo "Clona il repository dev-suite nella root del progetto."
+    echo -e "${RED}Error: dev-suite not found in $DEV_SUITE_DIR${NC}"
+    echo "Clone the dev-suite repository into the project root."
     exit 1
 fi
 
 if [ ! -d "$AGENTS_TARGET" ]; then
-    echo -e "${RED}Errore: $AGENTS_TARGET non trovato${NC}"
-    echo "Esegui prima /init-project per inizializzare il progetto."
+    echo -e "${RED}Error: $AGENTS_TARGET not found${NC}"
+    echo "Run /init-project first to initialize the project."
     exit 1
 fi
 
@@ -132,7 +132,7 @@ echo ""
 # STEP 1: GIT UPDATE
 # ============================================
 
-echo -e "${CYAN}[1/9] Aggiornamento dev-suite da git...${NC}"
+echo -e "${CYAN}[1/9] Updating dev-suite from git...${NC}"
 
 BEFORE_COMMIT=$(git -C "$DEV_SUITE_DIR" rev-parse HEAD 2>/dev/null)
 
@@ -144,7 +144,7 @@ echo -e "  ${DIM}Branch: $CURRENT_BRANCH${NC}"
 # This handles CRLF/LF issues on Windows and any accidental modifications
 HAS_CHANGES=$(git -C "$DEV_SUITE_DIR" status --porcelain 2>/dev/null)
 if [ -n "$HAS_CHANGES" ]; then
-    echo -e "  ${YELLOW}⚠${NC} Modifiche locali rilevate, reset in corso..."
+    echo -e "  ${YELLOW}⚠${NC} Local changes detected, resetting..."
     git -C "$DEV_SUITE_DIR" reset --hard HEAD 2>/dev/null
 fi
 
@@ -153,13 +153,13 @@ git -C "$DEV_SUITE_DIR" pull origin "$CURRENT_BRANCH" 2>&1 | grep -v "Already up
 AFTER_COMMIT=$(git -C "$DEV_SUITE_DIR" rev-parse HEAD 2>/dev/null)
 
 if [ "$BEFORE_COMMIT" != "$AFTER_COMMIT" ]; then
-    echo -e "  ${GREEN}✓${NC} Dev-suite aggiornato"
-    echo -e "  ${DIM}Nuovi commit:${NC}"
+    echo -e "  ${GREEN}✓${NC} Dev-suite updated"
+    echo -e "  ${DIM}New commits:${NC}"
     git -C "$DEV_SUITE_DIR" log --oneline "$BEFORE_COMMIT".."$AFTER_COMMIT" 2>/dev/null | head -5 | while read line; do
         echo -e "    ${GREEN}+${NC} $line"
     done
 else
-    echo -e "  ${GREEN}✓${NC} Dev-suite già aggiornato"
+    echo -e "  ${GREEN}✓${NC} Dev-suite already up to date"
 fi
 echo ""
 
@@ -167,7 +167,7 @@ echo ""
 # STEP 2: ANALYZE DEPENDENCIES
 # ============================================
 
-echo -e "${CYAN}[2/9] Analisi dipendenze...${NC}"
+echo -e "${CYAN}[2/9] Analyzing dependencies...${NC}"
 
 # Collect all skills referenced by agents (from SOURCE, not target)
 # Use regular arrays instead of associative arrays for better compatibility
@@ -186,7 +186,7 @@ for agent_file in "$AGENTS_TARGET"/*.md; do
     AGENTS_TO_SYNC+=("$agent_name")
 done
 
-echo -e "  Agents da sincronizzare: ${#AGENTS_TO_SYNC[@]}"
+echo -e "  Agents to sync: ${#AGENTS_TO_SYNC[@]}"
 
 # For each agent, analyze dependencies from SOURCE
 for agent_name in "${AGENTS_TO_SYNC[@]}"; do
@@ -216,15 +216,15 @@ done
 REQUIRED_SKILLS=($(printf '%s\n' "${REQUIRED_SKILLS_LIST[@]}" | sort -u))
 REQUIRED_MCP=($(printf '%s\n' "${REQUIRED_MCP_LIST[@]}" | sort -u))
 
-echo -e "  Skills richieste: ${#REQUIRED_SKILLS[@]}"
-echo -e "  MCP servers richiesti: ${#REQUIRED_MCP[@]}"
+echo -e "  Required skills: ${#REQUIRED_SKILLS[@]}"
+echo -e "  Required MCP servers: ${#REQUIRED_MCP[@]}"
 echo ""
 
 # ============================================
 # STEP 3: SYNC AGENTS
 # ============================================
 
-echo -e "${CYAN}[3/9] Sincronizzazione agents...${NC}"
+echo -e "${CYAN}[3/9] Syncing agents...${NC}"
 
 for agent_name in "${AGENTS_TO_SYNC[@]}"; do
     agent_file="${agent_name}.md"
@@ -252,9 +252,9 @@ for agent_name in "${AGENTS_TO_SYNC[@]}"; do
     fi
 done
 
-echo -e "  ${GREEN}+${NC} Nuovi: ${#AGENTS_NEW[@]}"
-echo -e "  ${YELLOW}↻${NC} Aggiornati: ${#AGENTS_UPDATED[@]}"
-echo -e "  ${DIM}-${NC} Invariati: ${#AGENTS_UNCHANGED[@]}"
+echo -e "  ${GREEN}+${NC} New: ${#AGENTS_NEW[@]}"
+echo -e "  ${YELLOW}↻${NC} Updated: ${#AGENTS_UPDATED[@]}"
+echo -e "  ${DIM}-${NC} Unchanged: ${#AGENTS_UNCHANGED[@]}"
 echo -e "  ${CYAN}★${NC} Custom: ${#AGENTS_CUSTOM[@]}"
 echo ""
 
@@ -262,14 +262,14 @@ echo ""
 # STEP 4: SYNC SKILLS (Dependency-Aware)
 # ============================================
 
-echo -e "${CYAN}[4/9] Sincronizzazione skills (dependency-aware)...${NC}"
+echo -e "${CYAN}[4/9] Syncing skills (dependency-aware)...${NC}"
 
 for skill in "${REQUIRED_SKILLS[@]}"; do
     source_dir="$DEV_SUITE_DIR/skills/$skill"
     target_dir="$SKILLS_TARGET/$skill"
 
     if [ ! -d "$source_dir" ]; then
-        INTEGRITY_ERRORS+=("Skill mancante in source: $skill")
+        INTEGRITY_ERRORS+=("Missing skill in source: $skill")
         continue
     fi
 
@@ -295,16 +295,16 @@ for skill in "${REQUIRED_SKILLS[@]}"; do
     fi
 done
 
-echo -e "  ${GREEN}+${NC} Nuove: ${#SKILLS_NEW[@]}"
-echo -e "  ${YELLOW}↻${NC} Aggiornate: ${#SKILLS_UPDATED[@]}"
-echo -e "  ${DIM}-${NC} Invariate: ${#SKILLS_UNCHANGED[@]}"
+echo -e "  ${GREEN}+${NC} New: ${#SKILLS_NEW[@]}"
+echo -e "  ${YELLOW}↻${NC} Updated: ${#SKILLS_UPDATED[@]}"
+echo -e "  ${DIM}-${NC} Unchanged: ${#SKILLS_UNCHANGED[@]}"
 echo ""
 
 # ============================================
 # STEP 5: SYNC COMMANDS
 # ============================================
 
-echo -e "${CYAN}[5/9] Sincronizzazione commands...${NC}"
+echo -e "${CYAN}[5/9] Syncing commands...${NC}"
 
 mkdir -p "$COMMANDS_TARGET"
 
@@ -324,16 +324,16 @@ for cmd_file in "$DEV_SUITE_DIR/commands"/*.md; do
     fi
 done
 
-echo -e "  ${GREEN}+${NC} Nuovi: ${#COMMANDS_NEW[@]}"
-echo -e "  ${YELLOW}↻${NC} Aggiornati: ${#COMMANDS_UPDATED[@]}"
-echo -e "  ${DIM}-${NC} Invariati: ${#COMMANDS_UNCHANGED[@]}"
+echo -e "  ${GREEN}+${NC} New: ${#COMMANDS_NEW[@]}"
+echo -e "  ${YELLOW}↻${NC} Updated: ${#COMMANDS_UPDATED[@]}"
+echo -e "  ${DIM}-${NC} Unchanged: ${#COMMANDS_UNCHANGED[@]}"
 echo ""
 
 # ============================================
 # STEP 6: SYNC KNOWLEDGE BASES
 # ============================================
 
-echo -e "${CYAN}[6/9] Sincronizzazione knowledge bases...${NC}"
+echo -e "${CYAN}[6/9] Syncing knowledge bases...${NC}"
 
 KB_NEEDS_REBUILD=false
 
@@ -372,21 +372,21 @@ if [ -d "$SOURCE_KB" ]; then
             mkdir -p "$(dirname "$TARGET_INDEX")"
             cp "$SOURCE_INDEX" "$TARGET_INDEX"
             KB_NEEDS_REBUILD=true
-            echo -e "  ${YELLOW}↻${NC} docs-index.ts aggiornato"
+            echo -e "  ${YELLOW}↻${NC} docs-index.ts updated"
         fi
     fi
 fi
 
-echo -e "  ${GREEN}+${NC} Nuove: ${#KB_NEW[@]}"
-echo -e "  ${YELLOW}↻${NC} Aggiornate: ${#KB_UPDATED[@]}"
-echo -e "  ${DIM}-${NC} Invariate: ${#KB_UNCHANGED[@]}"
+echo -e "  ${GREEN}+${NC} New: ${#KB_NEW[@]}"
+echo -e "  ${YELLOW}↻${NC} Updated: ${#KB_UPDATED[@]}"
+echo -e "  ${DIM}-${NC} Unchanged: ${#KB_UNCHANGED[@]}"
 echo ""
 
 # ============================================
 # STEP 7: VERIFY/REBUILD MCP SERVERS
 # ============================================
 
-echo -e "${CYAN}[7/9] Verifica MCP servers...${NC}"
+echo -e "${CYAN}[7/9] Verifying MCP servers...${NC}"
 
 # Read MCP servers from .mcp.json (not from agent dependencies)
 # This ensures all CONFIGURED servers are synced, regardless of agent usage
@@ -408,14 +408,14 @@ for mcp in "${REQUIRED_MCP[@]}"; do
     fi
 done
 
-echo -e "  ${DIM}Server configurati: ${CONFIGURED_MCP[*]:-nessuno}${NC}"
+echo -e "  ${DIM}Configured servers: ${CONFIGURED_MCP[*]:-none}${NC}"
 
 # Check if workspaces are used (npm 7+ monorepo structure)
 MCP_SERVERS_ROOT="$DEV_SUITE_DIR/mcp-servers"
 USES_WORKSPACES=false
 if [ -f "$MCP_SERVERS_ROOT/package.json" ] && grep -q '"workspaces"' "$MCP_SERVERS_ROOT/package.json" 2>/dev/null; then
     USES_WORKSPACES=true
-    echo -e "  ${DIM}Modalità: npm workspaces${NC}"
+    echo -e "  ${DIM}Mode: npm workspaces${NC}"
 fi
 
 # Track servers that need rebuild
@@ -426,7 +426,7 @@ for server_name in "${CONFIGURED_MCP[@]}"; do
     target_dir="$MCP_TARGET/$server_name"
 
     if [ ! -d "$source_dir" ]; then
-        echo -e "  ${DIM}⊘${NC} $server_name (non in dev-suite, skip)"
+        echo -e "  ${DIM}⊘${NC} $server_name (not in dev-suite, skip)"
         continue
     fi
 
@@ -436,7 +436,7 @@ for server_name in "${CONFIGURED_MCP[@]}"; do
     # Check if target exists
     if [ ! -d "$target_dir" ] || [ ! -f "$target_dir/dist/index.js" ]; then
         needs_rebuild=true
-        rebuild_reason="non presente"
+        rebuild_reason="not present"
     else
         # Check if source code changed (compare src/ timestamps)
         source_src_time=$(find "$source_dir/src" -name "*.ts" -type f -exec stat -c %Y {} \; 2>/dev/null | sort -rn | head -1 || echo "0")
@@ -444,14 +444,14 @@ for server_name in "${CONFIGURED_MCP[@]}"; do
 
         if [ "$source_src_time" -gt "$target_src_time" ] 2>/dev/null; then
             needs_rebuild=true
-            rebuild_reason="source aggiornato"
+            rebuild_reason="source updated"
         fi
 
         # Check if package.json changed (new dependencies)
         if [ -f "$source_dir/package.json" ] && [ -f "$target_dir/package.json" ]; then
             if ! diff -q "$source_dir/package.json" "$target_dir/package.json" > /dev/null 2>&1; then
                 needs_rebuild=true
-                rebuild_reason="dipendenze aggiornate"
+                rebuild_reason="dependencies updated"
             fi
         fi
     fi
@@ -459,7 +459,7 @@ for server_name in "${CONFIGURED_MCP[@]}"; do
     # For documentation server, also check if knowledge base changed
     if [ "$server_name" = "documentation" ] && [ "$KB_NEEDS_REBUILD" = true ]; then
         needs_rebuild=true
-        rebuild_reason="knowledge base aggiornata"
+        rebuild_reason="knowledge base updated"
     fi
 
     if [ "$needs_rebuild" = true ]; then
@@ -515,7 +515,7 @@ if [ ${#SERVERS_TO_REBUILD[@]} -gt 0 ]; then
             if [ -f "$target_dir/dist/index.js" ]; then
                 MCP_REBUILT+=("$server_name")
             else
-                INTEGRITY_ERRORS+=("MCP build fallito: $server_name")
+                INTEGRITY_ERRORS+=("MCP build failed: $server_name")
             fi
         done
     else
@@ -538,7 +538,7 @@ if [ ${#SERVERS_TO_REBUILD[@]} -gt 0 ]; then
             if [ -f "$target_dir/dist/index.js" ]; then
                 MCP_REBUILT+=("$server_name")
             else
-                INTEGRITY_ERRORS+=("MCP build fallito: $server_name")
+                INTEGRITY_ERRORS+=("MCP build failed: $server_name")
             fi
         done
     fi
@@ -574,7 +574,7 @@ if [ -f "$MCP_JSON" ]; then
             # Check if .mcp.json has placeholder env vars for this server
             # Pattern: "${VAR_NAME}" - these don't work and should be removed
             if grep -q "\"$server_name\"" "$MCP_JSON" && grep -A20 "\"$server_name\"" "$MCP_JSON" | grep -q '\${[A-Z_]*}'; then
-                echo -e "  ${YELLOW}⚙${NC} $server_name usa dotenv - pulizia .mcp.json..."
+                echo -e "  ${YELLOW}⚙${NC} $server_name uses dotenv - cleaning .mcp.json..."
 
                 # Create backup
                 cp "$MCP_JSON" "$MCP_JSON.backup"
@@ -590,7 +590,7 @@ if [ -f "$MCP_JSON" ]; then
                         )
                     ' "$MCP_JSON" > "$MCP_JSON.tmp" && mv "$MCP_JSON.tmp" "$MCP_JSON"
                     MCP_JSON_UPDATED=true
-                    echo -e "    ${GREEN}✓${NC} Rimossi placeholder \${...} da $server_name"
+                    echo -e "    ${GREEN}✓${NC} Removed \${...} placeholders from $server_name"
                 else
                     # Fallback: use sed to remove lines with ${} placeholders
                     # This is less precise but works without jq
@@ -601,7 +601,7 @@ if [ -f "$MCP_JSON" ]; then
                     # Clean up trailing commas that might break JSON
                     sed -i 's/,\([[:space:]]*\)}/\1}/g' "$MCP_JSON"
                     MCP_JSON_UPDATED=true
-                    echo -e "    ${GREEN}✓${NC} Rimossi placeholder \${...} da $server_name (via sed)"
+                    echo -e "    ${GREEN}✓${NC} Removed \${...} placeholders from $server_name (via sed)"
                 fi
             fi
         fi
@@ -609,14 +609,14 @@ if [ -f "$MCP_JSON" ]; then
 fi
 
 if [ "$MCP_JSON_UPDATED" = true ]; then
-    echo -e "  ${GREEN}✓${NC} .mcp.json aggiornato"
+    echo -e "  ${GREEN}✓${NC} .mcp.json updated"
 fi
 
 # ============================================
 # STEP 8: INTEGRITY CHECK
 # ============================================
 
-echo -e "${CYAN}[8/9] Verifica integrità...${NC}"
+echo -e "${CYAN}[8/9] Verifying integrity...${NC}"
 
 # Check each agent has all its skills
 for agent_file in "$AGENTS_TARGET"/*.md; do
@@ -628,7 +628,7 @@ for agent_file in "$AGENTS_TARGET"/*.md; do
 
     for skill in $skills; do
         if [ ! -f "$SKILLS_TARGET/$skill/SKILL.md" ]; then
-            INTEGRITY_ERRORS+=("Agent '$agent_name' richiede skill mancante: $skill")
+            INTEGRITY_ERRORS+=("Agent '$agent_name' requires missing skill: $skill")
         fi
     done
 
@@ -637,15 +637,15 @@ for agent_file in "$AGENTS_TARGET"/*.md; do
     for mcp in $mcp_tools; do
         server_name=$(echo "$mcp" | sed 's/mcp__\([^_]*\).*/\1/')
         if [ ! -f "$MCP_TARGET/$server_name/dist/index.js" ]; then
-            INTEGRITY_ERRORS+=("Agent '$agent_name' richiede MCP server mancante: $server_name")
+            INTEGRITY_ERRORS+=("Agent '$agent_name' requires missing MCP server: $server_name")
         fi
     done
 done
 
 if [ ${#INTEGRITY_ERRORS[@]} -eq 0 ]; then
-    echo -e "  ${GREEN}✓${NC} Tutte le dipendenze soddisfatte"
+    echo -e "  ${GREEN}✓${NC} All dependencies satisfied"
 else
-    echo -e "  ${RED}✗${NC} Problemi rilevati:"
+    echo -e "  ${RED}✗${NC} Issues detected:"
     for err in "${INTEGRITY_ERRORS[@]}"; do
         echo -e "    ${RED}!${NC} $err"
     done
@@ -728,7 +728,7 @@ fi
 # ============================================
 
 echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                    Sync Completato                           ║${NC}"
+echo -e "${GREEN}║                    Sync Complete                              ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -751,7 +751,7 @@ echo ""
 echo -e "${BOLD}Knowledge Bases:${NC}"
 [ ${#KB_NEW[@]} -gt 0 ] && for f in "${KB_NEW[@]}"; do echo -e "  ${GREEN}+ $f${NC}"; done
 [ ${#KB_UPDATED[@]} -gt 0 ] && for f in "${KB_UPDATED[@]}"; do echo -e "  ${YELLOW}↻ $f${NC}"; done
-[ ${#KB_NEW[@]} -eq 0 ] && [ ${#KB_UPDATED[@]} -eq 0 ] && echo -e "  ${DIM}Nessuna modifica${NC}"
+[ ${#KB_NEW[@]} -eq 0 ] && [ ${#KB_UPDATED[@]} -eq 0 ] && echo -e "  ${DIM}No changes${NC}"
 
 echo ""
 echo -e "${BOLD}MCP Servers:${NC}"
@@ -764,19 +764,19 @@ echo ""
 total_changes=$((${#AGENTS_NEW[@]} + ${#AGENTS_UPDATED[@]} + ${#SKILLS_NEW[@]} + ${#SKILLS_UPDATED[@]} + ${#COMMANDS_NEW[@]} + ${#COMMANDS_UPDATED[@]} + ${#KB_NEW[@]} + ${#KB_UPDATED[@]} + ${#MCP_REBUILT[@]}))
 
 if [ $total_changes -eq 0 ]; then
-    echo -e "${GREEN}Nessun aggiornamento necessario. Tutto sincronizzato.${NC}"
+    echo -e "${GREEN}No updates needed. Everything is in sync.${NC}"
 else
-    echo -e "${GREEN}Totale: $total_changes componenti aggiornati${NC}"
+    echo -e "${GREEN}Total: $total_changes components updated${NC}"
 fi
 
 if [ ${#INTEGRITY_ERRORS[@]} -gt 0 ]; then
     echo ""
-    echo -e "${RED}⚠ ${#INTEGRITY_ERRORS[@]} problemi di integrità rilevati. Verifica manualmente.${NC}"
+    echo -e "${RED}⚠ ${#INTEGRITY_ERRORS[@]} integrity issues detected. Verify manually.${NC}"
 fi
 
 if [ ${#MCP_REBUILT[@]} -gt 0 ]; then
     echo ""
-    echo -e "${YELLOW}⚠ MCP servers aggiornati. Riavvia Claude Code per caricarli.${NC}"
+    echo -e "${YELLOW}⚠ MCP servers updated. Restart Claude Code to load them.${NC}"
 fi
 
 # Ensure clean exit code

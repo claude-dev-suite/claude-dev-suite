@@ -1,15 +1,15 @@
 # Hooks Reference Guide
 
-Guida completa agli hook Git e Claude Code supportati da dev-suite.
+A comprehensive guide to the Git and Claude Code hooks supported by dev-suite.
 
 ---
 
-## Indice
+## Table of Contents
 
 1. [Git Hooks - Client-side](#git-hooks---client-side)
 2. [Git Hooks - Server-side](#git-hooks---server-side)
 3. [Git Hooks - Email](#git-hooks---email)
-4. [Git Hooks - Altri](#git-hooks---altri)
+4. [Git Hooks - Other](#git-hooks---other)
 5. [Claude Code Hooks](#claude-code-hooks)
 6. [Best Practices](#best-practices)
 
@@ -17,26 +17,26 @@ Guida completa agli hook Git e Claude Code supportati da dev-suite.
 
 ## Git Hooks - Client-side
 
-Gli hook client-side vengono eseguiti sul computer dello sviluppatore durante le normali operazioni Git.
+Client-side hooks run on the developer's machine during normal Git operations.
 
 ### pre-commit
 
-**Esecuzione**: Prima che il commit venga creato, prima ancora di inserire il messaggio.
+**Runs**: Before the commit is created, even before the commit message prompt.
 
-**Argomenti**: Nessuno
+**Arguments**: None
 
 **Exit code**:
-- `0` = procedi con il commit
-- `non-zero` = annulla il commit
+- `0` = proceed with the commit
+- `non-zero` = abort the commit
 
-**Scopo principale**: Validare il codice e applicare standard di qualità prima che il commit entri nella history.
+**Primary purpose**: Validate code and enforce quality standards before the commit enters the history.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Formattazione automatica del codice**
+**1. Automatic code formatting**
 ```bash
 #!/bin/sh
-# Formatta tutti i file staged
+# Format all staged files
 staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|ts|jsx|tsx|json|css|md)$')
 
 if [ -n "$staged_files" ]; then
@@ -48,10 +48,10 @@ fi
 exit 0
 ```
 
-**2. Linting con blocco su errori**
+**2. Linting with error blocking**
 ```bash
 #!/bin/sh
-# Esegui ESLint solo sui file staged
+# Run ESLint only on staged files
 staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|ts|jsx|tsx)$')
 
 if [ -n "$staged_files" ]; then
@@ -67,10 +67,10 @@ fi
 exit 0
 ```
 
-**3. Prevenire commit di file sensibili**
+**3. Prevent committing sensitive files**
 ```bash
 #!/bin/sh
-# Blocca commit di file con segreti
+# Block commits containing secrets
 forbidden_patterns=(
   "\.env$"
   "\.env\.local$"
@@ -93,14 +93,14 @@ done
 exit 0
 ```
 
-**4. Verificare assenza di TODO/FIXME critici**
+**4. Check for critical TODO/FIXME markers**
 ```bash
 #!/bin/sh
-# Blocca commit con TODO critici
+# Block commits with critical TODOs
 staged_files=$(git diff --cached --name-only --diff-filter=ACM)
 
 if [ -n "$staged_files" ]; then
-  # Cerca TODO:BLOCK o FIXME:BLOCK nei file staged
+  # Search for TODO:BLOCK or FIXME:BLOCK in staged files
   if echo "$staged_files" | xargs grep -l "TODO:BLOCK\|FIXME:BLOCK" 2>/dev/null; then
     echo "Error: Found blocking TODO/FIXME markers"
     echo "Resolve them before committing or remove the :BLOCK suffix"
@@ -111,10 +111,10 @@ fi
 exit 0
 ```
 
-**5. Type checking TypeScript**
+**5. TypeScript type checking**
 ```bash
 #!/bin/sh
-# Verifica tipi TypeScript
+# Verify TypeScript types
 if [ -f "tsconfig.json" ]; then
   echo "Running TypeScript type check..."
   npx tsc --noEmit
@@ -128,10 +128,10 @@ fi
 exit 0
 ```
 
-**6. Controllo dimensione file**
+**6. File size check**
 ```bash
 #!/bin/sh
-# Blocca file troppo grandi (> 5MB)
+# Block files that are too large (> 5MB)
 max_size=5242880  # 5MB in bytes
 
 staged_files=$(git diff --cached --name-only --diff-filter=ACM)
@@ -154,40 +154,40 @@ exit 0
 
 ### prepare-commit-msg
 
-**Esecuzione**: Dopo che Git prepara il messaggio di commit di default, ma prima che l'editor si apra.
+**Runs**: After Git prepares the default commit message, but before the editor opens.
 
-**Argomenti**:
-- `$1` = percorso del file contenente il messaggio
-- `$2` = sorgente del messaggio: `message` (con -m), `template`, `merge`, `squash`, `commit` (con -c/-C)
-- `$3` = SHA del commit (solo con -c/-C)
+**Arguments**:
+- `$1` = path to the file containing the message
+- `$2` = message source: `message` (with -m), `template`, `merge`, `squash`, `commit` (with -c/-C)
+- `$3` = commit SHA (only with -c/-C)
 
 **Exit code**:
-- `0` = procedi
-- `non-zero` = annulla
+- `0` = proceed
+- `non-zero` = abort
 
-**Scopo principale**: Modificare automaticamente il messaggio di commit prima che l'utente lo veda.
+**Primary purpose**: Automatically modify the commit message before the user sees it.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Aggiungere numero ticket dal branch name**
+**1. Add ticket number from branch name**
 ```bash
 #!/bin/sh
 commit_msg_file=$1
 commit_source=$2
 
-# Non modificare se è un merge o amend
+# Do not modify for merge or amend
 if [ "$commit_source" = "merge" ] || [ "$commit_source" = "commit" ]; then
   exit 0
 fi
 
-# Estrai ticket dal nome del branch (es. feature/PROJ-123-description)
+# Extract ticket from branch name (e.g., feature/PROJ-123-description)
 branch=$(git branch --show-current)
 ticket=$(echo "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1)
 
 if [ -n "$ticket" ]; then
-  # Controlla se il ticket è già nel messaggio
+  # Check if the ticket is already in the message
   if ! grep -q "$ticket" "$commit_msg_file"; then
-    # Prepend ticket al messaggio
+    # Prepend ticket to the message
     sed -i "1s/^/[$ticket] /" "$commit_msg_file"
   fi
 fi
@@ -195,20 +195,20 @@ fi
 exit 0
 ```
 
-**2. Aggiungere template per diversi tipi di branch**
+**2. Add template for different branch types**
 ```bash
 #!/bin/sh
 commit_msg_file=$1
 commit_source=$2
 
-# Solo per nuovi commit senza messaggio
+# Only for new commits without a message
 if [ "$commit_source" != "" ] && [ "$commit_source" != "template" ]; then
   exit 0
 fi
 
 branch=$(git branch --show-current)
 
-# Template basato sul tipo di branch
+# Template based on branch type
 if echo "$branch" | grep -q "^feature/"; then
   cat > "$commit_msg_file" << 'EOF'
 feat:
@@ -240,13 +240,13 @@ fi
 exit 0
 ```
 
-**3. Aggiungere co-author automaticamente**
+**3. Automatically add co-author**
 ```bash
 #!/bin/sh
 commit_msg_file=$1
 
-# Aggiungi co-author se stai facendo pair programming
-# Basato su variabile d'ambiente
+# Add co-author when pair programming
+# Based on environment variable
 if [ -n "$GIT_PAIR" ]; then
   echo "" >> "$commit_msg_file"
   echo "Co-authored-by: $GIT_PAIR" >> "$commit_msg_file"
@@ -255,12 +255,12 @@ fi
 exit 0
 ```
 
-**4. Aggiungere statistiche al messaggio**
+**4. Add statistics to the message**
 ```bash
 #!/bin/sh
 commit_msg_file=$1
 
-# Aggiungi statistiche dei file modificati come commento
+# Add modified file statistics as a comment
 stats=$(git diff --cached --stat | tail -1)
 
 echo "" >> "$commit_msg_file"
@@ -273,18 +273,18 @@ exit 0
 
 ### commit-msg
 
-**Esecuzione**: Dopo che l'utente ha inserito il messaggio di commit, prima della finalizzazione.
+**Runs**: After the user has entered the commit message, before finalization.
 
-**Argomenti**:
-- `$1` = percorso del file contenente il messaggio di commit
+**Arguments**:
+- `$1` = path to the file containing the commit message
 
 **Exit code**:
-- `0` = procedi con il commit
-- `non-zero` = annulla il commit
+- `0` = proceed with the commit
+- `non-zero` = abort the commit
 
-**Scopo principale**: Validare il formato e il contenuto del messaggio di commit.
+**Primary purpose**: Validate the format and content of the commit message.
 
-#### Casi d'uso
+#### Use Cases
 
 **1. Conventional Commits enforcement**
 ```bash
@@ -292,15 +292,15 @@ exit 0
 commit_msg_file=$1
 commit_msg=$(cat "$commit_msg_file")
 
-# Pattern per Conventional Commits
-# tipo(scope opzionale): descrizione
-# tipo! per breaking changes
+# Pattern for Conventional Commits
+# type(optional scope): description
+# type! for breaking changes
 pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .{1,}'
 
-# Ignora righe di commento e merge commits
+# Ignore comment lines and merge commits
 first_line=$(echo "$commit_msg" | grep -v "^#" | head -1)
 
-# Ignora merge commits
+# Ignore merge commits
 if echo "$first_line" | grep -qE "^Merge "; then
   exit 0
 fi
@@ -337,15 +337,15 @@ fi
 exit 0
 ```
 
-**2. Validazione lunghezza messaggio**
+**2. Message length validation**
 ```bash
 #!/bin/sh
 commit_msg_file=$1
 
-# Leggi prima riga (subject)
+# Read the first line (subject)
 subject=$(grep -v "^#" "$commit_msg_file" | head -1)
 
-# Controlli sulla subject line
+# Subject line checks
 if [ ${#subject} -gt 72 ]; then
   echo "Error: Subject line too long (${#subject} > 72 characters)"
   echo "Keep it concise and descriptive"
@@ -358,49 +358,49 @@ if [ ${#subject} -lt 10 ]; then
   exit 1
 fi
 
-# Verifica che non finisca con punto
+# Verify it does not end with a period
 if echo "$subject" | grep -qE '\.$'; then
   echo "Error: Subject line should not end with a period"
   exit 1
 fi
 
-# Verifica che inizi con maiuscola (dopo il tipo)
+# Verify it starts with a capital letter (after the type)
 if echo "$subject" | grep -qE '^[a-z]+(\([^)]+\))?: [a-z]'; then
   echo "Warning: Consider capitalizing the description"
-  # Non bloccare, solo warning
+  # Do not block, just a warning
 fi
 
 exit 0
 ```
 
-**3. Riferimento issue obbligatorio**
+**3. Mandatory issue reference**
 ```bash
 #!/bin/sh
 commit_msg_file=$1
 commit_msg=$(cat "$commit_msg_file")
 
-# Richiedi riferimento a issue per branch non-main
+# Require issue reference for non-main branches
 branch=$(git branch --show-current)
 
 if [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
-  # Cerca pattern come #123, PROJ-123, closes #123, fixes #123
+  # Look for patterns like #123, PROJ-123, closes #123, fixes #123
   if ! echo "$commit_msg" | grep -qiE "(#[0-9]+|[A-Z]+-[0-9]+|closes|fixes|resolves)"; then
     echo "Warning: No issue reference found in commit message"
     echo "Consider adding: #123, PROJ-123, or 'Closes #123'"
-    # Non bloccare, solo warning
+    # Do not block, just a warning
   fi
 fi
 
 exit 0
 ```
 
-**4. Bloccare messaggi generici**
+**4. Block generic messages**
 ```bash
 #!/bin/sh
 commit_msg_file=$1
 subject=$(grep -v "^#" "$commit_msg_file" | head -1 | tr '[:upper:]' '[:lower:]')
 
-# Lista di messaggi generici da bloccare
+# List of generic messages to block
 generic_messages=(
   "fix"
   "fixes"
@@ -438,20 +438,20 @@ exit 0
 
 ### post-commit
 
-**Esecuzione**: Dopo che il commit è stato creato con successo.
+**Runs**: After the commit has been successfully created.
 
-**Argomenti**: Nessuno
+**Arguments**: None
 
-**Exit code**: Ignorato (il commit è già fatto)
+**Exit code**: Ignored (the commit is already done)
 
-**Scopo principale**: Notifiche, logging, trigger di azioni post-commit.
+**Primary purpose**: Notifications, logging, triggering post-commit actions.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Notifica desktop**
+**1. Desktop notification**
 ```bash
 #!/bin/sh
-# Notifica desktop del commit
+# Desktop notification for the commit
 commit_msg=$(git log -1 --pretty=%B | head -1)
 commit_hash=$(git log -1 --pretty=%h)
 
@@ -468,10 +468,10 @@ fi
 exit 0
 ```
 
-**2. Logging locale**
+**2. Local logging**
 ```bash
 #!/bin/sh
-# Log tutti i commit in un file locale
+# Log all commits to a local file
 log_file="$HOME/.git-commit-log"
 
 commit_hash=$(git log -1 --pretty=%H)
@@ -486,10 +486,10 @@ echo "$commit_date | $repo_name | $branch | $commit_short | $commit_msg" >> "$lo
 exit 0
 ```
 
-**3. Auto-push per branch specifici**
+**3. Auto-push for specific branches**
 ```bash
 #!/bin/sh
-# Auto-push per branch di documentazione
+# Auto-push for documentation branches
 branch=$(git branch --show-current)
 
 if echo "$branch" | grep -qE "^docs/|^documentation"; then
@@ -500,21 +500,21 @@ fi
 exit 0
 ```
 
-**4. Aggiornare time tracking**
+**4. Update time tracking**
 ```bash
 #!/bin/sh
-# Integrazione con sistema di time tracking
+# Integration with time tracking system
 commit_msg=$(git log -1 --pretty=%B)
 
-# Estrai tempo dal messaggio (es. "fix: bug [2h]")
+# Extract time from message (e.g., "fix: bug [2h]")
 time_spent=$(echo "$commit_msg" | grep -oE '\[[0-9]+[hm]\]' | tr -d '[]')
 
 if [ -n "$time_spent" ]; then
-  # Estrai ticket
+  # Extract ticket
   ticket=$(echo "$commit_msg" | grep -oE '[A-Z]+-[0-9]+')
 
   if [ -n "$ticket" ]; then
-    # Log tempo (integrare con il tuo sistema)
+    # Log time (integrate with your system)
     echo "Logging $time_spent for $ticket"
     # curl -X POST "https://timetracker/api/log" -d "ticket=$ticket&time=$time_spent"
   fi
@@ -523,12 +523,12 @@ fi
 exit 0
 ```
 
-**5. Trigger build in background**
+**5. Trigger background build**
 ```bash
 #!/bin/sh
-# Trigger build incrementale in background
+# Trigger incremental build in background
 if [ -f "package.json" ]; then
-  # Build in background senza bloccare
+  # Build in background without blocking
   nohup npm run build > /dev/null 2>&1 &
   echo "Build triggered in background (PID: $!)"
 fi
@@ -540,22 +540,22 @@ exit 0
 
 ### pre-merge-commit
 
-**Esecuzione**: Prima di un merge commit, dopo che i conflitti sono stati risolti.
+**Runs**: Before a merge commit, after conflicts have been resolved.
 
-**Argomenti**: Nessuno
+**Arguments**: None
 
 **Exit code**:
-- `0` = procedi con il merge commit
-- `non-zero` = annulla il merge
+- `0` = proceed with the merge commit
+- `non-zero` = abort the merge
 
-**Scopo principale**: Validare il risultato del merge prima di committare.
+**Primary purpose**: Validate the merge result before committing.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Verificare risoluzione conflitti completa**
+**1. Verify complete conflict resolution**
 ```bash
 #!/bin/sh
-# Verifica che non ci siano marker di conflitto residui
+# Verify that no residual conflict markers remain
 if git diff --cached --name-only | xargs grep -l "<<<<<<\|======\|>>>>>>" 2>/dev/null; then
   echo "Error: Unresolved merge conflicts found"
   echo "Files with conflict markers:"
@@ -566,10 +566,10 @@ fi
 exit 0
 ```
 
-**2. Eseguire test sul codice merged**
+**2. Run tests on merged code**
 ```bash
 #!/bin/sh
-# Esegui test per verificare che il merge non abbia rotto nulla
+# Run tests to verify the merge did not break anything
 echo "Running tests on merged code..."
 
 if [ -f "package.json" ]; then
@@ -585,10 +585,10 @@ fi
 exit 0
 ```
 
-**3. Type check dopo merge**
+**3. Type check after merge**
 ```bash
 #!/bin/sh
-# Verifica tipi dopo merge di branch con cambiamenti TypeScript
+# Verify types after merging branches with TypeScript changes
 if [ -f "tsconfig.json" ]; then
   changed_ts=$(git diff --cached --name-only | grep -E '\.(ts|tsx)$')
 
@@ -606,17 +606,17 @@ fi
 exit 0
 ```
 
-**4. Verificare changelog aggiornato**
+**4. Verify changelog is updated**
 ```bash
 #!/bin/sh
-# Per merge in main/develop, verifica che CHANGELOG sia aggiornato
+# For merges into main/develop, verify that CHANGELOG is updated
 target_branch=$(git rev-parse --abbrev-ref HEAD)
 
 if [ "$target_branch" = "main" ] || [ "$target_branch" = "develop" ]; then
   if ! git diff --cached --name-only | grep -q "CHANGELOG"; then
     echo "Warning: CHANGELOG.md not updated for merge to $target_branch"
     echo "Consider updating the changelog with your changes"
-    # Non bloccare, solo warning
+    # Do not block, just a warning
   fi
 fi
 
@@ -627,23 +627,23 @@ exit 0
 
 ### pre-push
 
-**Esecuzione**: Prima di pushare al remote, dopo che i commit locali sono stati determinati.
+**Runs**: Before pushing to the remote, after local commits have been determined.
 
-**Argomenti**:
-- `$1` = nome del remote (es. "origin")
-- `$2` = URL del remote
+**Arguments**:
+- `$1` = remote name (e.g., "origin")
+- `$2` = remote URL
 
-**stdin**: Riceve righe nel formato `<local ref> <local sha> <remote ref> <remote sha>`
+**stdin**: Receives lines in the format `<local ref> <local sha> <remote ref> <remote sha>`
 
 **Exit code**:
-- `0` = procedi con il push
-- `non-zero` = annulla il push
+- `0` = proceed with the push
+- `non-zero` = abort the push
 
-**Scopo principale**: Ultima linea di difesa prima di condividere il codice.
+**Primary purpose**: Last line of defense before sharing code.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Eseguire test completi**
+**1. Run full test suite**
 ```bash
 #!/bin/sh
 remote=$1
@@ -663,7 +663,7 @@ fi
 exit 0
 ```
 
-**2. Impedire push a branch protetti**
+**2. Prevent push to protected branches**
 ```bash
 #!/bin/sh
 remote=$1
@@ -686,10 +686,10 @@ done
 exit 0
 ```
 
-**3. Impedire push di branch WIP**
+**3. Prevent push of WIP branches**
 ```bash
 #!/bin/sh
-# Blocca push di branch work-in-progress
+# Block push of work-in-progress branches
 branch=$(git branch --show-current)
 
 if echo "$branch" | grep -qiE "^wip/|^wip-|/wip$|-wip$"; then
@@ -702,26 +702,26 @@ fi
 exit 0
 ```
 
-**4. Verificare che non ci siano commit locali con 'WIP' nel messaggio**
+**4. Verify no local commits have 'WIP' in the message**
 ```bash
 #!/bin/sh
 remote=$1
 
-# Controlla i commit che stanno per essere pushati
+# Check the commits about to be pushed
 while read local_ref local_sha remote_ref remote_sha; do
   # Skip delete
   if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
     continue
   fi
 
-  # Trova commit non ancora sul remote
+  # Find commits not yet on the remote
   if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
     range="$local_sha"
   else
     range="$remote_sha..$local_sha"
   fi
 
-  # Cerca commit con WIP nel messaggio
+  # Search for commits with WIP in the message
   wip_commits=$(git log --oneline "$range" | grep -iE "^[a-f0-9]+ wip|^[a-f0-9]+ WIP")
 
   if [ -n "$wip_commits" ]; then
@@ -739,11 +739,11 @@ exit 0
 **5. Security audit**
 ```bash
 #!/bin/sh
-# Esegui audit di sicurezza prima del push
+# Run security audit before push
 if [ -f "package-lock.json" ]; then
   echo "Running npm security audit..."
 
-  # Blocca solo per vulnerabilità high/critical
+  # Block only for high/critical vulnerabilities
   npm audit --audit-level=high
 
   if [ $? -ne 0 ]; then
@@ -757,7 +757,7 @@ fi
 exit 0
 ```
 
-**6. Impedire force push**
+**6. Prevent force push**
 ```bash
 #!/bin/sh
 remote=$1
@@ -783,10 +783,10 @@ done
 exit 0
 ```
 
-**7. Verificare dimensione del push**
+**7. Verify push size**
 ```bash
 #!/bin/sh
-# Blocca push con troppi file o troppo grandi
+# Block pushes with too many files or excessively large content
 max_files=100
 max_size_mb=50
 
@@ -797,7 +797,7 @@ while read local_ref local_sha remote_ref remote_sha; do
     range="$remote_sha..$local_sha"
   fi
 
-  # Conta file modificati
+  # Count modified files
   file_count=$(git diff --name-only "$range" 2>/dev/null | wc -l)
 
   if [ "$file_count" -gt "$max_files" ]; then
@@ -805,9 +805,9 @@ while read local_ref local_sha remote_ref remote_sha; do
     echo "Consider breaking into smaller commits"
   fi
 
-  # Controlla dimensione totale
+  # Check total size
   total_size=$(git diff --stat "$range" 2>/dev/null | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+')
-  # Questa è un'approssimazione, non la dimensione reale in byte
+  # This is an approximation, not the actual size in bytes
 done
 
 exit 0
@@ -817,21 +817,21 @@ exit 0
 
 ### pre-rebase
 
-**Esecuzione**: Prima di iniziare un rebase.
+**Runs**: Before starting a rebase.
 
-**Argomenti**:
-- `$1` = branch upstream su cui si sta rebasando
-- `$2` = branch che sta per essere rebasato (vuoto se è HEAD)
+**Arguments**:
+- `$1` = upstream branch being rebased onto
+- `$2` = branch about to be rebased (empty if HEAD)
 
 **Exit code**:
-- `0` = procedi con il rebase
-- `non-zero` = annulla il rebase
+- `0` = proceed with the rebase
+- `non-zero` = abort the rebase
 
-**Scopo principale**: Prevenire rebase su branch che non dovrebbero essere modificati.
+**Primary purpose**: Prevent rebase on branches that should not be modified.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Proteggere branch principali**
+**1. Protect main branches**
 ```bash
 #!/bin/sh
 upstream=$1
@@ -850,14 +850,14 @@ done
 exit 0
 ```
 
-**2. Prevenire rebase di branch condivisi**
+**2. Prevent rebase of shared branches**
 ```bash
 #!/bin/sh
 branch=${2:-$(git branch --show-current)}
 
-# Controlla se il branch è stato pushato
+# Check if the branch has been pushed
 if git rev-parse --verify "origin/$branch" > /dev/null 2>&1; then
-  # Controlla se ci sono altri contributor
+  # Check if there are other contributors
   authors=$(git log "origin/$branch" --format="%ae" | sort -u | wc -l)
 
   if [ "$authors" -gt 1 ]; then
@@ -874,10 +874,10 @@ fi
 exit 0
 ```
 
-**3. Verificare che non ci siano modifiche non committate**
+**3. Verify no uncommitted changes exist**
 ```bash
 #!/bin/sh
-# Rebase richiede working directory pulita
+# Rebase requires a clean working directory
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Error: You have uncommitted changes"
   echo "Please commit or stash your changes before rebasing"
@@ -892,44 +892,44 @@ exit 0
 
 ### post-checkout
 
-**Esecuzione**: Dopo `git checkout` o `git switch`.
+**Runs**: After `git checkout` or `git switch`.
 
-**Argomenti**:
-- `$1` = ref del commit precedente
-- `$2` = ref del nuovo commit
-- `$3` = flag: `1` se è un branch checkout, `0` se è un file checkout
+**Arguments**:
+- `$1` = ref of the previous commit
+- `$2` = ref of the new commit
+- `$3` = flag: `1` if it is a branch checkout, `0` if it is a file checkout
 
-**Exit code**: Ignorato
+**Exit code**: Ignored
 
-**Scopo principale**: Configurare l'ambiente per il nuovo branch.
+**Primary purpose**: Set up the environment for the new branch.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Reinstallare dipendenze se cambiate**
+**1. Reinstall dependencies if changed**
 ```bash
 #!/bin/sh
 prev_ref=$1
 new_ref=$2
 is_branch_checkout=$3
 
-# Solo per branch checkout
+# Only for branch checkout
 if [ "$is_branch_checkout" != "1" ]; then
   exit 0
 fi
 
-# Controlla se package.json è cambiato
+# Check if package.json has changed
 if git diff --name-only "$prev_ref" "$new_ref" | grep -qE "package(-lock)?\.json$"; then
   echo "package.json changed, running npm install..."
   npm install
 fi
 
-# Controlla se requirements.txt è cambiato (Python)
+# Check if requirements.txt has changed (Python)
 if git diff --name-only "$prev_ref" "$new_ref" | grep -q "requirements.txt"; then
   echo "requirements.txt changed, running pip install..."
   pip install -r requirements.txt
 fi
 
-# Controlla se go.mod è cambiato (Go)
+# Check if go.mod has changed (Go)
 if git diff --name-only "$prev_ref" "$new_ref" | grep -q "go.mod"; then
   echo "go.mod changed, running go mod download..."
   go mod download
@@ -938,13 +938,13 @@ fi
 exit 0
 ```
 
-**2. Pulire cache e file temporanei**
+**2. Clean cache and temporary files**
 ```bash
 #!/bin/sh
 is_branch_checkout=$3
 
 if [ "$is_branch_checkout" = "1" ]; then
-  # Pulisci cache comuni
+  # Clean common caches
   [ -d ".cache" ] && rm -rf .cache
   [ -d "node_modules/.cache" ] && rm -rf node_modules/.cache
   [ -d ".next" ] && rm -rf .next
@@ -957,7 +957,7 @@ fi
 exit 0
 ```
 
-**3. Configurare ambiente per branch**
+**3. Configure environment per branch**
 ```bash
 #!/bin/sh
 is_branch_checkout=$3
@@ -968,7 +968,7 @@ fi
 
 branch=$(git branch --show-current)
 
-# Seleziona file .env appropriato
+# Select appropriate .env file
 if echo "$branch" | grep -q "^feature/"; then
   [ -f ".env.development" ] && cp .env.development .env.local
 elif echo "$branch" | grep -qE "^release/|^hotfix/"; then
@@ -978,7 +978,7 @@ fi
 exit 0
 ```
 
-**4. Eseguire migrazioni database**
+**4. Run database migrations**
 ```bash
 #!/bin/sh
 prev_ref=$1
@@ -989,7 +989,7 @@ if [ "$is_branch_checkout" != "1" ]; then
   exit 0
 fi
 
-# Controlla se ci sono nuove migrazioni
+# Check if there are new migrations
 if git diff --name-only "$prev_ref" "$new_ref" | grep -q "migrations/"; then
   echo "New migrations detected, running database migrations..."
   npm run db:migrate
@@ -1002,23 +1002,23 @@ exit 0
 
 ### post-merge
 
-**Esecuzione**: Dopo un merge riuscito.
+**Runs**: After a successful merge.
 
-**Argomenti**:
-- `$1` = flag: `1` se era un squash merge, `0` altrimenti
+**Arguments**:
+- `$1` = flag: `1` if it was a squash merge, `0` otherwise
 
-**Exit code**: Ignorato
+**Exit code**: Ignored
 
-**Scopo principale**: Azioni post-merge come reinstallare dipendenze.
+**Primary purpose**: Post-merge actions such as reinstalling dependencies.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Reinstallare dipendenze**
+**1. Reinstall dependencies**
 ```bash
 #!/bin/sh
 is_squash=$1
 
-# Controlla se le dipendenze sono cambiate
+# Check if dependencies have changed
 changed_files=$(git diff HEAD@{1} --name-only)
 
 if echo "$changed_files" | grep -qE "package(-lock)?\.json$"; then
@@ -1034,7 +1034,7 @@ fi
 exit 0
 ```
 
-**2. Eseguire migrazioni**
+**2. Run migrations**
 ```bash
 #!/bin/sh
 changed_files=$(git diff HEAD@{1} --name-only)
@@ -1052,10 +1052,10 @@ fi
 exit 0
 ```
 
-**3. Rebuild dopo merge**
+**3. Rebuild after merge**
 ```bash
 #!/bin/sh
-# Ricompila se file sorgente sono cambiati
+# Rebuild if source files have changed
 changed_files=$(git diff HEAD@{1} --name-only)
 
 if echo "$changed_files" | grep -qE '\.(ts|tsx|js|jsx)$'; then
@@ -1066,7 +1066,7 @@ fi
 exit 0
 ```
 
-**4. Notifica merge completato**
+**4. Merge completion notification**
 ```bash
 #!/bin/sh
 is_squash=$1
@@ -1091,20 +1091,20 @@ exit 0
 
 ### post-rewrite
 
-**Esecuzione**: Dopo comandi che riscrivono commit (`git commit --amend`, `git rebase`).
+**Runs**: After commands that rewrite commits (`git commit --amend`, `git rebase`).
 
-**Argomenti**:
-- `$1` = comando che ha causato la riscrittura: `amend` o `rebase`
+**Arguments**:
+- `$1` = command that caused the rewrite: `amend` or `rebase`
 
-**stdin**: Riceve righe nel formato `<old sha> <new sha>` per ogni commit riscritto
+**stdin**: Receives lines in the format `<old sha> <new sha>` for each rewritten commit
 
-**Exit code**: Ignorato
+**Exit code**: Ignored
 
-**Scopo principale**: Aggiornare riferimenti esterni ai commit modificati.
+**Primary purpose**: Update external references to modified commits.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Logging delle riscritture**
+**1. Rewrite logging**
 ```bash
 #!/bin/sh
 command=$1
@@ -1119,7 +1119,7 @@ done
 exit 0
 ```
 
-**2. Notifica riscrittura**
+**2. Rewrite notification**
 ```bash
 #!/bin/sh
 command=$1
@@ -1140,14 +1140,14 @@ fi
 exit 0
 ```
 
-**3. Aggiornare riferimenti in file**
+**3. Update references in files**
 ```bash
 #!/bin/sh
-# Aggiorna riferimenti a commit in file di documentazione
+# Update commit references in documentation files
 command=$1
 
 while read old_sha new_sha; do
-  # Cerca e sostituisci riferimenti nei file markdown
+  # Find and replace references in markdown files
   find . -name "*.md" -type f -exec sed -i "s/$old_sha/$new_sha/g" {} \;
 done
 
@@ -1158,25 +1158,25 @@ exit 0
 
 ## Git Hooks - Server-side
 
-Gli hook server-side vengono eseguiti sul server Git (non usati con GitHub/GitLab che hanno le loro CI).
+Server-side hooks run on the Git server (not used with GitHub/GitLab, which have their own CI systems).
 
 ### pre-receive
 
-**Esecuzione**: Prima che qualsiasi ref venga aggiornato sul server.
+**Runs**: Before any ref is updated on the server.
 
-**Argomenti**: Nessuno
+**Arguments**: None
 
-**stdin**: Righe nel formato `<old sha> <new sha> <ref name>`
+**stdin**: Lines in the format `<old sha> <new sha> <ref name>`
 
 **Exit code**:
-- `0` = accetta il push
-- `non-zero` = rifiuta tutto il push
+- `0` = accept the push
+- `non-zero` = reject the entire push
 
-**Scopo principale**: Enforce policy a livello di repository.
+**Primary purpose**: Enforce policies at the repository level.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Bloccare force push**
+**1. Block force push**
 ```bash
 #!/bin/sh
 while read old_sha new_sha ref; do
@@ -1198,7 +1198,7 @@ done
 exit 0
 ```
 
-**2. Richiedere commit firmati**
+**2. Require signed commits**
 ```bash
 #!/bin/sh
 while read old_sha new_sha ref; do
@@ -1207,7 +1207,7 @@ while read old_sha new_sha ref; do
     continue
   fi
 
-  # Determina range di commit
+  # Determine commit range
   if [ "$old_sha" = "0000000000000000000000000000000000000000" ]; then
     commits=$(git rev-list "$new_sha")
   else
@@ -1226,7 +1226,7 @@ done
 exit 0
 ```
 
-**3. Validare dimensione file**
+**3. Validate file size**
 ```bash
 #!/bin/sh
 max_size=10485760  # 10MB
@@ -1236,7 +1236,7 @@ while read old_sha new_sha ref; do
     continue
   fi
 
-  # Trova file grandi nei nuovi commit
+  # Find large files in the new commits
   if [ "$old_sha" = "0000000000000000000000000000000000000000" ]; then
     range="$new_sha"
   else
@@ -1262,22 +1262,22 @@ exit 0
 
 ### update
 
-**Esecuzione**: Una volta per ogni ref che sta per essere aggiornato.
+**Runs**: Once for each ref that is about to be updated.
 
-**Argomenti**:
-- `$1` = nome del ref (es. refs/heads/main)
+**Arguments**:
+- `$1` = ref name (e.g., refs/heads/main)
 - `$2` = old SHA
 - `$3` = new SHA
 
 **Exit code**:
-- `0` = accetta l'update per questo ref
-- `non-zero` = rifiuta l'update per questo ref
+- `0` = accept the update for this ref
+- `non-zero` = reject the update for this ref
 
-**Scopo principale**: Validazione per-branch più granulare.
+**Primary purpose**: More granular per-branch validation.
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Proteggere branch specifici**
+**1. Protect specific branches**
 ```bash
 #!/bin/sh
 ref=$1
@@ -1286,14 +1286,14 @@ new_sha=$3
 
 branch=$(echo "$ref" | sed 's|refs/heads/||')
 
-# Blocca push diretto a main
+# Block direct push to main
 if [ "$branch" = "main" ]; then
   echo "Error: Direct push to main not allowed"
   echo "Create a pull request instead"
   exit 1
 fi
 
-# Release branches: solo fast-forward
+# Release branches: fast-forward only
 if echo "$branch" | grep -q "^release/"; then
   if ! git merge-base --is-ancestor "$old_sha" "$new_sha"; then
     echo "Error: Force push not allowed on release branches"
@@ -1304,18 +1304,18 @@ fi
 exit 0
 ```
 
-**2. Validare naming convention branch**
+**2. Validate branch naming convention**
 ```bash
 #!/bin/sh
 ref=$1
 
-# Solo per nuovi branch
+# Only for new branches
 if echo "$ref" | grep -q "^refs/heads/"; then
   branch=$(echo "$ref" | sed 's|refs/heads/||')
 
-  # Pattern validi: feature/*, bugfix/*, hotfix/*, release/*
+  # Valid patterns: feature/*, bugfix/*, hotfix/*, release/*
   if ! echo "$branch" | grep -qE "^(feature|bugfix|hotfix|release|main|master|develop)/"; then
-    # Permetti branch senza prefisso solo se sono main/master/develop
+    # Allow branches without a prefix only if they are main/master/develop
     if [ "$branch" != "main" ] && [ "$branch" != "master" ] && [ "$branch" != "develop" ]; then
       echo "Error: Invalid branch name: $branch"
       echo "Use: feature/*, bugfix/*, hotfix/*, release/*"
@@ -1331,15 +1331,15 @@ exit 0
 
 ### post-receive
 
-**Esecuzione**: Dopo che tutti i ref sono stati aggiornati.
+**Runs**: After all refs have been updated.
 
-**stdin**: Come pre-receive
+**stdin**: Same as pre-receive
 
-**Exit code**: Ignorato
+**Exit code**: Ignored
 
-**Scopo principale**: Trigger CI/CD, notifiche, deploy.
+**Primary purpose**: Trigger CI/CD, notifications, deployments.
 
-#### Casi d'uso
+#### Use Cases
 
 **1. Trigger CI/CD**
 ```bash
@@ -1357,7 +1357,7 @@ done
 exit 0
 ```
 
-**2. Deploy automatico**
+**2. Automatic deployment**
 ```bash
 #!/bin/sh
 while read old_sha new_sha ref; do
@@ -1382,7 +1382,7 @@ done
 exit 0
 ```
 
-**3. Notifica Slack**
+**3. Slack notification**
 ```bash
 #!/bin/sh
 SLACK_WEBHOOK="https://hooks.slack.com/services/xxx"
@@ -1390,19 +1390,19 @@ SLACK_WEBHOOK="https://hooks.slack.com/services/xxx"
 while read old_sha new_sha ref; do
   branch=$(echo "$ref" | sed 's|refs/heads/||')
 
-  # Skip se è un delete
+  # Skip if it's a delete
   if [ "$new_sha" = "0000000000000000000000000000000000000000" ]; then
     continue
   fi
 
-  # Conta commit
+  # Count commits
   if [ "$old_sha" = "0000000000000000000000000000000000000000" ]; then
     commit_count="new branch"
   else
     commit_count=$(git rev-list --count "$old_sha..$new_sha")
   fi
 
-  # Invia notifica
+  # Send notification
   curl -X POST -H 'Content-type: application/json' \
     --data "{\"text\":\"Push received: $branch ($commit_count commits)\"}" \
     "$SLACK_WEBHOOK"
@@ -1415,15 +1415,15 @@ exit 0
 
 ### post-update
 
-**Esecuzione**: Dopo che i ref sono stati aggiornati (legacy).
+**Runs**: After refs have been updated (legacy).
 
-**Argomenti**: Lista di ref aggiornati
+**Arguments**: List of updated refs
 
-**Note**: Preferire post-receive per nuove implementazioni.
+**Note**: Prefer post-receive for new implementations.
 
 ```bash
 #!/bin/sh
-# Aggiorna info per git-daemon
+# Update info for git-daemon
 exec git update-server-info
 ```
 
@@ -1431,15 +1431,15 @@ exec git update-server-info
 
 ### push-to-checkout
 
-**Esecuzione**: Quando un push aggiorna il branch correntemente checked out in un repo non-bare.
+**Runs**: When a push updates the currently checked out branch in a non-bare repo.
 
-**Argomenti**: Come update hook
+**Arguments**: Same as update hook
 
-**Scopo**: Gestire push a working directory.
+**Purpose**: Handle push to working directory.
 
 ```bash
 #!/bin/sh
-# Default: aggiorna working tree
+# Default: update working tree
 git read-tree -u -m HEAD "$3"
 ```
 
@@ -1447,22 +1447,22 @@ git read-tree -u -m HEAD "$3"
 
 ## Git Hooks - Email
 
-Questi hook sono usati con `git am` (applica patch da email) e `git send-email`.
+These hooks are used with `git am` (apply patches from email) and `git send-email`.
 
 ### applypatch-msg
 
-**Esecuzione**: Durante `git am`, dopo aver estratto il messaggio dalla patch.
+**Runs**: During `git am`, after extracting the message from the patch.
 
-**Argomenti**: `$1` = file con il messaggio
+**Arguments**: `$1` = file with the message
 
-**Scopo**: Validare/modificare il messaggio del commit dalla patch.
+**Purpose**: Validate/modify the commit message from the patch.
 
 ```bash
 #!/bin/sh
-# Stessa logica di commit-msg
+# Same logic as commit-msg
 commit_msg_file=$1
 
-# Valida conventional commits
+# Validate conventional commits
 pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+'
 
 if ! grep -qE "$pattern" "$commit_msg_file"; then
@@ -1477,13 +1477,13 @@ exit 0
 
 ### pre-applypatch
 
-**Esecuzione**: Dopo che la patch è applicata ma prima del commit.
+**Runs**: After the patch is applied but before the commit.
 
-**Scopo**: Verificare che il codice risultante sia valido.
+**Purpose**: Verify that the resulting code is valid.
 
 ```bash
 #!/bin/sh
-# Esegui test
+# Run tests
 npm test
 
 if [ $? -ne 0 ]; then
@@ -1498,9 +1498,9 @@ exit 0
 
 ### post-applypatch
 
-**Esecuzione**: Dopo che la patch è stata applicata e committata.
+**Runs**: After the patch has been applied and committed.
 
-**Scopo**: Notifiche post-patch.
+**Purpose**: Post-patch notifications.
 
 ```bash
 #!/bin/sh
@@ -1511,17 +1511,17 @@ echo "Patch applied successfully: $(git log -1 --oneline)"
 
 ### sendemail-validate
 
-**Esecuzione**: Prima di inviare email con `git send-email`.
+**Runs**: Before sending email with `git send-email`.
 
-**Argomenti**: `$1` = file contenente l'email
+**Arguments**: `$1` = file containing the email
 
-**Scopo**: Validare email prima dell'invio.
+**Purpose**: Validate email before sending.
 
 ```bash
 #!/bin/sh
 email_file=$1
 
-# Verifica destinatario
+# Verify recipient
 if ! grep -q "^To:.*@company.com" "$email_file"; then
   echo "Error: Email must be sent to company domain"
   exit 1
@@ -1532,23 +1532,23 @@ exit 0
 
 ---
 
-## Git Hooks - Altri
+## Git Hooks - Other
 
 ### fsmonitor-watchman
 
-**Scopo**: Integrazione con Watchman per velocizzare `git status` su repo grandi.
+**Purpose**: Integration with Watchman to speed up `git status` on large repos.
 
-Richiede configurazione specifica di Watchman. Vedere documentazione Git.
+Requires specific Watchman configuration. See Git documentation.
 
 ---
 
 ### reference-transaction
 
-**Esecuzione**: Durante transazioni sui ref.
+**Runs**: During ref transactions.
 
-**Argomenti**: `$1` = stato: `prepared`, `committed`, `aborted`
+**Arguments**: `$1` = state: `prepared`, `committed`, `aborted`
 
-**Scopo**: Hook a basso livello per tracking transazioni ref.
+**Purpose**: Low-level hook for tracking ref transactions.
 
 ```bash
 #!/bin/sh
@@ -1573,27 +1573,27 @@ exit 0
 
 ## Claude Code Hooks
 
-Claude Code supporta hook che vengono eseguiti durante le interazioni con Claude.
+Claude Code supports hooks that run during interactions with Claude.
 
 ### PreToolUse
 
-**Esecuzione**: Prima che Claude esegua un tool.
+**Runs**: Before Claude executes a tool.
 
-**Matcher**: Nome del tool (regex). Es: `Write|Edit`, `Bash`, `.*` (tutti)
+**Matcher**: Tool name (regex). E.g.: `Write|Edit`, `Bash`, `.*` (all)
 
-**Variabili ambiente**:
-- `$CLAUDE_TOOL_INPUT` - JSON con l'input del tool
+**Environment variables**:
+- `$CLAUDE_TOOL_INPUT` - JSON with the tool input
 
 **Exit code**:
-- `0` = procedi
-- `non-zero` = blocca il tool
+- `0` = proceed
+- `non-zero` = block the tool
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Bloccare modifica file protetti**
+**1. Block modification of protected files**
 ```bash
 #!/bin/sh
-# Blocca modifica a file di configurazione sensibili
+# Block modification of sensitive configuration files
 protected_files="\.env|config/secrets|credentials"
 
 if echo "$CLAUDE_TOOL_INPUT" | grep -qE "$protected_files"; then
@@ -1604,10 +1604,10 @@ fi
 exit 0
 ```
 
-**2. Richiedere conferma per operazioni pericolose**
+**2. Require confirmation for dangerous operations**
 ```bash
 #!/bin/sh
-# Per tool Bash, richiedi conferma per comandi pericolosi
+# For the Bash tool, require confirmation for dangerous commands
 dangerous_commands="rm -rf|drop table|truncate|delete from"
 
 if echo "$CLAUDE_TOOL_INPUT" | grep -qiE "$dangerous_commands"; then
@@ -1619,10 +1619,10 @@ fi
 exit 0
 ```
 
-**3. Logging delle operazioni**
+**3. Operation logging**
 ```bash
 #!/bin/sh
-# Log tutte le operazioni di Claude
+# Log all Claude operations
 log_file="$HOME/.claude-operations.log"
 
 timestamp=$(date '+%Y-%m-%d %H:%M:%S')
@@ -1635,20 +1635,20 @@ exit 0
 
 ### PostToolUse
 
-**Esecuzione**: Dopo che Claude ha eseguito un tool.
+**Runs**: After Claude has executed a tool.
 
-**Matcher**: Nome del tool (regex)
+**Matcher**: Tool name (regex)
 
-**Variabili ambiente**:
-- `$CLAUDE_FILE_PATHS` - Percorsi dei file modificati (per Write/Edit)
-- `$CLAUDE_TOOL_INPUT` - JSON con l'input del tool
+**Environment variables**:
+- `$CLAUDE_FILE_PATHS` - Paths of modified files (for Write/Edit)
+- `$CLAUDE_TOOL_INPUT` - JSON with the tool input
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Auto-format dopo modifiche**
+**1. Auto-format after modifications**
 ```bash
 #!/bin/sh
-# Formatta automaticamente i file modificati
+# Automatically format modified files
 if [ -n "$CLAUDE_FILE_PATHS" ]; then
   for file in $CLAUDE_FILE_PATHS; do
     if echo "$file" | grep -qE '\.(js|ts|jsx|tsx|json|css|md)$'; then
@@ -1660,10 +1660,10 @@ fi
 exit 0
 ```
 
-**2. Lint automatico**
+**2. Automatic linting**
 ```bash
 #!/bin/sh
-# Esegui lint sui file modificati
+# Run lint on modified files
 if [ -n "$CLAUDE_FILE_PATHS" ]; then
   js_files=$(echo "$CLAUDE_FILE_PATHS" | tr ' ' '\n' | grep -E '\.(js|ts|jsx|tsx)$')
 
@@ -1675,10 +1675,10 @@ fi
 exit 0
 ```
 
-**3. Aggiornare indice di ricerca**
+**3. Update search index**
 ```bash
 #!/bin/sh
-# Aggiorna indice ctags dopo modifiche
+# Update ctags index after modifications
 if [ -n "$CLAUDE_FILE_PATHS" ]; then
   ctags -a $CLAUDE_FILE_PATHS 2>/dev/null
 fi
@@ -1686,10 +1686,10 @@ fi
 exit 0
 ```
 
-**4. Notifica modifiche**
+**4. Modification notification**
 ```bash
 #!/bin/sh
-# Notifica desktop quando Claude modifica file
+# Desktop notification when Claude modifies files
 if [ -n "$CLAUDE_FILE_PATHS" ]; then
   count=$(echo "$CLAUDE_FILE_PATHS" | wc -w)
   notify-send "Claude" "Modified $count file(s)"
@@ -1702,19 +1702,19 @@ exit 0
 
 ### Notification
 
-**Esecuzione**: Quando Claude invia una notifica.
+**Runs**: When Claude sends a notification.
 
-**Matcher**: Tipo di notifica
+**Matcher**: Notification type
 
-**Variabili ambiente**:
-- `$CLAUDE_NOTIFICATION` - Testo della notifica
+**Environment variables**:
+- `$CLAUDE_NOTIFICATION` - Notification text
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Notifica desktop**
+**1. Desktop notification**
 ```bash
 #!/bin/sh
-# Mostra notifiche di Claude come notifiche desktop
+# Show Claude notifications as desktop notifications
 if [ -n "$CLAUDE_NOTIFICATION" ]; then
   notify-send "Claude" "$CLAUDE_NOTIFICATION"
 fi
@@ -1722,10 +1722,10 @@ fi
 exit 0
 ```
 
-**2. Log notifiche**
+**2. Log notifications**
 ```bash
 #!/bin/sh
-# Log delle notifiche
+# Log notifications
 echo "$(date): $CLAUDE_NOTIFICATION" >> ~/.claude-notifications.log
 exit 0
 ```
@@ -1734,28 +1734,28 @@ exit 0
 
 ### Stop
 
-**Esecuzione**: Quando Claude finisce di rispondere.
+**Runs**: When Claude finishes responding.
 
-**Matcher**: Nessuno
+**Matcher**: None
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Notifica completamento**
+**1. Completion notification**
 ```bash
 #!/bin/sh
-# Suono di notifica
+# Notification sound
 paplay /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null
 
-# O notifica desktop
+# Or desktop notification
 notify-send "Claude" "Response completed"
 
 exit 0
 ```
 
-**2. Log sessione**
+**2. Session log**
 ```bash
 #!/bin/sh
-# Log fine sessione
+# Log end of session
 echo "$(date): Session completed" >> ~/.claude-sessions.log
 exit 0
 ```
@@ -1764,13 +1764,13 @@ exit 0
 
 ### SubagentStop
 
-**Esecuzione**: Quando un subagent di Claude termina.
+**Runs**: When a Claude subagent finishes.
 
-**Matcher**: Nessuno
+**Matcher**: None
 
-#### Casi d'uso
+#### Use Cases
 
-**1. Notifica subagent**
+**1. Subagent notification**
 ```bash
 #!/bin/sh
 notify-send "Claude" "Subagent task completed"
@@ -1781,37 +1781,37 @@ exit 0
 
 ## Best Practices
 
-### Generali
+### General
 
-1. **Exit codes corretti**: Usa `exit 0` per successo, `exit 1` per fallimento
-2. **Messaggi chiari**: Fornisci messaggi di errore descrittivi
-3. **Performance**: Gli hook pre-commit/pre-push devono essere veloci
-4. **Idempotenza**: Gli hook devono essere sicuri da eseguire multiple volte
-5. **Portabilità**: Usa `#!/bin/sh` per massima compatibilità
+1. **Correct exit codes**: Use `exit 0` for success, `exit 1` for failure
+2. **Clear messages**: Provide descriptive error messages
+3. **Performance**: pre-commit/pre-push hooks must be fast
+4. **Idempotency**: Hooks must be safe to run multiple times
+5. **Portability**: Use `#!/bin/sh` for maximum compatibility
 
-### Sicurezza
+### Security
 
-1. **Non fidarti dell'input**: Valida sempre i dati in ingresso
-2. **Evita eval**: Non usare `eval` con input utente
-3. **Permessi minimi**: Gli hook server-side devono avere permessi limitati
-4. **Audit**: Log delle operazioni sensibili
+1. **Do not trust input**: Always validate incoming data
+2. **Avoid eval**: Do not use `eval` with user input
+3. **Least privilege**: Server-side hooks should have limited permissions
+4. **Auditing**: Log sensitive operations
 
-### Struttura consigliata
+### Recommended structure
 
 ```bash
 #!/bin/sh
-# Nome: pre-commit
-# Descrizione: Validazione codice prima del commit
-# Autore: Team Name
-# Versione: 1.0.0
+# Name: pre-commit
+# Description: Code validation before commit
+# Author: Team Name
+# Version: 1.0.0
 
 set -e  # Exit on error
 
-# Configurazione
+# Configuration
 MAX_FILE_SIZE=5242880
 PROTECTED_FILES="\.env|secrets"
 
-# Funzioni
+# Functions
 log_info() {
   echo "[INFO] $1"
 }
@@ -1834,43 +1834,43 @@ main() {
 main "$@"
 ```
 
-### Testing hook
+### Testing hooks
 
 ```bash
-# Test pre-commit hook manualmente
+# Test pre-commit hook manually
 .git/hooks/pre-commit
 
-# Test con file specifici
+# Test with specific files
 git stash
 git add file.js
 .git/hooks/pre-commit
 git stash pop
 
-# Skip hook temporaneamente
+# Skip hook temporarily
 git commit --no-verify -m "Emergency fix"
 ```
 
 ---
 
-## Appendice: Quick Reference
+## Appendix: Quick Reference
 
-| Hook | Quando | Può bloccare | Argomenti principali |
-|------|--------|--------------|---------------------|
-| pre-commit | Prima del commit | Sì | - |
-| prepare-commit-msg | Prima dell'editor | Sì | $1=file msg |
-| commit-msg | Dopo l'editor | Sì | $1=file msg |
-| post-commit | Dopo il commit | No | - |
-| pre-merge-commit | Prima del merge | Sì | - |
-| pre-push | Prima del push | Sì | $1=remote, $2=url |
-| pre-rebase | Prima del rebase | Sì | $1=upstream, $2=branch |
-| post-checkout | Dopo checkout | No | $1=old, $2=new, $3=flag |
-| post-merge | Dopo merge | No | $1=squash flag |
-| post-rewrite | Dopo amend/rebase | No | $1=command |
-| pre-receive | Server: prima update | Sì | stdin |
-| update | Server: per ref | Sì | $1=ref, $2=old, $3=new |
-| post-receive | Server: dopo update | No | stdin |
-| PreToolUse | Claude: prima tool | Sì | $CLAUDE_TOOL_INPUT |
-| PostToolUse | Claude: dopo tool | No | $CLAUDE_FILE_PATHS |
-| Notification | Claude: notifica | No | $CLAUDE_NOTIFICATION |
-| Stop | Claude: fine risposta | No | - |
-| SubagentStop | Claude: fine subagent | No | - |
+| Hook | When | Can block | Main arguments |
+|------|------|-----------|----------------|
+| pre-commit | Before commit | Yes | - |
+| prepare-commit-msg | Before editor | Yes | $1=msg file |
+| commit-msg | After editor | Yes | $1=msg file |
+| post-commit | After commit | No | - |
+| pre-merge-commit | Before merge | Yes | - |
+| pre-push | Before push | Yes | $1=remote, $2=url |
+| pre-rebase | Before rebase | Yes | $1=upstream, $2=branch |
+| post-checkout | After checkout | No | $1=old, $2=new, $3=flag |
+| post-merge | After merge | No | $1=squash flag |
+| post-rewrite | After amend/rebase | No | $1=command |
+| pre-receive | Server: before update | Yes | stdin |
+| update | Server: per ref | Yes | $1=ref, $2=old, $3=new |
+| post-receive | Server: after update | No | stdin |
+| PreToolUse | Claude: before tool | Yes | $CLAUDE_TOOL_INPUT |
+| PostToolUse | Claude: after tool | No | $CLAUDE_FILE_PATHS |
+| Notification | Claude: notification | No | $CLAUDE_NOTIFICATION |
+| Stop | Claude: end of response | No | - |
+| SubagentStop | Claude: end of subagent | No | - |

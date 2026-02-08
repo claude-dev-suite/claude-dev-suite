@@ -36,18 +36,18 @@ show_help() {
     echo ""
     echo "Usage: ./scripts/uninstall-dev-suite.sh <project-path> [OPTIONS]"
     echo ""
-    echo "Rimuove dev-suite da un progetto usando il manifest di installazione."
+    echo "Removes dev-suite from a project using the installation manifest."
     echo ""
-    echo -e "${CYAN}Opzioni:${NC}"
-    echo "  --dry-run          Mostra cosa verrebbe eliminato senza eliminare"
-    echo "  --force            Non chiedere conferme"
-    echo "  --keep-backups     Mantieni la directory .dev-suite-backup"
-    echo "  --keep-custom      Non eliminare file modificati dall'utente"
-    echo "  --restore-backup   Ripristina file dal backup più recente"
-    echo "  --mcp-only         Rimuovi solo MCP servers"
-    echo "  --config-only      Rimuovi solo file di configurazione"
+    echo -e "${CYAN}Options:${NC}"
+    echo "  --dry-run          Show what would be deleted without deleting"
+    echo "  --force            Don't ask for confirmation"
+    echo "  --keep-backups     Keep the .dev-suite-backup directory"
+    echo "  --keep-custom      Don't delete user-modified files"
+    echo "  --restore-backup   Restore files from the most recent backup"
+    echo "  --mcp-only         Remove only MCP servers"
+    echo "  --config-only      Remove only configuration files"
     echo ""
-    echo "Esempio:"
+    echo "Example:"
     echo "  ./scripts/uninstall-dev-suite.sh /path/to/my-project"
     echo "  ./scripts/uninstall-dev-suite.sh /path/to/my-project --dry-run"
     echo "  ./scripts/uninstall-dev-suite.sh /path/to/my-project --restore-backup"
@@ -81,7 +81,7 @@ remove_file() {
     local full_path="$TARGET_DIR/$file"
 
     if [ ! -f "$full_path" ]; then
-        echo -e "  ${DIM}⊘ $file (non esiste)${NC}"
+        echo -e "  ${DIM}⊘ $file (does not exist)${NC}"
         return
     fi
 
@@ -89,7 +89,7 @@ remove_file() {
     if [ -n "$expected_checksum" ] && [ "$expected_checksum" != "no-checksum" ] && [ "$KEEP_CUSTOM" = true ]; then
         local current_checksum=$(compute_checksum "$full_path")
         if [ "$current_checksum" != "$expected_checksum" ]; then
-            echo -e "  ${YELLOW}⚠ $file (modificato dall'utente - saltato)${NC}"
+            echo -e "  ${YELLOW}⚠ $file (modified by user - skipped)${NC}"
             ((FILES_SKIPPED++)) || true
             return
         fi
@@ -112,7 +112,7 @@ remove_dir() {
     local full_path="$TARGET_DIR/$dir"
 
     if [ ! -d "$full_path" ]; then
-        echo -e "  ${DIM}⊘ $dir/ (non esiste)${NC}"
+        echo -e "  ${DIM}⊘ $dir/ (does not exist)${NC}"
         return
     fi
 
@@ -120,7 +120,7 @@ remove_dir() {
     if [ "$KEEP_CUSTOM" = true ]; then
         local non_tracked=$(find "$full_path" -type f 2>/dev/null | wc -l)
         if [ "$non_tracked" -gt 0 ]; then
-            echo -e "  ${YELLOW}⚠ $dir/ (contiene file utente - saltato)${NC}"
+            echo -e "  ${YELLOW}⚠ $dir/ (contains user files - skipped)${NC}"
             ((FILES_SKIPPED++)) || true
             return
         fi
@@ -143,11 +143,11 @@ restore_from_backup() {
     local full_backup="$TARGET_DIR/$backup_dir"
 
     if [ ! -d "$full_backup" ]; then
-        echo -e "${RED}Backup non trovato: $backup_dir${NC}"
+        echo -e "${RED}Backup not found: $backup_dir${NC}"
         return 1
     fi
 
-    echo -e "${CYAN}Ripristino backup da: $backup_dir${NC}"
+    echo -e "${CYAN}Restoring backup from: $backup_dir${NC}"
     echo ""
 
     for file in "$full_backup"/*; do
@@ -157,7 +157,7 @@ restore_from_backup() {
                 echo -e "  ${CYAN}↩ $filename (dry-run)${NC}"
             else
                 cp -r "$file" "$TARGET_DIR/"
-                echo -e "  ${GREEN}✓${NC} Ripristinato: $filename"
+                echo -e "  ${GREEN}✓${NC} Restored: $filename"
             fi
         fi
     done
@@ -221,18 +221,18 @@ done
 # VALIDATE
 # ============================================
 if [ ! -d "$TARGET_DIR" ]; then
-    echo -e "${RED}Errore: Directory non trovata: $TARGET_DIR${NC}"
+    echo -e "${RED}Error: Directory not found: $TARGET_DIR${NC}"
     exit 1
 fi
 
 MANIFEST_FILE="$TARGET_DIR/.dev-suite-manifest.json"
 
 if [ ! -f "$MANIFEST_FILE" ]; then
-    echo -e "${RED}Errore: Manifest non trovato: .dev-suite-manifest.json${NC}"
+    echo -e "${RED}Error: Manifest not found: .dev-suite-manifest.json${NC}"
     echo ""
-    echo -e "${DIM}Il manifest viene creato durante l'installazione di dev-suite.${NC}"
-    echo -e "${DIM}Se il progetto è stato configurato con una versione precedente,${NC}"
-    echo -e "${DIM}puoi rimuovere manualmente i file dev-suite.${NC}"
+    echo -e "${DIM}The manifest is created during dev-suite installation.${NC}"
+    echo -e "${DIM}If the project was configured with a previous version,${NC}"
+    echo -e "${DIM}you can manually remove the dev-suite files.${NC}"
     exit 1
 fi
 
@@ -243,11 +243,11 @@ echo -e "${BLUE}╔════════════════════�
 echo -e "${BLUE}║         ${BOLD}Dev-Suite Uninstaller${NC}${BLUE}                            ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "Progetto: ${BOLD}$TARGET_DIR${NC}"
+echo -e "Project: ${BOLD}$TARGET_DIR${NC}"
 echo ""
 
 if [ "$DRY_RUN" = true ]; then
-    echo -e "${YELLOW}⚠ Modalità DRY-RUN: nessun file verrà eliminato${NC}"
+    echo -e "${YELLOW}⚠ DRY-RUN mode: no files will be deleted${NC}"
     echo ""
 fi
 
@@ -260,7 +260,7 @@ else
     BACKUP_LOCATION=$(grep -o '"location"[[:space:]]*:[[:space:]]*"[^"]*"' "$MANIFEST_FILE" | sed 's/.*"\([^"]*\)"$/\1/')
 fi
 
-echo -e "Installato: ${DIM}$INSTALLED_AT${NC}"
+echo -e "Installed: ${DIM}$INSTALLED_AT${NC}"
 [ -n "$BACKUP_LOCATION" ] && echo -e "Backup: ${DIM}$BACKUP_LOCATION${NC}"
 echo ""
 
@@ -268,12 +268,12 @@ echo ""
 # CONFIRMATION
 # ============================================
 if [ "$FORCE" = false ] && [ "$DRY_RUN" = false ]; then
-    echo -e "${YELLOW}Questa operazione rimuoverà dev-suite dal progetto.${NC}"
+    echo -e "${YELLOW}This operation will remove dev-suite from the project.${NC}"
     echo ""
-    read -p "Continuare? (y/N) " -n 1 -r
+    read -p "Continue? (y/N) " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${RED}Operazione annullata${NC}"
+        echo -e "${RED}Operation cancelled${NC}"
         exit 1
     fi
     echo ""
@@ -290,7 +290,7 @@ fi
 # REMOVE MCP SERVERS
 # ============================================
 if [ "$CONFIG_ONLY" = false ]; then
-    echo -e "${CYAN}Rimozione MCP Servers...${NC}"
+    echo -e "${CYAN}Removing MCP Servers...${NC}"
 
     if command -v jq &> /dev/null; then
         while IFS= read -r server_path; do
@@ -316,7 +316,7 @@ fi
 # REMOVE COPIED FILES
 # ============================================
 if [ "$MCP_ONLY" = false ]; then
-    echo -e "${CYAN}Rimozione file copiati...${NC}"
+    echo -e "${CYAN}Removing copied files...${NC}"
 
     if command -v jq &> /dev/null; then
         while IFS= read -r file_path; do
@@ -332,7 +332,7 @@ fi
 # REMOVE CREATED FILES
 # ============================================
 if [ "$MCP_ONLY" = false ]; then
-    echo -e "${CYAN}Rimozione file di configurazione...${NC}"
+    echo -e "${CYAN}Removing configuration files...${NC}"
 
     if command -v jq &> /dev/null; then
         while IFS= read -r line; do
@@ -356,7 +356,7 @@ fi
 # REMOVE CREATED DIRECTORIES (reverse order)
 # ============================================
 if [ "$MCP_ONLY" = false ] && [ "$CONFIG_ONLY" = false ]; then
-    echo -e "${CYAN}Rimozione directory...${NC}"
+    echo -e "${CYAN}Removing directories...${NC}"
 
     if command -v jq &> /dev/null; then
         # Get directories in reverse order (deepest first)
@@ -367,7 +367,7 @@ if [ "$MCP_ONLY" = false ] && [ "$CONFIG_ONLY" = false ]; then
             if [ -d "$TARGET_DIR/$dir_path" ] && [ -z "$(ls -A "$TARGET_DIR/$dir_path" 2>/dev/null)" ]; then
                 remove_dir "$dir_path"
             elif [ -d "$TARGET_DIR/$dir_path" ]; then
-                echo -e "  ${YELLOW}⚠ $dir_path/ (non vuota - saltata)${NC}"
+                echo -e "  ${YELLOW}⚠ $dir_path/ (not empty - skipped)${NC}"
             fi
         done <<< "$dirs"
     else
@@ -385,7 +385,7 @@ fi
 # ============================================
 # REMOVE MANIFEST
 # ============================================
-echo -e "${CYAN}Rimozione manifest...${NC}"
+echo -e "${CYAN}Removing manifest...${NC}"
 remove_file ".dev-suite-manifest.json" ""
 echo ""
 
@@ -393,7 +393,7 @@ echo ""
 # REMOVE BACKUPS (if not keeping)
 # ============================================
 if [ "$KEEP_BACKUPS" = false ] && [ -d "$TARGET_DIR/.dev-suite-backup" ]; then
-    echo -e "${CYAN}Rimozione backup...${NC}"
+    echo -e "${CYAN}Removing backups...${NC}"
     remove_dir ".dev-suite-backup"
     echo ""
 fi
@@ -402,23 +402,23 @@ fi
 # SUMMARY
 # ============================================
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║              Disinstallazione completata                   ║${NC}"
+echo -e "${GREEN}║              Uninstallation Complete                       ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 if [ "$DRY_RUN" = true ]; then
-    echo -e "${YELLOW}Modalità DRY-RUN: nessuna modifica effettuata${NC}"
+    echo -e "${YELLOW}DRY-RUN mode: no changes made${NC}"
 else
-    echo -e "  File rimossi:      ${BOLD}$FILES_REMOVED${NC}"
-    echo -e "  Directory rimosse: ${BOLD}$DIRS_REMOVED${NC}"
-    [ $FILES_SKIPPED -gt 0 ] && echo -e "  File saltati:      ${BOLD}$FILES_SKIPPED${NC}"
+    echo -e "  Files removed:       ${BOLD}$FILES_REMOVED${NC}"
+    echo -e "  Directories removed: ${BOLD}$DIRS_REMOVED${NC}"
+    [ $FILES_SKIPPED -gt 0 ] && echo -e "  Files skipped:       ${BOLD}$FILES_SKIPPED${NC}"
 fi
 echo ""
 
 if [ "$RESTORE_BACKUP" = true ] && [ -n "$BACKUP_LOCATION" ]; then
-    echo -e "${GREEN}I file sono stati ripristinati dal backup.${NC}"
+    echo -e "${GREEN}Files have been restored from backup.${NC}"
     echo ""
 fi
 
-echo -e "${DIM}Dev-suite è stato rimosso dal progetto.${NC}"
+echo -e "${DIM}Dev-suite has been removed from the project.${NC}"
 echo ""

@@ -301,14 +301,14 @@ try {
 
 ---
 
-## Quando Usare JS vs TypeScript
+## When to Use JS vs TypeScript
 
-| Scenario | Scelta |
+| Scenario | Choice |
 |----------|--------|
-| Progetto nuovo | TypeScript |
-| Script veloci | JavaScript |
-| Legacy codebase | JavaScript (graduale migration) |
-| Library pubbliche | TypeScript con .d.ts |
+| New project | TypeScript |
+| Quick scripts | JavaScript |
+| Legacy codebase | JavaScript (gradual migration) |
+| Public libraries | TypeScript with .d.ts |
 | Prototype/MVP | JavaScript ok |
 
 ---

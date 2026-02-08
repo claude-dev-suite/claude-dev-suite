@@ -20,10 +20,10 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash
 - **Bun projects** - Bun has its own package manager
 - **Legacy tooling** - Some tools don't support pnpm
 
-## Quando Usare Questa Skill
-- Gestione dipendenze efficiente
-- Monorepo setup e management
-- Migrazione da npm/yarn
+## When to Use This Skill
+- Efficient dependency management
+- Monorepo setup and management
+- Migration from npm/yarn
 - CI/CD optimization
 
 ## Setup
@@ -420,12 +420,12 @@ pnpm store status
 | Strictness | Low | Low | High |
 | Plug'n'Play | No | Yes | No |
 
-## Anti-Pattern da Evitare
+## Anti-Patterns to Avoid
 
-- Non usare `shamefully-hoist` senza motivo
-- Non dimenticare `--frozen-lockfile` in CI
-- Non ignorare peer dependency warnings
-- Non mixare package managers nello stesso repo
+- Do not use `shamefully-hoist` without reason
+- Do not forget `--frozen-lockfile` in CI
+- Do not ignore peer dependency warnings
+- Do not mix package managers in the same repo
 
 ## Anti-Patterns
 
@@ -451,14 +451,14 @@ pnpm store status
 
 ## Checklist
 
-- [ ] pnpm-workspace.yaml configurato
-- [ ] .npmrc con configurazioni appropriate
+- [ ] pnpm-workspace.yaml configured
+- [ ] .npmrc with appropriate configurations
 - [ ] packageManager in package.json
-- [ ] CI con --frozen-lockfile
-- [ ] Cache configurata in CI
-- [ ] Catalogs per versioni condivise (pnpm 9+)
+- [ ] CI with --frozen-lockfile
+- [ ] Cache configured in CI
+- [ ] Catalogs for shared versions (pnpm 9+)
 
-## Approfondimenti
-> Per configurazioni avanzate: `mcp__documentation__fetch_docs`
+## Further Reading
+> For advanced configurations: `mcp__documentation__fetch_docs`
 > - Technology: `pnpm`
 > - [pnpm Docs](https://pnpm.io/)

@@ -20,10 +20,10 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 - **Vite/Parcel projects** - They have simpler configuration
 - **Library builds** - Rollup or esbuild are better suited
 
-## Quando Usare Questa Skill
-- Progetti legacy con Webpack
-- Configurazioni build complesse
-- Migrazione da Webpack a Vite
+## When to Use This Skill
+- Legacy projects with Webpack
+- Complex build configurations
+- Migration from Webpack to Vite
 - Fine-tuning bundle optimization
 
 ## Basic Configuration
@@ -412,12 +412,12 @@ webpack --config-name main --debug
 npx webpack-bundle-analyzer dist/stats.json
 ```
 
-## Anti-Pattern da Evitare
+## Anti-Patterns to Avoid
 
-- Non usare `file-loader`/`url-loader` (usa asset modules)
-- Non dimenticare `contenthash` per cache busting
-- Non abusare di alias (complica debugging)
-- Non ignorare warning bundle size
+- Do not use `file-loader`/`url-loader` (use asset modules)
+- Do not forget `contenthash` for cache busting
+- Do not overuse aliases (complicates debugging)
+- Do not ignore bundle size warnings
 
 ## Anti-Patterns
 
@@ -461,16 +461,16 @@ npx webpack-bundle-analyzer dist/stats.json
 
 ## Checklist
 
-- [ ] Production mode configurato
+- [ ] Production mode configured
 - [ ] Source maps enabled
-- [ ] Code splitting con splitChunks
+- [ ] Code splitting with splitChunks
 - [ ] CSS extraction (MiniCssExtractPlugin)
 - [ ] Assets optimization
 - [ ] Compression (gzip/brotli)
 - [ ] Bundle analysis
 - [ ] Cache configuration
 
-## Approfondimenti
-> Per configurazioni avanzate: `mcp__documentation__fetch_docs`
+## Further Reading
+> For advanced configurations: `mcp__documentation__fetch_docs`
 > - Technology: `webpack`
 > - [Webpack Docs](https://webpack.js.org/)

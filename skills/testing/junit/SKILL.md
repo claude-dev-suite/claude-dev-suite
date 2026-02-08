@@ -21,7 +21,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 - **JavaScript/TypeScript** - Use `vitest` or `jest` for JS/TS
 - **Database Integration Tests** - Combine with `spring-boot-integration` skill
 
-## Pattern Essenziali
+## Essential Patterns
 
 ### Basic Test
 ```java
@@ -116,13 +116,13 @@ class UserRepositoryTest {
 }
 ```
 
-## Annotations Comuni
-| Annotation | Uso |
-|------------|-----|
-| `@Test` | Metodo di test |
-| `@BeforeEach` | Setup prima di ogni test |
-| `@Mock` | Crea mock |
-| `@InjectMocks` | Inietta mock |
+## Common Annotations
+| Annotation | Usage |
+|------------|-------|
+| `@Test` | Test method |
+| `@BeforeEach` | Setup before each test |
+| `@Mock` | Creates mock |
+| `@InjectMocks` | Injects mocks |
 | `@SpringBootTest` | Integration test |
 | `@WebMvcTest` | Controller test |
 | `@DataJpaTest` | Repository test |

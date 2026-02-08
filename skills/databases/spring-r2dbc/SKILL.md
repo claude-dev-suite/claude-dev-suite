@@ -82,7 +82,7 @@ public class Product {
 ```
 
 ```java
-// Per entità immutabili con record (Java 17+)
+// For immutable entities with records (Java 17+)
 @Table("orders")
 public record Order(
     @Id Long id,
@@ -109,17 +109,17 @@ import reactor.core.publisher.Mono;
 
 public interface ProductRepository extends R2dbcRepository<Product, Long> {
 
-    // Query derivate automatiche
+    // Automatic derived queries
     Flux<Product> findByActiveTrue();
     Flux<Product> findByNameContainingIgnoreCase(String name);
     Flux<Product> findByCategoryId(Long categoryId);
     Flux<Product> findByPriceBetween(BigDecimal min, BigDecimal max);
     Mono<Product> findByNameIgnoreCase(String name);
 
-    // Ordering e limiting
+    // Ordering and limiting
     Flux<Product> findTop10ByActiveTrueOrderByCreatedAtDesc();
 
-    // Count e Exists
+    // Count and Exists
     Mono<Long> countByActiveTrue();
     Mono<Boolean> existsByName(String name);
 
@@ -131,7 +131,7 @@ public interface ProductRepository extends R2dbcRepository<Product, Long> {
     @Modifying
     Mono<Integer> deactivateProduct(Long id);
 
-    // Proiezione con DTO
+    // Projection with DTO
     @Query("SELECT id, product_name as name, price FROM products WHERE active = true")
     Flux<ProductSummary> findAllSummaries();
 }

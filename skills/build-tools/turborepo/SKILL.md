@@ -20,11 +20,11 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash
 - **Need advanced generators** - Nx has better code generation
 - **Complex module boundaries** - Nx enforces them better
 
-## Quando Usare Questa Skill
-- Monorepo con multiple packages
-- Build caching e optimization
-- CI/CD per monorepo
-- Task orchestration complesso
+## When to Use This Skill
+- Monorepo with multiple packages
+- Build caching and optimization
+- CI/CD for monorepos
+- Complex task orchestration
 
 ## Setup
 
@@ -456,12 +456,12 @@ turbo build --profile=profile.json
 | Need generators | Nx |
 | Quick setup | Turborepo |
 
-## Anti-Pattern da Evitare
+## Anti-Patterns to Avoid
 
-- Non dimenticare `--filter` per build incrementali
-- Non cachare task con side effects
-- Non ignorare `outputs` configuration
-- Non usare `*` nelle dipendenze workspace (usa workspace protocol)
+- Do not forget `--filter` for incremental builds
+- Do not cache tasks with side effects
+- Do not ignore `outputs` configuration
+- Do not use `*` in workspace dependencies (use workspace protocol)
 
 ## Anti-Patterns
 
@@ -487,14 +487,14 @@ turbo build --profile=profile.json
 
 ## Checklist
 
-- [ ] turbo.json con task definitions
-- [ ] `^build` per dipendenze topologiche
-- [ ] outputs configurati per caching
-- [ ] env vars dichiarate
-- [ ] Remote cache per CI
-- [ ] --filter per builds incrementali
+- [ ] turbo.json with task definitions
+- [ ] `^build` for topological dependencies
+- [ ] outputs configured for caching
+- [ ] env vars declared
+- [ ] Remote cache for CI
+- [ ] --filter for incremental builds
 
-## Approfondimenti
-> Per configurazioni avanzate: `mcp__documentation__fetch_docs`
+## Further Reading
+> For advanced configurations: `mcp__documentation__fetch_docs`
 > - Technology: `turborepo`
 > - [Turborepo Docs](https://turbo.build/repo/docs)

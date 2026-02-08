@@ -14,7 +14,7 @@
 ```
 
 ```java
-// Evento esternalizzabile (transactional outbox)
+// Externalizable event (transactional outbox)
 @Externalized("orders.created")  // Topic Kafka/RabbitMQ
 public record OrderCreatedEvent(
     Long orderId,
@@ -23,7 +23,7 @@ public record OrderCreatedEvent(
     Instant createdAt
 ) {}
 
-// Configuration per Kafka
+// Configuration for Kafka
 @Configuration
 public class EventExternalizationConfig {
 
@@ -42,7 +42,7 @@ public class EventExternalizationConfig {
 ```
 
 ```java
-// Incomplete event publication (per retry)
+// Incomplete event publication (for retry)
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -65,15 +65,15 @@ public class EventPublicationRetry {
 ## Module API Exposure Control
 
 ```java
-// Esponi solo interfacce specifiche
+// Expose only specific interfaces
 // order/package-info.java
 @ApplicationModule(
-    type = Type.OPEN,  // Tutti possono accedere ai tipi pubblici
+    type = Type.OPEN,  // Everyone can access public types
     displayName = "Order Management"
 )
 package com.example.ecommerce.order;
 
-// Oppure esponi esplicitamente
+// Or expose explicitly
 @NamedInterface("OrderAPI")
 package com.example.ecommerce.order.api;
 
@@ -91,11 +91,11 @@ class OrderFacadeImpl implements OrderFacade {
 ```
 
 ```java
-// Named interfaces per controllo granulare
+// Named interfaces for granular control
 @ApplicationModule(
     allowedDependencies = {
-        "payment::PaymentAPI",      // Solo interfaccia PaymentAPI
-        "inventory"                  // Tutto il modulo inventory
+        "payment::PaymentAPI",      // Only the PaymentAPI interface
+        "inventory"                  // The entire inventory module
     }
 )
 package com.example.ecommerce.order;
@@ -127,7 +127,7 @@ class OrderModuleTests {
         assertThat(order.getId()).isNotNull();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
 
-        // Verifica eventi pubblicati
+        // Verify published events
         assertThat(events.ofType(OrderCreatedEvent.class))
             .hasSize(1)
             .element(0)
@@ -136,25 +136,25 @@ class OrderModuleTests {
     }
 }
 
-// Test isolamento modulo
+// Module isolation test
 @ApplicationModuleTest(mode = BootstrapMode.DIRECT_DEPENDENCIES)
 class OrderModuleIsolationTests {
 
     @MockBean
-    private PaymentService paymentService; // Mock dipendenze
+    private PaymentService paymentService; // Mock dependencies
 
     @Autowired
     private OrderService orderService;
 
     @Test
     void orderCreation_withMockedPayment() {
-        // Test con mock
+        // Test with mock
     }
 }
 ```
 
 ```java
-// Test scenario completi (saga)
+// Complete scenario tests (saga)
 @ApplicationModuleTest
 class OrderPaymentScenarioTests {
 
@@ -205,10 +205,10 @@ class ModuleArchitectureTests {
     void verifyModuleStructure() {
         ApplicationModules modules = ApplicationModules.of(EcommerceApplication.class);
 
-        // Stampa struttura moduli
+        // Print module structure
         modules.forEach(System.out::println);
 
-        // Verifica nessuna violazione
+        // Verify no violations
         modules.verify();
     }
 
@@ -223,7 +223,7 @@ class ModuleArchitectureTests {
     void generateDocumentation() throws IOException {
         ApplicationModules modules = ApplicationModules.of(EcommerceApplication.class);
 
-        // Genera documentazione Asciidoc
+        // Generate Asciidoc documentation
         new Documenter(modules)
             .writeModulesAsPlantUml()
             .writeIndividualModulesAsPlantUml()
@@ -233,7 +233,7 @@ class ModuleArchitectureTests {
 ```
 
 ```java
-// ArchUnit rules aggiuntive
+// Additional ArchUnit rules
 @AnalyzeClasses(packages = "com.example.ecommerce")
 class ArchitectureRulesTests {
 
@@ -290,7 +290,7 @@ management:
       exposure:
         include: modulith
   modulith:
-    # Expone info sui moduli
+    # Exposes module info
     enabled: true
 ```
 
@@ -318,7 +318,7 @@ public class OrderExpirationService {
     }
 }
 
-// Test con controllo del tempo
+// Test with time control
 @ApplicationModuleTest
 class OrderExpirationTests {
 
@@ -335,7 +335,7 @@ class OrderExpirationTests {
     void staleOrdersAreExpired() {
         Order order = orderService.createOrder(request);
 
-        // Avanza il tempo di 25 ore
+        // Advance time by 25 hours
         scenario.shift(Duration.ofHours(25));
 
         expirationService.expireStalePendingOrders();
@@ -352,20 +352,20 @@ class OrderExpirationTests {
 ## Gradual Decomposition
 
 ```java
-// Step 1: Inizia con moduli nel monolite
+// Step 1: Start with modules in the monolith
 @ApplicationModule
 package com.example.ecommerce.order;
 
-// Step 2: Esternalizza eventi
+// Step 2: Externalize events
 @Externalized("orders")
 public record OrderCreatedEvent(...) {}
 
-// Step 3: Quando pronto, estrai il modulo
-// - Crea nuovo servizio Spring Boot
-// - Consuma eventi da Kafka
-// - Mantieni API compatibile
+// Step 3: When ready, extract the module
+// - Create new Spring Boot service
+// - Consume events from Kafka
+// - Keep API compatible
 
-// Consumer nel nuovo microservizio
+// Consumer in the new microservice
 @Component
 public class OrderEventConsumer {
 

@@ -11,15 +11,15 @@ public class WebSocketSecurityConfig {
     public AuthorizationManager<Message<?>> messageAuthorizationManager(
             MessageMatcherDelegatingAuthorizationManager.Builder messages) {
         return messages
-            // Tutti possono connettersi
+            // Everyone can connect
             .nullDestMatcher().permitAll()
-            // Subscription a topic pubblici
+            // Subscription to public topics
             .simpSubscribeDestMatchers("/topic/public/**").permitAll()
-            // Subscription a topic autenticati
+            // Subscription to authenticated topics
             .simpSubscribeDestMatchers("/topic/**", "/queue/**").authenticated()
-            // Messaggi privati solo per utenti autenticati
+            // Private messages only for authenticated users
             .simpDestMatchers("/app/**").authenticated()
-            // Qualsiasi altro messaggio richiede autenticazione
+            // Any other message requires authentication
             .anyMessage().authenticated()
             .build();
     }
@@ -142,12 +142,12 @@ public class ChatController {
     @MessageMapping("/chat.send")
     @SendTo("/topic/chat")
     public ChatMessage sendMessage(@Valid @Payload ChatMessage message, Principal principal) {
-        // Il messaggio è già validato
+        // The message is already validated
         return message.withSender(principal.getName());
     }
 }
 
-// DTO con validazione
+// DTO with validation
 public record ChatMessage(
     String id,
 

@@ -29,7 +29,7 @@ spring:
           enabled: true
           lower-case-service-id: true
       routes:
-        # Route con predicates
+        # Route with predicates
         - id: product-service
           uri: lb://product-service  # lb = load balanced
           predicates:
@@ -56,7 +56,7 @@ spring:
             - StripPrefix=1
             - AddResponseHeader=X-Response-Time, %{time}
 
-      # Rate limiting globale
+      # Global rate limiting
       default-filters:
         - name: RequestRateLimiter
           args:
@@ -78,7 +78,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getPath().toString();
 
-        // Skip auth per path pubblici
+        // Skip auth for public paths
         if (isPublicPath(path)) {
             return chain.filter(exchange);
         }
@@ -105,7 +105,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -100;  // Alta priorità
+        return -100;  // High priority
     }
 
     private boolean isPublicPath(String path) {
@@ -144,7 +144,7 @@ public class LoggingFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -200;  // Prima di AuthenticationFilter
+        return -200;  // Before AuthenticationFilter
     }
 }
 ```

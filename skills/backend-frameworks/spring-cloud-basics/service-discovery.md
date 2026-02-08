@@ -29,10 +29,10 @@ eureka:
   instance:
     hostname: localhost
   client:
-    register-with-eureka: false  # Non registra se stesso
+    register-with-eureka: false  # Does not register itself
     fetch-registry: false
   server:
-    enable-self-preservation: false  # Disabilita in dev
+    enable-self-preservation: false  # Disable in dev
     eviction-interval-timer-in-ms: 5000
 ```
 
@@ -139,15 +139,15 @@ spring:
           default-label: main
           search-paths: '{application}'
           clone-on-start: true
-          # Per repo privato
+          # For private repo
           username: ${GIT_USERNAME}
           password: ${GIT_TOKEN}
-        # Oppure filesystem locale
+        # Or local filesystem
         native:
           search-locations: file:./config-repo
 
   profiles:
-    active: native  # o 'git' per repository
+    active: native  # or 'git' for repository
 ```
 
 ---
@@ -178,16 +178,16 @@ spring:
 
 # Config repo structure:
 # config-repo/
-#   ├── application.yml          # Comuni a tutti
-#   ├── order-service.yml        # Specifico
-#   ├── order-service-dev.yml    # Per profilo dev
-#   └── order-service-prod.yml   # Per profilo prod
+#   ├── application.yml          # Common to all
+#   ├── order-service.yml        # Service-specific
+#   ├── order-service-dev.yml    # For dev profile
+#   └── order-service-prod.yml   # For prod profile
 ```
 
 ```java
-// Refresh dinamico delle configurazioni
+// Dynamic configuration refresh
 @RestController
-@RefreshScope  // Ricarica quando /actuator/refresh viene chiamato
+@RefreshScope  // Reloads when /actuator/refresh is called
 @RequiredArgsConstructor
 public class ConfigController {
 

@@ -156,17 +156,17 @@ test('page is accessible', async ({ page }) => {
 
 ## Documentation Loading Protocol
 
-### Rispondi SENZA caricare docs quando:
-- Pattern ARIA comuni (dialog, menu, tabs)
-- Linee guida WCAG base
-- Best practices form accessibility
+### Respond WITHOUT loading docs when:
+- Common ARIA patterns (dialog, menu, tabs)
+- Basic WCAG guidelines
+- Form accessibility best practices
 
-### Carica MCP docs (`mcp__documentation__fetch_docs`) quando:
-- Pattern ARIA complessi (tree, grid, combobox)
-- Criteri WCAG specifici
-- Configurazione axe-core avanzata
+### Load MCP docs (`mcp__documentation__fetch_docs`) when:
+- Complex ARIA patterns (tree, grid, combobox)
+- Specific WCAG criteria
+- Advanced axe-core configuration
 
-### MCP Topics Disponibili:
+### Available MCP Topics:
 - `wcag`: overview, quick-reference, aria-patterns, axe-core
 
 ## Audit Output Format
@@ -219,22 +219,22 @@ When auditing, provide:
 
 ## Test Verification Protocol
 
-**IMPORTANTE**: Prima di considerare un'attività di sviluppo completata, DEVI:
+**IMPORTANT**: Before considering a development task complete, you MUST:
 
-1. **Eseguire test axe-core** su componenti modificati
-2. **Verificare navigazione da tastiera**
-3. **Testare con screen reader** (almeno VoiceOver o NVDA)
+1. **Run axe-core tests** on modified components
+2. **Verify keyboard navigation**
+3. **Test with a screen reader** (at least VoiceOver or NVDA)
 
-### Procedura
+### Procedure
 ```bash
-# Test automatici con axe
+# Automated tests with axe
 npm run test:a11y
 
-# O esegui test Playwright con axe
+# Or run Playwright tests with axe
 npx playwright test --grep accessibility
 ```
 
-### Se i test falliscono:
-- ❌ **NON** considerare l'attività completata
-- 🔧 Correggere le violazioni WCAG
-- 🔄 Ri-eseguire i test fino al successo
+### If tests fail:
+- ❌ **DO NOT** consider the task completed
+- 🔧 Fix the WCAG violations
+- 🔄 Re-run the tests until they pass

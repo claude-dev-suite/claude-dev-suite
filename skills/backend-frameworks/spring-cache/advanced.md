@@ -69,7 +69,7 @@ public class CompositeCache implements Cache {
         for (Cache cache : caches) {
             ValueWrapper value = cache.get(key);
             if (value != null) {
-                // Popola cache di livello superiore
+                // Populate higher-level caches
                 populateHigherLevelCaches(key, value.get(), cache);
                 return value;
             }
@@ -114,13 +114,13 @@ public class CacheMetricsConfig {
             .expireAfterWrite(Duration.ofMinutes(10))
             .recordStats());
 
-        // Registra metriche per ogni cache
+        // Register metrics for each cache
         cacheManager.setCacheNames(List.of("users", "products", "sessions"));
 
         return cacheManager;
     }
 
-    // Metriche manuali
+    // Manual metrics
     @Component
     public class CacheMetricsCollector {
 
@@ -159,18 +159,18 @@ public class CacheMetricsConfig {
 ## Cache Synchronization
 
 ```java
-// Per evitare race condition durante cache population
+// To avoid race conditions during cache population
 @Service
 public class ProductService {
 
-    // sync=true garantisce che solo un thread popoli la cache
+    // sync=true ensures that only one thread populates the cache
     @Cacheable(value = "products", key = "#id", sync = true)
     public Product findById(Long id) {
         return productRepository.findById(id).orElseThrow();
     }
 }
 
-// Distributed lock per Redis
+// Distributed lock for Redis
 @Component
 public class DistributedCacheService {
 
@@ -184,7 +184,7 @@ public class DistributedCacheService {
         try {
             if (lock.tryLock(10, TimeUnit.SECONDS)) {
                 try {
-                    // Check cache again dopo aver ottenuto il lock
+                    // Check cache again after acquiring the lock
                     Object cached = redisTemplate.opsForValue().get("expensive-data:" + key);
                     if (cached != null) {
                         return cached;
@@ -270,7 +270,7 @@ class CacheTest {
     }
 }
 
-// Test con mock CacheManager
+// Test with mock CacheManager
 @SpringBootTest
 @AutoConfigureCache
 class CacheDisabledTest {

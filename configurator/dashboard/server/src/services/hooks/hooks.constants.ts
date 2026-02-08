@@ -265,6 +265,18 @@ export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
     hooks: [{ matcher: 'Write|Edit', hooks: ['[[ "$CLAUDE_FILE_PATHS" =~ \\.(js|jsx|ts|tsx)$ ]] && npx eslint --fix "$CLAUDE_FILE_PATHS" || true'] }],
     event: 'PostToolUse',
   },
+  'doc-freshness': {
+    id: 'doc-freshness',
+    name: 'Doc freshness check on commit',
+    description: 'Verify README documentation matches filesystem before git commits',
+    hooks: [{
+      matcher: 'Bash',
+      hooks: [
+        'bash -c \'if ! echo "$CLAUDE_TOOL_INPUT" | grep -qiE "git\\s+(commit|push)"; then exit 0; fi; STAGED=$(git diff --cached --name-only 2>/dev/null); if echo "$STAGED" | grep -qE "^(agents/|skills/|mcp-servers/)"; then echo "WARNING: Key directories staged. Verify README.md docs match filesystem."; echo "Staged: $STAGED"; fi\'',
+      ],
+    }],
+    event: 'PostToolUse',
+  },
 };
 
 // ============================================
