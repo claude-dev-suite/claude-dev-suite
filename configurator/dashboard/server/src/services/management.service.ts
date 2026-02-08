@@ -14,6 +14,7 @@ import type { ExtendedManifest, TrackedFile, NewComponentsResult } from '../type
 import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { createHash } from 'crypto';
+import { resolveProjectPath } from '../utils/utilities.js';
 
 const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 
@@ -79,6 +80,7 @@ export class ManagementService {
    * Get installed components from a project
    */
   async getInstalledComponents(projectPath: string): Promise<{ agents: string[]; mcpServers: string[] }> {
+    projectPath = resolveProjectPath(projectPath);
     const result = { agents: [] as string[], mcpServers: [] as string[] };
 
     // Read from .dev-suite.json
@@ -118,6 +120,7 @@ export class ManagementService {
    * Add an agent to the project
    */
   async addAgent(projectPath: string, agentId: string): Promise<void> {
+    projectPath = resolveProjectPath(projectPath);
     const devSuiteDir = getDevSuiteDir();
     const agentFile = this.findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
 
@@ -195,6 +198,7 @@ export class ManagementService {
    * Remove an agent from the project
    */
   async removeAgent(projectPath: string, agentId: string): Promise<void> {
+    projectPath = resolveProjectPath(projectPath);
     const agentPath = path.join(projectPath, '.claude', 'agents', agentId + '.md');
 
     if (!fs.existsSync(agentPath)) {
@@ -231,6 +235,7 @@ export class ManagementService {
    * Add an MCP server to the project
    */
   async addMcpServer(projectPath: string, serverName: string, envVars: Record<string, string> = {}): Promise<void> {
+    projectPath = resolveProjectPath(projectPath);
     const devSuiteDir = getDevSuiteDir();
     const serverSource = path.join(devSuiteDir, 'mcp-servers', serverName);
 
@@ -285,6 +290,7 @@ export class ManagementService {
    * Remove an MCP server from the project
    */
   async removeMcpServer(projectPath: string, serverName: string): Promise<void> {
+    projectPath = resolveProjectPath(projectPath);
     const serverDir = path.join(projectPath, '.mcp-servers', serverName);
 
     if (!fs.existsSync(serverDir)) {
@@ -313,6 +319,7 @@ export class ManagementService {
    * recorded at install time to identify truly new components.
    */
   async getNewComponents(projectPath: string): Promise<NewComponentsResult> {
+    projectPath = resolveProjectPath(projectPath);
     const manifest = this.loadManifest(projectPath);
 
     // If no manifest or no catalog snapshot (older installs), return empty to avoid false positives

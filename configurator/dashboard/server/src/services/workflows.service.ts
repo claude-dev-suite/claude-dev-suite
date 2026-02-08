@@ -8,6 +8,7 @@
 import path from 'path';
 import { promises as fs } from 'fs';
 import { ManagementService } from './management.service.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 
 // Agent role mapping - roles resolve to actual installed agents
 const AGENT_ROLES: Record<string, string[]> = {
@@ -263,6 +264,7 @@ export class WorkflowsService {
    * Load custom workflows from project
    */
   async loadCustomWorkflows(projectPath: string): Promise<Workflow[]> {
+    projectPath = resolveProjectPath(projectPath);
     const workflowsPath = path.join(projectPath, '.dev-suite-workflows.json');
     try {
       const content = await fs.readFile(workflowsPath, 'utf-8');
@@ -278,6 +280,7 @@ export class WorkflowsService {
    * Save custom workflows to project
    */
   async saveCustomWorkflows(projectPath: string, customWorkflows: Workflow[]): Promise<void> {
+    projectPath = resolveProjectPath(projectPath);
     const workflowsPath = path.join(projectPath, '.dev-suite-workflows.json');
     const data = {
       version: '1.0.0',
@@ -290,6 +293,7 @@ export class WorkflowsService {
    * Get all workflows (builtin + custom) filtered by installed agents
    */
   async getAllWorkflows(projectPath: string): Promise<{ builtin: ResolvedWorkflow[]; custom: Workflow[] }> {
+    projectPath = resolveProjectPath(projectPath);
     const customWorkflows = await this.loadCustomWorkflows(projectPath);
 
     // Get installed components

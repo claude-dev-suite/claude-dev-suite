@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { readJsonSync } from '../../utils/fs-utils.js';
+import { resolveProjectPath } from '../../utils/utilities.js';
 import type { FeatureRegistry, ExtendedManifest, TrackedFile } from '../../types/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +59,7 @@ export function calculateFileHashFromPath(filePath: string): string | null {
  * Load project manifest
  */
 export function loadManifest(projectPath: string): ExtendedManifest | null {
+  projectPath = resolveProjectPath(projectPath);
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
   return readJsonSync<ExtendedManifest>(manifestPath);
 }
@@ -66,6 +68,7 @@ export function loadManifest(projectPath: string): ExtendedManifest | null {
  * Save project manifest
  */
 export function saveManifest(projectPath: string, manifest: ExtendedManifest): boolean {
+  projectPath = resolveProjectPath(projectPath);
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
   try {
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -79,6 +82,7 @@ export function saveManifest(projectPath: string, manifest: ExtendedManifest): b
  * Check if a file has been modified by the user
  */
 export function isFileModified(projectPath: string, trackedFile: TrackedFile): boolean {
+  projectPath = resolveProjectPath(projectPath);
   const filePath = path.join(projectPath, trackedFile.path);
   const currentHash = calculateFileHashFromPath(filePath);
 
@@ -94,6 +98,7 @@ export function isFileModified(projectPath: string, trackedFile: TrackedFile): b
  * Create backup of files
  */
 export function createBackup(projectPath: string, files: string[]): string | null {
+  projectPath = resolveProjectPath(projectPath);
   if (files.length === 0) return null;
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -127,6 +132,7 @@ export function createTrackedFile(
   type: TrackedFile['type'],
   source?: string
 ): TrackedFile | null {
+  projectPath = resolveProjectPath(projectPath);
   const fullPath = path.join(projectPath, relativePath);
   const hash = calculateFileHashFromPath(fullPath);
 
@@ -152,6 +158,7 @@ export function initializeExtendedManifest(
   detectedStack?: ExtendedManifest['detectedStack'],
   existingFiles?: Array<{ path: string; type: TrackedFile['type']; source?: string }>
 ): ExtendedManifest {
+  projectPath = resolveProjectPath(projectPath);
   const trackedFiles: TrackedFile[] = [];
 
   // Track provided files

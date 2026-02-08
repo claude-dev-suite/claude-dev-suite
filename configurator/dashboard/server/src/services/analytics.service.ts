@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Job } from '../types.js';
 import { getLogger } from '../utils/logger.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 
 const logger = getLogger('Analytics');
 
@@ -86,6 +87,7 @@ export class AnalyticsService {
    * Get analytics file path for a project
    */
   getAnalyticsPath(projectPath: string): string {
+    projectPath = resolveProjectPath(projectPath);
     return path.join(projectPath, ANALYTICS_DIR, KB_USAGE_FILE);
   }
 
@@ -93,6 +95,7 @@ export class AnalyticsService {
    * Read KB usage analytics data
    */
   readKBUsage(projectPath: string): KBUsageData {
+    projectPath = resolveProjectPath(projectPath);
     const filePath = this.getAnalyticsPath(projectPath);
 
     if (!fs.existsSync(filePath)) {
@@ -121,6 +124,7 @@ export class AnalyticsService {
    * Get KB usage entries with filters and pagination
    */
   getKBUsageEntries(projectPath: string, options: KBUsageEntriesOptions = {}): KBUsageEntriesResult {
+    projectPath = resolveProjectPath(projectPath);
     const data = this.readKBUsage(projectPath);
     let entries = data.entries || [];
 
@@ -169,6 +173,7 @@ export class AnalyticsService {
    * Get aggregated KB usage statistics
    */
   getKBUsageStats(projectPath: string, options: { since?: string } = {}): KBUsageStats {
+    projectPath = resolveProjectPath(projectPath);
     const data = this.readKBUsage(projectPath);
     let entries = data.entries || [];
 
@@ -270,6 +275,7 @@ export class AnalyticsService {
    * Finds KB calls that happened during job execution
    */
   correlateWithJobs(projectPath: string, jobs: Job[], windowMs: number = 60000): CorrelatedJob[] {
+    projectPath = resolveProjectPath(projectPath);
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 
@@ -309,6 +315,7 @@ export class AnalyticsService {
    * Clear KB analytics data
    */
   clearKBUsage(projectPath: string): { success: boolean; message?: string; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     const filePath = this.getAnalyticsPath(projectPath);
 
     if (!fs.existsSync(filePath)) {
@@ -332,6 +339,7 @@ export class AnalyticsService {
    * Get unique technologies from KB usage
    */
   getUsedTechnologies(projectPath: string): string[] {
+    projectPath = resolveProjectPath(projectPath);
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 
@@ -345,6 +353,7 @@ export class AnalyticsService {
    * Get unique tools from KB usage
    */
   getUsedTools(projectPath: string): string[] {
+    projectPath = resolveProjectPath(projectPath);
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 
@@ -358,6 +367,7 @@ export class AnalyticsService {
    * Get unique sources from KB usage
    */
   getUsedSources(projectPath: string): string[] {
+    projectPath = resolveProjectPath(projectPath);
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 
@@ -371,6 +381,7 @@ export class AnalyticsService {
    * Check if analytics directory exists
    */
   hasAnalytics(projectPath: string): boolean {
+    projectPath = resolveProjectPath(projectPath);
     return fs.existsSync(this.getAnalyticsPath(projectPath));
   }
 
@@ -384,6 +395,7 @@ export class AnalyticsService {
     topTechnology?: string;
     successRate: number;
   } {
+    projectPath = resolveProjectPath(projectPath);
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 

@@ -7,6 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveProjectPath } from '../../utils/utilities.js';
 import type { GitRepoInfo } from '../../types.js';
 import { EXCLUDED_DIRS } from '../../utils/fs-utils.js';
 import { getLogger } from '../../utils/logger.js';
@@ -18,6 +19,7 @@ export class GitDetectionService {
    * Detect git repositories in the project
    */
   async detectGitRepos(projectPath: string): Promise<GitRepoInfo[]> {
+    projectPath = resolveProjectPath(projectPath);
     const repos: GitRepoInfo[] = [];
 
     const scanDir = (dir: string, relativePath = ''): void => {

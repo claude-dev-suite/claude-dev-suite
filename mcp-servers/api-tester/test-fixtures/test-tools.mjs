@@ -55,7 +55,7 @@ async function runTests() {
 
   await test('Postman: URLs have variables replaced', () => {
     const listPets = postmanResult.requests.find(r => r.name === 'List Pets');
-    if (!listPets.url.includes('petstore.example.com')) {
+    if (!new URL(listPets.url).hostname.endsWith('petstore.example.com')) {
       throw new Error(`URL variables not replaced: ${listPets.url}`);
     }
   });
@@ -73,7 +73,7 @@ async function runTests() {
   await test('Postman: Variable overrides work', async () => {
     const overrideResult = await importPostmanCollection(postmanPath, { baseUrl: 'https://override.com' });
     const listPets = overrideResult.requests.find(r => r.name === 'List Pets');
-    if (!listPets.url.includes('override.com')) {
+    if (!new URL(listPets.url).hostname.endsWith('override.com')) {
       throw new Error(`Variable override not applied: ${listPets.url}`);
     }
   });
@@ -101,7 +101,7 @@ async function runTests() {
 
   await test('Insomnia: URLs have variables replaced', () => {
     const listUsers = insomniaResult.requests.find(r => r.name === 'List Users');
-    if (!listUsers.url.includes('api.example.com')) {
+    if (!new URL(listUsers.url).hostname.endsWith('api.example.com')) {
       throw new Error(`URL variables not replaced: ${listUsers.url}`);
     }
   });

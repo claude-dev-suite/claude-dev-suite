@@ -11,6 +11,7 @@ import { promises as fs } from 'fs';
 import { InstallationService } from '../services/installation.service.js';
 import type { InstallConfig } from '../types.js';
 import { validateBody, validateQuery } from '../middleware/validateRequest.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import {
   PrepareServersRequestSchema,
   InstallRequestSchema,
@@ -108,7 +109,8 @@ installationRoutes.get('/install-status', validateQuery(InstallStatusRequestSche
 // GET /api/available-commands - List available slash commands
 installationRoutes.get('/available-commands', validateQuery(AvailableCommandsRequestSchema), async (req: Request, res: Response) => {
   try {
-    const { path: projectPath } = req.query as { path: string };
+    const { path: rawPath } = req.query as { path: string };
+    const projectPath = resolveProjectPath(rawPath);
 
     const commandsDir = path.join(projectPath, '.claude', 'commands');
     const commands: { name: string; description: string; file: string }[] = [];

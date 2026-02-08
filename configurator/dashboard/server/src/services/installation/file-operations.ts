@@ -40,6 +40,7 @@ export function calculateFileHash(content: string): string {
  * Calculate hash from file path
  */
 export function calculateFileHashFromPath(filePath: string): string | null {
+  if (filePath.includes('..')) throw new Error('Path traversal not allowed');
   try {
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -55,6 +56,7 @@ export function calculateFileHashFromPath(filePath: string): string | null {
  * Recursively copy a directory with security validation
  */
 export function copyDirSync(src: string, dest: string, baseDestDir?: string): void {
+  if (dest.includes('..')) throw new Error('Path traversal not allowed');
   // SECURITY: Track the original destination base for validation
   const destBase = baseDestDir ?? dest;
 
@@ -121,6 +123,7 @@ export function copyDirSync(src: string, dest: string, baseDestDir?: string): vo
  * Find an agent file by name in a directory tree
  */
 export function findAgentFile(dir: string, filename: string): string | null {
+  if (dir.includes('..')) throw new Error('Path traversal not allowed');
   if (!fs.existsSync(dir)) return null;
 
   const entries = fs.readdirSync(dir, { withFileTypes: true });

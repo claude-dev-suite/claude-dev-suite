@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import { resolveProjectPath } from '../utils/utilities.js';
 
 // ES Module dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -347,6 +348,14 @@ export class TemplatesService {
     templateId: string,
     variables: Record<string, string>
   ): Promise<VariableValidationResult> {
+    // Validate projectPath if present in variables
+    if (variables.projectPath) {
+      try {
+        variables.projectPath = resolveProjectPath(variables.projectPath);
+      } catch {
+        // Let normal validation handle the error
+      }
+    }
     const template = await this.getTemplate(templateId);
     if (!template) {
       return {
@@ -460,6 +469,7 @@ export class TemplatesService {
    * Scaffold a new project from a template
    */
   async scaffoldProject(config: ScaffoldConfig): Promise<ScaffoldResult> {
+    config.projectPath = resolveProjectPath(config.projectPath);
     const endTimer = timeOperation(logger, 'scaffoldProject', TIMING_THRESHOLDS.FILE_WRITE, {
       data: { templateId: config.templateId, projectPath: config.projectPath },
     });
@@ -658,6 +668,7 @@ export class TemplatesService {
     template: TemplateInfo,
     existingDirs: string[]
   ): Promise<void> {
+    projectPath = resolveProjectPath(projectPath);
     if (!template.structure) return;
 
     const createDir = (relativePath: string) => {

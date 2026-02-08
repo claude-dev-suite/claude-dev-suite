@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { readJsonSync } from '../../utils/fs-utils.js';
 import { isFileModified, getDevSuiteDir } from './upgrade-utils.js';
+import { resolveProjectPath } from '../../utils/utilities.js';
 import type {
   Feature,
   ExtendedManifest,
@@ -25,6 +26,7 @@ export function detectConflicts(
   feature: Feature,
   manifest: ExtendedManifest
 ): ConflictInfo[] {
+  projectPath = resolveProjectPath(projectPath);
   const conflicts: ConflictInfo[] = [];
 
   if (feature.apply.type === 'hook-merge') {

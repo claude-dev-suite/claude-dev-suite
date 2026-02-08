@@ -7,6 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveProjectPath } from '../../utils/utilities.js';
 import type {
   ClaudeHookUI,
   ClaudeHooksStatus,
@@ -24,6 +25,7 @@ export class ClaudeHooksService {
    * Get the path to Claude settings.json
    */
   getClaudeSettingsPath(projectPath: string): string {
+    projectPath = resolveProjectPath(projectPath);
     return path.join(projectPath, '.claude', 'settings.json');
   }
 
@@ -31,6 +33,7 @@ export class ClaudeHooksService {
    * Read Claude settings.json
    */
   readClaudeSettings(projectPath: string): Record<string, unknown> | null {
+    projectPath = resolveProjectPath(projectPath);
     const settingsPath = this.getClaudeSettingsPath(projectPath);
 
     if (!fs.existsSync(settingsPath)) {
@@ -49,6 +52,7 @@ export class ClaudeHooksService {
    * Write Claude settings.json
    */
   writeClaudeSettings(projectPath: string, settings: Record<string, unknown>): { success: boolean; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     const claudeDir = path.join(projectPath, '.claude');
     const settingsPath = this.getClaudeSettingsPath(projectPath);
 
@@ -113,6 +117,7 @@ export class ClaudeHooksService {
    * Get Claude hooks status for a project
    */
   getClaudeHooksStatus(projectPath: string): ClaudeHooksStatus {
+    projectPath = resolveProjectPath(projectPath);
     const settingsPath = this.getClaudeSettingsPath(projectPath);
     const claudeDir = path.join(projectPath, '.claude');
     const hasClaudeDir = fs.existsSync(claudeDir);
@@ -145,6 +150,7 @@ export class ClaudeHooksService {
    * Add a new Claude hook
    */
   addClaudeHook(projectPath: string, hookConfig: ClaudeHookConfig): { success: boolean; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     const settings = this.readClaudeSettings(projectPath) || {};
 
     if (!settings.hooks) {
@@ -179,6 +185,7 @@ export class ClaudeHooksService {
    * Update an existing Claude hook
    */
   updateClaudeHook(projectPath: string, hookId: string, hookConfig: Partial<ClaudeHookConfig>): { success: boolean; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     const settings = this.readClaudeSettings(projectPath);
 
     if (!settings || !settings.hooks) {
@@ -267,6 +274,7 @@ export class ClaudeHooksService {
    * Remove a Claude hook
    */
   removeClaudeHook(projectPath: string, hookId: string): { success: boolean; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     const settings = this.readClaudeSettings(projectPath);
 
     if (!settings || !settings.hooks) {
@@ -302,6 +310,7 @@ export class ClaudeHooksService {
    * Apply a template hook
    */
   applyClaudeTemplate(projectPath: string, templateId: string): { success: boolean; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     const template = CLAUDE_HOOK_TEMPLATES[templateId];
 
     if (!template) {
@@ -339,6 +348,7 @@ export class ClaudeHooksService {
    * Clear all Claude hooks
    */
   clearAllClaudeHooks(projectPath: string): { success: boolean; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     const settings = this.readClaudeSettings(projectPath);
 
     if (!settings) {
@@ -354,6 +364,7 @@ export class ClaudeHooksService {
    * Export hooks to a shareable format
    */
   exportClaudeHooks(projectPath: string): ClaudeHooksExport {
+    projectPath = resolveProjectPath(projectPath);
     const settings = this.readClaudeSettings(projectPath);
     const hooks = settings?.hooks || {};
 
@@ -368,6 +379,7 @@ export class ClaudeHooksService {
    * Import hooks from exported format
    */
   importClaudeHooks(projectPath: string, exported: ClaudeHooksExport, merge = true): { success: boolean; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     if (!exported || !exported.hooks) {
       return { success: false, error: 'Invalid export format' };
     }
@@ -517,6 +529,7 @@ Respond ONLY with valid JSON:
       backend?: { framework?: string; runtime?: string };
     }
   ): { success: boolean; configured: boolean; error?: string } {
+    projectPath = resolveProjectPath(projectPath);
     const matcher = this.buildIntegrationValidatorMatcher(detectedStack);
 
     if (!matcher || matcher === 'typescript-expert') {

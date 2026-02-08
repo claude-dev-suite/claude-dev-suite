@@ -9,6 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { resolveProjectPath } from '../utils/utilities.js';
 import {
   // Types
   type ReviewOption,
@@ -76,6 +77,7 @@ export class CodeReviewService {
    * Get base branch (main or master)
    */
   getBaseBranch(cwd: string): string {
+    cwd = resolveProjectPath(cwd);
     if (!this.isValidPath(cwd)) return 'main';
 
     try {
@@ -114,6 +116,7 @@ export class CodeReviewService {
    * List source files in a project
    */
   listSourceFiles(projectPath: string): SourceFilesResult {
+    projectPath = resolveProjectPath(projectPath);
     return listSourceFilesImpl(projectPath, this.isValidPath.bind(this));
   }
 
@@ -124,6 +127,7 @@ export class CodeReviewService {
     projectPath: string,
     options: { maxFiles?: number; maxSize?: number; paths?: string[] } = {},
   ): DiffResult {
+    projectPath = resolveProjectPath(projectPath);
     return getFullProjectCode(projectPath, options);
   }
 
@@ -136,6 +140,7 @@ export class CodeReviewService {
     repoPath: string | null = null,
     options: { maxFiles?: number; maxSize?: number; paths?: string[] } = {},
   ): DiffResult {
+    projectPath = resolveProjectPath(projectPath);
     const cwd = repoPath ? path.join(projectPath, repoPath) : projectPath;
 
     if (!this.isValidPath(cwd)) {

@@ -223,7 +223,8 @@ orchestratorRoutes.get('/orchestrator/sessions/:id/history', async (req: Request
     const projectPath = resolveProjectPath(req.query.project_path);
 
     // Find Claude's project sessions folder
-    const claudeDir = path.join(os.homedir(), '.claude', 'projects');
+    let claudeDir = path.join(os.homedir(), '.claude', 'projects');
+    claudeDir = resolveProjectPath(claudeDir);
     const encodedPath = encodeProjectPath(projectPath);
     const sessionFile = path.join(claudeDir, encodedPath, `${sessionId}.jsonl`);
 
@@ -317,7 +318,8 @@ orchestratorRoutes.get('/orchestrator/sessions', async (req: Request, res: Respo
     const projectPath = resolveProjectPath(req.query.project_path);
 
     // Find Claude's project sessions folder
-    const claudeDir = path.join(os.homedir(), '.claude', 'projects');
+    let claudeDir = path.join(os.homedir(), '.claude', 'projects');
+    claudeDir = resolveProjectPath(claudeDir);
     const encodedPath = encodeProjectPath(projectPath);
     const projectSessionsDir = path.join(claudeDir, encodedPath);
 

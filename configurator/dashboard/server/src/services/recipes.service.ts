@@ -9,6 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 // HooksService available for future advanced hook operations
 // import { HooksService } from './hooks.service.js';
@@ -108,6 +109,7 @@ export class RecipesService {
    * Get enabled automations for a project
    */
   getEnabledAutomations(projectPath: string): EnabledAutomation[] {
+    projectPath = resolveProjectPath(projectPath);
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
     const manifest = readJsonSync<{ automations?: EnabledAutomation[] }>(manifestPath);
     return manifest?.automations ?? [];
@@ -135,6 +137,7 @@ export class RecipesService {
    * Detect tools installed in a project
    */
   detectTools(projectPath: string): DetectedTools {
+    projectPath = resolveProjectPath(projectPath);
     const result: DetectedTools = {
       formatters: [],
       linters: [],
@@ -221,6 +224,7 @@ export class RecipesService {
    * Get recommended recipes for a project
    */
   getRecommendedRecipes(projectPath: string): RecipeRecommendation[] {
+    projectPath = resolveProjectPath(projectPath);
     const tools = this.detectTools(projectPath);
     const enabledAutomations = this.getEnabledAutomations(projectPath);
     const enabledIds = new Set(enabledAutomations.filter(a => a.enabled).map(a => a.recipeId));
@@ -315,6 +319,7 @@ export class RecipesService {
     recipeId: string,
     customOptions?: Record<string, unknown>
   ): Promise<RecipeOperationResult> {
+    projectPath = resolveProjectPath(projectPath);
     const recipe = getRecipeById(recipeId);
     if (!recipe) {
       return {
@@ -419,6 +424,7 @@ export class RecipesService {
    * Disable a recipe
    */
   async disableRecipe(projectPath: string, recipeId: string): Promise<RecipeOperationResult> {
+    projectPath = resolveProjectPath(projectPath);
     const recipe = getRecipeById(recipeId);
     if (!recipe) {
       return {
@@ -479,6 +485,7 @@ export class RecipesService {
     recipeId: string,
     customOptions?: Record<string, unknown>
   ): Promise<RecipeTestResult> {
+    projectPath = resolveProjectPath(projectPath);
     const recipe = getRecipeById(recipeId);
     if (!recipe) {
       return {

@@ -8,6 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { resolveProjectPath } from '../../utils/utilities.js';
 import type { FileTreeNode, SourceFilesResult, DiffResult } from './types.js';
 import { SOURCE_EXTENSIONS, INCLUDE_FILES, EXCLUDED_DIRS } from './constants.js';
 
@@ -25,6 +26,7 @@ export function shouldIncludeFile(filePath: string): boolean {
  * List source files in a project
  */
 export function listSourceFiles(projectPath: string, isValidPath: (p: string) => boolean): SourceFilesResult {
+  projectPath = resolveProjectPath(projectPath);
   if (!isValidPath(projectPath)) {
     throw new Error(`Invalid or non-existent path: ${projectPath}`);
   }
@@ -173,6 +175,7 @@ export function getFullProjectCode(
   projectPath: string,
   options: { maxFiles?: number; maxSize?: number; paths?: string[] } = {},
 ): DiffResult {
+  projectPath = resolveProjectPath(projectPath);
   const MAX_FILES = options.maxFiles || 100;
   const MAX_TOTAL_SIZE = options.maxSize || 500 * 1024;
   const MAX_LINES_PER_FILE = 500;

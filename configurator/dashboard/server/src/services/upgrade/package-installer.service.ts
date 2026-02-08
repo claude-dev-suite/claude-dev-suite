@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { getLogger } from '../../utils/logger.js';
+import { resolveProjectPath } from '../../utils/utilities.js';
 import type { TrackedFile, ExtendedManifest } from '../../types/index.js';
 
 const logger = getLogger('PackageInstaller');
@@ -41,6 +42,7 @@ export class PackageInstallerService {
    * Detect which package manager is used in the project
    */
   detectPackageManager(projectPath: string): PackageManager {
+    projectPath = resolveProjectPath(projectPath);
     // Check for lock files in root and common subdirs
     const dirsToCheck = [
       projectPath,
@@ -62,6 +64,7 @@ export class PackageInstallerService {
    * Find the directory containing package.json (for monorepos)
    */
   findPackageJsonDir(projectPath: string): string {
+    projectPath = resolveProjectPath(projectPath);
     const dirsToCheck = [
       projectPath,
       path.join(projectPath, 'frontend'),
@@ -87,6 +90,7 @@ export class PackageInstallerService {
     packages: string[],
     dev: boolean = true
   ): Promise<InstallPackagesResult> {
+    projectPath = resolveProjectPath(projectPath);
     const packageManager = this.detectPackageManager(projectPath);
     const workDir = this.findPackageJsonDir(projectPath);
 
@@ -172,6 +176,7 @@ export class PackageInstallerService {
     saveManifest: (projectPath: string, manifest: ExtendedManifest) => boolean,
     createTrackedFile: (projectPath: string, relativePath: string, type: TrackedFile['type'], source?: string) => TrackedFile | null
   ): Promise<InstallAgentResult> {
+    projectPath = resolveProjectPath(projectPath);
     const devSuiteDir = getDevSuiteDir();
 
     // Find the agent file in dev-suite

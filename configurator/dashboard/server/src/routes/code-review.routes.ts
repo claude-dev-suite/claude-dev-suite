@@ -143,7 +143,8 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
     const projectPath = resolveProjectPath(rawPath);
 
     // Calculate working directory (like legacy)
-    const workingDir = repo ? path.join(projectPath, repo) : projectPath;
+    let workingDir = repo ? path.join(projectPath, repo) : projectPath;
+    workingDir = resolveProjectPath(workingDir);
 
     logger.debug('Building code review job', {
       projectPath,

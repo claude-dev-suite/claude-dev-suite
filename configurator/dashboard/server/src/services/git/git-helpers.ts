@@ -7,6 +7,7 @@
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import type { FileChange, FileStatus } from '../../types/git.js';
+import { resolveProjectPath } from '../../utils/utilities.js';
 
 /**
  * Execute a git command in a specific directory using spawnSync with array arguments.
@@ -18,6 +19,7 @@ export function execGit(
   cwd: string,
   options: SpawnSyncOptions = {}
 ): string {
+  cwd = resolveProjectPath(cwd);
   const result = spawnSync('git', args, {
     cwd,
     encoding: 'utf-8',

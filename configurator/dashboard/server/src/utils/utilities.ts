@@ -144,11 +144,17 @@ export function resolveProjectPath(raw: unknown): string {
   if (typeof raw !== 'string' || !raw) {
     throw new PathValidationError('Project path is required');
   }
-  const result = validateProjectPath(raw);
-  if (!result.valid) {
-    throw new PathValidationError(result.error || 'Invalid project path');
+  if (raw.includes('..')) {
+    throw new PathValidationError('Path traversal not allowed');
   }
-  return result.path!;
+  const resolved = path.resolve(raw);
+  if (!path.isAbsolute(resolved)) {
+    throw new PathValidationError('Path must be absolute');
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new PathValidationError('Path does not exist');
+  }
+  return resolved;
 }
 
 export class PathValidationError extends Error {
@@ -163,7 +169,7 @@ export class PathValidationError extends Error {
  */
 export function escapeShellArg(arg: string): string {
   if (process.platform === 'win32') {
-    return `"${arg.replace(/"/g, '\\"')}"`;
+    return `"${arg.replace(/["%!^]/g, '^$&')}"`;
   }
   return `'${arg.replace(/'/g, "'\\''")}'`;
 }

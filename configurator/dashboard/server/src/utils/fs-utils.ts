@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveProjectPath } from './utilities.js';
 
 export const EXCLUDED_DIRS = Object.freeze([
   'node_modules',
@@ -29,6 +30,7 @@ export const ENV_FILE_PATTERNS = Object.freeze([
 ]);
 
 export function fileExists(dir: string, filename: string): boolean {
+  dir = resolveProjectPath(dir);
   try {
     return fs.existsSync(path.join(dir, filename));
   } catch {
@@ -37,6 +39,7 @@ export function fileExists(dir: string, filename: string): boolean {
 }
 
 export function fileContains(dir: string, filename: string, pattern: string): boolean {
+  dir = resolveProjectPath(dir);
   const filePath = path.join(dir, filename);
   try {
     if (fs.existsSync(filePath)) {

@@ -9,6 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import { parseYamlDescription } from '../utils/yaml-utils.js';
 import { BestPracticesValidatorService } from './best-practices-validator.service.js';
 import type {
@@ -214,6 +215,7 @@ export class CustomAgentsService {
    * List all custom agents for a project
    */
   async getCustomAgents(projectPath: string): Promise<CustomAgentListItem[]> {
+    projectPath = resolveProjectPath(projectPath);
     const customAgentsDir = this.getCustomAgentsDir(projectPath);
     const agents: CustomAgentListItem[] = [];
 
@@ -244,6 +246,7 @@ export class CustomAgentsService {
    * Get a single custom agent with full content
    */
   async getCustomAgent(projectPath: string, agentId: string): Promise<CustomAgent | null> {
+    projectPath = resolveProjectPath(projectPath);
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -297,6 +300,7 @@ export class CustomAgentsService {
     content: string,
     bypassWarnings = false
   ): Promise<{ success: boolean; agent?: CustomAgentListItem; validation?: CustomAgentValidationResult; error?: string }> {
+    projectPath = resolveProjectPath(projectPath);
     // Validate content
     const validation = this.validateAgentContent(content);
 
@@ -373,6 +377,7 @@ export class CustomAgentsService {
     content: string,
     bypassWarnings = false
   ): Promise<{ success: boolean; agent?: CustomAgentListItem; validation?: CustomAgentValidationResult; error?: string }> {
+    projectPath = resolveProjectPath(projectPath);
     // Check if agent exists
     const existingAgent = await this.getCustomAgent(projectPath, agentId);
     if (!existingAgent) {
@@ -456,6 +461,7 @@ export class CustomAgentsService {
    * Delete a custom agent
    */
   async deleteCustomAgent(projectPath: string, agentId: string): Promise<{ success: boolean; error?: string }> {
+    projectPath = resolveProjectPath(projectPath);
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -491,6 +497,7 @@ export class CustomAgentsService {
    * List all custom skills for a project
    */
   async getCustomSkills(projectPath: string): Promise<CustomSkill[]> {
+    projectPath = resolveProjectPath(projectPath);
     const customSkillsDir = this.getCustomSkillsDir(projectPath);
     const skills: CustomSkill[] = [];
 
@@ -527,6 +534,7 @@ export class CustomAgentsService {
     name: string,
     content: string
   ): Promise<{ success: boolean; skill?: CustomSkill; error?: string }> {
+    projectPath = resolveProjectPath(projectPath);
     this.ensureCustomSkillsDir(projectPath);
 
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), name);
@@ -573,6 +581,7 @@ export class CustomAgentsService {
    * Delete a custom skill
    */
   async deleteCustomSkill(projectPath: string, skillId: string): Promise<{ success: boolean; error?: string }> {
+    projectPath = resolveProjectPath(projectPath);
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
 
     if (!fs.existsSync(skillDir)) {

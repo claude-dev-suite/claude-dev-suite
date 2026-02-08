@@ -8,6 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveProjectPath } from '../utils/utilities.js';
 import type { DetectionResult, EnvironmentFile, GitRepoInfo } from '../types.js';
 import { fileExists, fileContains, EXCLUDED_DIRS } from '../utils/fs-utils.js';
 import { timeOperation, TIMING_THRESHOLDS } from '../utils/performance.js';
@@ -54,7 +55,6 @@ export class DetectionService {
    * Detect project stack and technologies
    */
   async detectProject(projectPath: string): Promise<DetectionResult> {
-    const endTimer = timeOperation(logger, 'detectProject', TIMING_THRESHOLDS.DETECTION_FULL, { data: { projectPath } });
     const result: DetectionResult = {
       projectType: 'unknown',
       frontend: { framework: '', metaFramework: '', runtime: '' },
@@ -65,6 +65,15 @@ export class DetectionService {
       isMonorepo: false,
       confidence: 0,
     };
+
+    try {
+      projectPath = resolveProjectPath(projectPath);
+    } catch {
+      // Path validation failed - return unknown result
+      return result;
+    }
+
+    const endTimer = timeOperation(logger, 'detectProject', TIMING_THRESHOLDS.DETECTION_FULL, { data: { projectPath } });
 
     if (!fs.existsSync(projectPath)) {
       endTimer();
@@ -129,6 +138,7 @@ export class DetectionService {
    * Delegates to EnvironmentDetectionService
    */
   async detectEnvironments(projectPath: string): Promise<EnvironmentFile[]> {
+    projectPath = resolveProjectPath(projectPath);
     return this.environmentService.detectEnvironments(projectPath);
   }
 
@@ -137,6 +147,7 @@ export class DetectionService {
    * Delegates to GitDetectionService
    */
   async detectGitRepos(projectPath: string): Promise<GitRepoInfo[]> {
+    projectPath = resolveProjectPath(projectPath);
     return this.gitService.detectGitRepos(projectPath);
   }
 

@@ -8,6 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import { execSync, execFileSync } from 'child_process';
 import type { InstallConfig, InstallManifest } from '../types.js';
 import type { TrackedFile, ExtendedManifest, StackInfo } from '../types/index.js';
@@ -117,7 +118,9 @@ export class InstallationService {
    * Install dev-suite into a project
    */
   async install(config: InstallConfig): Promise<InstallManifest> {
-    const { projectPath, agents, mcpServers, envVars, detectedStack } = config;
+    let { projectPath } = config;
+    projectPath = resolveProjectPath(projectPath);
+    const { agents, mcpServers, envVars, detectedStack } = config;
     const devSuiteDir = getDevSuiteDir();
 
     // Create extended manifest with hash tracking for upgrade system
@@ -239,6 +242,7 @@ export class InstallationService {
    * Uninstall dev-suite from a project
    */
   async uninstall(projectPath: string): Promise<{ removed: string[]; errors: string[] }> {
+    projectPath = resolveProjectPath(projectPath);
     const removed: string[] = [];
     const errors: string[] = [];
 
@@ -333,6 +337,7 @@ export class InstallationService {
    * Get installation status
    */
   async getStatus(projectPath: string): Promise<{ installed: boolean; manifest?: InstallManifest }> {
+    projectPath = resolveProjectPath(projectPath);
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
 
     if (!fs.existsSync(manifestPath)) {

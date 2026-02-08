@@ -7,6 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveProjectPath } from '../../utils/utilities.js';
 import { getLogger } from '../../utils/logger.js';
 import { readJsonSync } from '../../utils/fs-utils.js';
 import { getDevSuiteDir, calculateFileHashFromPath } from './upgrade-utils.js';
@@ -34,6 +35,7 @@ export function applyHookMerge(
   registry: FeatureRegistry,
   hooksService: HooksService
 ): FeatureUpgradeResult {
+  projectPath = resolveProjectPath(projectPath);
   const config = feature.apply as HookMergeConfig;
 
   try {
@@ -187,6 +189,7 @@ export function applyAgentReplace(
   feature: Feature,
   manifest: ExtendedManifest
 ): FeatureUpgradeResult {
+  projectPath = resolveProjectPath(projectPath);
   const config = feature.apply as AgentReplaceConfig;
   const devSuiteDir = getDevSuiteDir();
 
@@ -257,6 +260,7 @@ export function applyFeature(
   hooksService: HooksService,
   resolutions?: ConflictResolutions
 ): FeatureUpgradeResult {
+  projectPath = resolveProjectPath(projectPath);
   const featureResolutions = resolutions?.[feature.id];
 
   // Check for conflicts that need resolution
