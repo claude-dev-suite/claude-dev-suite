@@ -1,4 +1,3 @@
 packs:
   javascript-typescript:
     - codeql/javascript-queries
-    - dev-suite/javascript-custom-queries
