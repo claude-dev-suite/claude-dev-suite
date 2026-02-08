@@ -19,6 +19,9 @@ jobs:
       matrix:
         language: [javascript-typescript]
 
+    env:
+      CODEQL_ACTION_EXTRA_OPTIONS: '{"database":{"init":["--search-path=.github/codeql/custom-queries"],"analyze":["--search-path=.github/codeql/custom-queries"]}}'
+
     steps:
       - uses: actions/checkout@v4
 
