@@ -62,7 +62,12 @@ export const handleExplainQuery: Handler = async (args): Promise<HandlerResult> 
   const tables = tableMatches.map(m => m.replace(/^FROM\s+/i, ''));
 
   const whereMatches = sql.match(/WHERE\s+(\w+)\s*[=<>]/gi) || [];
-  const whereColumns = whereMatches.map(m => m.replaceAll(/WHERE\s+/gi, '').replace(/\s*[=<>].*/, ''));
+  const whereColumns = whereMatches.map(m => {
+    let s = m;
+    let prev;
+    do { prev = s; s = s.replace(/WHERE\s+/gi, ''); } while (s !== prev);
+    return s.replace(/\s*[=<>].*/, '');
+  });
 
   if (whereColumns.length > 0) {
     insights.push(`Consider indexes on: ${whereColumns.join(', ')}`);

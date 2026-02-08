@@ -144,10 +144,10 @@ export function resolveProjectPath(raw: unknown): string {
   if (typeof raw !== 'string' || !raw) {
     throw new PathValidationError('Project path is required');
   }
-  if (raw.includes('..')) {
+  const resolved = path.resolve(raw);
+  if (resolved.includes('..')) {
     throw new PathValidationError('Path traversal not allowed');
   }
-  const resolved = path.resolve(raw);
   if (!path.isAbsolute(resolved)) {
     throw new PathValidationError('Path must be absolute');
   }

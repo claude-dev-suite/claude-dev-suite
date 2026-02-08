@@ -56,13 +56,13 @@ export function calculateFileHashFromPath(filePath: string): string | null {
  * Recursively copy a directory with security validation
  */
 export function copyDirSync(src: string, dest: string, baseDestDir?: string): void {
-  if (dest.includes('..')) throw new Error('Path traversal not allowed');
   // SECURITY: Track the original destination base for validation
   const destBase = baseDestDir ?? dest;
 
   // SECURITY: Validate source and destination paths
   const resolvedSrc = path.resolve(src);
   const resolvedDest = path.resolve(dest);
+  if (resolvedSrc.includes('..') || resolvedDest.includes('..')) throw new Error('Path traversal not allowed');
 
   // Validate dest stays within base destination
   validatePathWithinBase(resolvedDest, destBase, true);
