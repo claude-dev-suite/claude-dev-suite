@@ -9,7 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import {
   // Types
   type ReviewOption,
@@ -80,6 +80,7 @@ export class CodeReviewService {
   getBaseBranch(cwd: string): string {
     if (cwd.includes('..')) throw new Error('Path traversal not allowed');
     cwd = resolveProjectPath(cwd);
+    if (!path.isAbsolute(cwd)) throw new PathValidationError('Path must be rooted');
     if (!this.isValidPath(cwd)) return 'main';
 
     try {
@@ -120,6 +121,7 @@ export class CodeReviewService {
   listSourceFiles(projectPath: string): SourceFilesResult {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return listSourceFilesImpl(projectPath, this.isValidPath.bind(this));
   }
 
@@ -132,6 +134,7 @@ export class CodeReviewService {
   ): DiffResult {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return getFullProjectCode(projectPath, options);
   }
 
@@ -146,6 +149,7 @@ export class CodeReviewService {
   ): DiffResult {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const cwd = repoPath ? path.join(projectPath, repoPath) : projectPath;
 
     if (!this.isValidPath(cwd)) {

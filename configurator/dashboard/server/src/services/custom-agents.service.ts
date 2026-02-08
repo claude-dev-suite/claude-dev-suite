@@ -217,6 +217,7 @@ export class CustomAgentsService {
   async getCustomAgents(projectPath: string): Promise<CustomAgentListItem[]> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const customAgentsDir = this.getCustomAgentsDir(projectPath);
     const agents: CustomAgentListItem[] = [];
 
@@ -249,6 +250,7 @@ export class CustomAgentsService {
   async getCustomAgent(projectPath: string, agentId: string): Promise<CustomAgent | null> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -304,6 +306,7 @@ export class CustomAgentsService {
   ): Promise<{ success: boolean; agent?: CustomAgentListItem; validation?: CustomAgentValidationResult; error?: string }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     // Validate content
     const validation = this.validateAgentContent(content);
 
@@ -382,6 +385,7 @@ export class CustomAgentsService {
   ): Promise<{ success: boolean; agent?: CustomAgentListItem; validation?: CustomAgentValidationResult; error?: string }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     // Check if agent exists
     const existingAgent = await this.getCustomAgent(projectPath, agentId);
     if (!existingAgent) {
@@ -467,6 +471,7 @@ export class CustomAgentsService {
   async deleteCustomAgent(projectPath: string, agentId: string): Promise<{ success: boolean; error?: string }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -504,6 +509,7 @@ export class CustomAgentsService {
   async getCustomSkills(projectPath: string): Promise<CustomSkill[]> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const customSkillsDir = this.getCustomSkillsDir(projectPath);
     const skills: CustomSkill[] = [];
 
@@ -542,6 +548,7 @@ export class CustomAgentsService {
   ): Promise<{ success: boolean; skill?: CustomSkill; error?: string }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     this.ensureCustomSkillsDir(projectPath);
 
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), name);
@@ -590,6 +597,7 @@ export class CustomAgentsService {
   async deleteCustomSkill(projectPath: string, skillId: string): Promise<{ success: boolean; error?: string }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
 
     if (!fs.existsSync(skillDir)) {

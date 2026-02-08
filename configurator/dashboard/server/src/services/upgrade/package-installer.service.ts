@@ -44,6 +44,7 @@ export class PackageInstallerService {
   detectPackageManager(projectPath: string): PackageManager {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     // Check for lock files in root and common subdirs
     const dirsToCheck = [
       projectPath,
@@ -67,6 +68,7 @@ export class PackageInstallerService {
   findPackageJsonDir(projectPath: string): string {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const dirsToCheck = [
       projectPath,
       path.join(projectPath, 'frontend'),
@@ -94,6 +96,7 @@ export class PackageInstallerService {
   ): Promise<InstallPackagesResult> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const packageManager = this.detectPackageManager(projectPath);
     const workDir = this.findPackageJsonDir(projectPath);
 
@@ -181,6 +184,7 @@ export class PackageInstallerService {
   ): Promise<InstallAgentResult> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     // Validate agentId to prevent path injection
     if (!agentId || agentId.includes('..') || agentId.includes('/') || agentId.includes('\\')) {

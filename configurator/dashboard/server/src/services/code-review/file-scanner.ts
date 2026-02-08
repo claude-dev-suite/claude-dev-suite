@@ -28,6 +28,7 @@ export function shouldIncludeFile(filePath: string): boolean {
 export function listSourceFiles(projectPath: string, isValidPath: (p: string) => boolean): SourceFilesResult {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+  if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   if (!isValidPath(projectPath)) {
     throw new Error(`Invalid or non-existent path: ${projectPath}`);
   }
@@ -180,6 +181,7 @@ export function getFullProjectCode(
 ): DiffResult {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+  if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const MAX_FILES = options.maxFiles || 100;
   const MAX_TOTAL_SIZE = options.maxSize || 500 * 1024;
   const MAX_LINES_PER_FILE = 500;

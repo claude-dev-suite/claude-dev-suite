@@ -69,6 +69,7 @@ export class DetectionService {
     try {
       if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
       projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     } catch {
       // Path validation failed - return unknown result
       return result;
@@ -141,6 +142,7 @@ export class DetectionService {
   async detectEnvironments(projectPath: string): Promise<EnvironmentFile[]> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return this.environmentService.detectEnvironments(projectPath);
   }
 
@@ -151,6 +153,7 @@ export class DetectionService {
   async detectGitRepos(projectPath: string): Promise<GitRepoInfo[]> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return this.gitService.detectGitRepos(projectPath);
   }
 

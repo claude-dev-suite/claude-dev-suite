@@ -121,6 +121,7 @@ export class InstallationService {
     let { projectPath } = config;
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { agents, mcpServers, envVars, detectedStack } = config;
     const devSuiteDir = getDevSuiteDir();
 
@@ -245,6 +246,7 @@ export class InstallationService {
   async uninstall(projectPath: string): Promise<{ removed: string[]; errors: string[] }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const removed: string[] = [];
     const errors: string[] = [];
 
@@ -341,6 +343,7 @@ export class InstallationService {
   async getStatus(projectPath: string): Promise<{ installed: boolean; manifest?: InstallManifest }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
 
     if (!fs.existsSync(manifestPath)) {

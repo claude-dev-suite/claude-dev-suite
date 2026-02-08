@@ -1,3 +1,4 @@
+import path from 'node:path';
 // SPDX-License-Identifier: MIT
 /**
  * Git API Routes
@@ -10,7 +11,7 @@ import { exec, spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { GitService } from '../services/git.service.js';
 import { DetectionService } from '../services/detection.service.js';
 import type { ApiResponse } from '../types.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import type {
   StageFilesRequest,
   DiscardChangesRequest,
@@ -45,6 +46,7 @@ let authAccount: string | null = null;
 gitRoutes.get('/repos', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     // Detect git repos
     const repos = await detectionService.detectGitRepos(projectPath);
@@ -88,6 +90,7 @@ gitRoutes.get('/repos', async (req: Request, res: Response) => {
 gitRoutes.get('/status', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
 
     if (!repoPath) {
@@ -122,6 +125,7 @@ gitRoutes.get('/status', async (req: Request, res: Response) => {
 gitRoutes.get('/changes', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
 
     if (!repoPath) {
@@ -152,6 +156,7 @@ gitRoutes.get('/changes', async (req: Request, res: Response) => {
 gitRoutes.get('/diff', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
     const filePath = req.query.file as string;
     const staged = req.query.staged === 'true';
@@ -188,6 +193,7 @@ gitRoutes.get('/diff', async (req: Request, res: Response) => {
 gitRoutes.post('/stage', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, files } = req.body as StageFilesRequest;
 
     if (!repoPath || !files?.length) {
@@ -218,6 +224,7 @@ gitRoutes.post('/stage', async (req: Request, res: Response) => {
 gitRoutes.post('/stage-all', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath } = req.body as { repoPath: string };
 
     if (!repoPath) {
@@ -248,6 +255,7 @@ gitRoutes.post('/stage-all', async (req: Request, res: Response) => {
 gitRoutes.post('/unstage', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, files } = req.body as StageFilesRequest;
 
     if (!repoPath || !files?.length) {
@@ -278,6 +286,7 @@ gitRoutes.post('/unstage', async (req: Request, res: Response) => {
 gitRoutes.post('/unstage-all', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath } = req.body as { repoPath: string };
 
     if (!repoPath) {
@@ -308,6 +317,7 @@ gitRoutes.post('/unstage-all', async (req: Request, res: Response) => {
 gitRoutes.post('/discard', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, files, staged } = req.body as DiscardChangesRequest;
 
     if (!repoPath || !files?.length) {
@@ -342,6 +352,7 @@ gitRoutes.post('/discard', async (req: Request, res: Response) => {
 gitRoutes.post('/commit', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, message, amend } = req.body as CreateCommitRequest;
 
     if (!repoPath || !message) {
@@ -373,6 +384,7 @@ gitRoutes.post('/commit', async (req: Request, res: Response) => {
 gitRoutes.get('/log', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
     const limit = parseInt(req.query.limit as string) || 50;
     const from = req.query.from as string;
@@ -406,6 +418,7 @@ gitRoutes.get('/log', async (req: Request, res: Response) => {
 gitRoutes.get('/commit/:hash', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
     const commitHash = req.params.hash;
 
@@ -437,6 +450,7 @@ gitRoutes.get('/commit/:hash', async (req: Request, res: Response) => {
 gitRoutes.post('/cherry-pick', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, commits, noCommit } = req.body as CherryPickRequest;
 
     if (!repoPath || !commits?.length) {
@@ -467,6 +481,7 @@ gitRoutes.post('/cherry-pick', async (req: Request, res: Response) => {
 gitRoutes.post('/revert', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, commit, noCommit } = req.body as RevertRequest;
 
     if (!repoPath || !commit) {
@@ -501,6 +516,7 @@ gitRoutes.post('/revert', async (req: Request, res: Response) => {
 gitRoutes.get('/branches', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
 
     if (!repoPath) {
@@ -531,6 +547,7 @@ gitRoutes.get('/branches', async (req: Request, res: Response) => {
 gitRoutes.post('/branch/create', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, branchName, startPoint, checkout } =
       req.body as CreateBranchRequest;
 
@@ -562,6 +579,7 @@ gitRoutes.post('/branch/create', async (req: Request, res: Response) => {
 gitRoutes.post('/branch/checkout', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, branchName, create } = req.body as CheckoutBranchRequest;
 
     if (!repoPath || !branchName) {
@@ -592,6 +610,7 @@ gitRoutes.post('/branch/checkout', async (req: Request, res: Response) => {
 gitRoutes.post('/branch/delete', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, branchName, force } = req.body as DeleteBranchRequest;
 
     if (!repoPath || !branchName) {
@@ -622,6 +641,7 @@ gitRoutes.post('/branch/delete', async (req: Request, res: Response) => {
 gitRoutes.post('/branch/merge', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, sourceBranch, noFastForward, message } =
       req.body as MergeBranchRequest;
 
@@ -653,6 +673,7 @@ gitRoutes.post('/branch/merge', async (req: Request, res: Response) => {
 gitRoutes.get('/branch/compare', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
     const baseBranch = req.query.base as string;
     const compareBranch = req.query.compare as string;
@@ -694,6 +715,7 @@ gitRoutes.get('/branch/compare', async (req: Request, res: Response) => {
 gitRoutes.get('/remotes', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
 
     if (!repoPath) {
@@ -724,6 +746,7 @@ gitRoutes.get('/remotes', async (req: Request, res: Response) => {
 gitRoutes.post('/fetch', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, remote, prune, all } = req.body as FetchRequest;
 
     if (!repoPath) {
@@ -754,6 +777,7 @@ gitRoutes.post('/fetch', async (req: Request, res: Response) => {
 gitRoutes.post('/pull', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, remote, branch, rebase } = req.body as PullRequest;
 
     if (!repoPath) {
@@ -784,6 +808,7 @@ gitRoutes.post('/pull', async (req: Request, res: Response) => {
 gitRoutes.post('/push', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const { repoPath, remote, branch, setUpstream, force, forceWithLease } =
       req.body as PushRequest;
 

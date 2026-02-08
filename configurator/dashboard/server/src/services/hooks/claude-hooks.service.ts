@@ -27,6 +27,7 @@ export class ClaudeHooksService {
   getClaudeSettingsPath(projectPath: string): string {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return path.join(projectPath, '.claude', 'settings.json');
   }
 
@@ -36,6 +37,7 @@ export class ClaudeHooksService {
   readClaudeSettings(projectPath: string): Record<string, unknown> | null {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const settingsPath = this.getClaudeSettingsPath(projectPath);
 
     if (!fs.existsSync(settingsPath)) {
@@ -56,6 +58,7 @@ export class ClaudeHooksService {
   writeClaudeSettings(projectPath: string, settings: Record<string, unknown>): { success: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const claudeDir = path.join(projectPath, '.claude');
     const settingsPath = this.getClaudeSettingsPath(projectPath);
 
@@ -122,6 +125,7 @@ export class ClaudeHooksService {
   getClaudeHooksStatus(projectPath: string): ClaudeHooksStatus {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const settingsPath = this.getClaudeSettingsPath(projectPath);
     const claudeDir = path.join(projectPath, '.claude');
     const hasClaudeDir = fs.existsSync(claudeDir);
@@ -156,6 +160,7 @@ export class ClaudeHooksService {
   addClaudeHook(projectPath: string, hookConfig: ClaudeHookConfig): { success: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const settings = this.readClaudeSettings(projectPath) || {};
 
     if (!settings.hooks) {
@@ -192,6 +197,7 @@ export class ClaudeHooksService {
   updateClaudeHook(projectPath: string, hookId: string, hookConfig: Partial<ClaudeHookConfig>): { success: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const settings = this.readClaudeSettings(projectPath);
 
     if (!settings || !settings.hooks) {
@@ -282,6 +288,7 @@ export class ClaudeHooksService {
   removeClaudeHook(projectPath: string, hookId: string): { success: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const settings = this.readClaudeSettings(projectPath);
 
     if (!settings || !settings.hooks) {
@@ -319,6 +326,7 @@ export class ClaudeHooksService {
   applyClaudeTemplate(projectPath: string, templateId: string): { success: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const template = CLAUDE_HOOK_TEMPLATES[templateId];
 
     if (!template) {
@@ -358,6 +366,7 @@ export class ClaudeHooksService {
   clearAllClaudeHooks(projectPath: string): { success: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const settings = this.readClaudeSettings(projectPath);
 
     if (!settings) {
@@ -375,6 +384,7 @@ export class ClaudeHooksService {
   exportClaudeHooks(projectPath: string): ClaudeHooksExport {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const settings = this.readClaudeSettings(projectPath);
     const hooks = settings?.hooks || {};
 
@@ -391,6 +401,7 @@ export class ClaudeHooksService {
   importClaudeHooks(projectPath: string, exported: ClaudeHooksExport, merge = true): { success: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!exported || !exported.hooks) {
       return { success: false, error: 'Invalid export format' };
     }
@@ -542,6 +553,7 @@ Respond ONLY with valid JSON:
   ): { success: boolean; configured: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const matcher = this.buildIntegrationValidatorMatcher(detectedStack);
 
     if (!matcher || matcher === 'typescript-expert') {

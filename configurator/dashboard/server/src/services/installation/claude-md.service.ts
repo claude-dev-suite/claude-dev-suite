@@ -31,6 +31,7 @@ export function updateClaudeMd(
 ): void {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
   const section = generateDevSuiteSection(agents, detectedStack, validatorHookConfigured);
 
@@ -59,6 +60,7 @@ export function updateClaudeMd(
 export function cleanClaudeMdSection(projectPath: string): void {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
   if (!fs.existsSync(claudeMdPath)) return;
 

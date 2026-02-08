@@ -62,6 +62,7 @@ export function calculateFileHashFromPath(filePath: string): string | null {
 export function loadManifest(projectPath: string): ExtendedManifest | null {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
   return readJsonSync<ExtendedManifest>(manifestPath);
 }
@@ -72,6 +73,7 @@ export function loadManifest(projectPath: string): ExtendedManifest | null {
 export function saveManifest(projectPath: string, manifest: ExtendedManifest): boolean {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
   try {
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -87,6 +89,7 @@ export function saveManifest(projectPath: string, manifest: ExtendedManifest): b
 export function isFileModified(projectPath: string, trackedFile: TrackedFile): boolean {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const filePath = path.join(projectPath, trackedFile.path);
   const currentHash = calculateFileHashFromPath(filePath);
 
@@ -104,6 +107,7 @@ export function isFileModified(projectPath: string, trackedFile: TrackedFile): b
 export function createBackup(projectPath: string, files: string[]): string | null {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   if (files.length === 0) return null;
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -139,6 +143,7 @@ export function createTrackedFile(
 ): TrackedFile | null {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const fullPath = path.join(projectPath, relativePath);
   const hash = calculateFileHashFromPath(fullPath);
 
@@ -166,6 +171,7 @@ export function initializeExtendedManifest(
 ): ExtendedManifest {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const trackedFiles: TrackedFile[] = [];
 
   // Track provided files

@@ -37,6 +37,7 @@ export class GitHooksService {
   detectHusky(projectPath: string): HuskyStatus {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const huskyDir = path.join(projectPath, '.husky');
     const packageJsonPath = path.join(projectPath, 'package.json');
 
@@ -88,6 +89,7 @@ export class GitHooksService {
   detectNativeHooks(projectPath: string): Record<string, HookInfo> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const hooksDir = path.join(projectPath, '.git', 'hooks');
     const hooks: Record<string, HookInfo> = {};
 
@@ -119,6 +121,7 @@ export class GitHooksService {
   detectHuskyHooks(projectPath: string): Record<string, HookInfo> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const huskyDir = path.join(projectPath, '.husky');
     const hooks: Record<string, HookInfo> = {};
 
@@ -150,6 +153,7 @@ export class GitHooksService {
   detectPackageScripts(projectPath: string): { scripts: Record<string, string>; packages: string[] } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const packageJsonPath = path.join(projectPath, 'package.json');
 
     if (!fs.existsSync(packageJsonPath)) {
@@ -217,6 +221,7 @@ export class GitHooksService {
   generateHookScript(hookType: string, actions: string[], projectPath: string, options: Partial<HookConfig> = {}): string {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const hookInfo = HOOK_TYPES[hookType];
     if (!hookInfo) {
       throw new Error(`Unknown hook type: ${hookType}`);
@@ -331,6 +336,7 @@ export class GitHooksService {
   installNativeHooks(projectPath: string, hooksConfig: HooksInstallConfig): HookInstallResult {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const gitDir = path.join(projectPath, '.git');
     const hooksDir = path.join(gitDir, 'hooks');
 
@@ -396,6 +402,7 @@ export class GitHooksService {
   installHuskyHooks(projectPath: string, hooksConfig: HooksInstallConfig): HookInstallResult {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const packageJsonPath = path.join(projectPath, 'package.json');
 
     if (!fs.existsSync(packageJsonPath)) {
@@ -482,6 +489,7 @@ export class GitHooksService {
   installHooks(projectPath: string, config: HooksInstallConfig): HookInstallResult {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (config.useHusky) {
       return this.installHuskyHooks(projectPath, config);
     } else {
@@ -495,6 +503,7 @@ export class GitHooksService {
   uninstallHooks(projectPath: string, useHusky = false): HookInstallResult {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const removed: string[] = [];
     const errors: Array<{ hook: string; error: string }> = [];
 
@@ -524,6 +533,7 @@ export class GitHooksService {
   getGitHooksStatus(projectPath: string): GitHooksStatus {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const huskyStatus = this.detectHusky(projectPath);
     const nativeHooks = this.detectNativeHooks(projectPath);
     const huskyHooks = this.detectHuskyHooks(projectPath);
@@ -558,6 +568,7 @@ export class GitHooksService {
   getAvailableRepositories(projectPath: string, repos: GitRepoInfo[]): RepoWithHooks[] {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return repos.map((repo) => {
       const repoFullPath = repo.path === '.' ? projectPath : path.join(projectPath, repo.path);
 
@@ -586,6 +597,7 @@ export class GitHooksService {
   getHooksStatusForRepo(projectPath: string, repoPath: string | null = null): GitHooksStatus & { repoPath: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const targetPath = repoPath && repoPath !== '.' ? path.join(projectPath, repoPath) : projectPath;
 
     const status = this.getGitHooksStatus(targetPath);
@@ -598,6 +610,7 @@ export class GitHooksService {
   installHooksForRepo(projectPath: string, repoPath: string, config: HooksInstallConfig): HookInstallResult {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const targetPath = repoPath && repoPath !== '.' ? path.join(projectPath, repoPath) : projectPath;
 
     const result = this.installHooks(targetPath, config);
@@ -611,6 +624,7 @@ export class GitHooksService {
   uninstallHooksForRepo(projectPath: string, repoPath: string, useHusky = false): HookInstallResult {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const targetPath = repoPath && repoPath !== '.' ? path.join(projectPath, repoPath) : projectPath;
 
     const result = this.uninstallHooks(targetPath, useHusky);

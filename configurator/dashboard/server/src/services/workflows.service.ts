@@ -8,7 +8,7 @@
 import path from 'path';
 import { promises as fs } from 'fs';
 import { ManagementService } from './management.service.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 
 // Agent role mapping - roles resolve to actual installed agents
 const AGENT_ROLES: Record<string, string[]> = {
@@ -266,6 +266,7 @@ export class WorkflowsService {
   async loadCustomWorkflows(projectPath: string): Promise<Workflow[]> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const workflowsPath = path.join(projectPath, '.dev-suite-workflows.json');
     try {
       const content = await fs.readFile(workflowsPath, 'utf-8');
@@ -283,6 +284,7 @@ export class WorkflowsService {
   async saveCustomWorkflows(projectPath: string, customWorkflows: Workflow[]): Promise<void> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const workflowsPath = path.join(projectPath, '.dev-suite-workflows.json');
     const data = {
       version: '1.0.0',
@@ -296,6 +298,7 @@ export class WorkflowsService {
    */
   async getAllWorkflows(projectPath: string): Promise<{ builtin: ResolvedWorkflow[]; custom: Workflow[] }> {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const customWorkflows = await this.loadCustomWorkflows(projectPath);
 
     // Get installed components

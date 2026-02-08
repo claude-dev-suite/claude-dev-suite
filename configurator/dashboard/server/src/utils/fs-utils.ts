@@ -32,6 +32,7 @@ export const ENV_FILE_PATTERNS = Object.freeze([
 export function fileExists(dir: string, filename: string): boolean {
   if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
   dir = resolveProjectPath(dir);
+  if (!path.isAbsolute(dir)) throw new PathValidationError('Path must be rooted');
   try {
     return fs.existsSync(path.join(dir, filename));
   } catch {
@@ -42,6 +43,7 @@ export function fileExists(dir: string, filename: string): boolean {
 export function fileContains(dir: string, filename: string, pattern: string): boolean {
   if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
   dir = resolveProjectPath(dir);
+  if (!path.isAbsolute(dir)) throw new PathValidationError('Path must be rooted');
   const filePath = path.join(dir, filename);
   try {
     if (fs.existsSync(filePath)) {

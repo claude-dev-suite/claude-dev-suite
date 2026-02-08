@@ -85,6 +85,7 @@ export class ManagementService {
   async getInstalledComponents(projectPath: string): Promise<{ agents: string[]; mcpServers: string[] }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const result = { agents: [] as string[], mcpServers: [] as string[] };
 
     // Read from .dev-suite.json
@@ -126,6 +127,7 @@ export class ManagementService {
   async addAgent(projectPath: string, agentId: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
     const devSuiteDir = getDevSuiteDir();
     const agentFile = this.findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
@@ -207,6 +209,7 @@ export class ManagementService {
   async removeAgent(projectPath: string, agentId: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
     const agentPath = path.join(projectPath, '.claude', 'agents', agentId + '.md');
 
@@ -246,6 +249,7 @@ export class ManagementService {
   async addMcpServer(projectPath: string, serverName: string, envVars: Record<string, string> = {}): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
     const devSuiteDir = getDevSuiteDir();
     const serverSource = path.join(devSuiteDir, 'mcp-servers', serverName);
@@ -303,6 +307,7 @@ export class ManagementService {
   async removeMcpServer(projectPath: string, serverName: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
     const serverDir = path.join(projectPath, '.mcp-servers', serverName);
 
@@ -334,6 +339,7 @@ export class ManagementService {
   async getNewComponents(projectPath: string): Promise<NewComponentsResult> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const manifest = this.loadManifest(projectPath);
 
     // If no manifest or no catalog snapshot (older installs), return empty to avoid false positives

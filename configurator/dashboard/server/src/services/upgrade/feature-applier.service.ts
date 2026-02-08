@@ -37,6 +37,7 @@ export function applyHookMerge(
 ): FeatureUpgradeResult {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const config = feature.apply as HookMergeConfig;
 
   try {
@@ -193,6 +194,7 @@ export function applyAgentReplace(
 ): FeatureUpgradeResult {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const config = feature.apply as AgentReplaceConfig;
   const devSuiteDir = getDevSuiteDir();
 
@@ -265,6 +267,7 @@ export function applyFeature(
 ): FeatureUpgradeResult {
   if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const featureResolutions = resolutions?.[feature.id];
 
   // Check for conflicts that need resolution

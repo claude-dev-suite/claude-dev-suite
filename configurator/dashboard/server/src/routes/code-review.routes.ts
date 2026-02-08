@@ -11,7 +11,7 @@ import { Router, type Request, type Response } from 'express';
 import { CodeReviewService } from '../services/code-review.service.js';
 import type { ApiResponse } from '../types.js';
 import { getLogger } from '../utils/logger.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 
 const logger = getLogger('CodeReview');
 
@@ -42,6 +42,7 @@ codeReviewRoutes.get('/code-review/options', (_req: Request, res: Response) => {
 codeReviewRoutes.get('/code-review/files', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = codeReviewService.listSourceFiles(projectPath);
 
@@ -64,6 +65,7 @@ codeReviewRoutes.get('/code-review/files', (req: Request, res: Response) => {
 codeReviewRoutes.get('/code-review/diff', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const scope = (req.query.scope as 'uncommitted' | 'full-project') || 'uncommitted';
     const repoPath = req.query.repo as string | undefined;
 
@@ -88,6 +90,7 @@ codeReviewRoutes.get('/code-review/diff', (req: Request, res: Response) => {
 codeReviewRoutes.get('/code-review/full-code', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const maxFiles = req.query.maxFiles ? parseInt(req.query.maxFiles as string, 10) : undefined;
     const maxSize = req.query.maxSize ? parseInt(req.query.maxSize as string, 10) : undefined;
 
@@ -141,10 +144,12 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     // Calculate working directory (like legacy)
     let workingDir = repo ? path.join(projectPath, repo) : projectPath;
     workingDir = resolveProjectPath(workingDir);
+    if (!path.isAbsolute(workingDir)) throw new PathValidationError('Path must be rooted');
 
     logger.debug('Building code review job', {
       projectPath,

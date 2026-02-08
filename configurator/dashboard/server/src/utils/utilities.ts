@@ -159,7 +159,7 @@ export function resolveProjectPath(raw: unknown): string {
   // Resolve to canonical form for safe filesystem access
   const resolved = fs.realpathSync(normalized);
   // SECURITY: Verify resolved path is rooted (CodeQL StartsWithDirSanitizer barrier)
-  if (!resolved.startsWith('/')) {
+  if (!path.isAbsolute(resolved)) {
     // Windows: verify drive letter root (e.g., C:\)
     if (!/^[A-Za-z]:[\\\/]/.test(resolved)) {
       throw new PathValidationError('Path must be rooted');

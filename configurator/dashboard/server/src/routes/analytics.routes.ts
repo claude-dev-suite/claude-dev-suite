@@ -1,3 +1,4 @@
+import path from 'node:path';
 // SPDX-License-Identifier: MIT
 /**
  * Analytics API Routes
@@ -8,7 +9,7 @@
 import { Router, type Request, type Response } from 'express';
 import { AnalyticsService } from '../services/analytics.service.js';
 import type { ApiResponse, Job } from '../types.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 
 export const analyticsRoutes = Router();
 const analyticsService = new AnalyticsService();
@@ -17,7 +18,7 @@ const analyticsService = new AnalyticsService();
 analyticsRoutes.get('/analytics/status', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
-
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const summary = analyticsService.getAnalyticsSummary(projectPath);
 
@@ -40,7 +41,7 @@ analyticsRoutes.get('/analytics/status', (req: Request, res: Response) => {
 analyticsRoutes.get('/analytics/kb-usage', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
-
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const options = {
       technology: req.query.technology as string | undefined,
@@ -74,7 +75,7 @@ analyticsRoutes.get('/analytics/kb-usage', (req: Request, res: Response) => {
 analyticsRoutes.get('/analytics/kb-stats', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
-
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const options = {
       since: req.query.since as string | undefined,
@@ -115,6 +116,7 @@ analyticsRoutes.post('/analytics/kb-jobs', (req: Request, res: Response) => {
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const correlatedJobs = analyticsService.correlateWithJobs(projectPath, jobs, windowMs);
 
@@ -137,7 +139,7 @@ analyticsRoutes.post('/analytics/kb-jobs', (req: Request, res: Response) => {
 analyticsRoutes.get('/analytics/technologies', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
-
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const technologies = analyticsService.getUsedTechnologies(projectPath);
 
@@ -160,7 +162,7 @@ analyticsRoutes.get('/analytics/technologies', (req: Request, res: Response) => 
 analyticsRoutes.get('/analytics/tools', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
-
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const tools = analyticsService.getUsedTools(projectPath);
 
@@ -183,7 +185,7 @@ analyticsRoutes.get('/analytics/tools', (req: Request, res: Response) => {
 analyticsRoutes.get('/analytics/sources', (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
-
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const sources = analyticsService.getUsedSources(projectPath);
 
@@ -208,6 +210,7 @@ analyticsRoutes.post('/analytics/clear', (req: Request, res: Response) => {
     const { projectPath: rawPath } = req.body as { projectPath: string };
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = analyticsService.clearKBUsage(projectPath);
 

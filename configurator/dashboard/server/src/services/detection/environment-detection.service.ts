@@ -23,6 +23,7 @@ export class EnvironmentDetectionService {
   async detectEnvironments(projectPath: string): Promise<EnvironmentFile[]> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const endTimer = timeOperation(logger, 'detectEnvironments', TIMING_THRESHOLDS.DETECTION_ENV, { data: { projectPath } });
     const environments: Record<string, EnvironmentFile> = {};
 
@@ -71,6 +72,7 @@ export class EnvironmentDetectionService {
   collectSearchDirs(dir: string, projectRoot: string, depth = 0, maxDepth = 4): string[] {
     if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
     dir = resolveProjectPath(dir);
+    if (!path.isAbsolute(dir)) throw new PathValidationError('Path must be rooted');
     const dirs: string[] = [dir];
 
     if (depth >= maxDepth) {

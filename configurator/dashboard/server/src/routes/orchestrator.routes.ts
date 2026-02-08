@@ -9,7 +9,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { WorkflowsService } from '../services/workflows.service.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -54,6 +54,7 @@ orchestratorRoutes.post('/orchestrator/analyze-mcp', mcpSuggestionsHandler);
 orchestratorRoutes.get('/orchestrator/workflows', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.project_path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const workflows = await workflowsService.getAllWorkflows(projectPath);
 
@@ -223,11 +224,13 @@ orchestratorRoutes.get('/orchestrator/sessions/:id/history', async (req: Request
     const rawProjectPath = req.query.project_path;
     if (typeof rawProjectPath === 'string' && rawProjectPath.includes('..')) throw new Error('Path traversal not allowed');
     const projectPath = resolveProjectPath(rawProjectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     // Find Claude's project sessions folder
     let claudeDir = path.join(os.homedir(), '.claude', 'projects');
     if (claudeDir.includes('..')) throw new Error('Path traversal not allowed');
     claudeDir = resolveProjectPath(claudeDir);
+    if (!path.isAbsolute(claudeDir)) throw new PathValidationError('Path must be rooted');
     const encodedPath = encodeProjectPath(projectPath);
     const sessionFile = path.join(claudeDir, encodedPath, `${sessionId}.jsonl`);
 
@@ -319,10 +322,12 @@ orchestratorRoutes.get('/orchestrator/sessions/:id/history', async (req: Request
 orchestratorRoutes.get('/orchestrator/sessions', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.project_path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     // Find Claude's project sessions folder
     let claudeDir = path.join(os.homedir(), '.claude', 'projects');
     claudeDir = resolveProjectPath(claudeDir);
+    if (!path.isAbsolute(claudeDir)) throw new PathValidationError('Path must be rooted');
     const encodedPath = encodeProjectPath(projectPath);
     const projectSessionsDir = path.join(claudeDir, encodedPath);
 

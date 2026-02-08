@@ -89,6 +89,7 @@ export class AnalyticsService {
   getAnalyticsPath(projectPath: string): string {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return path.join(projectPath, ANALYTICS_DIR, KB_USAGE_FILE);
   }
 
@@ -98,6 +99,7 @@ export class AnalyticsService {
   readKBUsage(projectPath: string): KBUsageData {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const filePath = this.getAnalyticsPath(projectPath);
 
     if (!fs.existsSync(filePath)) {
@@ -127,6 +129,7 @@ export class AnalyticsService {
    */
   getKBUsageEntries(projectPath: string, options: KBUsageEntriesOptions = {}): KBUsageEntriesResult {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const data = this.readKBUsage(projectPath);
     let entries = data.entries || [];
 
@@ -176,6 +179,7 @@ export class AnalyticsService {
    */
   getKBUsageStats(projectPath: string, options: { since?: string } = {}): KBUsageStats {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const data = this.readKBUsage(projectPath);
     let entries = data.entries || [];
 
@@ -278,6 +282,7 @@ export class AnalyticsService {
    */
   correlateWithJobs(projectPath: string, jobs: Job[], windowMs: number = 60000): CorrelatedJob[] {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 
@@ -319,6 +324,7 @@ export class AnalyticsService {
   clearKBUsage(projectPath: string): { success: boolean; message?: string; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const filePath = this.getAnalyticsPath(projectPath);
 
     if (!fs.existsSync(filePath)) {
@@ -343,6 +349,7 @@ export class AnalyticsService {
    */
   getUsedTechnologies(projectPath: string): string[] {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 
@@ -357,6 +364,7 @@ export class AnalyticsService {
    */
   getUsedTools(projectPath: string): string[] {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 
@@ -371,6 +379,7 @@ export class AnalyticsService {
    */
   getUsedSources(projectPath: string): string[] {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 
@@ -385,6 +394,7 @@ export class AnalyticsService {
    */
   hasAnalytics(projectPath: string): boolean {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return fs.existsSync(this.getAnalyticsPath(projectPath));
   }
 
@@ -399,6 +409,7 @@ export class AnalyticsService {
     successRate: number;
   } {
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const data = this.readKBUsage(projectPath);
     const entries = data.entries || [];
 

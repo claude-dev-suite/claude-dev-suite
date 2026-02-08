@@ -1,3 +1,4 @@
+import path from 'node:path';
 // SPDX-License-Identifier: MIT
 /**
  * Git Helper Functions
@@ -21,6 +22,7 @@ export function execGit(
 ): string {
   if (cwd.includes('..')) throw new PathValidationError('Path traversal not allowed');
   cwd = resolveProjectPath(cwd);
+  if (!path.isAbsolute(cwd)) throw new PathValidationError('Path must be rooted');
   const result = spawnSync('git', args, {
     cwd,
     encoding: 'utf-8',

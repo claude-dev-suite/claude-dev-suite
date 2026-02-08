@@ -111,6 +111,7 @@ export class RecipesService {
   getEnabledAutomations(projectPath: string): EnabledAutomation[] {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
     const manifest = readJsonSync<{ automations?: EnabledAutomation[] }>(manifestPath);
     return manifest?.automations ?? [];
@@ -141,6 +142,7 @@ export class RecipesService {
   detectTools(projectPath: string): DetectedTools {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const result: DetectedTools = {
       formatters: [],
       linters: [],
@@ -229,6 +231,7 @@ export class RecipesService {
   getRecommendedRecipes(projectPath: string): RecipeRecommendation[] {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const tools = this.detectTools(projectPath);
     const enabledAutomations = this.getEnabledAutomations(projectPath);
     const enabledIds = new Set(enabledAutomations.filter(a => a.enabled).map(a => a.recipeId));
@@ -327,6 +330,7 @@ export class RecipesService {
   ): Promise<RecipeOperationResult> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     // Validate recipeId to prevent injection
     if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
       return {
@@ -441,6 +445,7 @@ export class RecipesService {
   async disableRecipe(projectPath: string, recipeId: string): Promise<RecipeOperationResult> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     // Validate recipeId to prevent injection
     if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
       return {
@@ -511,6 +516,7 @@ export class RecipesService {
   ): Promise<RecipeTestResult> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     // Validate recipeId to prevent injection
     if (!/^[a-zA-Z0-9_.-]+$/.test(recipeId)) {
       return {

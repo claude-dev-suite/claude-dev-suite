@@ -1,3 +1,4 @@
+import path from 'node:path';
 // SPDX-License-Identifier: MIT
 /**
  * Custom Agents API Routes
@@ -15,7 +16,7 @@ import multer, { type FileFilterCallback, MulterError } from 'multer';
 import rateLimit from 'express-rate-limit';
 import { CustomAgentsService } from '../services/custom-agents.service.js';
 import { getLogger } from '../utils/logger.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import {
   ListCustomAgentsRequestSchema,
   GetCustomAgentRequestSchema,
@@ -264,6 +265,7 @@ router.post(
     }
 
     const projectPath = resolveProjectPath(req.body.projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const bypassWarnings = req.body.bypassWarnings === 'true';
 
     const content = req.file.buffer.toString('utf-8');

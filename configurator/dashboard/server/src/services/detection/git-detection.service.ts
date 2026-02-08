@@ -21,6 +21,7 @@ export class GitDetectionService {
   async detectGitRepos(projectPath: string): Promise<GitRepoInfo[]> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repos: GitRepoInfo[] = [];
 
     const scanDir = (dir: string, relativePath = ''): void => {

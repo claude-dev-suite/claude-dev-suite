@@ -11,7 +11,7 @@ import { promises as fs } from 'fs';
 import { InstallationService } from '../services/installation.service.js';
 import type { InstallConfig } from '../types.js';
 import { validateBody, validateQuery } from '../middleware/validateRequest.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import {
   PrepareServersRequestSchema,
   InstallRequestSchema,
@@ -112,6 +112,7 @@ installationRoutes.get('/available-commands', validateQuery(AvailableCommandsReq
     const { path: rawPath } = req.query as { path: string };
     if (typeof rawPath === 'string' && rawPath.includes('..')) throw new Error('Path traversal not allowed');
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const commandsDir = path.join(projectPath, '.claude', 'commands');
     const commands: { name: string; description: string; file: string }[] = [];

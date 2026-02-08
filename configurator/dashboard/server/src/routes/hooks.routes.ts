@@ -1,3 +1,4 @@
+import path from 'node:path';
 // SPDX-License-Identifier: MIT
 /**
  * Hooks API Routes
@@ -10,7 +11,7 @@ import { HooksService } from '../services/hooks.service.js';
 import { DetectionService } from '../services/detection.service.js';
 import type { ApiResponse, HooksInstallConfig, ClaudeHookConfig, ClaudeHooksExport } from '../types.js';
 import { validateBody, validateQuery } from '../middleware/validateRequest.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import {
   HooksRepositoriesRequestSchema,
   HooksStatusRequestSchema,
@@ -58,6 +59,7 @@ hooksRoutes.get('/hooks/status', validateQuery(HooksStatusRequestSchema), async 
 hooksRoutes.get('/hooks/status/:repoPath', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.params.repoPath;
 
     const status = hooksService.getHooksStatusForRepo(projectPath, String(repoPath));
@@ -113,6 +115,7 @@ hooksRoutes.post('/hooks/install/:repoPath', async (req: Request, res: Response)
     const repoPath = req.params.repoPath;
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = hooksService.installHooksForRepo(projectPath, String(repoPath ?? ''), config || {});
 
@@ -138,6 +141,7 @@ hooksRoutes.post('/hooks/uninstall', async (req: Request, res: Response) => {
     const { projectPath: rawPath, useHusky } = req.body as { projectPath: string; useHusky?: boolean };
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = hooksService.uninstallHooks(projectPath, useHusky);
 
@@ -193,6 +197,7 @@ hooksRoutes.post('/hooks/uninstall/:repoPath', async (req: Request, res: Respons
 hooksRoutes.get('/claude-hooks/status', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const status = hooksService.getClaudeHooksStatus(projectPath);
 
@@ -217,6 +222,7 @@ hooksRoutes.post('/claude-hooks/add', async (req: Request, res: Response) => {
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = hooksService.addClaudeHook(projectPath, hook);
 
@@ -254,6 +260,7 @@ hooksRoutes.post('/claude-hooks/update', async (req: Request, res: Response) => 
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = hooksService.updateClaudeHook(projectPath, hookId, config);
 
@@ -287,6 +294,7 @@ hooksRoutes.post('/claude-hooks/remove', async (req: Request, res: Response) => 
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = hooksService.removeClaudeHook(projectPath, hookId);
 
@@ -320,6 +328,7 @@ hooksRoutes.post('/claude-hooks/apply-template', async (req: Request, res: Respo
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = hooksService.applyClaudeTemplate(projectPath, templateId);
 
@@ -345,6 +354,7 @@ hooksRoutes.post('/claude-hooks/clear', async (req: Request, res: Response) => {
     const { projectPath: rawPath } = req.body as { projectPath: string };
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = hooksService.clearAllClaudeHooks(projectPath);
 
@@ -368,6 +378,7 @@ hooksRoutes.post('/claude-hooks/clear', async (req: Request, res: Response) => {
 hooksRoutes.get('/claude-hooks/export', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const exported = hooksService.exportClaudeHooks(projectPath);
 
@@ -404,6 +415,7 @@ hooksRoutes.post('/claude-hooks/import', async (req: Request, res: Response) => 
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = hooksService.importClaudeHooks(projectPath, exported, merge !== false);
 

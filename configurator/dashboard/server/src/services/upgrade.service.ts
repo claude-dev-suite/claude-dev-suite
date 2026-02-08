@@ -9,7 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { HooksService } from './hooks.service.js';
 import {
   PackageInstallerService,
@@ -48,6 +48,7 @@ export class UpgradeService {
   async checkUpgrades(projectPath: string): Promise<UpgradeCheckResult> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const registry = loadFeatureRegistry();
     const manifest = loadManifest(projectPath);
 
@@ -148,6 +149,7 @@ export class UpgradeService {
   async previewUpgrade(projectPath: string, featureIds?: string[]): Promise<UpgradePreviewResult> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const checkResult = await this.checkUpgrades(projectPath);
 
     if (!checkResult.hasValidManifest) {
@@ -387,6 +389,7 @@ export class UpgradeService {
   async getUpgradeHistory(projectPath: string): Promise<UpgradeHistoryEntry[]> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const manifest = loadManifest(projectPath);
     return manifest?.upgradeHistory || [];
   }
@@ -419,6 +422,7 @@ export class UpgradeService {
   ): Promise<{ success: boolean; installed: string[]; error?: string }> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return this.packageInstaller.installPackages(projectPath, packages, dev);
   }
 
@@ -431,6 +435,7 @@ export class UpgradeService {
   ): Promise<{ success: boolean; agentPath?: string; error?: string }> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     return this.packageInstaller.installAgent(
       projectPath,
       agentId,

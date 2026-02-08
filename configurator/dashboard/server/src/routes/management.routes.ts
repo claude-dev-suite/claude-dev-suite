@@ -1,3 +1,4 @@
+import path from 'node:path';
 // SPDX-License-Identifier: MIT
 /**
  * Management API Routes
@@ -8,7 +9,7 @@
 import { Router, type Request, type Response } from 'express';
 import { ManagementService } from '../services/management.service.js';
 import type { ApiResponse } from '../types.js';
-import { resolveProjectPath } from '../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 
 export const managementRoutes = Router();
 const managementService = new ManagementService();
@@ -17,6 +18,7 @@ const managementService = new ManagementService();
 managementRoutes.get('/installed-components', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path || process.env.PROJECT_PATH);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const components = await managementService.getInstalledComponents(projectPath);
 
@@ -48,6 +50,7 @@ managementRoutes.post('/add-agent', async (req: Request, res: Response) => {
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     await managementService.addAgent(projectPath, agentId);
 
@@ -80,6 +83,7 @@ managementRoutes.post('/remove-agent', async (req: Request, res: Response) => {
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     await managementService.removeAgent(projectPath, agentId);
 
@@ -116,6 +120,7 @@ managementRoutes.post('/add-mcp-server', async (req: Request, res: Response) => 
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     await managementService.addMcpServer(projectPath, serverName, envVars);
 
@@ -148,6 +153,7 @@ managementRoutes.post('/remove-mcp-server', async (req: Request, res: Response) 
     }
 
     const projectPath = resolveProjectPath(rawPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     await managementService.removeMcpServer(projectPath, serverName);
 
@@ -170,6 +176,7 @@ managementRoutes.post('/remove-mcp-server', async (req: Request, res: Response) 
 managementRoutes.get('/new-components', async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path || process.env.PROJECT_PATH);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
     const result = await managementService.getNewComponents(projectPath);
 

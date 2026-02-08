@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { readJsonSync } from '../../utils/fs-utils.js';
 import { isFileModified, getDevSuiteDir } from './upgrade-utils.js';
-import { resolveProjectPath } from '../../utils/utilities.js';
+import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type {
   Feature,
   ExtendedManifest,
@@ -28,6 +28,7 @@ export function detectConflicts(
 ): ConflictInfo[] {
   if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
   projectPath = resolveProjectPath(projectPath);
+  if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const conflicts: ConflictInfo[] = [];
 
   if (feature.apply.type === 'hook-merge') {
