@@ -24,8 +24,15 @@ import {
   MONOREPO_INDICATORS,
   NPM_DB_RULES,
   NPM_ORM_RULES,
+  NPM_STATE_RULES,
+  NPM_MESSAGING_RULES,
+  NPM_API_RULES,
+  NPM_AUTH_RULES,
   JAVA_DB_RULES,
+  JAVA_MESSAGING_RULES,
   PYTHON_DB_RULES,
+  PYTHON_MESSAGING_RULES,
+  DOTNET_DB_RULES,
   STACK_TO_AGENTS,
   STACK_TO_MCP,
 } from './detection/detection.constants.js';
@@ -54,6 +61,7 @@ export class DetectionService {
       backend: { framework: '', metaFramework: '', runtime: '' },
       database: { dbType: '', orm: '' },
       testing: { unit: '', e2e: '' },
+      additionalTechnologies: [],
       isMonorepo: false,
       confidence: 0,
     };
@@ -90,10 +98,14 @@ export class DetectionService {
       this.detectGo(checkPath, result, isSubdir);
       this.detectRust(checkPath, result, isSubdir);
       this.detectDeno(checkPath, result, isSubdir);
+      this.detectDotnet(checkPath, result, isSubdir);
     }
 
     // Database detection via sub-service
     this.databaseService.detectAll(dirsToCheck, result);
+
+    // Infrastructure detection
+    this.detectInfrastructure(projectPath, result);
 
     // Monorepo detection
     this.detectMonorepoTools(projectPath, result);
@@ -181,6 +193,16 @@ export class DetectionService {
       if (recs) recs.forEach((a) => agents.add(a));
     }
 
+    // Add based on additional technologies
+    if (detection.additionalTechnologies) {
+      for (const tech of detection.additionalTechnologies) {
+        const agentRecs = STACK_TO_AGENTS[tech];
+        if (agentRecs) agentRecs.forEach((a) => agents.add(a));
+        const mcpRecs = STACK_TO_MCP[tech];
+        if (mcpRecs) mcpRecs.forEach((m) => mcpServers.add(m));
+      }
+    }
+
     // Always recommend documentation MCP
     mcpServers.add('documentation');
 
@@ -265,6 +287,12 @@ export class DetectionService {
       result.confidence += 20;
     }
 
+    // Solid
+    if (content.includes('"solid-js"') && !result.frontend?.framework) {
+      result.frontend = { ...result.frontend, framework: 'solid' };
+      result.confidence += 20;
+    }
+
     // Meta-frameworks
     if (content.includes('"next"') && !result.frontend?.metaFramework) {
       result.frontend = { ...result.frontend, metaFramework: 'nextjs' };
@@ -276,6 +304,15 @@ export class DetectionService {
     }
     if (content.includes('"@sveltejs/kit"') && !result.frontend?.metaFramework) {
       result.frontend = { ...result.frontend, metaFramework: 'sveltekit' };
+      result.confidence += 15;
+    }
+    if ((content.includes('"@remix-run/react"') || content.includes('"@remix-run/node"')) && !result.frontend?.metaFramework) {
+      result.frontend = { ...result.frontend, metaFramework: 'remix' };
+      if (!result.frontend.framework) result.frontend.framework = 'react';
+      result.confidence += 15;
+    }
+    if (content.includes('"astro"') && !result.frontend?.metaFramework) {
+      result.frontend = { ...result.frontend, metaFramework: 'astro' };
       result.confidence += 15;
     }
 
@@ -391,6 +428,44 @@ export class DetectionService {
       result.frontend = { ...result.frontend, framework: 'electron', runtime: 'nodejs' };
       result.confidence += 15;
     }
+
+    // Tauri (from npm - frontend side)
+    if (content.includes('"@tauri-apps/api"') || content.includes('"@tauri-apps/cli"')) {
+      this.addTechnology(result, 'tauri');
+    }
+
+    // Bun runtime
+    if (content.includes('"bun-types"') || content.includes('"@types/bun"')) {
+      this.addTechnology(result, 'bun');
+    }
+
+    // State management detection
+    for (const rule of NPM_STATE_RULES) {
+      if (content.includes(rule.pattern)) {
+        this.addTechnology(result, rule.value);
+      }
+    }
+
+    // Messaging detection
+    for (const rule of NPM_MESSAGING_RULES) {
+      if (content.includes(rule.pattern)) {
+        this.addTechnology(result, rule.value);
+      }
+    }
+
+    // API design detection
+    for (const rule of NPM_API_RULES) {
+      if (content.includes(rule.pattern)) {
+        this.addTechnology(result, rule.value);
+      }
+    }
+
+    // Auth detection
+    for (const rule of NPM_AUTH_RULES) {
+      if (content.includes(rule.pattern)) {
+        this.addTechnology(result, rule.value);
+      }
+    }
   }
 
   private detectJava(checkPath: string, result: DetectionResult, isSubdir: boolean): void {
@@ -443,6 +518,31 @@ export class DetectionService {
 
         if (hasJpa) {
           result.database = { ...result.database, orm: 'jpa' };
+          result.confidence += 10;
+        }
+      }
+
+      // Detect messaging from Java dependencies
+      const javaBuildFiles = [];
+      if (hasPom) javaBuildFiles.push('pom.xml');
+      if (fileExists(checkPath, 'build.gradle')) javaBuildFiles.push('build.gradle');
+      if (fileExists(checkPath, 'build.gradle.kts')) javaBuildFiles.push('build.gradle.kts');
+
+      for (const buildFile of javaBuildFiles) {
+        for (const rule of JAVA_MESSAGING_RULES) {
+          if (fileContains(checkPath, buildFile, rule.pattern)) {
+            this.addTechnology(result, rule.value);
+          }
+        }
+      }
+
+      // Detect JUnit testing
+      if (!result.testing?.unit) {
+        const hasJunit = javaBuildFiles.some(f =>
+          fileContains(checkPath, f, 'junit') || fileContains(checkPath, f, 'spring-boot-starter-test')
+        );
+        if (hasJunit) {
+          result.testing = { ...result.testing, unit: 'junit' };
           result.confidence += 10;
         }
       }
@@ -503,6 +603,18 @@ export class DetectionService {
           result.confidence += 10;
         }
       }
+
+      // Detect messaging from Python dependencies
+      const pyDepFiles = ['requirements.txt', 'pyproject.toml'];
+      for (const depFile of pyDepFiles) {
+        if (fileExists(checkPath, depFile)) {
+          for (const rule of PYTHON_MESSAGING_RULES) {
+            if (fileContains(checkPath, depFile, rule.pattern)) {
+              this.addTechnology(result, rule.value);
+            }
+          }
+        }
+      }
     }
   }
 
@@ -519,6 +631,12 @@ export class DetectionService {
           result.confidence += 15;
         } else if (fileContains(checkPath, 'go.mod', 'gofiber')) {
           result.backend = { ...result.backend, framework: 'fiber' };
+          result.confidence += 15;
+        } else if (fileContains(checkPath, 'go.mod', 'labstack/echo')) {
+          result.backend = { ...result.backend, framework: 'echo' };
+          result.confidence += 15;
+        } else if (fileContains(checkPath, 'go.mod', 'go-chi/chi')) {
+          result.backend = { ...result.backend, framework: 'chi' };
           result.confidence += 15;
         }
       }
@@ -539,7 +657,17 @@ export class DetectionService {
         } else if (fileContains(checkPath, 'Cargo.toml', 'axum')) {
           result.backend = { ...result.backend, framework: 'axum' };
           result.confidence += 15;
+        } else if (fileContains(checkPath, 'Cargo.toml', 'rocket')) {
+          result.backend = { ...result.backend, framework: 'rocket' };
+          result.confidence += 15;
+        } else if (fileContains(checkPath, 'Cargo.toml', 'warp')) {
+          result.backend = { ...result.backend, framework: 'warp' };
+          result.confidence += 15;
         }
+      }
+      // Tauri detection from Cargo.toml
+      if (fileContains(checkPath, 'Cargo.toml', 'tauri')) {
+        this.addTechnology(result, 'tauri');
       }
     }
   }
@@ -554,6 +682,9 @@ export class DetectionService {
       if (!result.backend?.framework) {
         if (fileContains(checkPath, 'deno.json', 'fresh')) {
           result.backend = { ...result.backend, framework: 'fresh' };
+          result.confidence += 15;
+        } else if (fileContains(checkPath, 'deno.json', 'oak') || fileContains(checkPath, 'deno.jsonc', 'oak')) {
+          result.backend = { ...result.backend, framework: 'oak' };
           result.confidence += 15;
         }
       }
@@ -578,6 +709,120 @@ export class DetectionService {
         result.isMonorepo = true;
         result.confidence += 5;
       }
+    }
+  }
+
+  private detectDotnet(checkPath: string, result: DetectionResult, isSubdir: boolean): void {
+    // Check for .csproj, .fsproj, or .sln files
+    const hasCsproj = this.hasFileWithExtension(checkPath, '.csproj');
+    const hasFsproj = this.hasFileWithExtension(checkPath, '.fsproj');
+    const hasSln = this.hasFileWithExtension(checkPath, '.sln');
+
+    if (hasCsproj || hasFsproj || hasSln) {
+      if (isSubdir) result.isMonorepo = true;
+      if (!result.backend?.runtime) {
+        result.backend = { ...result.backend, runtime: 'dotnet' };
+        result.confidence += 10;
+      }
+
+      // Read .csproj content for framework detection
+      const csprojFiles = this.findFilesWithExtension(checkPath, '.csproj');
+      for (const csprojFile of csprojFiles) {
+        const csprojPath = path.join(checkPath, csprojFile);
+        try {
+          const content = fs.readFileSync(csprojPath, 'utf-8');
+
+          // ASP.NET Core detection
+          if (!result.backend?.framework) {
+            if (content.includes('Microsoft.AspNetCore') || content.includes('Microsoft.NET.Sdk.Web')) {
+              result.backend = { ...result.backend, framework: 'dotnet' };
+              result.confidence += 15;
+            }
+          }
+
+          // Entity Framework Core ORM
+          if (!result.database?.orm && content.includes('Microsoft.EntityFrameworkCore')) {
+            result.database = { ...result.database, orm: 'efcore' };
+            result.confidence += 10;
+          }
+
+          // .NET database detection
+          if (!result.database?.dbType) {
+            for (const rule of DOTNET_DB_RULES) {
+              if (content.includes(rule.pattern)) {
+                result.database = { ...result.database, dbType: rule.value };
+                result.confidence += 10;
+                break;
+              }
+            }
+          }
+
+          // xUnit/NUnit testing
+          if (!result.testing?.unit) {
+            if (content.includes('xunit')) {
+              result.testing = { ...result.testing, unit: 'xunit' };
+              result.confidence += 10;
+            } else if (content.includes('NUnit')) {
+              result.testing = { ...result.testing, unit: 'nunit' };
+              result.confidence += 10;
+            }
+          }
+
+          // SignalR, Blazor as additional technologies
+          if (content.includes('Microsoft.AspNetCore.SignalR')) {
+            this.addTechnology(result, 'signalr');
+          }
+          if (content.includes('Microsoft.AspNetCore.Components') || content.includes('Sdk.BlazorWebAssembly')) {
+            this.addTechnology(result, 'blazor');
+          }
+        } catch {
+          // Skip unreadable .csproj files
+        }
+      }
+    }
+  }
+
+  private detectInfrastructure(projectPath: string, result: DetectionResult): void {
+    // Docker detection
+    if (fileExists(projectPath, 'Dockerfile') || fileExists(projectPath, 'docker-compose.yml') || fileExists(projectPath, 'docker-compose.yaml')) {
+      this.addTechnology(result, 'docker');
+    }
+
+    // GitHub Actions CI/CD detection
+    const workflowsPath = path.join(projectPath, '.github', 'workflows');
+    try {
+      if (fs.existsSync(workflowsPath) && fs.statSync(workflowsPath).isDirectory()) {
+        this.addTechnology(result, 'github-actions');
+      }
+    } catch {
+      // Skip if not accessible
+    }
+  }
+
+  private addTechnology(result: DetectionResult, tech: string): void {
+    if (!result.additionalTechnologies) {
+      result.additionalTechnologies = [];
+    }
+    if (!result.additionalTechnologies.includes(tech)) {
+      result.additionalTechnologies.push(tech);
+      result.confidence += 5;
+    }
+  }
+
+  private hasFileWithExtension(dirPath: string, ext: string): boolean {
+    try {
+      const entries = fs.readdirSync(dirPath);
+      return entries.some(e => e.endsWith(ext));
+    } catch {
+      return false;
+    }
+  }
+
+  private findFilesWithExtension(dirPath: string, ext: string): string[] {
+    try {
+      return fs.readdirSync(dirPath).filter(e => e.endsWith(ext));
+    } catch {
+      return [];
     }
   }
 

@@ -17,6 +17,7 @@ export interface DetectionResult {
   backend?: FrameworkInfo;
   database?: DatabaseInfo;
   testing?: TestingInfo;
+  additionalTechnologies?: string[];
   isMonorepo: boolean;
   confidence: number;
   gitProvider?: GitProviderInfo;
