@@ -272,7 +272,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
       data.availableAgents
     );
 
-    const subTasks = state.agentTasks.map((t) => ({ agentId: t.agentId, task: t.description }));
+    const subTasks: Array<{ agentId: string; task: string; dependencies?: string[] }> = state.agentTasks.map((t) => ({ agentId: t.agentId, task: t.description }));
 
     // Add consolidation if multiple agents
     if (subTasks.length > 1) {
@@ -283,9 +283,11 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
         })
         .join(', ');
 
+      const agentIds = subTasks.map((t) => t.agentId);
       subTasks.push({
-        agentId: 'code-reviewer',
+        agentId: 'consolidator',
         task: buildConsolidationTask(subTasks.length, agentNames),
+        dependencies: agentIds,
       });
 
       summaryOutput.splice(
@@ -539,6 +541,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
         onWorkflowChange={handleWorkflowChange}
       />
 
+      <div data-tutorial="job-submission">
       <JobSubmissionForm
         jobTitle={state.jobTitle}
         onJobTitleChange={state.setJobTitle}
@@ -569,8 +572,9 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
           Execute Job
         </Button>
       </div>
+      </div>
 
-      <div className="bg-surface-800 border border-surface-700 rounded-lg p-4">
+      <div className="bg-surface-800 border border-surface-700 rounded-lg p-4" data-tutorial="console-area">
         <div className="flex items-center gap-3 mb-4">
           {state.isProcessing && (
             <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />

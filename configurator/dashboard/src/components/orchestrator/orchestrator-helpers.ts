@@ -103,18 +103,44 @@ export function buildExecutionSummary(
  * Build consolidation task prompt for multiple agents
  */
 export function buildConsolidationTask(agentCount: number, agentNames: string): string {
-  return `## Consolidate Results from Multiple Agents
+  return `## Consolidate Results from ${agentCount} Agents
 
-You are receiving the output from ${agentCount} different agents: ${agentNames}.
+You are consolidating output from these agents: ${agentNames}.
 
-Your task is to create a **unified summary report** that:
+**CRITICAL: Equal-weight consolidation required.** Every agent's output must be given equal consideration. Do NOT favor the last agent or drop findings from earlier agents.
 
-1. **Executive Summary**: Provide a brief overview of what was accomplished
-2. **Key Findings/Results**: Consolidate the main outputs from each agent
-3. **Action Items**: List any follow-up tasks or recommendations
-4. **Agent Contributions**: Brief summary of what each agent contributed
+**Step 1 — Per-Agent Extraction (MANDATORY)**
+Before synthesizing, list each agent's key findings separately:
+${agentNames.split(', ').map((name) => `- **${name}**: [list their top findings]`).join('\n')}
 
-Format the output in a clear, readable manner. Remove any redundant information and highlight the most important points.
+**Step 2 — Severity-Based Organization**
+Organize ALL findings by severity: CRITICAL > HIGH > MEDIUM > LOW > INFO.
+Every Critical and High finding from ANY agent MUST appear in the final report — dropping them is not allowed.
 
-**IMPORTANT**: This is a consolidation task - synthesize and summarize, do not repeat verbatim.`;
+**Step 3 — Unified Report**
+Produce the final report in this format:
+
+### Executive Summary
+- Total issues/findings by severity
+- Key areas of concern
+
+### Critical Issues
+[ALL critical findings from every agent, with source agent noted]
+
+### High Priority Issues
+[ALL high findings from every agent]
+
+### Medium Priority Issues
+[Consolidated medium findings, deduplicated]
+
+### Low Priority / Informational
+[Consolidated low findings]
+
+### Action Items
+[Top recommendations, prioritized]
+
+### Agent Contributions
+[Brief summary of what each agent contributed]
+
+**IMPORTANT**: This is a consolidation task — synthesize and summarize, do not re-analyze the code yourself. Do not repeat verbatim. Remove duplicates but NEVER drop unique Critical or High findings.`;
 }

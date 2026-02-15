@@ -272,7 +272,7 @@ export function CodeReviewPanel({ projectPath, onStartReview }: CodeReviewPanelP
   const optionsList = Object.entries(options);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tutorial="code-review-panel">
       {/* Header */}
       <div>
         <h3 className="text-lg font-semibold text-white mb-2">AI Code Review</h3>
@@ -282,7 +282,7 @@ export function CodeReviewPanel({ projectPath, onStartReview }: CodeReviewPanelP
       </div>
 
       {/* Scope Selector */}
-      <div>
+      <div data-tutorial="code-review-scope">
         <label className="block text-sm font-medium text-surface-300 mb-3">
           Review Scope
         </label>

@@ -48,11 +48,14 @@ export class JobPromptService {
       prompt += `## Context from Previous Tasks\n\n`;
       prompt += `The following tasks have been completed. Use their output as context:\n\n`;
 
+      const isConsolidation = task.agentId === 'consolidator';
+      const depBudget = isConsolidation ? 12000 : 8000;
+
       task.dependencies.forEach((depId: string) => {
         const output = job.completedSubTasks[depId];
         if (output) {
           prompt += `### ${depId} output:\n`;
-          prompt += `\`\`\`\n${this.sdkService.truncateOutput(output)}\n\`\`\`\n\n`;
+          prompt += `\`\`\`\n${this.sdkService.truncateOutput(output, depBudget)}\n\`\`\`\n\n`;
         }
       });
     } else if (job.currentSubTaskIndex > 0) {

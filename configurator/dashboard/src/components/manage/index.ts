@@ -23,3 +23,6 @@ export { UpgradeHistoryList, type UpgradeHistoryListProps } from './UpgradeHisto
 export { CustomAgentsPanel, type CustomAgentsPanelProps } from './CustomAgentsPanel';
 export { CustomAgentModal, type CustomAgentModalProps } from './CustomAgentModal';
 export { CustomAgentEditorModal, type CustomAgentEditorModalProps } from './CustomAgentEditorModal';
+export { CustomSkillsPanel, type CustomSkillsPanelProps } from './CustomSkillsPanel';
+export { CustomSkillModal, type CustomSkillModalProps } from './CustomSkillModal';
+export { CustomSkillEditorModal, type CustomSkillEditorModalProps } from './CustomSkillEditorModal';

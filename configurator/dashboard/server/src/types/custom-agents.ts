@@ -264,6 +264,26 @@ export interface CustomSkill {
 }
 
 /**
+ * Custom skill with full content (for detail/editor view)
+ */
+export interface CustomSkillDetail extends CustomSkill {
+  /** Full SKILL.md content */
+  content: string;
+}
+
+/**
+ * Validation result for custom skills
+ * Skills have no frontmatter schema, so valid is always true.
+ * Only best practice warnings are reported.
+ */
+export interface CustomSkillValidationResult {
+  /** Always true for skills (no schema validation) */
+  valid: true;
+  /** Best practice warnings (bypassable) */
+  bestPracticeWarnings: BestPracticeWarning[];
+}
+
+/**
  * Request to create a custom skill
  */
 export interface CreateCustomSkillRequest {
@@ -273,6 +293,24 @@ export interface CreateCustomSkillRequest {
   name: string;
   /** SKILL.md content */
   content: string;
+  /** Whether to bypass best practice warnings */
+  bypassWarnings?: boolean;
+}
+
+/**
+ * Request to update a custom skill
+ */
+export interface UpdateCustomSkillRequest {
+  /** Project path */
+  projectPath: string;
+  /** Skill ID (directory name) to update */
+  skillId: string;
+  /** New skill name (for rename) */
+  name: string;
+  /** New SKILL.md content */
+  content: string;
+  /** Whether to bypass best practice warnings */
+  bypassWarnings?: boolean;
 }
 
 /**

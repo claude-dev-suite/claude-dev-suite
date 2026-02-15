@@ -360,7 +360,7 @@ export class TemplatesService {
       if (variables.projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
       try {
         variables.projectPath = resolveProjectPath(variables.projectPath);
-    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    if (!path.isAbsolute(variables.projectPath)) throw new PathValidationError('Path must be rooted');
       } catch {
         // Let normal validation handle the error
       }
@@ -480,7 +480,7 @@ export class TemplatesService {
   async scaffoldProject(config: ScaffoldConfig): Promise<ScaffoldResult> {
     if (config.projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     config.projectPath = resolveProjectPath(config.projectPath);
-    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    if (!path.isAbsolute(config.projectPath)) throw new PathValidationError('Path must be rooted');
     // SECURITY: Validate templateId before path construction
     if (!/^[a-zA-Z0-9_.-]+$/.test(config.templateId)) {
       throw new Error('Invalid template ID');

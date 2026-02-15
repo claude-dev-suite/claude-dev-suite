@@ -89,7 +89,11 @@ installationRoutes.post('/uninstall', validateBody(UninstallRequestSchema), asyn
 // Get installation status
 installationRoutes.get('/install-status', validateQuery(InstallStatusRequestSchema), async (req: Request, res: Response) => {
   try {
-    const { path: projectPath } = req.query as { path: string };
+    const rawPath = req.query.path;
+    if (typeof rawPath !== 'string') {
+      return res.status(400).json({ success: false, error: 'Invalid path parameter' });
+    }
+    const projectPath = rawPath;
 
     const status = await installationService.getStatus(projectPath);
 
@@ -109,8 +113,11 @@ installationRoutes.get('/install-status', validateQuery(InstallStatusRequestSche
 // GET /api/available-commands - List available slash commands
 installationRoutes.get('/available-commands', validateQuery(AvailableCommandsRequestSchema), async (req: Request, res: Response) => {
   try {
-    const { path: rawPath } = req.query as { path: string };
-    if (typeof rawPath === 'string' && rawPath.includes('..')) throw new Error('Path traversal not allowed');
+    const rawPath = req.query.path;
+    if (typeof rawPath !== 'string') {
+      return res.status(400).json({ success: false, error: 'Invalid path parameter' });
+    }
+    if (rawPath.includes('..')) throw new Error('Path traversal not allowed');
     const projectPath = resolveProjectPath(rawPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 

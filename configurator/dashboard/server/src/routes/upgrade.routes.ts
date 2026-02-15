@@ -63,7 +63,12 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const { path: projectPath } = req.query as { path: string };
+      const rawPath = req.query.path;
+      if (typeof rawPath !== 'string') {
+        res.status(400).json({ success: false, error: 'Invalid path parameter' });
+        return;
+      }
+      const projectPath = rawPath;
 
       logger.info('Checking for upgrades', { context: { projectPath } });
 
@@ -218,7 +223,12 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const { path: projectPath } = req.query as { path: string };
+      const rawPath = req.query.path;
+      if (typeof rawPath !== 'string') {
+        res.status(400).json({ success: false, error: 'Invalid path parameter' });
+        return;
+      }
+      const projectPath = rawPath;
 
       logger.info('Getting upgrade history', { context: { projectPath } });
 

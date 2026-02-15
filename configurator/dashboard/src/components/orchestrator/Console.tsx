@@ -11,6 +11,8 @@ export interface ConsoleProps {
   className?: string;
   /** If true, render only the output area without header */
   minimal?: boolean;
+  /** External ref to access the scrollable container element */
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 const sizeStyles: Record<ConsoleSize, string> = {
@@ -96,8 +98,9 @@ function parseAnsi(text: string): React.ReactNode[] {
   return parts;
 }
 
-export function Console({ output, size = 'md', onSizeChange, className, minimal = false }: ConsoleProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+export function Console({ output, size = 'md', onSizeChange, className, minimal = false, containerRef: externalRef }: ConsoleProps) {
+  const internalRef = useRef<HTMLDivElement>(null);
+  const containerRef = externalRef || internalRef;
   const autoScrollRef = useRef(true);
 
   // Auto-scroll to bottom when new output arrives

@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { useProjectStore } from '../../stores/project.store';
 import { useUIStore } from '../../stores/ui.store';
 import { UpdateNotification } from '../common/UpdateNotification';
+import { useTutorial } from '../../hooks/useTutorial';
 import { API_BASE } from '../../utils/api';
 
 export type PanelType = 'wizard' | 'orchestrator' | 'code-review';
@@ -34,6 +35,9 @@ export function Header() {
   const serverConnected = useUIStore((s) => s.serverConnected);
   const setPanel = useUIStore((s) => s.setPanel);
   const setStep = useUIStore((s) => s.setStep);
+
+  // Tutorial
+  const { start: startTutorial } = useTutorial();
 
   // Handle changing the project folder
   const handleChangeFolder = useCallback(async () => {
@@ -91,7 +95,7 @@ export function Header() {
             if (tab.showWhen === 'not-installed') return !isInstalled;
             return true;
           }) && (
-            <div className="flex items-center gap-1 px-3 py-1 bg-surface-900/50 rounded-lg">
+            <div className="flex items-center gap-1 px-3 py-1 bg-surface-900/50 rounded-lg" data-tutorial="header-tabs">
               {tabs
                 .filter((tab) => tab.position === 'center')
                 .filter((tab) => {
@@ -148,6 +152,20 @@ export function Header() {
 
         {/* Status Indicators */}
         <div className="flex items-center gap-4">
+          {/* Tutorial Help Button */}
+          {isInstalled && (
+            <button
+              onClick={startTutorial}
+              className="flex items-center justify-center w-7 h-7 rounded-full
+                bg-surface-700 hover:bg-surface-600 text-surface-300 hover:text-white
+                transition-colors duration-150 text-sm font-medium"
+              title="Start tutorial tour"
+              data-tutorial="help-btn"
+            >
+              ?
+            </button>
+          )}
+
           {/* Auto-Update Notification */}
           <UpdateNotification />
 

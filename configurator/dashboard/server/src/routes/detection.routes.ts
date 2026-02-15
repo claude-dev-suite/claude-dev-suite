@@ -49,7 +49,11 @@ function toSnakeCase(result: DetectionResult) {
 // Detect project stack
 detectionRoutes.get('/detect', validateQuery(DetectRequestSchema), async (req: Request, res: Response) => {
   try {
-    const { path: projectPath } = req.query as { path: string };
+    const rawPath = req.query.path;
+    if (typeof rawPath !== 'string') {
+      return res.status(400).json({ error: 'Invalid path parameter' });
+    }
+    const projectPath = rawPath;
 
     const result = await detectionService.detectProject(projectPath);
     return res.json(toSnakeCase(result));
@@ -61,7 +65,11 @@ detectionRoutes.get('/detect', validateQuery(DetectRequestSchema), async (req: R
 // Get environment files
 detectionRoutes.get('/environments', validateQuery(EnvironmentRequestSchema), async (req: Request, res: Response) => {
   try {
-    const { path: projectPath } = req.query as { path: string };
+    const rawPath = req.query.path;
+    if (typeof rawPath !== 'string') {
+      return res.status(400).json({ error: 'Invalid path parameter' });
+    }
+    const projectPath = rawPath;
 
     const result = await detectionService.detectEnvironments(projectPath);
     // Convert to object keyed by name for frontend compatibility
@@ -83,7 +91,11 @@ detectionRoutes.get('/environments', validateQuery(EnvironmentRequestSchema), as
 // Get git repositories
 detectionRoutes.get('/git-repos', validateQuery(GitReposRequestSchema), async (req: Request, res: Response) => {
   try {
-    const { path: projectPath } = req.query as { path: string };
+    const rawPath = req.query.path;
+    if (typeof rawPath !== 'string') {
+      return res.status(400).json({ error: 'Invalid path parameter' });
+    }
+    const projectPath = rawPath;
 
     const result = await detectionService.detectGitRepos(projectPath);
     return res.json(result);
@@ -95,7 +107,11 @@ detectionRoutes.get('/git-repos', validateQuery(GitReposRequestSchema), async (r
 // Get recommendations based on detection
 detectionRoutes.get('/recommendations', validateQuery(RecommendationsRequestSchema), async (req: Request, res: Response) => {
   try {
-    const { path: projectPath } = req.query as { path: string };
+    const rawPath = req.query.path;
+    if (typeof rawPath !== 'string') {
+      return res.status(400).json({ error: 'Invalid path parameter' });
+    }
+    const projectPath = rawPath;
 
     const detection = await detectionService.detectProject(projectPath);
     const recommendations = detectionService.getRecommendations(detection);

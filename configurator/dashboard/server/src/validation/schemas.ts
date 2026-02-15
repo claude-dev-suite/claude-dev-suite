@@ -666,6 +666,14 @@ export const ListCustomSkillsRequestSchema = z.object({
 });
 
 /**
+ * Request to get a single custom skill
+ */
+export const GetCustomSkillRequestSchema = z.object({
+  path: z.string().min(1, 'Project path is required'),
+  id: z.string().min(1, 'Skill ID is required'),
+});
+
+/**
  * Request to create a custom skill
  */
 export const CreateCustomSkillRequestSchema = z.object({
@@ -676,6 +684,29 @@ export const CreateCustomSkillRequestSchema = z.object({
     .max(50, 'Skill name must be 50 characters or less')
     .regex(agentNamePattern, 'Skill name must contain only lowercase letters, numbers, and hyphens'),
   content: z.string().min(1, 'Skill content is required'),
+  bypassWarnings: z.boolean().optional().default(false),
+});
+
+/**
+ * Request to update a custom skill
+ */
+export const UpdateCustomSkillRequestSchema = z.object({
+  projectPath: z.string().min(1, 'Project path is required'),
+  skillId: z.string().min(1, 'Skill ID is required'),
+  name: z
+    .string()
+    .min(1, 'Skill name is required')
+    .max(50, 'Skill name must be 50 characters or less')
+    .regex(agentNamePattern, 'Skill name must contain only lowercase letters, numbers, and hyphens'),
+  content: z.string().min(1, 'Skill content is required'),
+  bypassWarnings: z.boolean().optional().default(false),
+});
+
+/**
+ * Request to validate custom skill content
+ */
+export const ValidateCustomSkillRequestSchema = z.object({
+  content: z.string().min(1, 'Content is required'),
 });
 
 /**
@@ -696,5 +727,8 @@ export type UpdateCustomAgentRequest = z.infer<typeof UpdateCustomAgentRequestSc
 export type DeleteCustomAgentRequest = z.infer<typeof DeleteCustomAgentRequestSchema>;
 export type ValidateCustomAgentRequest = z.infer<typeof ValidateCustomAgentRequestSchema>;
 export type ListCustomSkillsRequest = z.infer<typeof ListCustomSkillsRequestSchema>;
+export type GetCustomSkillRequest = z.infer<typeof GetCustomSkillRequestSchema>;
 export type CreateCustomSkillRequest = z.infer<typeof CreateCustomSkillRequestSchema>;
+export type UpdateCustomSkillRequest = z.infer<typeof UpdateCustomSkillRequestSchema>;
+export type ValidateCustomSkillRequest = z.infer<typeof ValidateCustomSkillRequestSchema>;
 export type DeleteCustomSkillRequest = z.infer<typeof DeleteCustomSkillRequestSchema>;

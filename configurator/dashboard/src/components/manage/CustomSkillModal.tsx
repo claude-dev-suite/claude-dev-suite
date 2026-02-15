@@ -1,76 +1,93 @@
 // SPDX-License-Identifier: MIT
 /**
- * Custom Agent Modal
+ * Custom Skill Modal
  *
- * Modal for creating custom agents via upload, manual writing, or AI generation.
+ * Modal for creating custom skills via upload, manual writing, or AI generation.
  * AI Chat mode supports inline review with "Back to Chat" to iterate on generated content.
  */
 
 import { useState, useRef, useCallback, type ChangeEvent, type DragEvent } from 'react';
 import { Modal, ModalFooter, Button, Badge } from '../common';
 import clsx from 'clsx';
-import { AgentGenerationChat } from './AgentGenerationChat';
+import { SkillGenerationChat } from './SkillGenerationChat';
 import type {
-  CustomAgentCreationMode,
-  CustomAgentValidationResult,
-  CustomAgentOperationResponse,
-  CustomSkill,
-  GeneratedSkill,
+  CustomSkillCreationMode,
+  CustomSkillValidationResult,
+  CustomSkillOperationResponse,
 } from '@/types/custom-agents';
 
-export interface CustomAgentModalProps {
+export interface CustomSkillModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectPath: string;
-  onCreateAgent: (content: string, bypassWarnings?: boolean) => Promise<CustomAgentOperationResponse>;
-  onUploadAgent: (file: File, bypassWarnings?: boolean) => Promise<CustomAgentOperationResponse>;
-  onValidate: (content: string) => Promise<CustomAgentValidationResult | null>;
-  availableSkills: CustomSkill[];
-  availableMcpServers?: string[];
-  onAgentGenerated?: (content: string, skills: GeneratedSkill[]) => void;
-  onSaveSkills?: (skills: GeneratedSkill[]) => Promise<{ success: boolean; errors: string[] }>;
+  existingSkills: string[];
+  onCreateSkill: (name: string, content: string, bypassWarnings?: boolean) => Promise<CustomSkillOperationResponse>;
+  onUploadSkill: (file: File, name: string, bypassWarnings?: boolean) => Promise<CustomSkillOperationResponse>;
+  onValidate: (content: string) => Promise<CustomSkillValidationResult | null>;
+  onSkillGenerated?: (content: string) => void;
 }
 
-export function CustomAgentModal({
+const SKILL_TEMPLATE = `# My Custom Skill
+
+## When to Use This Skill
+USE WHEN:
+- [Describe situations where this skill applies]
+
+DO NOT USE FOR:
+- [Describe situations where this skill should NOT be used]
+
+## Key Patterns
+
+### Pattern 1
+[Essential patterns, code snippets, best practices]
+
+### Pattern 2
+[Additional patterns]
+
+## Anti-Patterns
+- Never [thing to avoid]
+- Do not [another thing to avoid]
+
+## Checklist
+- [ ] [Key item to verify]
+- [ ] [Another item to verify]
+`;
+
+export function CustomSkillModal({
   isOpen,
   onClose,
   projectPath,
-  onCreateAgent,
-  onUploadAgent,
+  existingSkills,
+  onCreateSkill,
+  onUploadSkill,
   onValidate,
-  availableSkills,
-  availableMcpServers = [],
-  onSaveSkills,
-}: CustomAgentModalProps) {
-  const [mode, setMode] = useState<CustomAgentCreationMode>('upload');
+}: CustomSkillModalProps) {
+  const [mode, setMode] = useState<CustomSkillCreationMode>('upload');
+  const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [validation, setValidation] = useState<CustomAgentValidationResult | null>(null);
+  const [validation, setValidation] = useState<CustomSkillValidationResult | null>(null);
   const [showWarningsDialog, setShowWarningsDialog] = useState(false);
 
   // AI Chat inline review state
   const [aiReviewContent, setAiReviewContent] = useState<string | null>(null);
-  const [aiReviewSkills, setAiReviewSkills] = useState<GeneratedSkill[]>([]);
-  const [includedSkills, setIncludedSkills] = useState<Set<number>>(new Set());
 
   const isInAiReview = mode === 'ai-chat' && aiReviewContent !== null;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const validateTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Reset state when modal closes
   const handleClose = () => {
     setContent('');
+    setName('');
     setFile(null);
     setError(null);
     setValidation(null);
     setShowWarningsDialog(false);
     setAiReviewContent(null);
-    setAiReviewSkills([]);
-    setIncludedSkills(new Set());
     onClose();
   };
 
@@ -96,7 +113,6 @@ export function CustomAgentModal({
   const handleDrop = (e: DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile && droppedFile.name.endsWith('.md')) {
       processFile(droppedFile);
@@ -111,27 +127,44 @@ export function CustomAgentModal({
     setError(null);
     setValidation(null);
 
-    // Read and validate content
+    // Auto-derive name from filename if name field is empty
+    if (!name.trim()) {
+      const derivedName = selectedFile.name
+        .replace(/\.md$/i, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      if (derivedName) setName(derivedName);
+    }
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       const fileContent = e.target?.result as string;
       setContent(fileContent);
-
-      // Validate
       const result = await onValidate(fileContent);
       setValidation(result);
     };
     reader.readAsText(selectedFile);
   };
 
-  // Handle AI-generated agent content — show inline review instead of closing modal
-  const handleAiAgentGenerated = useCallback((agentContent: string, skills: GeneratedSkill[]) => {
-    setAiReviewContent(agentContent);
-    setContent(agentContent);
-    setAiReviewSkills(skills);
-    setIncludedSkills(new Set(skills.map((_, i) => i)));
+  // Debounced validation for manual mode
+  const handleContentChange = useCallback((newContent: string) => {
+    setContent(newContent);
+    if (validateTimerRef.current) clearTimeout(validateTimerRef.current);
+    validateTimerRef.current = setTimeout(() => {
+      if (newContent.trim()) {
+        onValidate(newContent).then(setValidation);
+      }
+    }, 500);
+  }, [onValidate]);
+
+  // Handle AI-generated skill content — show inline review instead of closing modal
+  const handleAiSkillGenerated = useCallback((skillContent: string) => {
+    setAiReviewContent(skillContent);
+    setContent(skillContent);
     setError(null);
-    onValidate(agentContent).then(setValidation);
+    onValidate(skillContent).then(setValidation);
   }, [onValidate]);
 
   // Return from AI review to chat (preserves WebSocket session)
@@ -152,41 +185,32 @@ export function CustomAgentModal({
     }, 500);
   }, [onValidate]);
 
-  // Toggle skill inclusion in AI review
-  const toggleSkillIncluded = (index: number) => {
-    setIncludedSkills((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
-  };
+  // Validate name
+  const isNameValid = /^[a-z0-9][a-z0-9-]*$/.test(name.trim());
 
   // Handle submit
   const handleSubmit = async (bypassWarnings = false) => {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setError('Skill name is required');
+      return;
+    }
+    if (!isNameValid) {
+      setError('Name must be kebab-case (lowercase letters, numbers, hyphens)');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      // For AI review mode, save included skills first
-      if (isInAiReview && aiReviewSkills.length > 0 && onSaveSkills) {
-        const skillsToSave = aiReviewSkills.filter((_, i) => includedSkills.has(i));
-        if (skillsToSave.length > 0) {
-          const skillResult = await onSaveSkills(skillsToSave);
-          if (!skillResult.success) {
-            setError(`Failed to create skills: ${skillResult.errors.join('; ')}`);
-            setLoading(false);
-            return;
-          }
-        }
-      }
-
-      let result: CustomAgentOperationResponse;
+      let result: CustomSkillOperationResponse;
 
       if (mode === 'upload' && file && !isInAiReview) {
-        result = await onUploadAgent(file, bypassWarnings);
+        result = await onUploadSkill(file, trimmedName, bypassWarnings);
       } else if (content) {
-        result = await onCreateAgent(content, bypassWarnings);
+        result = await onCreateSkill(trimmedName, content, bypassWarnings);
       } else {
         setError('No content provided');
         setLoading(false);
@@ -196,7 +220,6 @@ export function CustomAgentModal({
       if (result.success) {
         handleClose();
       } else {
-        // Check if we need to show warnings dialog
         if (
           result.validation?.bestPracticeWarnings?.some((w) => w.severity === 'warning') &&
           !bypassWarnings
@@ -204,7 +227,7 @@ export function CustomAgentModal({
           setValidation(result.validation);
           setShowWarningsDialog(true);
         } else {
-          setError(result.error || 'Failed to create agent');
+          setError(result.error || 'Failed to create skill');
         }
       }
     } finally {
@@ -218,23 +241,7 @@ export function CustomAgentModal({
 
     return (
       <div className="mt-4 space-y-3">
-        {!validation.valid && validation.schemaErrors && (
-          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <div className="flex items-center gap-2 text-red-400 font-medium mb-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Schema Errors
-            </div>
-            <ul className="text-sm text-red-300 space-y-1">
-              {validation.schemaErrors.map((err, i) => (
-                <li key={i}>{err}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {validation.valid && validation.bestPracticeWarnings.length === 0 && (
+        {validation.bestPracticeWarnings.length === 0 ? (
           <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
             <div className="flex items-center gap-2 text-green-400 font-medium">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -243,9 +250,7 @@ export function CustomAgentModal({
               Validation Passed
             </div>
           </div>
-        )}
-
-        {validation.bestPracticeWarnings.length > 0 && (
+        ) : (
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
             <div className="flex items-center gap-2 text-yellow-400 font-medium mb-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,54 +277,14 @@ export function CustomAgentModal({
     );
   };
 
-  // Get agent template
-  const getTemplate = () => {
-    return `---
-name: my-custom-agent
-description: |
-  A custom agent specialized in [your domain].
-  Handles [specific tasks and responsibilities].
-model: sonnet
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash
-skills:
-  - custom/my-skill
-mcp_servers:
-  - documentation
----
-
-# My Custom Agent
-
-## Role
-
-[Describe the agent's role and expertise]
-
-## Behavior
-
-- Execute modifications directly unless explicitly asked for analysis only
-- Always read relevant files before making changes
-- Follow project conventions and patterns
-
-## Guidelines
-
-- [Specific behavior guidelines]
-- [When to use this agent]
-- [What this agent should avoid]
-
-## Anti-patterns
-
-- Never [thing to avoid]
-- Do not [another thing to avoid]
-`;
-  };
-
-  const includedSkillCount = includedSkills.size;
+  const canSubmit = name.trim() && isNameValid && content.trim() && !loading;
 
   return (
     <>
       <Modal
         isOpen={isOpen && !showWarningsDialog}
         onClose={handleClose}
-        title="Create Custom Agent"
+        title="Create Custom Skill"
         size={mode === 'ai-chat' && !isInAiReview ? 'full' : 'lg'}
         closeOnOverlayClick={false}
         footer={
@@ -328,12 +293,9 @@ mcp_servers:
               onCancel={isInAiReview ? handleBackToChat : handleClose}
               cancelText={isInAiReview ? 'Back to Chat' : undefined}
               onConfirm={() => handleSubmit()}
-              confirmText={isInAiReview && includedSkillCount > 0
-                ? `Create Agent + ${includedSkillCount} Skill${includedSkillCount !== 1 ? 's' : ''}`
-                : 'Create Agent'
-              }
+              confirmText="Create Skill"
               loading={loading}
-              disabled={!validation?.valid || loading}
+              disabled={!canSubmit}
             />
           ) : undefined
         }
@@ -378,6 +340,25 @@ mcp_servers:
             </div>
           )}
 
+          {/* Name field (Upload + Manual + AI Review modes) */}
+          {(mode !== 'ai-chat' || isInAiReview) && (
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1">
+                Skill Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setError(null); }}
+                placeholder="my-skill-name"
+                className="w-full px-3 py-2 bg-surface-800 border border-surface-600 rounded-lg text-white text-sm placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <p className="text-xs text-surface-500 mt-1">
+                Kebab-case. Will be referenced as <code className="text-primary-400">custom/{name || 'skill-name'}</code> in agent frontmatter.
+              </p>
+            </div>
+          )}
+
           {/* Upload Mode */}
           {mode === 'upload' && (
             <div>
@@ -403,49 +384,24 @@ mcp_servers:
 
                 {file ? (
                   <div>
-                    <svg
-                      className="w-12 h-12 mx-auto text-green-400 mb-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
+                    <svg className="w-12 h-12 mx-auto text-green-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <p className="text-white font-medium">{file.name}</p>
-                    <p className="text-sm text-surface-400 mt-1">
-                      Click or drop to change file
-                    </p>
+                    <p className="text-sm text-surface-400 mt-1">Click or drop to change file</p>
                   </div>
                 ) : (
                   <div>
-                    <svg
-                      className="w-12 h-12 mx-auto text-surface-500 mb-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
+                    <svg className="w-12 h-12 mx-auto text-surface-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p className="text-surface-300">
                       Drop a <code className="text-primary-400">.md</code> file here
                     </p>
-                    <p className="text-sm text-surface-400 mt-1">
-                      or click to browse
-                    </p>
+                    <p className="text-sm text-surface-400 mt-1">or click to browse</p>
                   </div>
                 )}
               </div>
-
               {renderValidation()}
             </div>
           )}
@@ -455,14 +411,13 @@ mcp_servers:
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-surface-300">
-                  Agent Content (Markdown with YAML frontmatter)
+                  Content (SKILL.md)
                 </label>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setContent(getTemplate());
-                    onValidate(getTemplate()).then(setValidation);
+                    handleContentChange(SKILL_TEMPLATE);
                   }}
                 >
                   Use Template
@@ -470,20 +425,11 @@ mcp_servers:
               </div>
               <textarea
                 value={content}
-                onChange={(e) => {
-                  setContent(e.target.value);
-                  // Debounced validation
-                  if (validateTimerRef.current) clearTimeout(validateTimerRef.current);
-                  validateTimerRef.current = setTimeout(() => {
-                    if (e.target.value) {
-                      onValidate(e.target.value).then(setValidation);
-                    }
-                  }, 500);
-                }}
+                onChange={(e) => handleContentChange(e.target.value)}
                 className="w-full h-64 px-3 py-2 bg-surface-800 border border-surface-600 rounded-lg text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                placeholder="---&#10;name: my-agent&#10;description: |&#10;  Agent description here&#10;model: sonnet&#10;---&#10;&#10;# My Agent&#10;&#10;..."
+                placeholder="# My Skill&#10;&#10;## When to Use This Skill&#10;USE WHEN:&#10;- ..."
+                spellCheck={false}
               />
-
               {renderValidation()}
             </div>
           )}
@@ -493,21 +439,20 @@ mcp_servers:
             <>
               {/* Chat — hidden during review to preserve WebSocket session */}
               <div className={clsx('flex-1 min-h-0', isInAiReview && 'hidden')}>
-                <AgentGenerationChat
+                <SkillGenerationChat
                   projectPath={projectPath}
-                  availableSkills={availableSkills}
-                  availableMcpServers={availableMcpServers}
-                  onAgentGenerated={handleAiAgentGenerated}
+                  existingSkills={existingSkills}
+                  onSkillGenerated={handleAiSkillGenerated}
                   onValidate={onValidate}
                 />
               </div>
 
               {/* AI Review editor */}
               {isInAiReview && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium text-surface-300">
-                      Generated Agent Content
+                      Generated Skill Content
                     </label>
                     <Button variant="ghost" size="sm" onClick={handleBackToChat}>
                       Back to Chat
@@ -516,54 +461,9 @@ mcp_servers:
                   <textarea
                     value={content}
                     onChange={(e) => handleAiReviewContentChange(e.target.value)}
-                    className="w-full h-48 px-3 py-2 bg-surface-800 border border-surface-600 rounded-lg text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                    className="w-full h-64 px-3 py-2 bg-surface-800 border border-surface-600 rounded-lg text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                     spellCheck={false}
                   />
-
-                  {/* Generated skills list */}
-                  {aiReviewSkills.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-surface-300 mb-2">
-                        Generated Skills ({includedSkillCount}/{aiReviewSkills.length} included)
-                      </label>
-                      <div className="space-y-2">
-                        {aiReviewSkills.map((skill, i) => (
-                          <div
-                            key={i}
-                            className={clsx(
-                              'flex items-center justify-between px-3 py-2 rounded-lg border transition-colors',
-                              includedSkills.has(i)
-                                ? 'bg-surface-800 border-surface-600'
-                                : 'bg-surface-800/50 border-surface-700 opacity-60'
-                            )}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Badge variant="default" size="sm">SKILL.md</Badge>
-                              <span className={clsx(
-                                'text-sm',
-                                includedSkills.has(i) ? 'text-surface-200' : 'text-surface-500 line-through'
-                              )}>
-                                custom/{skill.name}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toggleSkillIncluded(i)}
-                              className={clsx(
-                                'text-xs px-2.5 py-1 rounded transition-colors',
-                                includedSkills.has(i)
-                                  ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
-                                  : 'bg-surface-700 text-surface-400 hover:bg-surface-600'
-                              )}
-                            >
-                              {includedSkills.has(i) ? 'Included' : 'Excluded'}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {renderValidation()}
                 </div>
               )}
@@ -597,8 +497,8 @@ mcp_servers:
       >
         <div className="space-y-4">
           <p className="text-surface-300">
-            The agent has the following best practice warnings. You can still save it,
-            but consider addressing these issues for better Claude Code compatibility:
+            The skill has the following best practice warnings. You can still save it,
+            but consider addressing these issues for better skill quality:
           </p>
 
           <ul className="space-y-2">

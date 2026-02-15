@@ -26,7 +26,10 @@ import {
   DeleteCustomAgentRequestSchema,
   ValidateCustomAgentRequestSchema,
   ListCustomSkillsRequestSchema,
+  GetCustomSkillRequestSchema,
   CreateCustomSkillRequestSchema,
+  UpdateCustomSkillRequestSchema,
+  ValidateCustomSkillRequestSchema,
   DeleteCustomSkillRequestSchema,
 } from '../validation/schemas.js';
 
@@ -500,6 +503,49 @@ router.get('/custom-skills', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/custom-skills/:id
+ * Get a single custom skill with full content
+ */
+router.get('/custom-skills/:id', async (req: Request, res: Response) => {
+  try {
+    const parseResult = GetCustomSkillRequestSchema.safeParse({
+      path: req.query.path,
+      id: req.params.id,
+    });
+
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
+      });
+      return;
+    }
+
+    const { path: projectPath, id } = parseResult.data;
+    const skill = await customAgentsService.getCustomSkill(projectPath, id);
+
+    if (!skill) {
+      res.status(404).json({
+        success: false,
+        error: `Skill '${id}' not found`,
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: { skill },
+    });
+  } catch (error) {
+    logger.error('Failed to get custom skill', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get custom skill',
+    });
+  }
+});
+
+/**
  * POST /api/custom-skills
  * Create a new custom skill
  */
@@ -514,26 +560,159 @@ router.post('/custom-skills', async (req: Request, res: Response) => {
       return;
     }
 
-    const { projectPath, name, content } = parseResult.data;
-    const result = await customAgentsService.createCustomSkill(projectPath, name, content);
+    const { projectPath, name, content, bypassWarnings } = parseResult.data;
+    const result = await customAgentsService.createCustomSkill(projectPath, name, content, bypassWarnings);
 
     if (!result.success) {
       res.status(400).json({
         success: false,
         error: result.error,
+        validation: result.validation,
       });
       return;
     }
 
     res.status(201).json({
       success: true,
-      data: { skill: result.skill },
+      data: { skill: result.skill, validation: result.validation },
     });
   } catch (error) {
     logger.error('Failed to create custom skill', { error });
     res.status(500).json({
       success: false,
       error: 'Failed to create custom skill',
+    });
+  }
+});
+
+/**
+ * POST /api/custom-skills/upload
+ * Create a custom skill by uploading a .md file
+ * SECURITY: Rate limited (10/min), file size limited (1MB), .md only
+ */
+router.post(
+  '/custom-skills/upload',
+  uploadRateLimiter,
+  upload.single('file'),
+  handleMulterError,
+  async (req: MulterRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        error: 'No file uploaded',
+      });
+      return;
+    }
+
+    const projectPath = resolveProjectPath(req.body.projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    const name = req.body.name;
+    if (!name || typeof name !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(name)) {
+      res.status(400).json({
+        success: false,
+        error: 'Skill name is required and must be kebab-case (lowercase letters, numbers, hyphens)',
+      });
+      return;
+    }
+    const bypassWarnings = req.body.bypassWarnings === 'true';
+
+    const content = req.file.buffer.toString('utf-8');
+    const result = await customAgentsService.createCustomSkill(projectPath, name, content, bypassWarnings);
+
+    if (!result.success) {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        validation: result.validation,
+      });
+      return;
+    }
+
+    res.status(201).json({
+      success: true,
+      data: { skill: result.skill, validation: result.validation },
+    });
+  } catch (error) {
+    logger.error('Failed to upload custom skill', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload custom skill',
+    });
+  }
+});
+
+/**
+ * POST /api/custom-skills/validate
+ * Validate custom skill content without saving
+ */
+router.post('/custom-skills/validate', async (req: Request, res: Response) => {
+  try {
+    const parseResult = ValidateCustomSkillRequestSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
+      });
+      return;
+    }
+
+    const { content } = parseResult.data;
+    const validation = customAgentsService.validateSkillContent(content);
+
+    res.json({
+      success: true,
+      data: { validation },
+    });
+  } catch (error) {
+    logger.error('Failed to validate custom skill', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to validate custom skill',
+    });
+  }
+});
+
+/**
+ * PUT /api/custom-skills/:id
+ * Update an existing custom skill
+ */
+router.put('/custom-skills/:id', async (req: Request, res: Response) => {
+  try {
+    const parseResult = UpdateCustomSkillRequestSchema.safeParse({
+      ...req.body,
+      skillId: req.params.id,
+    });
+
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: parseResult.error.issues.map((e: { message: string }) => e.message).join(', '),
+      });
+      return;
+    }
+
+    const { projectPath, skillId, name, content, bypassWarnings } = parseResult.data;
+    const result = await customAgentsService.updateCustomSkill(projectPath, skillId, name, content, bypassWarnings);
+
+    if (!result.success) {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        validation: result.validation,
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: { skill: result.skill, validation: result.validation },
+    });
+  } catch (error) {
+    logger.error('Failed to update custom skill', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update custom skill',
     });
   }
 });

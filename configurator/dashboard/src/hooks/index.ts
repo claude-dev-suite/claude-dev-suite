@@ -21,6 +21,7 @@ export { useRecipes } from './useRecipes';
 export { useAutoUpdater } from './useAutoUpdater';
 export { useTemplates, useTemplate, useValidateVariables, useScaffold, useTemplateConfig } from './useTemplates';
 export { useCustomAgents } from './useCustomAgents';
+export { useTutorial } from './useTutorial';
 
 // Re-export types
 export type {
@@ -72,3 +73,7 @@ export type {
 export type {
   UseCustomAgentsResult,
 } from './useCustomAgents';
+
+export type {
+  UseTutorialResult,
+} from './useTutorial';

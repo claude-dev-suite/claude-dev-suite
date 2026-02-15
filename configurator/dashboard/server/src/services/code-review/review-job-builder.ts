@@ -118,20 +118,24 @@ function buildConsolidationTask(reviewTypeNames: string): string {
 
 You have received the outputs from multiple specialized code review agents (${reviewTypeNames}).
 
-Your task is to create a **single, unified code review report** that consolidates all findings.
+**CRITICAL: Equal-weight consolidation required.** Every agent's output must be given equal consideration. Do NOT favor the last agent or drop findings from earlier agents.
 
-**Instructions:**
+**Step 1 — Per-Agent Extraction (MANDATORY)**
+Before producing the unified report, first enumerate each review agent's findings separately:
+${reviewTypeNames.split(', ').map((name) => `- **${name}**: [list their findings]`).join('\n')}
+This ensures no agent's findings are lost.
+
+**Step 2 — Unified Report**
+Create a **single, unified code review report** consolidating ALL findings:
+
 1. DO NOT re-analyze the code yourself. Use ONLY the findings from the previous agents.
 2. Organize all issues by severity (CRITICAL > HIGH > MEDIUM > LOW > INFO)
-3. Remove any duplicate findings (same file, same line, same issue)
-4. Group related issues together when they affect the same file or component
-5. Provide a brief executive summary at the top with:
-   - Total issues found by severity
-   - Most critical areas that need attention
-   - Overall code health assessment
+3. Every Critical and High finding from ANY agent MUST appear — dropping them is not allowed
+4. Remove duplicate findings (same file, same line, same issue) but NEVER drop unique Critical/High issues
+5. Group related issues together when they affect the same file or component
 
 **Output Format:**
-\`\`\`
+
 ## Code Review Summary
 
 ### Executive Summary
@@ -144,20 +148,19 @@ Your task is to create a **single, unified code review report** that consolidate
 **Key Areas of Concern:** [brief list]
 
 ### Critical Issues
-[List all CRITICAL issues with file:line - description]
+[ALL CRITICAL issues from every agent with file:line - description and source agent]
 
 ### High Priority Issues
-[List all HIGH issues]
+[ALL HIGH issues from every agent]
 
 ### Medium Priority Issues
-[List all MEDIUM issues]
+[Consolidated MEDIUM issues, deduplicated]
 
 ### Low Priority / Informational
-[List all LOW and INFO issues]
+[Consolidated LOW and INFO issues]
 
 ### Recommendations
 [Top 3-5 actionable recommendations based on findings]
-\`\`\`
 
 Start consolidating the review results now.`;
 }

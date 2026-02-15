@@ -40,18 +40,29 @@ export class BestPracticesValidatorService {
       id: 'action-vs-analysis',
       severity: 'warning',
       check: (content) => {
+        const lower = content.toLowerCase();
         const hasActionGuidelines =
-          content.toLowerCase().includes('execute') ||
-          content.toLowerCase().includes('modify') ||
-          content.toLowerCase().includes('write code') ||
-          content.toLowerCase().includes('directly') ||
-          content.toLowerCase().includes('action');
+          lower.includes('execute') ||
+          lower.includes('modify') ||
+          lower.includes('write code') ||
+          lower.includes('directly') ||
+          lower.includes('action') ||
+          // Italian
+          lower.includes('esegu') ||        // esegue, eseguire
+          lower.includes('modific') ||       // modifica, modifiche, modificare
+          lower.includes('direttamente') ||
+          lower.includes('azione');
 
         const hasAnalysisGuidelines =
-          content.toLowerCase().includes('analysis') ||
-          content.toLowerCase().includes('research') ||
-          content.toLowerCase().includes('investigate') ||
-          content.toLowerCase().includes('examine');
+          lower.includes('analysis') ||
+          lower.includes('research') ||
+          lower.includes('investigate') ||
+          lower.includes('examine') ||
+          // Italian
+          lower.includes('analisi') ||
+          lower.includes('ricerca') ||
+          lower.includes('indaga') ||        // indagare, indaga
+          lower.includes('esaminare');
 
         if (!hasActionGuidelines && !hasAnalysisGuidelines) {
           return 'Should define when the agent should take action vs. perform analysis only';
@@ -228,6 +239,7 @@ export class BestPracticesValidatorService {
       check: (content) => {
         const hasExamples =
           content.includes('```') ||
+          content.includes('~~~') ||
           content.includes('Example:') ||
           content.includes('example:') ||
           content.includes('Esempio:');

@@ -365,6 +365,9 @@ export function WizardContainer({
     // Hide navigation for template config (has its own buttons)
     if (wizardMode === 'create' && createSubStep === 'config') return false;
 
+    // Hide navigation for install step (Step5Install has its own buttons)
+    if (currentStep === 5) return false;
+
     return true;
   };
 

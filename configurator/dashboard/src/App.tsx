@@ -4,10 +4,13 @@ import { Layout } from './components/layout';
 import { WizardContainer } from './components/wizard';
 import { ToastContainer, ErrorBoundary, ErrorFallback, LoadingPanel } from './components/common';
 import { ManageModal } from './components/manage/ManageModal';
+import { TutorialProvider } from './components/tutorial';
+import { createTutorialSteps } from './components/tutorial/tutorial-steps';
 import { useToast } from './hooks';
 import { API_BASE } from './utils/api';
 import { useProjectStore } from './stores/project.store';
 import { useUIStore } from './stores/ui.store';
+import { useTutorialStore } from './stores/tutorial.store';
 import { getLogger } from './utils/logger';
 
 // Lazy load heavy panels
@@ -117,6 +120,22 @@ export function App() {
     setIsInstalled(true);
     setCurrentPanel('orchestrator');
     success('Dev-Suite installed successfully!');
+
+    // Auto-start tutorial for first-time users
+    if (!localStorage.getItem('dev-suite-tutorial-completed')) {
+      setTimeout(() => {
+        const ui = useUIStore.getState();
+        const steps = createTutorialSteps({
+          setPanel: ui.setPanel,
+          openModal: ui.openModal,
+          closeModal: ui.closeModal,
+          openToolWindow: ui.openToolWindow,
+          closeToolWindow: ui.closeToolWindow,
+          closeAllToolWindows: ui.closeAllToolWindows,
+        });
+        useTutorialStore.getState().startTutorial(steps);
+      }, 800);
+    }
   }, [setIsInstalled, setCurrentPanel, success]);
 
   // Handle start review - navigate to orchestrator with job
@@ -199,12 +218,14 @@ export function App() {
         logger.error('Critical error', { error, errorInfo });
       }}
     >
-      <Layout showSidebar={currentPanel === 'wizard'}>
-        {renderPanel()}
-      </Layout>
+      <TutorialProvider>
+        <Layout showSidebar={currentPanel === 'wizard'}>
+          {renderPanel()}
+        </Layout>
 
-      {/* Manage Modal - full-screen overlay */}
-      <ManageModal />
+        {/* Manage Modal - full-screen overlay */}
+        <ManageModal />
+      </TutorialProvider>
 
       {/* Toast Notifications - reads from global Zustand store */}
       <ToastContainer />

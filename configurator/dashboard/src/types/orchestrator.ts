@@ -35,6 +35,8 @@ export interface SubTask {
   agentId: string;
   /** Task description/prompt for the agent */
   task: string;
+  /** IDs of subtasks that must complete before this one (for context carry-forward) */
+  dependencies?: string[];
 }
 
 /**

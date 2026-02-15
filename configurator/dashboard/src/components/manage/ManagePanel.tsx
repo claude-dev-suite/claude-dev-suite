@@ -7,6 +7,7 @@ import { HooksConfig } from './HooksConfig';
 import { AutomationsPanel } from './AutomationsPanel';
 import { UpdatesTab } from './UpdatesTab';
 import { CustomAgentsPanel } from './CustomAgentsPanel';
+import { CustomSkillsPanel } from './CustomSkillsPanel';
 import { Button, Badge, ErrorBoundary, ErrorMessage } from '../common';
 import { apiGet, API_BASE } from '@/utils/api';
 import { ApiError, getUserErrorMessage } from '@/utils/errors';
@@ -17,7 +18,7 @@ export interface ManagePanelProps {
   onUninstall?: () => void;
 }
 
-type Tab = 'agents' | 'custom-agents' | 'mcp' | 'automations' | 'hooks' | 'updates';
+type Tab = 'agents' | 'custom-agents' | 'skills' | 'mcp' | 'automations' | 'hooks' | 'updates';
 
 export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('agents');
@@ -149,6 +150,7 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
   const tabs = [
     { id: 'agents' as Tab, label: 'Agents', count: installedData.agents.length, newCount: newAgentCount },
     { id: 'custom-agents' as Tab, label: 'Custom Agents' },
+    { id: 'skills' as Tab, label: 'Skills' },
     { id: 'mcp' as Tab, label: 'MCP Servers', count: installedData.mcpServers.length, newCount: newMcpCount },
     { id: 'automations' as Tab, label: 'Automations' },
     { id: 'hooks' as Tab, label: 'Hooks (Advanced)' },
@@ -177,7 +179,7 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
 
       {/* Tabs */}
       <div className="border-b border-surface-700">
-        <nav className="flex gap-1">
+        <nav className="flex gap-1" data-tutorial="manage-tabs">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -188,6 +190,7 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
                   ? 'border-primary-500 text-primary-400'
                   : 'border-transparent text-surface-400 hover:text-white hover:border-surface-500'
               )}
+              data-tutorial={tab.id === 'custom-agents' ? 'custom-agents-tab' : undefined}
             >
               {tab.label}
               {tab.count !== undefined && (
@@ -218,6 +221,9 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
           )}
           {activeTab === 'custom-agents' && (
             <CustomAgentsPanel projectPath={projectPath} />
+          )}
+          {activeTab === 'skills' && (
+            <CustomSkillsPanel projectPath={projectPath} />
           )}
           {activeTab === 'mcp' && (
             <McpServersList

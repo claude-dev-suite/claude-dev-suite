@@ -61,7 +61,7 @@ export function ToolWindowBar() {
   };
 
   return (
-    <div className="flex flex-col w-10 bg-surface-800 border-l border-surface-700">
+    <div className="flex flex-col w-10 bg-surface-800 border-l border-surface-700" data-tutorial="tool-window-bar">
       {/* Tool tabs - displayed vertically */}
       <div className="flex flex-col items-center py-2 gap-1">
         {TOOL_TABS.map((tab) => {
@@ -85,6 +85,12 @@ export function ToolWindowBar() {
                 }
               `}
               title={tab.label}
+              data-tutorial={
+                tab.id === 'git' ? 'git-tool-btn'
+                  : tab.id === 'manage-modal' ? 'manage-btn'
+                  : tab.id === 'analytics' ? 'analytics-tool-btn'
+                  : undefined
+              }
             >
               {tab.icon}
 

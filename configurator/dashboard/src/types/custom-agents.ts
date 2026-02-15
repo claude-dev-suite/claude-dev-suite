@@ -125,7 +125,7 @@ export interface CustomAgentValidationResult {
 /**
  * Mode for creating custom agents
  */
-export type CustomAgentCreationMode = 'upload' | 'generate';
+export type CustomAgentCreationMode = 'upload' | 'generate' | 'ai-chat';
 
 /**
  * Request to create a custom agent via upload
@@ -222,6 +222,17 @@ export interface CustomAgentValidationResponse {
 // ============================================
 
 /**
+ * Skill content extracted from AI generation output.
+ * Used when Claude generates SKILL.md files alongside an agent.
+ */
+export interface GeneratedSkill {
+  /** Skill name (kebab-case, used as directory name under custom/) */
+  name: string;
+  /** Full SKILL.md content */
+  content: string;
+}
+
+/**
  * Custom skill metadata
  */
 export interface CustomSkill {
@@ -240,6 +251,29 @@ export interface CustomSkill {
 }
 
 /**
+ * Custom skill with full content (for detail/editor view)
+ */
+export interface CustomSkillDetail extends CustomSkill {
+  /** Full SKILL.md content */
+  content: string;
+}
+
+/**
+ * Validation result for custom skills
+ */
+export interface CustomSkillValidationResult {
+  /** Always true for skills (no schema validation) */
+  valid: true;
+  /** Best practice warnings (bypassable) */
+  bestPracticeWarnings: BestPracticeWarning[];
+}
+
+/**
+ * Mode for creating custom skills
+ */
+export type CustomSkillCreationMode = 'upload' | 'generate' | 'ai-chat';
+
+/**
  * Response for listing custom skills
  */
 export interface CustomSkillsListResponse {
@@ -247,6 +281,36 @@ export interface CustomSkillsListResponse {
   skills: CustomSkill[];
   /** Total count */
   total: number;
+}
+
+/**
+ * Response for getting a single custom skill
+ */
+export interface CustomSkillDetailResponse {
+  /** Full skill details */
+  skill: CustomSkillDetail;
+}
+
+/**
+ * Response for creating/updating a custom skill
+ */
+export interface CustomSkillOperationResponse {
+  /** Whether operation succeeded */
+  success: boolean;
+  /** Created/updated skill */
+  skill?: CustomSkill;
+  /** Error message if failed */
+  error?: string;
+  /** Validation result */
+  validation?: CustomSkillValidationResult;
+}
+
+/**
+ * Response for validation endpoint
+ */
+export interface CustomSkillValidationResponse {
+  /** Validation result */
+  validation: CustomSkillValidationResult;
 }
 
 // ============================================
@@ -325,5 +389,5 @@ export function isBestPracticeSeverity(value: unknown): value is BestPracticeSev
  * Check if a value is a valid CustomAgentCreationMode
  */
 export function isCustomAgentCreationMode(value: unknown): value is CustomAgentCreationMode {
-  return typeof value === 'string' && ['upload', 'generate'].includes(value);
+  return typeof value === 'string' && ['upload', 'generate', 'ai-chat'].includes(value);
 }

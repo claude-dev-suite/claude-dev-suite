@@ -34,7 +34,7 @@ export interface UseOrchestratorWebSocketReturn {
   wsStatusText: string;
   submitJob: (job: Partial<Job>, context?: string, subTasks?: Array<{ agentId: string; task: string }>) => void;
   /** Send chat message with optional token-efficient job context injection */
-  sendChatMessage: (message: string, sessionId?: string | null, resumeSession?: boolean, jobContext?: JobContextSummary) => void;
+  sendChatMessage: (message: string, sessionId?: string | null, resumeSession?: boolean, jobContext?: JobContextSummary, allowedTools?: string[]) => void;
   sendUserInput: (text: string, jobId: string) => void;
   sendPermissionResponse: (response: 'y' | 'a' | 'n', jobId: string) => void;
   cancelJob: (jobId?: string) => void;
@@ -403,7 +403,8 @@ export function useOrchestratorWebSocket(
     message: string,
     sessionId?: string | null,
     resumeSession?: boolean,
-    jobContext?: JobContextSummary
+    jobContext?: JobContextSummary,
+    allowedTools?: string[]
   ) => {
     if (!wsRef.current || !connected || !message.trim()) return;
 
@@ -418,6 +419,8 @@ export function useOrchestratorWebSocket(
         context: { projectPath: options.projectPath },
         // Include job context for token-efficient continuity
         jobContext: jobContext || undefined,
+        // Optional tool restriction for generation chats (read-only)
+        allowedTools: allowedTools || undefined,
       },
     }));
   }, [connected, options.projectPath]);

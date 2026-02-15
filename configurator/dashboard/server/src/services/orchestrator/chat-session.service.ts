@@ -90,6 +90,8 @@ Use this context to understand what was done. The user is now following up on th
     const clientSessionId = payload.sessionId as string | undefined;
     // Extract job context for token-efficient continuity
     const jobContext = payload.jobContext as JobContextSummary | undefined;
+    // Optional per-session tool restriction (e.g., generation chats use read-only tools)
+    const clientAllowedTools = Array.isArray(payload.allowedTools) ? payload.allowedTools as string[] : undefined;
 
     wsLogger.info('Chat message received', {
       correlationId,
@@ -221,7 +223,7 @@ Use this context to understand what was done. The user is now following up on th
           // Load CLAUDE.md and project settings from the target project
           systemPrompt: { type: 'preset', preset: 'claude_code' },
           settingSources: ['project'],
-          allowedTools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
+          allowedTools: clientAllowedTools || ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
           permissionMode: this.config.chat.permissionMode,
           abortController: this.state.abortController,
           ...(this.config.chat.maxTurns !== undefined && { maxTurns: this.config.chat.maxTurns }),

@@ -19,6 +19,8 @@ import type {
   CustomAgentValidationResult,
   CustomAgentModel,
   CustomSkill,
+  CustomSkillDetail,
+  CustomSkillValidationResult,
 } from '../types/custom-agents.js';
 import { CustomAgentFrontmatterSchema } from '../validation/schemas.js';
 
@@ -539,16 +541,85 @@ export class CustomAgentsService {
   }
 
   /**
+   * Validate custom skill content against best practices
+   */
+  validateSkillContent(content: string): CustomSkillValidationResult {
+    const bestPracticeWarnings = this.bestPracticesValidator.validateSkill(content);
+    return {
+      valid: true,
+      bestPracticeWarnings,
+    };
+  }
+
+  /**
+   * Get a single custom skill with full content
+   */
+  async getCustomSkill(projectPath: string, skillId: string): Promise<CustomSkillDetail | null> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
+    const skillMdPath = path.join(skillDir, 'SKILL.md');
+
+    if (!fs.existsSync(skillMdPath)) {
+      return null;
+    }
+
+    try {
+      const content = fs.readFileSync(skillMdPath, 'utf-8');
+      const stats = fs.statSync(skillMdPath);
+
+      // Extract description from first paragraph
+      const lines = content.split('\n');
+      let description = '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('>')) {
+          description = trimmed;
+          break;
+        }
+      }
+
+      return {
+        id: skillId,
+        name: skillId,
+        description: description || `Custom skill: ${skillId}`,
+        isCustom: true,
+        filePath: `.claude/skills/${CUSTOM_SKILLS_DIR}/${skillId}/SKILL.md`,
+        modifiedAt: stats.mtime.toISOString(),
+        content,
+      };
+    } catch (error) {
+      logger.error('Failed to get custom skill', { error, projectPath, skillId });
+      return null;
+    }
+  }
+
+  /**
    * Create a custom skill
    */
   async createCustomSkill(
     projectPath: string,
     name: string,
-    content: string
-  ): Promise<{ success: boolean; skill?: CustomSkill; error?: string }> {
+    content: string,
+    bypassWarnings = false
+  ): Promise<{ success: boolean; skill?: CustomSkill; validation?: CustomSkillValidationResult; error?: string }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+
+    // Validate content
+    const validation = this.validateSkillContent(content);
+
+    // Check best practice warnings
+    if (!bypassWarnings && validation.bestPracticeWarnings.some((w) => w.severity === 'warning')) {
+      return {
+        success: false,
+        validation,
+        error: 'Content has best practice warnings. Set bypassWarnings=true to ignore.',
+      };
+    }
+
     this.ensureCustomSkillsDir(projectPath);
 
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), name);
@@ -581,6 +652,7 @@ export class CustomAgentsService {
       return {
         success: true,
         skill: skill || undefined,
+        validation,
       };
     } catch (error) {
       logger.error('Failed to create custom skill', { error, projectPath, name });
@@ -623,6 +695,87 @@ export class CustomAgentsService {
       return {
         success: false,
         error: 'Failed to delete skill directory',
+      };
+    }
+  }
+
+  /**
+   * Update an existing custom skill (with rename support)
+   */
+  async updateCustomSkill(
+    projectPath: string,
+    skillId: string,
+    name: string,
+    content: string,
+    bypassWarnings = false
+  ): Promise<{ success: boolean; skill?: CustomSkill; validation?: CustomSkillValidationResult; error?: string }> {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+
+    const oldSkillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
+    if (!fs.existsSync(oldSkillDir)) {
+      return {
+        success: false,
+        error: `Skill '${skillId}' not found`,
+      };
+    }
+
+    // Validate content
+    const validation = this.validateSkillContent(content);
+
+    // Check best practice warnings
+    if (!bypassWarnings && validation.bestPracticeWarnings.some((w) => w.severity === 'warning')) {
+      return {
+        success: false,
+        validation,
+        error: 'Content has best practice warnings. Set bypassWarnings=true to ignore.',
+      };
+    }
+
+    const newSkillDir = path.join(this.getCustomSkillsDir(projectPath), name);
+    const isRename = skillId !== name;
+
+    try {
+      // If renaming, check new name doesn't already exist
+      if (isRename && fs.existsSync(newSkillDir)) {
+        return {
+          success: false,
+          error: `Skill '${name}' already exists`,
+        };
+      }
+
+      if (isRename) {
+        // Rename directory
+        fs.renameSync(oldSkillDir, newSkillDir);
+
+        // Update .dev-suite.json
+        this.updateDevSuiteConfig(projectPath, (config) => {
+          if (config.customSkills) {
+            config.customSkills = config.customSkills.filter((s: string) => s !== skillId);
+            if (!config.customSkills.includes(name)) {
+              config.customSkills.push(name);
+            }
+          }
+        });
+      }
+
+      // Write updated content
+      const skillMdPath = path.join(newSkillDir, 'SKILL.md');
+      fs.writeFileSync(skillMdPath, content, 'utf-8');
+
+      const skill = await this.parseCustomSkill(skillMdPath, name);
+
+      return {
+        success: true,
+        skill: skill || undefined,
+        validation,
+      };
+    } catch (error) {
+      logger.error('Failed to update custom skill', { error, projectPath, skillId });
+      return {
+        success: false,
+        error: 'Failed to update skill',
       };
     }
   }

@@ -180,13 +180,13 @@ export function Step1Detection({
             />
             <DetectionCard
               label="Frontend"
-              value={detection.frontend?.framework || null}
-              badge={detection.frontend?.meta_framework || undefined}
+              value={detection.frontend?.framework || detection.frontend?.runtime || null}
+              badge={detection.frontend?.framework ? (detection.frontend?.meta_framework || undefined) : undefined}
             />
             <DetectionCard
               label="Backend"
-              value={detection.backend?.framework || null}
-              badge={detection.backend?.runtime || undefined}
+              value={detection.backend?.framework || detection.backend?.runtime || null}
+              badge={detection.backend?.framework ? (detection.backend?.runtime || undefined) : undefined}
             />
             <DetectionCard
               label="Database"

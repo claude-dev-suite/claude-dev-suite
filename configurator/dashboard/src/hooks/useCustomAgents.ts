@@ -18,7 +18,12 @@ import type {
   CustomAgentValidationResult,
   CustomAgentValidationResponse,
   CustomSkill,
+  CustomSkillDetail,
   CustomSkillsListResponse,
+  CustomSkillDetailResponse,
+  CustomSkillOperationResponse,
+  CustomSkillValidationResult,
+  CustomSkillValidationResponse,
 } from '@/types/custom-agents';
 
 const logger = getLogger('useCustomAgents');
@@ -41,7 +46,11 @@ export interface UseCustomAgentsResult {
   skillsLoading: boolean;
   skillsError: string | null;
   refetchSkills: () => Promise<void>;
-  createSkill: (name: string, content: string) => Promise<{ success: boolean; skill?: CustomSkill; error?: string }>;
+  getSkill: (skillId: string) => Promise<CustomSkillDetail | null>;
+  createSkill: (name: string, content: string, bypassWarnings?: boolean) => Promise<CustomSkillOperationResponse>;
+  updateSkill: (skillId: string, name: string, content: string, bypassWarnings?: boolean) => Promise<CustomSkillOperationResponse>;
+  uploadSkill: (file: File, name: string, bypassWarnings?: boolean) => Promise<CustomSkillOperationResponse>;
+  validateSkillContent: (content: string) => Promise<CustomSkillValidationResult | null>;
   deleteSkill: (skillId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -203,6 +212,12 @@ export function useCustomAgents(projectPath: string): UseCustomAgentsResult {
       return { success: true };
     }
 
+    // If agent was already removed from disk, treat as successful and refresh the list
+    if (result.error && result.error.toLowerCase().includes('not found')) {
+      await refetch();
+      return { success: true };
+    }
+
     logger.error('Failed to delete custom agent', result.error);
     return { success: false, error: result.error };
   }, [projectPath, refetch]);
@@ -250,25 +265,126 @@ export function useCustomAgents(projectPath: string): UseCustomAgentsResult {
   }, [projectPath]);
 
   /**
+   * Get a single skill with full content
+   */
+  const getSkill = useCallback(async (skillId: string): Promise<CustomSkillDetail | null> => {
+    if (!projectPath) return null;
+
+    const result = await fetchApi<CustomSkillDetailResponse>(
+      `/api/custom-skills/${encodeURIComponent(skillId)}`,
+      { params: { path: projectPath } }
+    );
+
+    if (result.success && result.data) {
+      return result.data.skill;
+    }
+
+    logger.error('Failed to get custom skill', result.error);
+    return null;
+  }, [projectPath]);
+
+  /**
    * Create a new custom skill
    */
   const createSkill = useCallback(async (
     name: string,
-    content: string
-  ): Promise<{ success: boolean; skill?: CustomSkill; error?: string }> => {
-    const result = await fetchApi<{ skill?: CustomSkill }>('/api/custom-skills', {
+    content: string,
+    bypassWarnings = false
+  ): Promise<CustomSkillOperationResponse> => {
+    const result = await fetchApi<{ skill?: CustomSkill; validation?: CustomSkillValidationResult }>('/api/custom-skills', {
       method: 'POST',
-      body: { projectPath, name, content },
+      body: { projectPath, name, content, bypassWarnings },
     });
 
     if (result.success && result.data) {
       await refetchSkills();
-      return { success: true, skill: result.data.skill };
+      return { success: true, skill: result.data.skill, validation: result.data.validation };
     }
 
     logger.error('Failed to create custom skill', result.error);
     return { success: false, error: result.error };
   }, [projectPath, refetchSkills]);
+
+  /**
+   * Update an existing custom skill
+   */
+  const updateSkill = useCallback(async (
+    skillId: string,
+    name: string,
+    content: string,
+    bypassWarnings = false
+  ): Promise<CustomSkillOperationResponse> => {
+    const result = await fetchApi<{ skill?: CustomSkill; validation?: CustomSkillValidationResult }>(
+      `/api/custom-skills/${encodeURIComponent(skillId)}`,
+      {
+        method: 'PUT',
+        body: { projectPath, name, content, bypassWarnings },
+      }
+    );
+
+    if (result.success && result.data) {
+      await refetchSkills();
+      return { success: true, skill: result.data.skill, validation: result.data.validation };
+    }
+
+    logger.error('Failed to update custom skill', result.error);
+    return { success: false, error: result.error };
+  }, [projectPath, refetchSkills]);
+
+  /**
+   * Upload a skill file (uses FormData, not fetchApi)
+   */
+  const uploadSkill = useCallback(async (
+    file: File,
+    name: string,
+    bypassWarnings = false
+  ): Promise<CustomSkillOperationResponse> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('projectPath', projectPath);
+      formData.append('name', name);
+      formData.append('bypassWarnings', String(bypassWarnings));
+
+      const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3457'}/api/custom-skills/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        return {
+          success: false,
+          error: json.error || 'Failed to upload skill',
+          validation: json.validation || json.data?.validation,
+        };
+      }
+
+      await refetchSkills();
+      return { success: true, skill: json.data?.skill, validation: json.data?.validation };
+    } catch (err) {
+      logger.error('Failed to upload custom skill', err);
+      return { success: false, error: 'Upload failed' };
+    }
+  }, [projectPath, refetchSkills]);
+
+  /**
+   * Validate skill content without saving
+   */
+  const validateSkillContent = useCallback(async (content: string): Promise<CustomSkillValidationResult | null> => {
+    const result = await fetchApi<CustomSkillValidationResponse>('/api/custom-skills/validate', {
+      method: 'POST',
+      body: { content },
+    });
+
+    if (result.success && result.data) {
+      return result.data.validation;
+    }
+
+    logger.error('Failed to validate skill content', result.error);
+    return null;
+  }, []);
 
   /**
    * Delete a custom skill
@@ -283,6 +399,12 @@ export function useCustomAgents(projectPath: string): UseCustomAgentsResult {
     );
 
     if (result.success) {
+      await refetchSkills();
+      return { success: true };
+    }
+
+    // If skill was already removed from disk, treat as successful and refresh the list
+    if (result.error && result.error.toLowerCase().includes('not found')) {
       await refetchSkills();
       return { success: true };
     }
@@ -317,7 +439,11 @@ export function useCustomAgents(projectPath: string): UseCustomAgentsResult {
     skillsLoading,
     skillsError,
     refetchSkills,
+    getSkill,
     createSkill,
+    updateSkill,
+    uploadSkill,
+    validateSkillContent,
     deleteSkill,
   };
 }

@@ -20,6 +20,7 @@ export function execGit(
   cwd: string,
   options: SpawnSyncOptions = {}
 ): string {
+  if (typeof cwd !== 'string') throw new PathValidationError('cwd must be a string');
   if (cwd.includes('..')) throw new PathValidationError('Path traversal not allowed');
   cwd = resolveProjectPath(cwd);
   if (!path.isAbsolute(cwd)) throw new PathValidationError('Path must be rooted');

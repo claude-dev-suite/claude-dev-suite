@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { Button } from './Button';
 import { useFocusTrap } from '@/hooks';
 
-export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full' | 'wide';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -25,6 +25,7 @@ const sizeStyles: Record<ModalSize, string> = {
   lg: 'max-w-lg',
   xl: 'max-w-xl',
   full: 'max-w-4xl',
+  wide: 'max-w-6xl',
 };
 
 export function Modal({

@@ -211,7 +211,7 @@ export function ChatInput({
   }, []);
 
   return (
-    <div className="relative flex gap-2 p-2 bg-[#2d2d44] border-t border-[#3d3d54]">
+    <div className="relative flex gap-2 p-2 bg-[#2d2d44] border-t border-[#3d3d54]" data-tutorial="chat-input">
       {/* Autocomplete Dropdown */}
       {showAutocomplete && autocompleteItems.length > 0 && (
         <div

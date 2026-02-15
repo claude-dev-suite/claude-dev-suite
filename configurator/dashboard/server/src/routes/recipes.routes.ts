@@ -99,7 +99,12 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const { path: projectPath } = req.query as { path: string };
+      const rawPath = req.query.path;
+      if (typeof rawPath !== 'string') {
+        res.status(400).json({ success: false, error: 'Invalid path parameter' });
+        return;
+      }
+      const projectPath = rawPath;
 
       const recommendations = recipesService.getRecommendedRecipes(projectPath);
       const enabledAutomations = recipesService.getEnabledAutomations(projectPath);
@@ -141,7 +146,12 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const { path: projectPath } = req.query as { path: string };
+      const rawPath = req.query.path;
+      if (typeof rawPath !== 'string') {
+        res.status(400).json({ success: false, error: 'Invalid path parameter' });
+        return;
+      }
+      const projectPath = rawPath;
 
       const enabled = recipesService.getEnabledAutomations(projectPath);
 
@@ -375,7 +385,12 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const { path: projectPath } = req.query as { path: string };
+      const rawPath = req.query.path;
+      if (typeof rawPath !== 'string') {
+        res.status(400).json({ success: false, error: 'Invalid path parameter' });
+        return;
+      }
+      const projectPath = rawPath;
 
       const tools = recipesService.detectTools(projectPath);
 

@@ -355,7 +355,7 @@ export function GitPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-tutorial="git-panel">
       {/* Error banner */}
       {error && errorType === 'auth' && (
         <div className="px-3 py-2 bg-amber-500/20 border-b border-amber-500/30 text-amber-300 text-xs">

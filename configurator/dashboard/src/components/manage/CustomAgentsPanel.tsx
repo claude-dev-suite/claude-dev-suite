@@ -5,14 +5,15 @@
  * Displays and manages project-specific custom agents with create/edit/delete functionality.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Card, Badge, ErrorMessage, Spinner } from '../common';
 import { PanelSection } from '../layout';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
 import { useComponentLogger } from '@/hooks/useComponentLogger';
 import { CustomAgentModal } from './CustomAgentModal';
 import { CustomAgentEditorModal } from './CustomAgentEditorModal';
-import type { CustomAgentListItem, CustomAgent } from '@/types/custom-agents';
+import { API_BASE } from '@/utils/api';
+import type { CustomAgentListItem, CustomAgent, GeneratedSkill } from '@/types/custom-agents';
 
 export interface CustomAgentsPanelProps {
   projectPath: string;
@@ -33,6 +34,7 @@ export function CustomAgentsPanel({ projectPath }: CustomAgentsPanelProps) {
     validateContent,
     uploadAgent,
     skills,
+    createSkill,
   } = useCustomAgents(projectPath);
 
   // Modal states
@@ -40,6 +42,22 @@ export function CustomAgentsPanel({ projectPath }: CustomAgentsPanelProps) {
   const [showEditorModal, setShowEditorModal] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<CustomAgent | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [generatedSkills, setGeneratedSkills] = useState<GeneratedSkill[]>([]);
+
+  // AI generation state
+  const [mcpServerNames, setMcpServerNames] = useState<string[]>([]);
+
+  // Fetch available MCP server names for AI chat prompt
+  useEffect(() => {
+    fetch(`${API_BASE}/api/mcp-servers`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.servers) {
+          setMcpServerNames(data.servers.map((s: { name: string }) => s.name));
+        }
+      })
+      .catch(() => { /* MCP list is optional for AI chat */ });
+  }, []);
 
   // Handle opening editor for existing agent
   const handleEdit = async (agentItem: CustomAgentListItem) => {
@@ -70,9 +88,47 @@ export function CustomAgentsPanel({ projectPath }: CustomAgentsPanelProps) {
   // Handle save from editor
   const handleSave = async (content: string, bypassWarnings: boolean) => {
     if (selectedAgent) {
-      return await updateAgent(selectedAgent.id, content, bypassWarnings);
+      // Existing agent → update
+      if (selectedAgent.id !== '__generated__') {
+        return await updateAgent(selectedAgent.id, content, bypassWarnings);
+      }
+      // Generated agent → create new
+      return await createAgent(content, bypassWarnings);
     }
     return { success: false, error: 'No agent selected' };
+  };
+
+  // Handle AI-generated agent content (with optional skills)
+  const handleAgentGenerated = (content: string, skills: GeneratedSkill[]) => {
+    setShowCreateModal(false);
+    setGeneratedSkills(skills);
+    // Open editor modal with generated content as a "virtual" agent
+    setSelectedAgent({
+      id: '__generated__',
+      name: 'AI Generated Agent',
+      description: 'Review and save the AI-generated agent',
+      model: 'sonnet',
+      allowedTools: [],
+      skills: [],
+      mcpServers: [],
+      content,
+      category: 'custom',
+      isCustom: true,
+      filePath: '',
+    });
+    setShowEditorModal(true);
+  };
+
+  // Save generated skills before agent creation
+  const handleSaveSkills = async (skillsToSave: GeneratedSkill[]): Promise<{ success: boolean; errors: string[] }> => {
+    const errors: string[] = [];
+    for (const skill of skillsToSave) {
+      const result = await createSkill(skill.name, skill.content);
+      if (!result.success && result.error && !result.error.includes('already exists')) {
+        errors.push(`Skill "${skill.name}": ${result.error}`);
+      }
+    }
+    return { success: errors.length === 0, errors };
   };
 
   // Model badge colors
@@ -205,6 +261,9 @@ export function CustomAgentsPanel({ projectPath }: CustomAgentsPanelProps) {
         onUploadAgent={uploadAgent}
         onValidate={validateContent}
         availableSkills={skills}
+        availableMcpServers={mcpServerNames}
+        onAgentGenerated={handleAgentGenerated}
+        onSaveSkills={handleSaveSkills}
       />
 
       {/* Editor Modal */}
@@ -214,9 +273,12 @@ export function CustomAgentsPanel({ projectPath }: CustomAgentsPanelProps) {
           onClose={() => {
             setShowEditorModal(false);
             setSelectedAgent(null);
+            setGeneratedSkills([]);
           }}
           agent={selectedAgent}
+          generatedSkills={generatedSkills}
           onSave={handleSave}
+          onSaveSkills={handleSaveSkills}
           onValidate={validateContent}
         />
       )}
