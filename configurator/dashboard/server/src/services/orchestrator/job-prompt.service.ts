@@ -124,41 +124,26 @@ export class JobPromptService {
 
   /**
    * Generate a token-efficient context summary for job-to-chat continuity
-   * This replaces full session resume (~50k tokens) with a structured summary (~500 tokens)
+   * This replaces full session resume (~50k tokens) with a structured summary (~5k tokens)
    */
   generateJobContextSummary(job: Job, outputBuffer: string): JobContextSummary {
-    // Extract key findings from the output (max ~2000 chars to stay under ~500 tokens)
-    const maxFindingsLength = 2000;
+    // Use generous limit to capture full multi-agent reports (~5000 tokens)
+    const maxFindingsLength = 20000;
 
     // Strip ANSI codes for cleaner summary
-    const cleanOutput = outputBuffer.replace(/\x1b\[[0-9;]*m/g, '');
+    const cleanOutput = outputBuffer.replace(/\x1b\[[0-9;]*m/g, '').trim();
 
-    let findings = '';
+    // Use the full output directly — the consolidator output IS the structured summary.
+    // Previous regex-based extraction was fragile and missed non-English content,
+    // emoji-prefixed headers, and multi-agent reports, causing only partial context injection.
+    let findings = cleanOutput;
 
-    // Look for common summary patterns
-    const summaryPatterns = [
-      /(?:summary|riepilogo|risultati?|findings?|issues?|problems?)[\s:]*\n([\s\S]*?)(?:\n\n|$)/gi,
-      /(?:•|\*|-|\d+\.)\s+[^\n]+/g,  // Bullet points or numbered items
-    ];
-
-    for (const pattern of summaryPatterns) {
-      const matches = cleanOutput.match(pattern);
-      if (matches && matches.length > 0) {
-        findings = matches.slice(0, 20).join('\n');  // Max 20 items
-        break;
-      }
-    }
-
-    // If no structured content found, use the last portion of output (most likely the summary)
-    if (!findings || findings.length < 100) {
-      const lines = cleanOutput.split('\n').filter(l => l.trim().length > 0);
-      // Take last 30 lines or so
-      findings = lines.slice(-30).join('\n');
-    }
-
-    // Truncate to max length
+    // If output exceeds max, keep beginning (structure/overview) + end (summary/conclusion)
     if (findings.length > maxFindingsLength) {
-      findings = findings.substring(0, maxFindingsLength) + '...[truncated]';
+      const halfMax = Math.floor(maxFindingsLength / 2);
+      const beginning = findings.substring(0, halfMax);
+      const end = findings.substring(findings.length - halfMax);
+      findings = beginning + '\n\n...[middle section truncated for brevity]...\n\n' + end;
     }
 
     // Determine action type from job title/prompt

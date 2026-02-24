@@ -55,6 +55,8 @@ export class JobQueueService {
   private currentJobSessionId: string | null = null;
   /** Output buffer for current job (for context summary generation) */
   private currentJobOutputBuffer: string = '';
+  /** Whether the consolidator subtask has provided its output for the current job */
+  private consolidatorOutputReceived: boolean = false;
   /** Last completed job context (for chat continuity) */
   private lastJobContext: JobContextSummary | null = null;
 
@@ -201,6 +203,16 @@ export class JobQueueService {
 
       job.completedSubTasks[currentTask.agentId] = result.output;
 
+      // Accumulate output for job context summary generation.
+      // The consolidator (final summary) replaces all prior output as the primary context.
+      // Before the consolidator runs, accumulate all subtask outputs.
+      if (currentTask.agentId === 'consolidator') {
+        this.currentJobOutputBuffer = result.output;
+        this.consolidatorOutputReceived = true;
+      } else if (!this.consolidatorOutputReceived) {
+        this.currentJobOutputBuffer += result.output;
+      }
+
       this.wsClientService.broadcast({
         type: 'subtask_complete',
         payload: {
@@ -243,6 +255,7 @@ export class JobQueueService {
     // Reset session ID and output buffer
     this.currentJobSessionId = null;
     this.currentJobOutputBuffer = '';
+    this.consolidatorOutputReceived = false;
 
     // Initialize job tracking
     const trackedJob = job as TrackedJob;

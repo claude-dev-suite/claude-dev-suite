@@ -30,23 +30,29 @@ import type { ValidationService } from './validation.service.js';
 import type { WebSocketClientService } from './websocket-client.service.js';
 import type { AgentSDKService } from './agent-sdk.service.js';
 
+/** Callback to retrieve the server-side job context (never trust the client's copy) */
+export type JobContextProvider = () => JobContextSummary | null;
+
 export class ChatSessionService {
   private state: ChatState;
   private config: OrchestratorConfig;
   private validationService: ValidationService;
   private wsClientService: WebSocketClientService;
   private sdkService: AgentSDKService;
+  private jobContextProvider: JobContextProvider;
 
   constructor(
     config: OrchestratorConfig,
     validationService: ValidationService,
     wsClientService: WebSocketClientService,
-    sdkService: AgentSDKService
+    sdkService: AgentSDKService,
+    jobContextProvider: JobContextProvider = () => null
   ) {
     this.config = config;
     this.validationService = validationService;
     this.wsClientService = wsClientService;
     this.sdkService = sdkService;
+    this.jobContextProvider = jobContextProvider;
     this.state = {
       sessionId: null,
       active: false,
@@ -61,17 +67,23 @@ export class ChatSessionService {
    */
   private formatJobContextAsPrompt(jobContext: JobContextSummary): string {
     return `## Previous Task Context
-You previously completed a task in this project. Here is the summary:
+You previously completed a task in this project. Here is the FULL report:
 
 **Task:** ${jobContext.title} (${jobContext.action})
 **Project:** ${jobContext.projectPath}
 **Completed:** ${jobContext.completedAt}
 
-**Key Findings/Results:**
+**Complete Findings/Results:**
 ${jobContext.findings}
 
 ---
-Use this context to understand what was done. The user is now following up on this work.
+CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
+
+1. The report above contains issues from MULTIPLE agents/categories (e.g., Security, Performance, Architecture, Best Practices, Code Quality). You MUST address ALL categories, not just the first one.
+2. Create a todo list with one task per CATEGORY to track your progress. Mark each category complete only after fixing ALL its issues.
+3. After finishing fixes for one category, EXPLICITLY move to the NEXT category. Do NOT stop or say "Done" until every category has been addressed.
+4. Work through issues by priority within each category: Critical → High → Medium → Low.
+5. If a fix is not feasible, explain why and move on — do not skip the entire remaining category.
 
 `;
   }
@@ -88,8 +100,25 @@ Use this context to understand what was done. The user is now following up on th
     const projectPathInput = (context?.projectPath as string) || this.state.projectPath || getProjectPath();
     // Read sessionId from frontend payload for context persistence
     const clientSessionId = payload.sessionId as string | undefined;
-    // Extract job context for token-efficient continuity
-    const jobContext = payload.jobContext as JobContextSummary | undefined;
+    // Job context: validate client-supplied jobId against server-side stored context.
+    // SECURITY: Never trust the client's jobContext content (findings, title, etc.).
+    // The client only signals intent; the server uses its own trusted copy.
+    const clientJobContext = payload.jobContext as { jobId?: string } | undefined;
+    let jobContext: JobContextSummary | undefined;
+    if (clientJobContext?.jobId) {
+      const serverContext = this.jobContextProvider();
+      if (serverContext && serverContext.jobId === clientJobContext.jobId) {
+        jobContext = serverContext;
+      } else {
+        wsLogger.warn('Job context rejected: jobId does not match server-side context', {
+          correlationId,
+          data: {
+            clientJobId: clientJobContext.jobId,
+            serverJobId: serverContext?.jobId || null,
+          },
+        });
+      }
+    }
     // Optional per-session tool restriction (e.g., generation chats use read-only tools)
     const clientAllowedTools = Array.isArray(payload.allowedTools) ? payload.allowedTools as string[] : undefined;
 
@@ -200,16 +229,30 @@ Use this context to understand what was done. The user is now following up on th
     let finalPrompt = text;
     let useResume = resumeSessionId;
 
-    if (jobContext && !explicitResume) {
+    // When following up on a completed job (e.g., "fix all issues from code review"),
+    // ALWAYS use context injection instead of session resume, even if resumeSession=true.
+    // Session resume loads the full job history (~50k tokens) leaving almost no room
+    // for Claude to actually apply fixes. Context injection uses a structured summary
+    // (~5k tokens) giving Claude maximum room to work.
+    const hasJobContext = !!jobContext;
+
+    if (hasJobContext) {
       // Token-efficient path: inject context summary instead of resuming
-      finalPrompt = this.formatJobContextAsPrompt(jobContext) + text;
+      finalPrompt = this.formatJobContextAsPrompt(jobContext!) + text;
       useResume = undefined;  // Don't resume session, use fresh session with context
+      if (explicitResume) {
+        wsLogger.warn('Job context overrides explicit session resume — using context injection instead', {
+          correlationId,
+          data: { jobId: jobContext!.jobId, resumeSessionId },
+        });
+      }
       wsLogger.info('Using token-efficient context injection', {
         correlationId,
         data: {
-          jobId: jobContext.jobId,
-          contextLength: jobContext.findings.length,
-          estimatedTokens: Math.ceil(jobContext.findings.length / 4),  // ~4 chars per token
+          jobId: jobContext!.jobId,
+          contextLength: jobContext!.findings.length,
+          estimatedTokens: Math.ceil(jobContext!.findings.length / 4),  // ~4 chars per token
+          permissionMode: 'acceptEdits',
         },
       });
     }
@@ -224,7 +267,7 @@ Use this context to understand what was done. The user is now following up on th
           systemPrompt: { type: 'preset', preset: 'claude_code' },
           settingSources: ['project'],
           allowedTools: clientAllowedTools || ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
-          permissionMode: this.config.chat.permissionMode,
+          permissionMode: hasJobContext ? 'acceptEdits' : this.config.chat.permissionMode,
           abortController: this.state.abortController,
           ...(this.config.chat.maxTurns !== undefined && { maxTurns: this.config.chat.maxTurns }),
           ...(this.config.chat.maxBudgetUsd > 0 && { maxBudgetUsd: this.config.chat.maxBudgetUsd }),

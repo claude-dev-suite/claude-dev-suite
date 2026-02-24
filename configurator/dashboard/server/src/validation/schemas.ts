@@ -425,8 +425,12 @@ export const ChatMessagePayloadSchema = z.object({
   sessionId: z.string().optional(),
   resumeSession: z.boolean().optional(),
   context: z.record(z.string(), z.unknown()).optional(),
-  // Job context for token-efficient continuity (preferred over resumeSession)
-  jobContext: JobContextSummarySchema.optional(),
+  // Job context reference for token-efficient continuity.
+  // SECURITY: Client only sends { jobId } as a signal; the server validates
+  // the jobId against its own stored context and uses the server-side copy.
+  // Full JobContextSummary fields are accepted for backwards compat but ignored.
+  jobContext: z.object({ jobId: z.string() }).passthrough().optional(),
+  allowedTools: z.array(z.string()).optional(),
 });
 
 // SubTask schema for multi-agent job execution

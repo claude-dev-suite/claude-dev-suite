@@ -60,17 +60,19 @@ export class OrchestratorService {
     this.validationService = new ValidationService(this.config);
     this.wsClientService = new WebSocketClientService();
     this.sdkService = new AgentSDKService();
-    this.chatService = new ChatSessionService(
-      this.config,
-      this.validationService,
-      this.wsClientService,
-      this.sdkService
-    );
+    // JobQueueService must be created first so we can pass its context provider to ChatSessionService
     this.jobService = new JobQueueService(
       this.config,
       this.validationService,
       this.wsClientService,
       this.sdkService
+    );
+    this.chatService = new ChatSessionService(
+      this.config,
+      this.validationService,
+      this.wsClientService,
+      this.sdkService,
+      () => this.jobService.getLastJobContext()
     );
   }
 

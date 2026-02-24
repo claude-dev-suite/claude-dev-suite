@@ -35,6 +35,24 @@ export function listSourceFiles(projectPath: string, isValidPath: (p: string) =>
 
   let allFiles: string[] = [];
 
+  const scanDir = (dir: string, base = ''): void => {
+    if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (EXCLUDED_DIRS.has(entry.name)) continue;
+        const relPath = base ? `${base}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          scanDir(path.join(dir, entry.name), relPath);
+        } else {
+          allFiles.push(relPath);
+        }
+      }
+    } catch {
+      // Directory not readable - skip
+    }
+  };
+
   try {
     const output = execSync('git ls-files', {
       cwd: projectPath,
@@ -51,25 +69,13 @@ export function listSourceFiles(projectPath: string, isValidPath: (p: string) =>
         allFiles.push(relPath);
       }
     }
+
+    // git ls-files succeeded but returned nothing (e.g. no commits yet) - fallback to directory scan
+    if (allFiles.length === 0) {
+      scanDir(projectPath);
+    }
   } catch {
     // Git command failed - fallback to directory scan
-    const scanDir = (dir: string, base = ''): void => {
-      if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
-      try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (EXCLUDED_DIRS.has(entry.name)) continue;
-          const relPath = base ? `${base}/${entry.name}` : entry.name;
-          if (entry.isDirectory()) {
-            scanDir(path.join(dir, entry.name), relPath);
-          } else {
-            allFiles.push(relPath);
-          }
-        }
-      } catch {
-        // Directory not readable - skip
-      }
-    };
     scanDir(projectPath);
   }
 
@@ -187,7 +193,26 @@ export function getFullProjectCode(
   const MAX_LINES_PER_FILE = 500;
   const filterPaths = options.paths || null;
 
-  let allFiles: string[];
+  let allFiles: string[] = [];
+
+  const scanDirFull = (dir: string, base = ''): void => {
+    if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (EXCLUDED_DIRS.has(entry.name)) continue;
+        const relPath = base ? `${base}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          scanDirFull(path.join(dir, entry.name), relPath);
+        } else {
+          allFiles.push(relPath);
+        }
+      }
+    } catch {
+      // Directory not readable - skip
+    }
+  };
+
   try {
     const output = execSync('git ls-files', {
       cwd: projectPath,
@@ -196,27 +221,14 @@ export function getFullProjectCode(
       timeout: 10000,
     });
     allFiles = output.trim().split('\n').filter(Boolean);
+
+    // git ls-files succeeded but returned nothing (e.g. no commits yet) - fallback to directory scan
+    if (allFiles.length === 0) {
+      scanDirFull(projectPath);
+    }
   } catch {
     // Git command failed - fallback to directory scan
-    allFiles = [];
-    const scanDir = (dir: string, base = ''): void => {
-      if (dir.includes('..')) throw new PathValidationError('Path traversal not allowed');
-      try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (EXCLUDED_DIRS.has(entry.name)) continue;
-          const relPath = base ? `${base}/${entry.name}` : entry.name;
-          if (entry.isDirectory()) {
-            scanDir(path.join(dir, entry.name), relPath);
-          } else {
-            allFiles.push(relPath);
-          }
-        }
-      } catch {
-        // Directory not readable - skip
-      }
-    };
-    scanDir(projectPath);
+    scanDirFull(projectPath);
   }
 
   let sourceFiles = allFiles.filter((file) => {

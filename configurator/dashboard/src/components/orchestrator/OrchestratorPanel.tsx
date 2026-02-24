@@ -321,13 +321,18 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
       state.setIsProcessing(true);
       state.setProgressStatus('Processing...');
 
-      if (ws.lastJobContext && !state.chatSessionId) {
-        logger.debug('Using job context for chat continuity (first message)', {
+      if (ws.lastJobContext) {
+        // Job context ALWAYS takes priority over session resume.
+        // SECURITY: Only send { jobId } as a reference — the server uses its own
+        // trusted copy of the job context, never the client's content.
+        logger.debug('Using job context for chat continuity', {
           jobId: ws.lastJobContext.jobId,
-          findingsLength: ws.lastJobContext.findings.length,
+          hadSessionId: !!state.chatSessionId,
         });
-        ws.sendChatMessage(message, null, false, ws.lastJobContext);
+        ws.sendChatMessage(message, null, false, { jobId: ws.lastJobContext.jobId } as typeof ws.lastJobContext);
         ws.clearJobContext();
+        // Clear the job's session ID so subsequent messages start fresh
+        state.setChatSessionId(null);
       } else if (state.chatSessionId) {
         ws.sendChatMessage(message, state.chatSessionId, true);
       } else {
