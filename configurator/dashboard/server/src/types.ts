@@ -88,6 +88,7 @@ export interface EnvVarConfig {
   default: string;
   detectedValue?: string;
   source?: string;
+  mcpServer?: string;
 }
 
 // Installation types

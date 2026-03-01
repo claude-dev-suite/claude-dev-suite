@@ -190,6 +190,7 @@ export class AgentsService {
                   default: envVar.default || '',
                   detectedValue,
                   source,
+                  mcpServer: serverName,
                 });
               }
             }
@@ -393,6 +394,7 @@ export class AgentsService {
       });
     }
 
+    // 1. Search .env* files (KEY=VALUE format)
     for (const dir of searchDirs) {
       for (const envFile of envFiles) {
         const envPath = path.join(dir, envFile);
@@ -412,6 +414,182 @@ export class AgentsService {
           }
         }
       }
+    }
+
+    // 2. For DATABASE_URL, try framework-specific config files
+    if (varName === 'DATABASE_URL') {
+      const dbUrl = this.detectDatabaseUrlFromConfig(projectPath, searchDirs);
+      if (dbUrl) return dbUrl;
+    }
+
+    return null;
+  }
+
+  /**
+   * Detect DATABASE_URL from framework config files:
+   * - Spring Boot: application.yml / application.properties
+   * - Docker Compose: docker-compose.yml (postgres/mysql services)
+   */
+  private detectDatabaseUrlFromConfig(
+    projectPath: string,
+    searchDirs: string[]
+  ): { value: string; source: string } | null {
+    // Search for Spring Boot config files (also in src/main/resources/)
+    const configLocations: string[] = [];
+    for (const dir of searchDirs) {
+      configLocations.push(dir);
+      const resourcesDir = path.join(dir, 'src', 'main', 'resources');
+      if (fs.existsSync(resourcesDir)) {
+        configLocations.push(resourcesDir);
+      }
+    }
+
+    // Try application.yml / application.yaml
+    for (const dir of configLocations) {
+      for (const name of ['application.yml', 'application.yaml']) {
+        const filePath = path.join(dir, name);
+        if (fs.existsSync(filePath)) {
+          try {
+            const content = fs.readFileSync(filePath, 'utf-8');
+            const url = this.extractJdbcUrlFromYaml(content);
+            if (url) {
+              const relativePath = path.relative(projectPath, filePath);
+              return { value: url, source: `auto-detected (${relativePath})` };
+            }
+          } catch { /* skip unreadable files */ }
+        }
+      }
+
+      // Try application.properties
+      const propsPath = path.join(dir, 'application.properties');
+      if (fs.existsSync(propsPath)) {
+        try {
+          const content = fs.readFileSync(propsPath, 'utf-8');
+          const url = this.extractJdbcUrlFromProperties(content);
+          if (url) {
+            const relativePath = path.relative(projectPath, propsPath);
+            return { value: url, source: `auto-detected (${relativePath})` };
+          }
+        } catch { /* skip unreadable files */ }
+      }
+    }
+
+    // Try docker-compose.yml at project root
+    for (const name of ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml']) {
+      const composePath = path.join(projectPath, name);
+      if (fs.existsSync(composePath)) {
+        try {
+          const content = fs.readFileSync(composePath, 'utf-8');
+          const url = this.extractDbUrlFromCompose(content);
+          if (url) {
+            return { value: url, source: `auto-detected (${name})` };
+          }
+        } catch { /* skip unreadable files */ }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract JDBC URL from application.yml and convert to standard DATABASE_URL format.
+   * Parses spring.datasource.url, username, password using simple line matching.
+   */
+  private extractJdbcUrlFromYaml(content: string): string | null {
+    // Match spring.datasource.url (handles both inline and nested YAML)
+    const urlMatch = content.match(/^\s*url:\s*(.+)$/m);
+    if (!urlMatch) return null;
+
+    const jdbcUrl = urlMatch[1]!.trim();
+    // Verify it's in a datasource context
+    const urlIndex = content.indexOf(urlMatch[0]);
+    const preceding = content.substring(0, urlIndex);
+    if (!preceding.includes('datasource')) return null;
+
+    const usernameMatch = content.match(/^\s*username:\s*(.+)$/m);
+    const passwordMatch = content.match(/^\s*password:\s*(.+)$/m);
+
+    return this.jdbcToStandardUrl(
+      jdbcUrl,
+      usernameMatch?.[1]?.trim(),
+      passwordMatch?.[1]?.trim()
+    );
+  }
+
+  /**
+   * Extract JDBC URL from application.properties and convert to standard DATABASE_URL.
+   */
+  private extractJdbcUrlFromProperties(content: string): string | null {
+    const urlMatch = content.match(/^spring\.datasource\.url\s*=\s*(.+)$/m);
+    if (!urlMatch) return null;
+
+    const usernameMatch = content.match(/^spring\.datasource\.username\s*=\s*(.+)$/m);
+    const passwordMatch = content.match(/^spring\.datasource\.password\s*=\s*(.+)$/m);
+
+    return this.jdbcToStandardUrl(
+      urlMatch[1]!.trim(),
+      usernameMatch?.[1]?.trim(),
+      passwordMatch?.[1]?.trim()
+    );
+  }
+
+  /**
+   * Convert JDBC URL to standard database URL format.
+   * jdbc:postgresql://host:port/db → postgresql://user:pass@host:port/db
+   */
+  private jdbcToStandardUrl(jdbcUrl: string, username?: string, password?: string): string | null {
+    // Strip jdbc: prefix
+    const match = jdbcUrl.match(/^jdbc:(\w+):\/\/(.+)$/);
+    if (!match) return null;
+
+    const [, protocol, hostAndPath] = match;
+    const credentials = username && password
+      ? `${username}:${password}@`
+      : username
+        ? `${username}@`
+        : '';
+
+    return `${protocol}://${credentials}${hostAndPath}`;
+  }
+
+  /**
+   * Extract database URL from docker-compose.yml by finding postgres/mysql services.
+   */
+  private extractDbUrlFromCompose(content: string): string | null {
+    // Detect postgres image
+    const pgMatch = content.match(/image:\s*postgres[:\s]/);
+    if (pgMatch) {
+      const dbMatch = content.match(/POSTGRES_DB:\s*(\S+)/);
+      const userMatch = content.match(/POSTGRES_USER:\s*(\S+)/);
+      const passMatch = content.match(/POSTGRES_PASSWORD:\s*(\S+)/);
+      // Find published port (host:container format)
+      const portMatch = content.match(/["']?(\d+):5432["']?/);
+
+      const db = dbMatch?.[1] || 'postgres';
+      const user = userMatch?.[1] || 'postgres';
+      const pass = passMatch?.[1] || '';
+      const port = portMatch?.[1] || '5432';
+
+      const credentials = pass ? `${user}:${pass}@` : `${user}@`;
+      return `postgresql://${credentials}localhost:${port}/${db}`;
+    }
+
+    // Detect mysql image
+    const mysqlMatch = content.match(/image:\s*mysql[:\s]/);
+    if (mysqlMatch) {
+      const dbMatch = content.match(/MYSQL_DATABASE:\s*(\S+)/);
+      const userMatch = content.match(/MYSQL_USER:\s*(\S+)/);
+      const passMatch = content.match(/MYSQL_PASSWORD:\s*(\S+)/);
+      const rootPassMatch = content.match(/MYSQL_ROOT_PASSWORD:\s*(\S+)/);
+      const portMatch = content.match(/["']?(\d+):3306["']?/);
+
+      const db = dbMatch?.[1] || 'mysql';
+      const user = userMatch?.[1] || 'root';
+      const pass = passMatch?.[1] || rootPassMatch?.[1] || '';
+      const port = portMatch?.[1] || '3306';
+
+      const credentials = pass ? `${user}:${pass}@` : `${user}@`;
+      return `mysql://${credentials}localhost:${port}/${db}`;
     }
 
     return null;

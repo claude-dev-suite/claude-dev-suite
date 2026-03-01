@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 /**
  * Agents API Routes
- * 
+ *
  * Endpoints for listing agents and MCP servers.
  */
 
 import { Router, type Request, type Response } from 'express';
 import { AgentsService } from '../services/agents.service.js';
+import { logger } from '../utils/logger.js';
 
 export const agentsRoutes = Router();
 const agentsService = new AgentsService();
@@ -51,27 +52,33 @@ agentsRoutes.post('/env-vars', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'servers or serverNames array is required' });
     }
 
-    const envVars = await agentsService.getRequiredEnvVars(serverList);
+    const envVars = await agentsService.getRequiredEnvVars(serverList, projectPath);
 
-    // If projectPath provided, detect environment values
+    // If projectPath provided, try to detect environment values (non-blocking)
     if (projectPath) {
-      const { DetectionService } = await import('../services/detection.service.js');
-      const detectionService = new DetectionService();
-      const environments = await detectionService.detectEnvironments(projectPath);
+      try {
+        const { DetectionService } = await import('../services/detection.service.js');
+        const detectionService = new DetectionService();
+        const environments = await detectionService.detectEnvironments(projectPath);
 
-      // Find the selected environment or use first one
-      const envToUse = selectedEnv
-        ? environments.find(e => e.name === selectedEnv)
-        : environments[0];
+        // Find the selected environment or use first one
+        const envToUse = selectedEnv
+          ? environments.find(e => e.name === selectedEnv)
+          : environments[0];
 
-      if (envToUse?.databaseUrl) {
-        // Add detected value to DATABASE_URL
-        for (const envVar of envVars) {
-          if (envVar.name === 'DATABASE_URL') {
-            envVar.detectedValue = envToUse.databaseUrl;
-            envVar.source = envToUse.source;
+        if (envToUse?.databaseUrl) {
+          // Add detected value to DATABASE_URL
+          for (const envVar of envVars) {
+            if (envVar.name === 'DATABASE_URL') {
+              envVar.detectedValue = envToUse.databaseUrl;
+              envVar.source = envToUse.source;
+            }
           }
         }
+      } catch (detectionErr) {
+        logger.warn('Environment detection failed, env vars returned without auto-detection', {
+          error: detectionErr,
+        });
       }
     }
 

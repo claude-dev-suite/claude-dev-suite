@@ -540,18 +540,33 @@ export class InstallationService {
 
       // Run npm install in production mode
       if (fs.existsSync(path.join(serverDest, 'package.json'))) {
-        execSync('npm install --production', {
-          cwd: serverDest,
-          stdio: 'pipe',
-          timeout: TIMEOUTS.NPM_INSTALL,
-        });
+        try {
+          // Strip NODE_OPTIONS to avoid tsx loader conflicts in child process
+          const cleanEnv = { ...process.env };
+          delete cleanEnv.NODE_OPTIONS;
+          execSync('npm install --omit=dev', {
+            cwd: serverDest,
+            stdio: 'pipe',
+            timeout: TIMEOUTS.NPM_INSTALL,
+            env: cleanEnv,
+          });
+        } catch (npmError: unknown) {
+          const msg = npmError instanceof Error ? npmError.message : String(npmError);
+          const stderr = (npmError as { stderr?: Buffer })?.stderr?.toString() || '';
+          logger.error('npm install failed for MCP server', {
+            error: npmError,
+            context: { serverName, serverDest, message: msg, stderr: stderr.substring(0, 500) }
+          });
+          // npm install failure is non-fatal: server may still work if it has no runtime deps
+          // or if deps are bundled in dist/
+        }
       }
 
       return true;
     } catch (error: unknown) {
-      logger.warn('Failed to install MCP server', {
+      logger.error('Failed to install MCP server', {
         error,
-        context: { serverName, projectPath }
+        context: { serverName, projectPath, serverDest: path.join(projectPath, '.mcp-servers', serverName) }
       });
       return false;
     }
