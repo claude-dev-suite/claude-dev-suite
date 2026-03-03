@@ -34,7 +34,7 @@ dev-suite/
 6. **Modify installed components in target projects manually** — Use `/reconfigure` command or dashboard
 
 ### DO:
-1. **Keep components loosely coupled** — Agents declare skills/MCP servers in frontmatter → Skills reference KB docs → MCP `metadata.json` declares `requiredFor`/`detectedWhen`
+1. **Keep components loosely coupled** — Agents declare skills/MCP servers in frontmatter → Skills reference KB docs → MCP `metadata.json` declares `recommendedFor`/`detectedWhen`. MCP servers are never required — agents must work without them.
 2. **Update metadata when adding components** — Add to `mcp-servers/package.json` workspaces, create `metadata.json`, add YAML frontmatter
 3. **Use dynamic configuration** — Load from `registry/*.json`, parse `metadata.json`, extract YAML frontmatter
 4. **Test cross-platform** — `init-project.sh` (Linux/macOS) + `init-project.ps1` (Windows)
@@ -62,7 +62,7 @@ mcp_servers:                    # MCP servers this agent uses
 ```
 
 ### MCP Server Metadata Fields
-Each `mcp-servers/{name}/metadata.json` contains: `name`, `description`, `shortDescription`, `category`, `tools[]`, `envVars[]` (with `name`, `description`, `default`, `required`), `requiredFor[]` (agent IDs), `detectedWhen[]` (technology keywords).
+Each `mcp-servers/{name}/metadata.json` contains: `name`, `description`, `shortDescription`, `category`, `tools[]`, `envVars[]` (with `name`, `description`, `default`, `required`), `recommendedFor[]` (agent IDs that benefit from this server — never required), `detectedWhen[]` (technology keywords).
 
 ### Naming Conventions
 
@@ -113,7 +113,7 @@ Tech stack: React 19, Express 5, Electron 40, Vite 7, Zustand, Zod 4, TypeScript
 
 ### Add a New MCP Server
 1. Create `mcp-servers/{server-name}/` with `package.json` (`@dev-suite/{name}`, main: `dist/index.js`)
-2. Add `metadata.json` with `name`, `description`, `category`, `tools`, `envVars`, `requiredFor`, `detectedWhen`
+2. Add `metadata.json` with `name`, `description`, `category`, `tools`, `envVars`, `recommendedFor`, `detectedWhen`
 3. Add `src/index.ts` with MCP server implementation
 4. Add `tsconfig.json` (extend from root or create standalone)
 5. Update `mcp-servers/package.json` workspaces array

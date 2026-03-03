@@ -131,13 +131,17 @@ When migrating JavaScript to TypeScript:
 ## MCP Server Usage Guidelines
 
 ### code-quality
-- **USE** `analyze_complexity(threshold=10)` for complex functions
-- **USE** `find_duplicates(minLines=5)` for duplicated code
-- **USE** `check_dependencies()` for circular dependencies
+If the `code-quality` MCP server is available, prefer using it for automated analysis. When using it:
+- Use `analyze_complexity(threshold=10)` for complex functions
+- Use `find_duplicates(minLines=5)` for duplicated code
+- Use `check_dependencies()` for circular dependencies
+
+If `code-quality` is not available, use ESLint, Biome, or `tsc --noEmit` via Bash for analysis.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
 
 ## Quality Metrics
 

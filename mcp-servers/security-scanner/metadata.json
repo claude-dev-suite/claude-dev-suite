@@ -12,7 +12,7 @@
     "scan_all"
   ],
   "envVars": [],
-  "requiredFor": [
+  "recommendedFor": [
     "security-expert",
     "devops-expert"
   ]

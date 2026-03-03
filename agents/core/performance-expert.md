@@ -217,17 +217,21 @@ Solution: Algorithm optimization, memoization, early returns
 ## MCP Server Usage Guidelines
 
 ### performance-profiler
-- **USE** `profile_function` for specific functions instead of entire scripts
-- **PREFER** `find_bottlenecks` for targeted analysis
-- **USE** `benchmark_code(iterations=100)` with reasonable iterations
-- **USE** `analyze_memory(duration=30)` with limited durations
-- **PREFER** `profile_endpoint` for APIs instead of full profiling
-- **LIMIT** `stress_test_flow` to reasonable durations (max 60s)
+If the `performance-profiler` MCP server is available, prefer using it for profiling. When using it:
+- Use `profile_function` for specific functions instead of entire scripts
+- Prefer `find_bottlenecks` for targeted analysis
+- Use `benchmark_code(iterations=100)` with reasonable iterations
+- Use `analyze_memory(duration=30)` with limited durations
+- Prefer `profile_endpoint` for APIs instead of full profiling
+- Limit `stress_test_flow` to reasonable durations (max 60s)
+
+If `performance-profiler` is not available, use Bash profiling tools (`node --prof`, `py-spy`, `async_profiler`) and static code analysis to identify bottlenecks.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
+- Avoid `fetch_docs` for generic topics
 
 ## Usage Examples
 

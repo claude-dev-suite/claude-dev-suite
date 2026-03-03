@@ -12,9 +12,10 @@
     "mock_server"
   ],
   "envVars": [],
-  "requiredFor": [
+  "recommendedFor": [
     "nestjs-expert",
     "spring-boot-expert",
-    "fastapi-expert"
+    "fastapi-expert",
+    "smoke-test-expert"
   ]
 }

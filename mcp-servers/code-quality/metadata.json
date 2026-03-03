@@ -33,6 +33,8 @@
       "description": "Calculate LOC, comments ratio, file sizes, function counts"
     }
   ],
-  "env": [],
-  "agents": ["code-reviewer", "architect"]
+  "shortDescription": "Code quality analysis",
+  "envVars": [],
+  "recommendedFor": ["code-reviewer", "architect"],
+  "detectedWhen": []
 }

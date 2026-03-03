@@ -22,9 +22,10 @@
       "required": true
     }
   ],
-  "requiredFor": [
+  "recommendedFor": [
     "prisma-expert",
-    "sql-expert"
+    "sql-expert",
+    "smoke-test-expert"
   ],
   "detectedWhen": [
     "prisma",

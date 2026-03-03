@@ -76,7 +76,7 @@ export interface McpServer {
   category: string;
   tools: string[];
   envVars: EnvVarConfig[];
-  requiredFor: string[];
+  recommendedFor: string[];
   detectedWhen: string[];
   path: string;
 }

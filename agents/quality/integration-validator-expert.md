@@ -228,7 +228,7 @@ For each API call found, extract:
 
 ### Step 4: Query api-explorer (TOKEN EFFICIENT)
 
-**CRITICAL**: Never load full OpenAPI spec!
+**Best practice**: Avoid loading the full OpenAPI spec when possible — query specific endpoints instead.
 
 ```
 # 1. Search for relevant endpoints first
@@ -329,9 +329,11 @@ CONTEXT:
 After fix, integration-validator will re-validate.
 ```
 
-## MCP Server Usage - TOKEN EFFICIENCY CRITICAL
+## MCP Server Usage - Token Efficiency
 
-### DO
+If the `api-explorer` MCP server is available, prefer using it for OpenAPI validation. When using it, follow these token-efficient patterns:
+
+### Preferred tool calls
 
 | Action | Tool Call |
 |--------|-----------|
@@ -340,9 +342,9 @@ After fix, integration-validator will re-validate.
 | Get specific model | `get_api_models(model="CreateUserRequest", compact=true)` |
 | List paths by tag | `list_api_paths(tag="users", limit=20)` |
 
-### DON'T
+### Patterns to avoid (wasteful)
 
-| Action | Why Not |
+| Action | Why to avoid |
 |--------|---------|
 | `get_api_schema(format="full")` | Loads entire spec - too many tokens |
 | `get_api_models()` without filter | Returns all models - wasteful |
@@ -354,7 +356,9 @@ After fix, integration-validator will re-validate.
 1. **Search first** - Find relevant endpoints by keyword
 2. **Query specific** - Get only the endpoint you need
 3. **Compact models** - Use `compact=true` for model summaries
-4. **Limit results** - Always set reasonable limits
+4. **Limit results** - Set reasonable limits
+
+If `api-explorer` is not available, fall back to reading the OpenAPI spec file directly (openapi.json / openapi.yaml) using the Read tool, querying only the relevant sections.
 
 ## Discrepancy Categories
 

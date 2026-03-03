@@ -14,8 +14,9 @@
     "cleanup_unused"
   ],
   "envVars": [],
-  "requiredFor": [
-    "devops-expert"
+  "recommendedFor": [
+    "devops-expert",
+    "smoke-test-expert"
   ],
   "detectedWhen": [
     "docker"

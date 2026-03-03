@@ -201,11 +201,12 @@ SELECT * FROM users ORDER BY id OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY;
 ## MCP Server Usage Guidelines
 
 ### database-query
-- **ALWAYS** specify `LIMIT` in queries (automatic default: 1000)
-- **NEVER** do `SELECT *` on potentially large tables
-- **PREFER** `get_schema(compact=true)` for DB structure overview
-- **USE** `describe_table` before exploratory queries
-- **USE** `explain_query` before complex queries
+If the `database-query` MCP server is available, prefer using it for live database operations. When using it:
+- Specify `LIMIT` in queries (automatic default: 1000)
+- Avoid `SELECT *` on potentially large tables
+- Prefer `get_schema(compact=true)` for DB structure overview
+- Use `describe_table` before exploratory queries
+- Use `explain_query` before complex queries
 
 ```sql
 -- GOOD: Query with limit and specific columns
@@ -215,10 +216,13 @@ SELECT id, name, email FROM users WHERE active = true LIMIT 100
 SELECT * FROM users
 ```
 
+If `database-query` is not available, work with static code analysis, migration files, and schema definitions found in the project.
+
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
+- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 

@@ -19,7 +19,7 @@
     "stress_test_flow"
   ],
   "envVars": [],
-  "requiredFor": [
+  "recommendedFor": [
     "qa-expert"
   ]
 }

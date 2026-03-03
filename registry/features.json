@@ -90,9 +90,35 @@
           "hooks": ["[[ \"$CLAUDE_FILE_PATHS\" =~ \\.(ts|tsx)$ ]] && npx tsc --noEmit || true"]
         }
       }
+    },
+    {
+      "id": "smoke-test-hook",
+      "version": "1.0.0",
+      "type": "hook",
+      "name": "Smoke Test After Implementation Hook",
+      "description": "Automatic smoke test trigger after backend implementation agents complete. Detects when backend endpoints or features are modified and triggers the smoke-test-expert to verify everything works end-to-end.",
+      "addedInVersion": "1.1.0",
+      "stackRequirements": {
+        "requiresAny": {
+          "backend": ["spring-boot", "nestjs", "fastapi", "django", "flask", "go", "rust", "deno", "express", "dotnet"]
+        }
+      },
+      "dependencies": {
+        "agents": ["smoke-test-expert"]
+      },
+      "apply": {
+        "type": "hook-merge",
+        "target": ".claude/settings.json",
+        "event": "SubagentStop",
+        "config": {
+          "matcherBuilder": "buildSmokeTestMatcher",
+          "promptTemplate": "smoke-test-prompt"
+        }
+      }
     }
   ],
   "promptTemplates": {
-    "integration-validator-prompt": "Analyze the completed agent work and determine if API integration validation is needed.\n\nCONTEXT: $ARGUMENTS\n\nTRIGGER CRITERIA (respond {ok: false} to continue with integration-validator):\n\n**Backend:**\n- Changes to HTTP controllers/routes/handlers\n- New REST or GraphQL endpoints\n- Changes to DTO/request/response types\n- Changes to API authentication middleware\n\n**Frontend:**\n- New API calls (fetch, axios, ky, ofetch)\n- Changes to data fetching hooks (useQuery, useMutation, useSWR)\n- Changes to composables/services that call APIs\n- Changes to TypeScript types for API request/response\n\nDO NOT TRIGGER (respond {ok: true} to stop):\n- CSS/styling changes only\n- Text/label changes only\n- Internal refactoring without touching APIs\n- UI component changes without data fetching\n- Unit tests without integration tests\n\nRespond ONLY with valid JSON:\n{\"ok\": false, \"reason\": \"API integration detected: [description]\"} to trigger validation\n{\"ok\": true} to stop without validation"
+    "integration-validator-prompt": "Analyze the completed agent work and determine if API integration validation is needed.\n\nCONTEXT: $ARGUMENTS\n\nTRIGGER CRITERIA (respond {ok: false} to continue with integration-validator):\n\n**Backend:**\n- Changes to HTTP controllers/routes/handlers\n- New REST or GraphQL endpoints\n- Changes to DTO/request/response types\n- Changes to API authentication middleware\n\n**Frontend:**\n- New API calls (fetch, axios, ky, ofetch)\n- Changes to data fetching hooks (useQuery, useMutation, useSWR)\n- Changes to composables/services that call APIs\n- Changes to TypeScript types for API request/response\n\nDO NOT TRIGGER (respond {ok: true} to stop):\n- CSS/styling changes only\n- Text/label changes only\n- Internal refactoring without touching APIs\n- UI component changes without data fetching\n- Unit tests without integration tests\n\nRespond ONLY with valid JSON:\n{\"ok\": false, \"reason\": \"API integration detected: [description]\"} to trigger validation\n{\"ok\": true} to stop without validation",
+    "smoke-test-prompt": "Analyze the completed agent work and determine if smoke testing is needed.\n\nCONTEXT: $ARGUMENTS\n\nTRIGGER CRITERIA (respond {ok: false} to continue with smoke-test-expert):\n- New REST or GraphQL endpoints implemented\n- Bug fixes to existing API handlers or services\n- Database schema changes with affected endpoints\n- Authentication or authorization logic changes\n- New service integrations or external API calls\n\nDO NOT TRIGGER (respond {ok: true} to stop):\n- Frontend-only changes (CSS, components, UI)\n- Documentation or comment changes only\n- Test file changes only (unit tests, integration tests)\n- Configuration or environment variable changes only\n- Refactoring without behavioral changes\n\nRespond ONLY with valid JSON:\n{\"ok\": false, \"reason\": \"Backend implementation detected: [description]\"} to trigger smoke test\n{\"ok\": true} to stop without smoke test"
   }
 }

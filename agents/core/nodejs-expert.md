@@ -150,15 +150,21 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 ## MCP Server Usage Guidelines
 
 ### performance-profiler
-- **USE** `profile_cpu(duration=10)` for CPU analysis
-- **USE** `profile_memory()` for memory snapshots
-- **USE** `detect_leaks()` for memory leaks
-- **NEVER** profile in production without reason
+If the `performance-profiler` MCP server is available, prefer using it for profiling. When using it:
+- Use `profile_cpu(duration=10)` for CPU analysis
+- Use `profile_memory()` for memory snapshots
+- Use `detect_leaks()` for memory leaks
+- Avoid profiling in production without a specific reason
+
+If `performance-profiler` is not available, use `node --prof`, `clinic`, or `0x` via Bash for CPU and memory analysis.
 
 ### log-analyzer
-- **USE** `analyze_logs(pattern="error")` for errors
-- **USE** `get_log_summary()` for overview
-- **USE** `trace_request(requestId)` for tracing
+If the `log-analyzer` MCP server is available, prefer using it for log analysis. When using it:
+- Use `analyze_logs(pattern="error")` for errors
+- Use `get_log_summary()` for overview
+- Use `trace_request(requestId)` for tracing
+
+If `log-analyzer` is not available, use Grep and Bash to search and tail log files directly.
 
 ## Performance Metrics
 

@@ -104,16 +104,20 @@ When proposing architecture:
 ## MCP Server Usage Guidelines
 
 ### api-explorer
-- **NEVER** use `get_api_schema(format="full")` unless strictly necessary
-- **PREFER** `list_api_paths(limit=50)` for API overview
-- **PREFER** `get_api_endpoint_details(path, method)` for individual endpoints
-- **USE** `get_api_models(compact=true)` for model list without full schema
-- **USE** `search_api(limit=10)` for targeted searches
+If the `api-explorer` MCP server is available, prefer using it for API analysis. When using it:
+- Avoid `get_api_schema(format="full")` unless strictly necessary
+- Prefer `list_api_paths(limit=50)` for API overview
+- Prefer `get_api_endpoint_details(path, method)` for individual endpoints
+- Use `get_api_models(compact=true)` for model list without full schema
+- Use `search_api(limit=10)` for targeted searches
+
+If `api-explorer` is not available, read OpenAPI spec files directly using the Read tool.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
+- Avoid `fetch_docs` for generic topics
 
 ## Skills Reference
 - clean-code, solid-principles, design-patterns

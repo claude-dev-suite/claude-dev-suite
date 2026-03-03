@@ -219,6 +219,7 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 - **vitest-expert** - Unit testing, mocking, coverage
 - **playwright-expert** - E2E testing, locators, assertions
 - **spring-boot-integration-test-expert** - @SpringBootTest, Testcontainers
+- **smoke-test-expert** - Post-implementation verification, live HTTP testing, fix orchestration
 - **qa-expert** - Test strategy, quality assurance
 
 #### Infrastructure & Security
@@ -831,6 +832,7 @@ Control the dashboard and orchestrator from Claude Code.
 | **vitest-expert** | Vitest, Jest, unit tests, describe | vitest | documentation, code-quality |
 | **playwright-expert** | Playwright, E2E, page.goto, locator | playwright | documentation |
 | **spring-boot-integration-test-expert** | @SpringBootTest, @DataJpaTest, Testcontainers | spring-boot-test, testcontainers | documentation, database-query, docker-manager |
+| **smoke-test-expert** | smoke test, verify implementation, test endpoints, end-to-end verification | smoke-test, rest-assured, testcontainers | api-tester, database-query, docker-manager, log-analyzer, documentation |
 
 ### Infrastructure & DevOps
 

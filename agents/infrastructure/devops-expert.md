@@ -395,15 +395,19 @@ kubectl rollout status deployment/myapp
 ## MCP Server Usage Guidelines
 
 ### docker-manager
-- **USE** `list_containers(limit=20)` for active container overview
-- **PREFER** `get_container_logs(tail=100)` instead of full logs
-- **USE** `container_stats` only for specific containers, not all
-- **AVOID** `build_image` with verbose output - use `--quiet`
+If the `docker-manager` MCP server is available, prefer using it for Docker operations. When using it:
+- Use `list_containers(limit=20)` for active container overview
+- Prefer `get_container_logs(tail=100)` instead of full logs
+- Use `container_stats` only for specific containers, not all
+- Avoid `build_image` with verbose output - use `--quiet`
+
+If `docker-manager` is not available, use Bash `docker` and `docker-compose` CLI commands directly.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
+- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 

@@ -281,14 +281,18 @@ app.Run();
 ## MCP Server Usage Guidelines
 
 ### api-tester
-- **USE** `send_request` for testing individual endpoints
-- **PREFER** targeted tests over full suites
-- **LIMIT** response body in output (max 500 chars)
+If the `api-tester` MCP server is available, prefer using it for endpoint testing. When using it:
+- Use `send_request` for testing individual endpoints
+- Prefer targeted tests over full suites
+- Limit response body in output (max 500 chars)
+
+If `api-tester` is not available, use `curl` or `dotnet test` via Bash for API testing.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` for specific info
+- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 

@@ -106,15 +106,19 @@ You are an expert code reviewer focused on code quality, security, and maintaina
 ## MCP Server Usage Guidelines
 
 ### code-quality
-- **USE** `analyze_complexity(path="src/specific/file.ts")` for specific files
-- **PREFER** targeted analysis instead of full scans
-- **USE** `find_duplicates(minLines=10)` to filter significant duplicates
-- **USE** `code_metrics` for compact overview output
+If the `code-quality` MCP server is available, prefer using it for automated analysis. When using it:
+- Use `analyze_complexity(path="src/specific/file.ts")` for specific files
+- Prefer targeted analysis instead of full scans
+- Use `find_duplicates(minLines=10)` to filter significant duplicates
+- Use `code_metrics` for compact overview output
+
+If `code-quality` is not available, use ESLint, Biome, or equivalent linting tools via Bash, and perform manual code review.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
+- Avoid `fetch_docs` for generic topics
 
 ## Skills Reference
 - clean-code, solid-principles

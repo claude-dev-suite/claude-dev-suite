@@ -16,8 +16,9 @@
     "watch_logs"
   ],
   "envVars": [],
-  "requiredFor": [
+  "recommendedFor": [
     "devops-expert",
-    "qa-expert"
+    "qa-expert",
+    "smoke-test-expert"
   ]
 }

@@ -313,7 +313,7 @@ export class AgentsService {
     let category = 'general';
     let tools: string[] = [];
     let envVars: EnvVarConfig[] = [];
-    let requiredFor: string[] = [];
+    let recommendedFor: string[] = [];
     let detectedWhen: string[] = [];
 
     const metadataPath = path.join(serverPath, 'metadata.json');
@@ -324,7 +324,7 @@ export class AgentsService {
         shortDescription = metadata.shortDescription || '';
         category = metadata.category || 'general';
         tools = metadata.tools || [];
-        requiredFor = metadata.requiredFor || [];
+        recommendedFor = metadata.recommendedFor || [];
         detectedWhen = metadata.detectedWhen || [];
 
         if (metadata.envVars && Array.isArray(metadata.envVars)) {
@@ -366,7 +366,7 @@ export class AgentsService {
       category,
       tools,
       envVars,
-      requiredFor,
+      recommendedFor,
       detectedWhen,
       path: serverPath,
     };

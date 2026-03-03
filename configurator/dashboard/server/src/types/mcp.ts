@@ -78,8 +78,8 @@ export interface McpServer {
   tools: string[];
   /** Environment variables required by this server */
   envVars: EnvVarConfig[];
-  /** Agent IDs that require this server */
-  requiredFor: string[];
+  /** Agent IDs that benefit from this server (optional, not required) */
+  recommendedFor: string[];
   /** Technologies that should trigger auto-selection */
   detectedWhen: string[];
 }
@@ -216,7 +216,7 @@ export function isMcpServer(value: unknown): value is McpServer {
     isMcpServerCategory(obj.category) &&
     Array.isArray(obj.tools) &&
     Array.isArray(obj.envVars) &&
-    Array.isArray(obj.requiredFor) &&
+    Array.isArray(obj.recommendedFor) &&
     Array.isArray(obj.detectedWhen)
   );
 }

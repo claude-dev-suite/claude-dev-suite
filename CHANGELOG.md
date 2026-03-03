@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Smoke Test Agent** - New `smoke-test-expert` agent for post-implementation end-to-end verification
+  - 7-phase pipeline: discovery, build/test, infrastructure, startup, auth, endpoint verification, log analysis
+  - Fix orchestration via `Task` delegation to backend agents (spring-boot-expert, nestjs-expert, etc.)
+  - Re-verification loop (max 3 iterations) after delegated fixes
+  - Uses api-tester, database-query, docker-manager, and log-analyzer MCP servers (all optional, graceful degradation)
+  - New `smoke-test` skill with stack detection tables, health check patterns, and HTTP verification reference
+  - SubagentStop hook in `registry/features.json` for automatic post-implementation triggering
 - **New Component Discovery** - Proactively surfaces agents and MCP servers added to dev-suite after a project's initial installation
   - Records a catalog snapshot (`availableAtInstall`) in the manifest during installation
   - New endpoint `GET /api/management/new-components` compares current catalog vs install-time snapshot

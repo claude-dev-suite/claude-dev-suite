@@ -69,17 +69,17 @@ export function Step3McpServers({
     fetchServers();
   }, []);
 
-  // Calculate required servers based on selected agents
-  const requiredServers = useMemo(() => {
-    const required = new Set<string>();
+  // Calculate servers recommended by selected agents
+  const agentRecommendedServers = useMemo(() => {
+    const recommended = new Set<string>();
     servers.forEach((server) => {
-      server.requiredFor.forEach((agentId) => {
-        if (selectedAgents.includes(agentId)) {
-          required.add(server.name);
+      server.recommendedFor.forEach((agentId) => {
+        if (agentId === 'all' || selectedAgents.includes(agentId)) {
+          recommended.add(server.name);
         }
       });
     });
-    return required;
+    return recommended;
   }, [servers, selectedAgents]);
 
   // Filtered and sorted servers
@@ -93,19 +93,19 @@ export function Step3McpServers({
         );
       })
       .sort((a, b) => {
-        // Sort required first, then recommended, then alphabetical
-        const aRequired = requiredServers.has(a.name);
-        const bRequired = requiredServers.has(b.name);
+        // Sort recommended first (by agents or by detection), then alphabetical
+        const aByAgent = agentRecommendedServers.has(a.name);
+        const bByAgent = agentRecommendedServers.has(b.name);
         const aRecommended = recommendedMcpServers.includes(a.name);
         const bRecommended = recommendedMcpServers.includes(b.name);
 
-        if (aRequired && !bRequired) return -1;
-        if (!aRequired && bRequired) return 1;
+        if (aByAgent && !bByAgent) return -1;
+        if (!aByAgent && bByAgent) return 1;
         if (aRecommended && !bRecommended) return -1;
         if (!aRecommended && bRecommended) return 1;
         return a.name.localeCompare(b.name);
       });
-  }, [servers, searchQuery, requiredServers, recommendedMcpServers]);
+  }, [servers, searchQuery, agentRecommendedServers, recommendedMcpServers]);
 
   if (loading) {
     return (
@@ -145,20 +145,20 @@ export function Step3McpServers({
           />
         </div>
 
-        {/* Required Servers Notice */}
-        {requiredServers.size > 0 && (
-          <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <div className="flex items-center gap-2 text-sm text-yellow-400">
+        {/* Recommended Servers Notice */}
+        {agentRecommendedServers.size > 0 && (
+          <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-blue-400">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
               <span>
-                {requiredServers.size} server(s) required by selected agents
+                {agentRecommendedServers.size} server(s) recommended for your selected agents — agents work without them but perform better with them
               </span>
             </div>
           </div>
@@ -170,7 +170,7 @@ export function Step3McpServers({
         )}>
           {filteredServers.map((server) => {
             const isSelected = selectedMcpServers.includes(server.name);
-            const isRequired = requiredServers.has(server.name);
+            const isRecommendedByAgent = agentRecommendedServers.has(server.name);
             const isRecommended = recommendedMcpServers.includes(server.name);
             const hasEnvVars = server.envVars.some((v) => v.required);
 
@@ -179,27 +179,25 @@ export function Step3McpServers({
                 key={server.name}
                 selectable
                 selected={isSelected}
-                onClick={() => !isRequired && onToggleMcpServer(server.name)}
+                onClick={() => onToggleMcpServer(server.name)}
                 padding="md"
-                className={clsx(isRequired && 'cursor-not-allowed')}
               >
                 <div className="flex items-start gap-3">
                   <Checkbox
-                    checked={isSelected || isRequired}
-                    onChange={() => !isRequired && onToggleMcpServer(server.name)}
-                    disabled={isRequired}
+                    checked={isSelected}
+                    onChange={() => onToggleMcpServer(server.name)}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-white">{server.name}</span>
-                      {isRequired && (
-                        <Badge variant="warning" size="sm">
-                          Required
+                      {isRecommendedByAgent && (
+                        <Badge variant="info" size="sm">
+                          Recommended
                         </Badge>
                       )}
-                      {isRecommended && !isRequired && (
+                      {isRecommended && !isRecommendedByAgent && (
                         <Badge variant="success" size="sm">
-                          Recommended
+                          Detected
                         </Badge>
                       )}
                     </div>

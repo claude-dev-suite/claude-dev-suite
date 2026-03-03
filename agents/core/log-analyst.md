@@ -219,13 +219,17 @@ Usage: Analyze issues per user session
 ## MCP Server Usage Guidelines
 
 ### log-analyzer
-- **ALWAYS** specify `limit` in calls (default: 200, max: 1000)
-- **USE** `tail_logs(lines=50)` for recent logs
-- **PREFER** `find_errors(limit=50)` instead of `parse_logs` for debugging
-- **USE** `parse_logs(limit=200)` only when full analysis is needed
-- **NEVER** analyze entire log files without filters
+If the `log-analyzer` MCP server is available, prefer using it for log parsing and analysis. When using it:
+- Specify `limit` in calls (default: 200, max: 1000)
+- Use `tail_logs(lines=50)` for recent logs
+- Prefer `find_errors(limit=50)` instead of `parse_logs` for debugging
+- Use `parse_logs(limit=200)` only when full analysis is needed
+- Avoid analyzing entire log files without filters
+
+If `log-analyzer` is not available, fall back to Bash commands (`grep`, `tail`) and the Grep tool to read and analyze log files directly.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
+- Avoid `fetch_docs` for generic topics

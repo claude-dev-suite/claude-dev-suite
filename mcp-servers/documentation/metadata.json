@@ -17,7 +17,7 @@
       "required": false
     }
   ],
-  "requiredFor": [
+  "recommendedFor": [
     "all"
   ]
 }

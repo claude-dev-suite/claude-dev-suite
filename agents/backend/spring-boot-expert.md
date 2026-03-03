@@ -264,15 +264,19 @@ public class User {
 ## MCP Server Usage Guidelines
 
 ### api-tester
-- **USE** `send_request` for testing individual endpoints
-- **PREFER** targeted tests instead of full suites
-- **USE** `mock_server` only when necessary
-- **LIMIT** response bodies in output (max 500 characters)
+If the `api-tester` MCP server is available, prefer using it for endpoint testing. When using it:
+- Use `send_request` for testing individual endpoints
+- Prefer targeted tests instead of full suites
+- Use `mock_server` only when necessary
+- Limit response bodies in output (max 500 characters)
+
+If `api-tester` is not available, use `curl` or MockMvc/RestAssured via Bash for API testing.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
+- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 

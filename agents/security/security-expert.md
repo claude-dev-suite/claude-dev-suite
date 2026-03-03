@@ -302,15 +302,19 @@ trivy image myimage:latest
 ## MCP Server Usage Guidelines
 
 ### security-scanner
-- **PREFER** `scan_dependencies` over `scan_all` for dependency audits
-- **USE** `scan_secrets` for targeted credential scanning
-- **USE** `scan_all` only for periodic full audits
-- **SPECIFY** specific paths instead of full root scans
+If the `security-scanner` MCP server is available, prefer using it for automated scanning. When using it:
+- Prefer `scan_dependencies` over `scan_all` for dependency audits
+- Use `scan_secrets` for targeted credential scanning
+- Use `scan_all` only for periodic full audits
+- Specify specific paths instead of full root scans
+
+If `security-scanner` is not available, use Bash tools (`npm audit`, `pip-audit`, `gitleaks`, `semgrep`) to perform equivalent scans.
 
 ### documentation
-- **FIRST** check if the info is in the skill or context
-- **USE** `search_docs(maxResults=3)` to search for specific info
-- **AVOID** `fetch_docs` for generic topics
+If the `documentation` MCP server is available, prefer using it for lookups. When using it:
+- First check if the info is in the skill or context
+- Use `search_docs(maxResults=3)` to search for specific info
+- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 
