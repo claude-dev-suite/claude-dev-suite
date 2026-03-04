@@ -248,7 +248,7 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 - **Backend**: Spring Boot, NestJS, Express, FastAPI, ASP.NET Core, Rust, Go, Deno frameworks
 - **Databases**: PostgreSQL, MySQL, MongoDB, Redis
 - **ORM/ODM**: Prisma, Drizzle, TypeORM, SQLAlchemy, Spring Data JPA
-- **Testing**: Vitest, Jest, Playwright, Cypress, Testcontainers
+- **Testing**: Vitest, Jest, Playwright, Cypress, Testcontainers, Messaging Testing (Kafka, RabbitMQ, multi-broker)
 - **State Management**: TanStack Query/Router, Redux Toolkit, Zustand, Pinia
 - **API Design**: REST, GraphQL, tRPC, OpenAPI
 - **Infrastructure**: Docker, Kubernetes, GitHub Actions

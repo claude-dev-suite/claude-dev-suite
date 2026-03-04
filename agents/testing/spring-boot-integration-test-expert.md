@@ -15,6 +15,11 @@ skills:
   - backend-frameworks/spring-data-jpa
   - databases/postgresql
   - databases/mongodb
+  - testing/messaging-testing-kafka
+  - testing/messaging-testing-rabbitmq
+  - testing/messaging-testing
+  - backend-frameworks/spring-kafka
+  - backend-frameworks/spring-amqp
   - logging/logback
   - logging/slf4j
 ---

@@ -22,6 +22,11 @@ skills:
   - backend-frameworks/spring-integration
   - backend-frameworks/spring-kafka
   - backend-frameworks/spring-amqp
+  # Messaging integration testing
+  - testing/messaging-testing-kafka
+  - testing/messaging-testing-rabbitmq
+  - testing/messaging-testing
+  - testing/testcontainers
   - infrastructure/docker
   - infrastructure/kubernetes
 ---

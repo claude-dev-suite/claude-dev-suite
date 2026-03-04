@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Messaging Integration Testing Skills** - Three new testing skills for message broker integration testing
+  - `messaging-testing-kafka` — @EmbeddedKafka, MockConsumer/MockProducer, Testcontainers KafkaContainer, with Java/Spring, Node.js (kafkajs), and Python (confluent-kafka) patterns
+  - `messaging-testing-rabbitmq` — @SpringRabbitTest + RabbitListenerTestHarness (spy/capture patterns), TestRabbitTemplate, Testcontainers RabbitMQContainer, with Node.js (amqplib) and Python (pika) patterns
+  - `messaging-testing` — Shared skill covering Redis Pub/Sub, NATS, Pulsar, SQS (LocalStack), ActiveMQ (Artemis), Azure Service Bus (emulator), Google Pub/Sub (emulator) with container-based testing for Java and Node.js
+  - Four quick-ref guides: embedded-kafka, testcontainers-kafka, spring-rabbit-test, testcontainers-rabbitmq
+  - Updated `testcontainers` skill with produce→consume→assert patterns for Kafka, RabbitMQ, and Redis
+  - Updated `spring-kafka` and `spring-amqp` skills with complete test examples and cross-references
+  - Added messaging testing skills to `messaging-expert` and `spring-boot-integration-test-expert` agent frontmatter
 - **Smoke Test Agent** - New `smoke-test-expert` agent for post-implementation end-to-end verification
   - 7-phase pipeline: discovery, build/test, infrastructure, startup, auth, endpoint verification, log analysis
   - Fix orchestration via `Task` delegation to backend agents (spring-boot-expert, nestjs-expert, etc.)

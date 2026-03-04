@@ -236,17 +236,30 @@ class RabbitIntegrationTest {
 
     @Container
     @ServiceConnection
-    static RabbitMQContainer rabbit = new RabbitMQContainer("rabbitmq:3.12-management");
+    static RabbitMQContainer rabbit = new RabbitMQContainer("rabbitmq:3.13-management");
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    @Autowired
+    private OrderRepository orderRepository;
+
     @Test
-    void shouldSendAndReceive() {
-        // Test with real RabbitMQ
+    void shouldSendAndReceiveOrder() {
+        rabbitTemplate.convertAndSend("orders.exchange", "orders.created",
+            new OrderEvent("123", "CREATED"));
+
+        await().atMost(Duration.ofSeconds(10))
+            .untilAsserted(() -> {
+                Optional<Order> order = orderRepository.findById("123");
+                assertThat(order).isPresent();
+                assertThat(order.get().getStatus()).isEqualTo("CREATED");
+            });
     }
 }
 ```
+
+> **Deep dive**: For @SpringRabbitTest harness patterns, TestRabbitTemplate, and Node.js/Python RabbitMQ testing, see the `messaging-testing-rabbitmq` skill.
 
 ## Producer with Confirmation
 

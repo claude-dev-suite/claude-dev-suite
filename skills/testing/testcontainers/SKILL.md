@@ -213,6 +213,104 @@ static GenericContainer<?> redis =
         .withExposedPorts(6379);
 ```
 
+## Messaging Container Test Patterns
+
+> **Dedicated skills**: For comprehensive messaging test coverage, see `messaging-testing-kafka`, `messaging-testing-rabbitmq`, and `messaging-testing`.
+
+### Kafka: Produce → Consume → Assert
+```java
+@SpringBootTest
+@Testcontainers
+class KafkaProduceConsumeTest {
+
+    @Container
+    @ServiceConnection
+    static KafkaContainer kafka = new KafkaContainer(
+        DockerImageName.parse("apache/kafka-native:3.8.0"));
+
+    @Autowired
+    private KafkaTemplate<String, OrderEvent> kafkaTemplate;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Test
+    void shouldProcessOrderViaKafka() throws Exception {
+        kafkaTemplate.send("orders", "key-1",
+            new OrderEvent("123", "CREATED")).get(10, TimeUnit.SECONDS);
+
+        await().atMost(Duration.ofSeconds(10))
+            .untilAsserted(() ->
+                assertThat(orderRepository.findById("123")).isPresent());
+    }
+}
+```
+
+### RabbitMQ: Send → Listen → Assert
+```java
+@SpringBootTest
+@Testcontainers
+class RabbitProduceConsumeTest {
+
+    @Container
+    @ServiceConnection
+    static RabbitMQContainer rabbit = new RabbitMQContainer("rabbitmq:3.13-management");
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Test
+    void shouldProcessOrderViaRabbit() {
+        rabbitTemplate.convertAndSend("orders.exchange", "orders.created",
+            new OrderEvent("456", "CREATED"));
+
+        await().atMost(Duration.ofSeconds(10))
+            .untilAsserted(() ->
+                assertThat(orderRepository.findById("456")).isPresent());
+    }
+}
+```
+
+### Redis Pub/Sub: Publish → Subscribe → Assert
+```java
+@SpringBootTest
+@Testcontainers
+class RedisPubSubTest {
+
+    @Container
+    @ServiceConnection(name = "redis")
+    static GenericContainer<?> redis =
+        new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @Test
+    void shouldPublishAndReceiveMessage() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        List<String> received = new CopyOnWriteArrayList<>();
+
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(redisTemplate.getConnectionFactory());
+        container.addMessageListener((message, pattern) -> {
+            received.add(new String(message.getBody()));
+            latch.countDown();
+        }, new ChannelTopic("orders"));
+        container.afterPropertiesSet();
+        container.start();
+
+        redisTemplate.convertAndSend("orders", "{\"orderId\":\"789\"}");
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(received.get(0)).contains("789");
+        container.stop();
+    }
+}
+```
+
 ## Legacy Pattern (@DynamicPropertySource)
 
 ```java

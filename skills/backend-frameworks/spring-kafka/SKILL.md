@@ -313,6 +313,35 @@ class OrderProducerTest {
 }
 ```
 
+### Consumer Test with CountDownLatch
+```java
+@SpringBootTest
+@EmbeddedKafka(partitions = 1, topics = {"orders"})
+class OrderConsumerTest {
+
+    @SpyBean
+    private OrderConsumer orderConsumer;
+
+    @Autowired
+    private EmbeddedKafkaBroker embeddedKafka;
+
+    @Test
+    void shouldConsumeAndProcessOrder() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        doAnswer(inv -> { inv.callRealMethod(); latch.countDown(); return null; })
+            .when(orderConsumer).consume(any(), any());
+
+        Map<String, Object> props = KafkaTestUtils.producerProps(embeddedKafka);
+        KafkaTemplate<String, String> template = new KafkaTemplate<>(
+            new DefaultKafkaProducerFactory<>(props));
+        template.send("orders", "{\"orderId\":\"456\",\"status\":\"CREATED\"}");
+
+        assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
+        verify(orderConsumer).consume(any(), any());
+    }
+}
+```
+
 ### Testcontainers
 ```java
 @SpringBootTest
@@ -322,14 +351,30 @@ class OrderIntegrationTest {
     @Container
     @ServiceConnection
     static KafkaContainer kafka = new KafkaContainer(
-        DockerImageName.parse("confluentinc/cp-kafka:7.5.0"));
+        DockerImageName.parse("apache/kafka-native:3.8.0"));
+
+    @Autowired
+    private KafkaTemplate<String, OrderEvent> kafkaTemplate;
+
+    @Autowired
+    private OrderRepository orderRepository;
 
     @Test
-    void shouldProcessOrder() {
-        // Test with real Kafka
+    void shouldProcessOrderEndToEnd() throws Exception {
+        kafkaTemplate.send("orders", "key-1",
+            new OrderEvent("789", "CREATED")).get(10, TimeUnit.SECONDS);
+
+        await().atMost(Duration.ofSeconds(10))
+            .untilAsserted(() -> {
+                Optional<Order> order = orderRepository.findById("789");
+                assertThat(order).isPresent();
+                assertThat(order.get().getStatus()).isEqualTo("CREATED");
+            });
     }
 }
 ```
+
+> **Deep dive**: For MockConsumer/MockProducer, @EmbeddedKafka advanced patterns, and Node.js/Python Kafka testing, see the `messaging-testing-kafka` skill.
 
 ## Best Practices
 
