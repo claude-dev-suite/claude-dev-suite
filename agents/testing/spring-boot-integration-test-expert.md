@@ -22,6 +22,9 @@ skills:
   - backend-frameworks/spring-amqp
   - logging/logback
   - logging/slf4j
+  # Contract & load testing
+  - testing/contract-testing
+  - testing/load-testing
 ---
 
 # Spring Boot Integration Test Expert Agent

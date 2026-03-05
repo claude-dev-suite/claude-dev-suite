@@ -11,6 +11,7 @@ skills:
   - testing/testing-library
   - languages/typescript
   - best-practices/clean-code
+  - testing/jest
 ---
 
 # Vitest Expert Agent

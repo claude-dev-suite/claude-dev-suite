@@ -8,37 +8,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [1.1.0] - 2026-03-05
+
 ### Added
 
+- **51 New Skills** covering AI, mobile, real-time, infrastructure, security, architecture, and production patterns
+  - AI integration: `vector-databases`, `rag-patterns`, `etl-pipelines`
+  - Mobile: `react-native`, `flutter`, `expo`
+  - Real-time: `socket-io`, `sse`, `webrtc`
+  - Infrastructure: `terraform`, `job-queues`, `cron-scheduling`, `api-gateway`, `health-checks`, `deployment-strategies`, `service-mesh`
+  - Security: `rate-limiting`, `cryptography`, `audit-logging`, `gdpr`, `cors-security-headers`
+  - Architecture: `ddd`, `event-sourcing-cqrs`, `multitenancy`
+  - API design: `webhooks`, `pagination`, `grpc`
+  - Testing: `load-testing`, `contract-testing`
+  - Observability: `error-tracking`
+  - Utilities: `pdf-generation`, `data-export`, `image-processing`, `charting`
+  - Best practices: `resilience-patterns`, `caching-strategies`, `feature-flags`, `error-handling`
+  - Other: `i18n`, `push-notifications`, `pwa`, `webauthn`, `stripe`
+- **2 New Agents**
+  - `mobile-expert` — React Native, Flutter, Expo, push notifications, payments
+  - `cloud-expert` — AWS, Azure, GCP, Terraform, serverless, API gateway, service mesh
+- **Comprehensive Agent-Skill Cross-Reference** — All 321 skills mapped to at least one agent, zero orphans, zero broken references. Extensive skill additions to 22 existing agents
+- **Knowledge Base (Tier 1)** — 61 deep-dive documentation files across 13 technologies
+  - Architecture: DDD (5 files), Event Sourcing/CQRS (5 files), Multitenancy (4 files)
+  - AI: RAG Patterns (5 files), Vector Databases (5 files)
+  - Security: Cryptography (5 files), GDPR (5 files)
+  - Infrastructure: Terraform (5 files), Service Mesh (4 files)
+  - Best Practices: Resilience Patterns (5 files), Caching Strategies (4 files)
+  - Testing: Load Testing (5 files), Contract Testing (4 files)
+- **Documentation MCP Server** — 3 new docs-index categories (architecture, ai, security) and updates to infrastructure, standards, testing indexes registering all 13 KB technologies
 - **Messaging Integration Testing Skills** - Three new testing skills for message broker integration testing
-  - `messaging-testing-kafka` — @EmbeddedKafka, MockConsumer/MockProducer, Testcontainers KafkaContainer, with Java/Spring, Node.js (kafkajs), and Python (confluent-kafka) patterns
-  - `messaging-testing-rabbitmq` — @SpringRabbitTest + RabbitListenerTestHarness (spy/capture patterns), TestRabbitTemplate, Testcontainers RabbitMQContainer, with Node.js (amqplib) and Python (pika) patterns
-  - `messaging-testing` — Shared skill covering Redis Pub/Sub, NATS, Pulsar, SQS (LocalStack), ActiveMQ (Artemis), Azure Service Bus (emulator), Google Pub/Sub (emulator) with container-based testing for Java and Node.js
-  - Four quick-ref guides: embedded-kafka, testcontainers-kafka, spring-rabbit-test, testcontainers-rabbitmq
-  - Updated `testcontainers` skill with produce→consume→assert patterns for Kafka, RabbitMQ, and Redis
-  - Updated `spring-kafka` and `spring-amqp` skills with complete test examples and cross-references
-  - Added messaging testing skills to `messaging-expert` and `spring-boot-integration-test-expert` agent frontmatter
-- **Smoke Test Agent** - New `smoke-test-expert` agent for post-implementation end-to-end verification
-  - 7-phase pipeline: discovery, build/test, infrastructure, startup, auth, endpoint verification, log analysis
-  - Fix orchestration via `Task` delegation to backend agents (spring-boot-expert, nestjs-expert, etc.)
-  - Re-verification loop (max 3 iterations) after delegated fixes
-  - Uses api-tester, database-query, docker-manager, and log-analyzer MCP servers (all optional, graceful degradation)
-  - New `smoke-test` skill with stack detection tables, health check patterns, and HTTP verification reference
-  - SubagentStop hook in `registry/features.json` for automatic post-implementation triggering
-- **New Component Discovery** - Proactively surfaces agents and MCP servers added to dev-suite after a project's initial installation
-  - Records a catalog snapshot (`availableAtInstall`) in the manifest during installation
-  - New endpoint `GET /api/management/new-components` compares current catalog vs install-time snapshot
-  - "New Agents Available" / "New MCP Servers Available" sections in the Manage tab with Add / Add All / Dismiss actions
-  - Badge indicators on Agents and MCP Servers tabs showing count of new components
-  - Enhanced `checkForUpdates()` with semantic summary (new agents, new MCP servers, updated skills)
-  - Graceful fallback for older installs without catalog snapshot (no false positives)
-- **Angular/.NET Ecosystem** - Two new agents with 20+ new skills
-  - `angular-expert` — Angular 17+, signals, standalone components, routing, forms, HTTP, testing, Material, SSR, NgRx
-  - `dotnet-expert` — ASP.NET Core 8+, minimal APIs, middleware, SignalR, Blazor, Identity, EF Core, C#, xUnit, NUnit
-  - Documentation MCP server updated with docs-index entries for all new technologies
+  - `messaging-testing-kafka`, `messaging-testing-rabbitmq`, `messaging-testing` with quick-ref guides
+  - Updated `testcontainers`, `spring-kafka`, and `spring-amqp` skills with test examples
+- **Smoke Test Agent** - `smoke-test-expert` for post-implementation end-to-end verification with 7-phase pipeline and fix orchestration
+- **New Component Discovery** - Surfaces agents/MCP servers added after initial installation with catalog snapshots
+- **Angular/.NET Ecosystem** - `angular-expert` and `dotnet-expert` agents with 20+ new skills
 - **Git Authentication Flow** - Dashboard Git panel detects auth errors and prompts `gh auth login`
-- **Electron Performance** - Faster splash screen via `backgroundColor`, lazy-loaded electron-updater and logger
-- **Electron NSIS Installer** - Switched from portable EXE to NSIS installer for faster startup
+- **Electron Performance** - Faster splash screen, lazy-loaded modules, NSIS installer
 
 ---
 
@@ -71,7 +79,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Summary
 
-| Version | MCP Servers | Agents | Skills | Tools |
-|---------|-------------|--------|--------|-------|
-| Unreleased | 10       | 36     | 260+   | 95+   |
-| 1.0.0   | 11          | 34     | 240+   | 95+   |
+| Version | MCP Servers | Agents | Skills | KB Files | Tools |
+|---------|-------------|--------|--------|----------|-------|
+| 1.1.0   | 10          | 38     | 321    | 61       | 95+   |
+| 1.0.0   | 11          | 34     | 240+   | —        | 95+   |

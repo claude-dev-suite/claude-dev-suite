@@ -32,9 +32,17 @@ skills:
   # Authentication
   - authentication/jwt
   - authentication/oauth2
+  - authentication/webauthn
   - backend-frameworks/spring-security
   - backend-frameworks/spring-session
   - best-practices/clean-code
+  # Application security patterns
+  - security/rate-limiting
+  - security/cryptography
+  - security/audit-logging
+  - security/gdpr
+  - security/license-compliance
+  - security/cors-security-headers
 ---
 
 # Security Expert Agent

@@ -62,6 +62,48 @@ skills:
   - api-integration/openapi-generator
   # API security
   - security/api-security
+  # Cross-cutting patterns
+  - best-practices/resilience-patterns
+  - best-practices/caching-strategies
+  - best-practices/feature-flags
+  - architecture/multitenancy
+  # Scheduling & jobs
+  - infrastructure/cron-scheduling
+  - infrastructure/job-queues
+  # Security & compliance
+  - security/rate-limiting
+  - security/cryptography
+  - security/audit-logging
+  - security/gdpr
+  # Testing
+  - testing/load-testing
+  - testing/contract-testing
+  # Communication & real-time
+  - email/email-sending
+  - notifications/push-notifications
+  - real-time/sse
+  # API & cloud
+  - api-design/grpc
+  - cloud/aws
+  - cloud/serverless
+  # Documents
+  - utilities/pdf-generation
+  - utilities/data-export
+  - backend-frameworks/thymeleaf
+  - databases/elasticsearch
+  - utilities/apache-poi
+  - quality/jacoco
+  # Production patterns
+  - api-design/webhooks
+  - api-design/pagination
+  - best-practices/error-handling
+  - security/cors-security-headers
+  - observability/error-tracking
+  - infrastructure/health-checks
+  - infrastructure/deployment-strategies
+  - architecture/ddd
+  - architecture/event-sourcing-cqrs
+  - logging/java
 ---
 
 # Spring Boot Expert Agent

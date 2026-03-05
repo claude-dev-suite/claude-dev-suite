@@ -12,7 +12,13 @@ skills:
   - backend-frameworks/echo
   - backend-frameworks/chi
   - api-design/rest-api
+  - api-design/grpc
   - testing/go-testing
+  # Production patterns
+  - api-design/webhooks
+  - api-design/pagination
+  - best-practices/error-handling
+  - infrastructure/health-checks
 ---
 
 # Go Expert Agent

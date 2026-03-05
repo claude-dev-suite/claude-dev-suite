@@ -17,6 +17,17 @@ skills:
   - logging/structlog
   # API security
   - security/api-security
+  # Real-time, background jobs
+  - real-time/sse
+  - infrastructure/job-queues
+  - infrastructure/cron-scheduling
+  # Production patterns
+  - api-design/webhooks
+  - api-design/pagination
+  - best-practices/error-handling
+  - security/cors-security-headers
+  - observability/error-tracking
+  - infrastructure/health-checks
 ---
 
 # FastAPI Expert Agent

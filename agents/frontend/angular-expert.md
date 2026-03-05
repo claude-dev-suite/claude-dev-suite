@@ -18,6 +18,7 @@ skills:
   - languages/typescript
   - state-management/ngrx
   - testing/vitest
+  - internationalization/i18n
 ---
 
 # Angular Expert Agent

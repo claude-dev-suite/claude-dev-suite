@@ -19,6 +19,9 @@ export const STANDARDS_TECHNOLOGIES = [
   // Documentation
   "jsdoc",
   "tsdoc",
+  // Resilience & Caching
+  "resilience-patterns",
+  "caching-strategies",
 ] as const;
 
 export const standardsDocs: DocsRecord = {
@@ -119,6 +122,49 @@ export const standardsDocs: DocsRecord = {
     "api-extractor": {
       local: "tsdoc/api-extractor.md",
       url: "https://api-extractor.com/",
+    },
+  },
+
+  // Resilience & Caching
+  "resilience-patterns": {
+    "circuit-breaker": {
+      local: "resilience-patterns/circuit-breaker.md",
+      url: "https://resilience4j.readme.io/docs/circuitbreaker",
+    },
+    retry: {
+      local: "resilience-patterns/retry.md",
+      url: "https://resilience4j.readme.io/docs/retry",
+    },
+    bulkhead: {
+      local: "resilience-patterns/bulkhead.md",
+      url: "https://resilience4j.readme.io/docs/bulkhead",
+    },
+    timeout: {
+      local: "resilience-patterns/timeout.md",
+      url: "https://resilience4j.readme.io/docs/timeout",
+    },
+    fallback: {
+      local: "resilience-patterns/fallback.md",
+      url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker",
+    },
+  },
+
+  "caching-strategies": {
+    patterns: {
+      local: "caching-strategies/patterns.md",
+      url: "https://learn.microsoft.com/en-us/azure/architecture/best-practices/caching",
+    },
+    invalidation: {
+      local: "caching-strategies/invalidation.md",
+      url: "https://redis.io/docs/latest/develop/use/patterns/",
+    },
+    distributed: {
+      local: "caching-strategies/distributed.md",
+      url: "https://redis.io/docs/latest/operate/oss_and_stack/management/scaling/",
+    },
+    "http-caching": {
+      local: "caching-strategies/http-caching.md",
+      url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching",
     },
   },
 };

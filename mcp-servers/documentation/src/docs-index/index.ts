@@ -23,6 +23,9 @@ import { DESKTOP_TECHNOLOGIES, desktopDocs } from "./desktop.js";
 import { TOOLING_TECHNOLOGIES, toolingDocs } from "./tooling.js";
 import { STANDARDS_TECHNOLOGIES, standardsDocs } from "./standards.js";
 import { OBSERVABILITY_TECHNOLOGIES, observabilityDocs } from "./observability.js";
+import { ARCHITECTURE_TECHNOLOGIES, architectureDocs } from "./architecture.js";
+import { AI_TECHNOLOGIES, aiDocs } from "./ai.js";
+import { SECURITY_TECHNOLOGIES, securityDocs } from "./security.js";
 
 // Re-export individual category modules
 export { FRONTEND_TECHNOLOGIES, frontendDocs } from "./frontend.js";
@@ -38,6 +41,9 @@ export { DESKTOP_TECHNOLOGIES, desktopDocs } from "./desktop.js";
 export { TOOLING_TECHNOLOGIES, toolingDocs } from "./tooling.js";
 export { STANDARDS_TECHNOLOGIES, standardsDocs } from "./standards.js";
 export { OBSERVABILITY_TECHNOLOGIES, observabilityDocs } from "./observability.js";
+export { ARCHITECTURE_TECHNOLOGIES, architectureDocs } from "./architecture.js";
+export { AI_TECHNOLOGIES, aiDocs } from "./ai.js";
+export { SECURITY_TECHNOLOGIES, securityDocs } from "./security.js";
 
 /**
  * Combined list of all supported technologies
@@ -57,6 +63,9 @@ export const SUPPORTED_TECHNOLOGIES = [
   ...STANDARDS_TECHNOLOGIES,
   ...LANGUAGE_TECHNOLOGIES,
   ...OBSERVABILITY_TECHNOLOGIES,
+  ...ARCHITECTURE_TECHNOLOGIES,
+  ...AI_TECHNOLOGIES,
+  ...SECURITY_TECHNOLOGIES,
 ] as const;
 
 export type Technology = (typeof SUPPORTED_TECHNOLOGIES)[number];
@@ -79,4 +88,7 @@ export const docsIndex: Record<string, Record<string, { local: string; url: stri
   ...standardsDocs,
   ...languageDocs,
   ...observabilityDocs,
+  ...architectureDocs,
+  ...aiDocs,
+  ...securityDocs,
 };

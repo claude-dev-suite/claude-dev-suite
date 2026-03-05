@@ -29,6 +29,19 @@ skills:
   - testing/vitest
   - testing/testing-library
   - api-integration/axios
+  - internationalization/i18n
+  - ui-libraries/charting
+  - api-integration/graphql-codegen
+  - frontend-frameworks/react-api
+  - frontend-frameworks/react-websocket
+  - frontend-frameworks/tanstack-router
+  - meta-frameworks/astro
+  - meta-frameworks/remix
+  - state-management/redux-toolkit
+  - styling/radix-ui
+  - validation/yup
+  - best-practices/error-handling
+  - frontend-frameworks/pwa
 ---
 
 # React Expert Agent

@@ -14,7 +14,10 @@
  *   ./docs-index/auth.ts          - JWT, OAuth2, NextAuth
  *   ./docs-index/desktop.ts       - Electron, Tauri
  *   ./docs-index/tooling.ts       - Biome, ESLint, Logging
- *   ./docs-index/standards.ts     - Clean code, OWASP, WCAG, JSDoc
+ *   ./docs-index/standards.ts     - Clean code, OWASP, WCAG, JSDoc, Resilience, Caching
+ *   ./docs-index/architecture.ts  - DDD, Event Sourcing/CQRS, Multitenancy
+ *   ./docs-index/ai.ts            - RAG patterns, Vector databases
+ *   ./docs-index/security.ts      - Cryptography, GDPR
  */
 
 // Re-export everything for backward compatibility
@@ -52,4 +55,10 @@ export {
   toolingDocs,
   STANDARDS_TECHNOLOGIES,
   standardsDocs,
+  ARCHITECTURE_TECHNOLOGIES,
+  architectureDocs,
+  AI_TECHNOLOGIES,
+  aiDocs,
+  SECURITY_TECHNOLOGIES,
+  securityDocs,
 } from "./docs-index/index.js";

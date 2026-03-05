@@ -19,6 +19,22 @@ skills:
   - api-integration/axios
   # API security
   - security/api-security
+  # Real-time, background jobs, caching
+  - real-time/socket-io
+  - infrastructure/job-queues
+  - best-practices/caching-strategies
+  - email/email-sending
+  - backend-frameworks/nestjs-websocket
+  - api-integration/openapi-codegen
+  - orm-odm/typeorm
+  - validation/class-validator
+  # Production patterns
+  - api-design/webhooks
+  - api-design/pagination
+  - best-practices/error-handling
+  - security/cors-security-headers
+  - observability/error-tracking
+  - infrastructure/health-checks
 ---
 
 # NestJS Expert Agent

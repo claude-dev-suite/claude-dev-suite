@@ -24,6 +24,16 @@ skills:
   - databases/postgresql
   - databases/sql-server
   - api-design/swagger-dotnet
+  - best-practices/resilience-patterns
+  - best-practices/caching-strategies
+  # Production patterns
+  - api-design/webhooks
+  - api-design/pagination
+  - best-practices/error-handling
+  - security/cors-security-headers
+  - observability/error-tracking
+  - infrastructure/health-checks
+  - architecture/ddd
 ---
 
 # .NET Expert Agent

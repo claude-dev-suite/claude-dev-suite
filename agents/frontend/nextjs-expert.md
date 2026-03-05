@@ -18,6 +18,16 @@ skills:
   - testing/vitest
   - testing/playwright
   - api-integration/axios
+  - internationalization/i18n
+  - payments/stripe
+  - api-design/trpc
+  - authentication/nextauth
+  - orm-odm/drizzle
+  - validation/zod
+  - best-practices/error-handling
+  - observability/error-tracking
+  - frontend-frameworks/pwa
+  - api-design/graphql
 ---
 
 # Next.js Expert Agent

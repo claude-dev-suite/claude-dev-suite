@@ -14,6 +14,12 @@ skills:
   - quality/common
   - best-practices/clean-code
   - documentation/jsdoc
+  - validation/zod
+  - best-practices/biome
+  - build-tools/esbuild
+  - frontend-frameworks/solid
+  - languages/javascript
+  - best-practices/solid-principles
 ---
 
 # TypeScript Expert Agent

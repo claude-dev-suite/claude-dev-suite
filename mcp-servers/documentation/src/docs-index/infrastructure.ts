@@ -22,6 +22,9 @@ export const INFRASTRUCTURE_TECHNOLOGIES = [
   "pulsar",
   "azure-service-bus",
   "google-pubsub",
+  // Infrastructure patterns
+  "terraform",
+  "service-mesh",
 ] as const;
 
 export const infrastructureDocs: DocsRecord = {
@@ -178,6 +181,49 @@ export const infrastructureDocs: DocsRecord = {
     basics: {
       local: "google-pubsub/basics.md",
       url: "https://cloud.google.com/pubsub/docs",
+    },
+  },
+
+  // Infrastructure patterns
+  terraform: {
+    modules: {
+      local: "terraform/modules.md",
+      url: "https://developer.hashicorp.com/terraform/language/modules",
+    },
+    state: {
+      local: "terraform/state.md",
+      url: "https://developer.hashicorp.com/terraform/language/state",
+    },
+    workspaces: {
+      local: "terraform/workspaces.md",
+      url: "https://developer.hashicorp.com/terraform/language/state/workspaces",
+    },
+    providers: {
+      local: "terraform/providers.md",
+      url: "https://developer.hashicorp.com/terraform/language/providers",
+    },
+    "best-practices": {
+      local: "terraform/best-practices.md",
+      url: "https://developer.hashicorp.com/terraform/cloud-docs/recommended-practices",
+    },
+  },
+
+  "service-mesh": {
+    istio: {
+      local: "service-mesh/istio.md",
+      url: "https://istio.io/latest/docs/",
+    },
+    linkerd: {
+      local: "service-mesh/linkerd.md",
+      url: "https://linkerd.io/2/overview/",
+    },
+    mtls: {
+      local: "service-mesh/mtls.md",
+      url: "https://istio.io/latest/docs/concepts/security/#mutual-tls-authentication",
+    },
+    "traffic-management": {
+      local: "service-mesh/traffic-management.md",
+      url: "https://istio.io/latest/docs/concepts/traffic-management/",
     },
   },
 };

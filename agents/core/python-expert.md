@@ -13,6 +13,15 @@ skills:
   - infrastructure/python-packaging
   - best-practices/python-quality
   - testing/pytest
+  # AI & data
+  - ai-integration/langchain
+  - ai-integration/vector-databases
+  - ai-integration/rag-patterns
+  - data/etl-pipelines
+  # Python web frameworks
+  - backend-frameworks/django
+  - backend-frameworks/flask
+  - logging/python
 ---
 
 # Python Expert Agent

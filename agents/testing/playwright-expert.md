@@ -11,6 +11,7 @@ skills:
   - languages/typescript
   - best-practices/clean-code
   - accessibility/axe-core
+  - testing/cypress
 ---
 
 # Playwright Expert Agent

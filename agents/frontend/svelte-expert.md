@@ -12,6 +12,8 @@ skills:
   - styling/tailwindcss
   - testing/vitest
   - testing/playwright
+  - meta-frameworks/sveltekit
+  - ui-libraries/skeleton
 ---
 
 # Svelte Expert Agent

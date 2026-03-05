@@ -20,6 +20,12 @@ skills:
   - quality/kotlin-quality
   # AI-generated code review
   - security/ai-code-security
+  # Testing strategies
+  - testing/load-testing
+  - testing/contract-testing
+  - testing/jest
+  - testing/cypress
+  - quality/jacoco
 ---
 
 # QA Expert Agent

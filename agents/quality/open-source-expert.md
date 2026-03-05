@@ -11,6 +11,7 @@ skills:
   - best-practices/clean-code
   - security/supply-chain
   - security/secrets-management
+  - security/license-compliance
 mcp_servers:
   - documentation
   - code-quality

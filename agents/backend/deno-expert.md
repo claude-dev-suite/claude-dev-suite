@@ -11,6 +11,7 @@ skills:
   - backend-frameworks/oak
   - api-design/rest-api
   - testing/deno-testing
+  - backend-frameworks/hono
 ---
 
 # Deno Expert Agent

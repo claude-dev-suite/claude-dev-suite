@@ -14,6 +14,9 @@ skills:
   - best-practices/performance
   - backend-frameworks/spring-actuator
   - backend-frameworks/micrometer-tracing
+  - best-practices/caching-strategies
+  - testing/load-testing
+  - observability/opentelemetry
 ---
 
 # Performance Expert Agent

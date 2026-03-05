@@ -21,6 +21,22 @@ skills:
   # Infrastructure security
   - security/container-security
   - security/iac-security
+  # Cloud & IaC
+  - infrastructure/terraform
+  - cloud/aws
+  - cloud/azure
+  - cloud/gcp
+  - cloud/serverless
+  - best-practices/caching-strategies
+  # Monorepo & observability
+  - build-tools/nx
+  - build-tools/turborepo
+  - observability/opentelemetry
+  - observability/error-tracking
+  - infrastructure/deployment-strategies
+  - infrastructure/health-checks
+  - infrastructure/api-gateway
+  - infrastructure/service-mesh
 ---
 
 # DevOps Expert Agent

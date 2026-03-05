@@ -15,6 +15,7 @@ skills:
   - testing/vitest
   - testing/playwright
   - api-integration/axios
+  - internationalization/i18n
 ---
 
 # Vue Expert Agent

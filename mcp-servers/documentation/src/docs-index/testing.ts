@@ -16,6 +16,9 @@ export const TESTING_TECHNOLOGIES = [
   "spring-boot-test",
   "testcontainers",
   "xunit",
+  // Performance & Contract testing
+  "load-testing",
+  "contract-testing",
 ] as const;
 
 export const testingDocs: DocsRecord = {
@@ -143,6 +146,49 @@ export const testingDocs: DocsRecord = {
     fixtures: {
       local: "xunit/fixtures.md",
       url: "https://xunit.net/docs/shared-context",
+    },
+  },
+
+  // Performance & Contract testing
+  "load-testing": {
+    k6: {
+      local: "load-testing/k6.md",
+      url: "https://grafana.com/docs/k6/latest/",
+    },
+    artillery: {
+      local: "load-testing/artillery.md",
+      url: "https://www.artillery.io/docs",
+    },
+    locust: {
+      local: "load-testing/locust.md",
+      url: "https://docs.locust.io/en/stable/",
+    },
+    thresholds: {
+      local: "load-testing/thresholds.md",
+      url: "https://grafana.com/docs/k6/latest/using-k6/thresholds/",
+    },
+    scenarios: {
+      local: "load-testing/scenarios.md",
+      url: "https://grafana.com/docs/k6/latest/using-k6/scenarios/",
+    },
+  },
+
+  "contract-testing": {
+    pact: {
+      local: "contract-testing/pact.md",
+      url: "https://docs.pact.io/",
+    },
+    "spring-cloud-contract": {
+      local: "contract-testing/spring-cloud-contract.md",
+      url: "https://docs.spring.io/spring-cloud-contract/reference/",
+    },
+    "ci-integration": {
+      local: "contract-testing/ci-integration.md",
+      url: "https://docs.pact.io/pact_broker/can_i_deploy",
+    },
+    "consumer-driven": {
+      local: "contract-testing/consumer-driven.md",
+      url: "https://martinfowler.com/articles/consumerDrivenContracts.html",
     },
   },
 };
