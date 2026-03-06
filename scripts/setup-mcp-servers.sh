@@ -50,15 +50,15 @@ if [ ! -f "package.json" ]; then
 fi
 
 # Get list of servers dynamically from workspaces in package.json
-# Uses node to parse JSON properly
-SERVERS=$(node -e "console.log(require('./package.json').workspaces.join(' '))" 2>/dev/null)
-if [ -z "$SERVERS" ]; then
+# Uses node to parse JSON properly — read into array to avoid word-splitting issues
+readarray -t SERVERS < <(node -e "require('./package.json').workspaces.forEach(w => console.log(w))" 2>/dev/null)
+if [ ${#SERVERS[@]} -eq 0 ]; then
     echo -e "${RED}Error: Could not read workspaces from package.json${NC}"
     exit 1
 fi
 
-SERVER_COUNT=$(echo "$SERVERS" | wc -w | tr -d ' ')
-echo -e "${BLUE}Found ${SERVER_COUNT} MCP servers:${NC} $SERVERS"
+SERVER_COUNT=${#SERVERS[@]}
+echo -e "${BLUE}Found ${SERVER_COUNT} MCP servers:${NC} ${SERVERS[*]}"
 echo ""
 
 # Check if already built and up to date
@@ -66,7 +66,7 @@ NEEDS_BUILD=false
 MISSING_DIST=""
 
 # Check for any missing dist directories
-for dir in $SERVERS; do
+for dir in "${SERVERS[@]}"; do
     if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
         if [ ! -d "$dir/dist" ] || [ ! -f "$dir/dist/index.js" ]; then
             NEEDS_BUILD=true
@@ -77,7 +77,7 @@ done
 
 # Check if source is newer than any dist
 if [ "$NEEDS_BUILD" = false ]; then
-    for dir in $SERVERS; do
+    for dir in "${SERVERS[@]}"; do
         if [ -d "$dir/src" ] && [ -f "$dir/dist/index.js" ]; then
             NEWEST_SRC=$(find "$dir/src" -name "*.ts" -newer "$dir/dist/index.js" 2>/dev/null | head -1)
             if [ -n "$NEWEST_SRC" ]; then
@@ -127,7 +127,7 @@ echo ""
 echo -e "${BLUE}Build Status:${NC}"
 BUILT_COUNT=0
 FAILED_COUNT=0
-for dir in $SERVERS; do
+for dir in "${SERVERS[@]}"; do
     if [ -f "$dir/dist/index.js" ]; then
         echo -e "  ${GREEN}✓${NC} $dir"
         BUILT_COUNT=$((BUILT_COUNT + 1))

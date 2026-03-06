@@ -106,9 +106,22 @@ export function sanitizeFilePath(filePath: string): string {
 
 /**
  * Get absolute path from repo path and project path with validation.
+ *
+ * SECURITY: Regardless of whether repoPath is absolute or relative, the resolved
+ * path must always be validated to be within projectPath.  Accepting an arbitrary
+ * absolute path without a containment check would allow an attacker to bypass the
+ * path-traversal protection by supplying an absolute path to any location on disk.
  */
 export function getAbsolutePath(repoPath: string, projectPath: string): string {
-  return path.isAbsolute(repoPath)
-    ? repoPath
-    : validatePath(repoPath, projectPath);
+  const normalizedBase = path.resolve(projectPath);
+  const resolvedPath = path.isAbsolute(repoPath)
+    ? path.resolve(repoPath)
+    : path.resolve(normalizedBase, repoPath);
+
+  // Ensure the resolved path is within the project directory
+  if (!resolvedPath.startsWith(normalizedBase + path.sep) && resolvedPath !== normalizedBase) {
+    throw new Error(`Path traversal detected: resolved path is outside the project directory`);
+  }
+
+  return resolvedPath;
 }

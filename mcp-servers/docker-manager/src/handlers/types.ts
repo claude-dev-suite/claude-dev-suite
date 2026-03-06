@@ -4,10 +4,22 @@
  */
 
 import { z } from "zod";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+/** Validate a Docker name (container, image, service, network, volume) */
+export function validateDockerName(name: string): string {
+  // Docker names: alphanumeric, hyphens, underscores, periods, colons (for tags), slashes (for registries)
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.\-/:@]*$/.test(name)) {
+    throw new Error(`Invalid Docker name: ${name}`);
+  }
+  if (name.length > 256) {
+    throw new Error(`Docker name too long: ${name}`);
+  }
+  return name;
+}
 
 // ============================================================================
 // HANDLER TYPES
@@ -74,9 +86,9 @@ export function errorResponse(message: string): HandlerResult {
   };
 }
 
-export async function runDockerCommand(command: string): Promise<{ stdout: string; stderr: string }> {
+export async function runDockerCommand(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   try {
-    const { stdout, stderr } = await execAsync(command, {
+    const { stdout, stderr } = await execFileAsync(cmd, args, {
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     });
     return { stdout, stderr };

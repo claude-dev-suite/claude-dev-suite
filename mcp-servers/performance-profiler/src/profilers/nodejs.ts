@@ -176,26 +176,46 @@ export async function profileFunction(
 ): Promise<ProfileFunctionResult> {
   validateScriptPath(modulePath);
 
+  // Validate functionName is a valid JS identifier (prevent code injection)
+  if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(functionName)) {
+    throw new Error(`Invalid function name: ${functionName}. Must be a valid JavaScript identifier.`);
+  }
+
   // Create a temporary script that imports and runs the function
   const tempDir = await createTempDir('nodejs-func-profile');
   const wrapperPath = join(tempDir, 'wrapper.mjs');
+  const configPath = join(tempDir, 'config.json');
+
+  // Pass configuration via a JSON file instead of string interpolation
+  await writeFile(configPath, JSON.stringify({
+    modulePath: modulePath.replace(/\\/g, '/'),
+    functionName,
+    args,
+    iterations,
+  }));
 
   const wrapperCode = `
 import { performance } from 'perf_hooks';
 import { createRequire } from 'module';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import v8 from 'v8';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(readFileSync(join(__dirname, 'config.json'), 'utf-8'));
+
 const require = createRequire(import.meta.url);
-const targetModule = await import('${modulePath.replace(/\\/g, '/')}');
-const fn = targetModule.${functionName} || targetModule.default?.${functionName};
+const targetModule = await import(config.modulePath);
+const fn = targetModule[config.functionName] || targetModule.default?.[config.functionName];
 
 if (typeof fn !== 'function') {
-  console.error(JSON.stringify({ error: 'Function not found: ${functionName}' }));
+  console.error(JSON.stringify({ error: 'Function not found: ' + config.functionName }));
   process.exit(1);
 }
 
-const args = ${JSON.stringify(args)};
-const iterations = ${iterations};
+const args = config.args;
+const iterations = config.iterations;
 const timings = [];
 
 // Warmup
@@ -264,6 +284,38 @@ console.log(JSON.stringify({
   }
 }
 
+/** Dangerous patterns that should not appear in benchmark code */
+const DANGEROUS_CODE_PATTERNS = [
+  /\brequire\s*\(/i,
+  /\bimport\s*\(/i,
+  /\bchild_process\b/i,
+  /\bexec\s*\(/i,
+  /\bexecSync\s*\(/i,
+  /\bspawn\s*\(/i,
+  /\bprocess\.exit/i,
+  /\bprocess\.env/i,
+  /\bprocess\.kill/i,
+  /\b__dirname\b/,
+  /\b__filename\b/,
+  /\bglobalThis\s*\.\s*process/i,
+  /\bfs\s*\.\s*(write|unlink|rm|mkdir|rename|chmod|chown)/i,
+  /\beval\s*\(/i,
+  /\bFunction\s*\(/i,
+  /\bnew\s+Function/i,
+];
+
+/** Validate benchmark code doesn't contain dangerous patterns */
+function validateBenchmarkCode(code: string): void {
+  for (const pattern of DANGEROUS_CODE_PATTERNS) {
+    if (pattern.test(code)) {
+      throw new Error(
+        `Benchmark code contains forbidden pattern: ${pattern.source}. ` +
+        `Only pure computation code is allowed for benchmarking.`
+      );
+    }
+  }
+}
+
 /**
  * Benchmark inline JavaScript code
  */
@@ -272,10 +324,12 @@ export async function benchmarkCode(
   iterations: number = 1000,
   warmup: number = 100
 ): Promise<BenchmarkResult> {
+  validateBenchmarkCode(code);
+
   const tempDir = await createTempDir('nodejs-benchmark');
   const benchmarkPath = join(tempDir, 'benchmark.mjs');
 
-  const benchmarkCode = `
+  const benchmarkScript = `
 import { performance } from 'perf_hooks';
 
 const iterations = ${iterations};
@@ -303,7 +357,7 @@ console.log(JSON.stringify({ timings }));
 `;
 
   try {
-    await writeFile(benchmarkPath, benchmarkCode);
+    await writeFile(benchmarkPath, benchmarkScript);
 
     const result = await runCommand(`node ${benchmarkPath}`, {
       timeout: 300000, // 5 minutes max for large iteration counts
@@ -338,21 +392,31 @@ export async function analyzeMemory(
 
   const tempDir = await createTempDir('nodejs-memory');
   const wrapperPath = join(tempDir, 'memory-wrapper.mjs');
+  const memConfigPath = join(tempDir, 'config.json');
+
+  // Pass configuration via JSON file instead of string interpolation
+  await writeFile(memConfigPath, JSON.stringify({
+    scriptPath: scriptPath.replace(/\\/g, '/'),
+    snapshotInterval,
+    durationMs: duration * 1000,
+  }));
 
   const wrapperCode = `
 import v8 from 'v8';
 import { fork } from 'child_process';
 import { performance } from 'perf_hooks';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const scriptPath = '${scriptPath.replace(/\\/g, '/')}';
-const snapshotInterval = ${snapshotInterval};
-const duration = ${duration * 1000};
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(readFileSync(join(__dirname, 'config.json'), 'utf-8'));
 
 const snapshots = [];
 const startTime = performance.now();
 
 // Start the target script
-const child = fork(scriptPath, [], {
+const child = fork(config.scriptPath, [], {
   stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
   execArgv: ['--expose-gc']
 });
@@ -366,7 +430,7 @@ const intervalId = setInterval(() => {
     heapTotal: heapStats.total_heap_size,
     external: heapStats.external_memory,
   });
-}, snapshotInterval);
+}, config.snapshotInterval);
 
 // Stop after duration
 setTimeout(() => {
@@ -374,7 +438,7 @@ setTimeout(() => {
   child.kill();
   console.log(JSON.stringify({ snapshots }));
   process.exit(0);
-}, duration);
+}, config.durationMs);
 
 child.on('exit', () => {
   clearInterval(intervalId);

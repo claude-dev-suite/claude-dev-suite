@@ -43,6 +43,78 @@ const VITE_DEV_PORT = 5173;
 const SERVER_STARTUP_TIMEOUT = 15000;
 const SERVER_CHECK_INTERVAL = 500;
 
+// ============================================
+// SECURITY UTILITIES
+// ============================================
+
+/**
+ * Validate a project path supplied via IPC.
+ * - Must be a non-empty string
+ * - Must be absolute after resolution
+ * - Must not contain traversal components
+ * - Must exist on disk
+ * Returns the resolved absolute path, or throws on failure.
+ */
+function validateProjectPath(rawPath) {
+  if (typeof rawPath !== 'string' || rawPath.trim() === '') {
+    throw new Error('Invalid project path: must be a non-empty string');
+  }
+  const resolved = path.resolve(rawPath);
+  // Ensure the resolved path is absolute (path.resolve always produces one,
+  // but guard against platform edge-cases)
+  if (!path.isAbsolute(resolved)) {
+    throw new Error('Invalid project path: must be absolute');
+  }
+  // Reject any raw path that still contains traversal sequences
+  // (prevents sneaking past a later resolve via encoded or mixed separators)
+  const normalised = rawPath.replace(/\\/g, '/');
+  if (normalised.split('/').some((seg) => seg === '..')) {
+    throw new Error('Invalid project path: traversal components not allowed');
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new Error('Invalid project path: path does not exist');
+  }
+  return resolved;
+}
+
+/**
+ * Sanitize an error before forwarding it to the renderer.
+ * Returns only the message string — never the stack trace.
+ */
+function sanitizeError(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+/**
+ * Install Content Security Policy headers on the given session.
+ * Called once per BrowserWindow session.
+ */
+function applyCSP(session) {
+  session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            `connect-src 'self' http://localhost:${SERVER_PORT} ws://localhost:${SERVER_PORT} http://localhost:${VITE_DEV_PORT} ws://localhost:${VITE_DEV_PORT}`,
+            "img-src 'self' data:",
+            "font-src 'self' data:",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+          ].join('; '),
+        ],
+      },
+    });
+  });
+}
+
 // State
 let mainWindow = null;
 let splashWindow = null;
@@ -191,8 +263,19 @@ function createSplashWindow() {
     webPreferences: {
       preload: findSplashPreload(),
       contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
     },
   });
+
+  // Block navigation and new-window events on the splash screen
+  splashWindow.webContents.on('will-navigate', (event) => {
+    event.preventDefault();
+  });
+
+  splashWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  applyCSP(splashWindow.webContents.session);
 
   splashWindow.loadFile(findSplashHtml());
   splashWindow.on('closed', () => {
@@ -361,9 +444,41 @@ function createMainWindow() {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
     titleBarStyle: 'default',
     show: false,
+  });
+
+  // Apply CSP before loading any content
+  applyCSP(mainWindow.webContents.session);
+
+  // Block navigation to external origins
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    try {
+      const parsed = new URL(navigationUrl);
+      const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+      if (!isLocalhost) {
+        console.warn('[Electron] Blocked navigation to external URL:', navigationUrl);
+        event.preventDefault();
+      }
+    } catch {
+      event.preventDefault();
+    }
+  });
+
+  // Block new window / popup creation
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const parsed = new URL(url);
+      const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+      if (!isLocalhost) {
+        console.warn('[Electron] Blocked new-window to external URL:', url);
+      }
+    } catch {
+      // malformed URL — deny
+    }
+    return { action: 'deny' };
   });
 
   // Load the app
@@ -375,9 +490,11 @@ function createMainWindow() {
         console.log('[Electron] Vite dev server not running, loading built files');
         mainWindow.loadFile(findFrontendPath());
       });
+    // Only open DevTools in development builds
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(findFrontendPath());
+    // DevTools are intentionally disabled in production
   }
 
   mainWindow.once('ready-to-show', () => {
@@ -433,7 +550,8 @@ function createMainWindow() {
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        // DevTools only available in development builds
+        ...(isDev ? [{ role: 'toggleDevTools' }] : []),
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
@@ -495,11 +613,18 @@ ipcMain.handle('select-folder', async () => {
 });
 
 ipcMain.handle('confirm-path', (event, projectPath) => {
-  selectedProjectPath = projectPath;
-  if (pathConfirmResolver) {
-    pathConfirmResolver(projectPath);
+  let validatedPath;
+  try {
+    validatedPath = validateProjectPath(projectPath);
+  } catch (err) {
+    console.error('[Electron] confirm-path validation failed:', sanitizeError(err));
+    return { success: false, error: sanitizeError(err) };
   }
-  return true;
+  selectedProjectPath = validatedPath;
+  if (pathConfirmResolver) {
+    pathConfirmResolver(validatedPath);
+  }
+  return { success: true };
 });
 
 // ============================================
@@ -543,7 +668,7 @@ async function initialize() {
     updateSplash('window', 'done');
   } catch (error) {
     console.error('[Electron] Initialization error:', error);
-    dialog.showErrorBox('Startup Error', `Failed to start: ${error.message}`);
+    dialog.showErrorBox('Startup Error', `Failed to start: ${sanitizeError(error)}`);
     app.quit();
   }
 }

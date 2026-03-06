@@ -75,12 +75,13 @@ if [ -f "$DEV_SUITE_DIR/scripts/setup-mcp-servers.sh" ]; then
     MCP_DIR="$DEV_SUITE_DIR/mcp-servers"
     MISSING_DIST=""
     if [ -f "$MCP_DIR/package.json" ]; then
-        SERVERS=$(node -e "console.log(require('$MCP_DIR/package.json').workspaces.join(' '))" 2>/dev/null)
-        for server in $SERVERS; do
+        SERVERS=$(node -e "console.log(require('$MCP_DIR/package.json').workspaces.join('\n'))" 2>/dev/null)
+        while IFS= read -r server; do
+            [ -z "$server" ] && continue
             if [ ! -f "$MCP_DIR/$server/dist/index.js" ]; then
                 MISSING_DIST="$MISSING_DIST $server"
             fi
-        done
+        done <<< "$SERVERS"
     fi
 
     if [ -n "$MISSING_DIST" ]; then
@@ -142,7 +143,7 @@ open_browser() {
         open "$url" 2>/dev/null &
     elif command -v wslview &> /dev/null; then
         wslview "$url" 2>/dev/null &
-    elif [ -n "$BROWSER" ]; then
+    elif [ -n "$BROWSER" ] && command -v "$BROWSER" &> /dev/null; then
         "$BROWSER" "$url" 2>/dev/null &
     fi
 }

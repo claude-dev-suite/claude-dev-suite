@@ -28,6 +28,44 @@ import {
 } from '../utils/process.js';
 import { calculateStats, round, formatBytes } from '../utils/statistics.js';
 
+/** Dangerous patterns for Python benchmark code */
+const DANGEROUS_PYTHON_PATTERNS = [
+  /\bimport\s+os\b/,
+  /\bimport\s+subprocess\b/,
+  /\bimport\s+shutil\b/,
+  /\bfrom\s+os\b/,
+  /\bfrom\s+subprocess\b/,
+  /\b__import__\s*\(/,
+  /\bexec\s*\(/,
+  /\beval\s*\(/,
+  /\bos\.system\s*\(/,
+  /\bos\.popen\s*\(/,
+  /\bos\.exec/,
+  /\bos\.remove/,
+  /\bos\.unlink/,
+  /\bsubprocess\./,
+  /\bopen\s*\(.*,\s*['"]w/,
+];
+
+/** Validate Python benchmark code doesn't contain dangerous patterns */
+function validatePythonCode(code: string): void {
+  for (const pattern of DANGEROUS_PYTHON_PATTERNS) {
+    if (pattern.test(code)) {
+      throw new Error(
+        `Benchmark code contains forbidden pattern: ${pattern.source}. ` +
+        `Only pure computation code is allowed for benchmarking.`
+      );
+    }
+  }
+}
+
+/** Validate a Python identifier */
+function validatePythonIdentifier(name: string): void {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid Python identifier: ${name}`);
+  }
+}
+
 /**
  * Profile a Python script using cProfile
  */
@@ -41,6 +79,11 @@ export async function profileScript(
   const tempDir = await createTempDir('python-profile');
   const profilePath = join(tempDir, 'profile.prof');
   const outputPath = join(tempDir, 'profile.json');
+  const configPath = join(tempDir, 'config.json');
+
+  await writeFile(configPath, JSON.stringify({
+    scriptPath: scriptPath.replace(/\\/g, '/'),
+  }));
 
   // Python script to run profiling and output JSON
   const analyzerScript = `
@@ -48,6 +91,9 @@ import cProfile
 import pstats
 import json
 import sys
+import os
+
+config = json.load(open(os.path.join(os.path.dirname(__file__), 'config.json')))
 
 # Run profiler
 profiler = cProfile.Profile()
@@ -55,7 +101,7 @@ profiler.enable()
 
 # Import and run target script
 import runpy
-runpy.run_path('${scriptPath.replace(/\\/g, '/')}', run_name='__main__')
+runpy.run_path(config['scriptPath'], run_name='__main__')
 
 profiler.disable()
 
@@ -161,30 +207,42 @@ export async function profileFunction(
   iterations: number = 100
 ): Promise<ProfileFunctionResult> {
   validateScriptPath(modulePath);
+  validatePythonIdentifier(functionName);
 
   const tempDir = await createTempDir('python-func-profile');
   const wrapperPath = join(tempDir, 'wrapper.py');
+  const funcConfigPath = join(tempDir, 'config.json');
+
+  await writeFile(funcConfigPath, JSON.stringify({
+    modulePath: modulePath.replace(/\\/g, '/'),
+    functionName,
+    args,
+    iterations,
+  }));
 
   const wrapperCode = `
 import sys
+import os
 import time
 import json
 import tracemalloc
 import importlib.util
 
+config = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')))
+
 # Load module
-spec = importlib.util.spec_from_file_location("target", "${modulePath.replace(/\\/g, '/')}")
+spec = importlib.util.spec_from_file_location("target", config['modulePath'])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 # Get function
-fn = getattr(module, "${functionName}", None)
+fn = getattr(module, config['functionName'], None)
 if fn is None:
-    print(json.dumps({"error": "Function not found: ${functionName}"}))
+    print(json.dumps({"error": "Function not found: " + config['functionName']}))
     sys.exit(1)
 
-args = ${JSON.stringify(args)}
-iterations = ${iterations}
+args = config['args']
+iterations = config['iterations']
 timings = []
 
 # Warmup
@@ -264,6 +322,8 @@ export async function benchmarkCode(
   iterations: number = 1000,
   warmup: number = 100
 ): Promise<BenchmarkResult> {
+  validatePythonCode(code);
+
   const tempDir = await createTempDir('python-benchmark');
   const benchmarkPath = join(tempDir, 'benchmark.py');
 
@@ -328,21 +388,28 @@ export async function analyzeMemory(
 
   const tempDir = await createTempDir('python-memory');
   const wrapperPath = join(tempDir, 'memory_wrapper.py');
+  const memConfigPath = join(tempDir, 'config.json');
+
+  await writeFile(memConfigPath, JSON.stringify({
+    scriptPath: scriptPath.replace(/\\/g, '/'),
+    snapshotInterval: snapshotInterval / 1000,
+    duration,
+  }));
 
   const wrapperCode = `
 import sys
+import os
 import time
 import json
 import tracemalloc
-import subprocess
+import runpy
 import threading
 
-script_path = "${scriptPath.replace(/\\/g, '/')}"
-snapshot_interval = ${snapshotInterval / 1000}  # Convert to seconds
-duration = ${duration}
+config = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')))
 
 snapshots = []
 start_time = time.time()
+duration = config['duration']
 
 tracemalloc.start()
 
@@ -354,15 +421,15 @@ def collect_snapshots():
             "heapUsed": current,
             "heapTotal": peak
         })
-        time.sleep(snapshot_interval)
+        time.sleep(config['snapshotInterval'])
 
 # Start collection thread
 collector = threading.Thread(target=collect_snapshots)
 collector.start()
 
-# Run target script
+# Run target script safely via runpy instead of exec(open(...))
 try:
-    exec(open(script_path).read())
+    runpy.run_path(config['scriptPath'], run_name='__main__')
 except Exception as e:
     pass
 

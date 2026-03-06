@@ -5,6 +5,7 @@
 
 import { WatchLogsSchema, jsonResponse, type Handler, type HandlerResult } from "./types.js";
 import { watchLogs, getWatchStatus, stopWatching, listActiveWatchers } from "../analyzers/watch.js";
+import { validateLogPath } from "../utils.js";
 
 export const handleWatchLogs: Handler = async (args): Promise<HandlerResult> => {
   const input = WatchLogsSchema.parse(args);
@@ -15,6 +16,7 @@ export const handleWatchLogs: Handler = async (args): Promise<HandlerResult> => 
       if (!filePath) {
         throw new Error("filePath is required for 'start' action");
       }
+      validateLogPath(filePath);
       const result = await watchLogs({
         filePath,
         format: input.format,

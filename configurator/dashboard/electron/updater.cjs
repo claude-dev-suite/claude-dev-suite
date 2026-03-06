@@ -135,9 +135,9 @@ function initAutoUpdater(window) {
 
   autoUpdater.on('error', (error) => {
     log.error('[Updater] Error:', error.message);
+    // Do not forward the stack trace to the renderer — log it server-side only
     sendToRenderer('update:error', {
       message: error.message,
-      stack: error.stack,
     });
 
     // Clear taskbar progress on error

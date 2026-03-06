@@ -11,6 +11,7 @@ import {
   DockerStatsSchema,
   CleanupUnusedSchema,
   runDockerCommand,
+  validateDockerName,
   jsonResponse,
   errorResponse,
   type Handler,
@@ -19,11 +20,11 @@ import {
 
 export const handleDockerPs: Handler = async (args): Promise<HandlerResult> => {
   const { all } = DockerPsSchema.parse(args);
-  const command = all
-    ? 'docker ps -a --format "{{json .}}"'
-    : 'docker ps --format "{{json .}}"';
+  const dockerArgs = all
+    ? ["ps", "-a", "--format", "{{json .}}"]
+    : ["ps", "--format", "{{json .}}"];
 
-  const { stdout } = await runDockerCommand(command);
+  const { stdout } = await runDockerCommand("docker", dockerArgs);
   const containers = stdout
     .trim()
     .split("\n")
@@ -38,27 +39,28 @@ export const handleDockerPs: Handler = async (args): Promise<HandlerResult> => {
 
 export const handleDockerContainer: Handler = async (args): Promise<HandlerResult> => {
   const { container, action, tail } = ContainerActionSchema.parse(args);
+  const safeContainer = validateDockerName(container);
 
-  let command: string;
+  let dockerArgs: string[];
   switch (action) {
     case "start":
-      command = `docker start ${container}`;
+      dockerArgs = ["start", safeContainer];
       break;
     case "stop":
-      command = `docker stop ${container}`;
+      dockerArgs = ["stop", safeContainer];
       break;
     case "restart":
-      command = `docker restart ${container}`;
+      dockerArgs = ["restart", safeContainer];
       break;
     case "logs":
-      command = `docker logs --tail ${tail} ${container}`;
+      dockerArgs = ["logs", "--tail", String(tail), safeContainer];
       break;
     case "inspect":
-      command = `docker inspect ${container}`;
+      dockerArgs = ["inspect", safeContainer];
       break;
   }
 
-  const { stdout, stderr } = await runDockerCommand(command);
+  const { stdout, stderr } = await runDockerCommand("docker", dockerArgs);
 
   return jsonResponse({
     action,
@@ -71,34 +73,35 @@ export const handleDockerContainer: Handler = async (args): Promise<HandlerResul
 export const handleDockerCompose: Handler = async (args): Promise<HandlerResult> => {
   const { action, service, detach, build } = ComposeActionSchema.parse(args);
 
-  let command = "docker compose";
+  const composeArgs: string[] = ["compose"];
   switch (action) {
     case "up":
-      command += detach ? " up -d" : " up";
-      if (build) command += " --build";
+      composeArgs.push("up");
+      if (detach) composeArgs.push("-d");
+      if (build) composeArgs.push("--build");
       break;
     case "down":
-      command += " down";
+      composeArgs.push("down");
       break;
     case "ps":
-      command += " ps --format json";
+      composeArgs.push("ps", "--format", "json");
       break;
     case "logs":
-      command += " logs --tail 100";
+      composeArgs.push("logs", "--tail", "100");
       break;
     case "build":
-      command += " build";
+      composeArgs.push("build");
       break;
     case "restart":
-      command += " restart";
+      composeArgs.push("restart");
       break;
   }
 
   if (service) {
-    command += ` ${service}`;
+    composeArgs.push(validateDockerName(service));
   }
 
-  const { stdout, stderr } = await runDockerCommand(command);
+  const { stdout, stderr } = await runDockerCommand("docker", composeArgs);
 
   return jsonResponse({
     action,
@@ -111,26 +114,26 @@ export const handleDockerCompose: Handler = async (args): Promise<HandlerResult>
 export const handleDockerImages: Handler = async (args): Promise<HandlerResult> => {
   const { action, image } = ImageActionSchema.parse(args);
 
-  let command: string;
+  let dockerArgs: string[];
   switch (action) {
     case "list":
-      command = 'docker images --format "{{json .}}"';
+      dockerArgs = ["images", "--format", "{{json .}}"];
       break;
     case "pull":
       if (!image) throw new Error("Image name required for pull");
-      command = `docker pull ${image}`;
+      dockerArgs = ["pull", validateDockerName(image)];
       break;
     case "remove":
       if (!image) throw new Error("Image name required for remove");
-      command = `docker rmi ${image}`;
+      dockerArgs = ["rmi", validateDockerName(image)];
       break;
     case "inspect":
       if (!image) throw new Error("Image name required for inspect");
-      command = `docker image inspect ${image}`;
+      dockerArgs = ["image", "inspect", validateDockerName(image)];
       break;
   }
 
-  const { stdout, stderr } = await runDockerCommand(command);
+  const { stdout, stderr } = await runDockerCommand("docker", dockerArgs);
 
   let output: unknown = stdout;
   if (action === "list") {
@@ -153,11 +156,11 @@ export const handleDockerImages: Handler = async (args): Promise<HandlerResult> 
 
 export const handleDockerStats: Handler = async (args): Promise<HandlerResult> => {
   const { container } = DockerStatsSchema.parse(args);
-  const command = container
-    ? `docker stats ${container} --no-stream --format "{{json .}}"`
-    : 'docker stats --no-stream --format "{{json .}}"';
+  const dockerArgs = container
+    ? ["stats", validateDockerName(container), "--no-stream", "--format", "{{json .}}"]
+    : ["stats", "--no-stream", "--format", "{{json .}}"];
 
-  const { stdout } = await runDockerCommand(command);
+  const { stdout } = await runDockerCommand("docker", dockerArgs);
   const stats = stdout
     .trim()
     .split("\n")
@@ -168,9 +171,9 @@ export const handleDockerStats: Handler = async (args): Promise<HandlerResult> =
 };
 
 export const handleDockerNetworks: Handler = async (): Promise<HandlerResult> => {
-  const { stdout } = await runDockerCommand(
-    'docker network ls --format "{{json .}}"'
-  );
+  const { stdout } = await runDockerCommand("docker", [
+    "network", "ls", "--format", "{{json .}}"
+  ]);
   const networks = stdout
     .trim()
     .split("\n")
@@ -184,9 +187,9 @@ export const handleDockerNetworks: Handler = async (): Promise<HandlerResult> =>
 };
 
 export const handleDockerVolumes: Handler = async (): Promise<HandlerResult> => {
-  const { stdout } = await runDockerCommand(
-    'docker volume ls --format "{{json .}}"'
-  );
+  const { stdout } = await runDockerCommand("docker", [
+    "volume", "ls", "--format", "{{json .}}"
+  ]);
   const volumes = stdout
     .trim()
     .split("\n")
@@ -205,21 +208,28 @@ export const handleCleanupUnused: Handler = async (args): Promise<HandlerResult>
   const results: Record<string, unknown> = {};
 
   if (dryRun) {
-    // For dry run, just list what would be removed
     if (target === "all" || target === "images") {
-      const { stdout } = await runDockerCommand('docker images -f "dangling=true" --format "{{.Repository}}:{{.Tag}} ({{.Size}})"');
+      const { stdout } = await runDockerCommand("docker", [
+        "images", "-f", "dangling=true", "--format", "{{.Repository}}:{{.Tag}} ({{.Size}})"
+      ]);
       results.danglingImages = stdout.trim().split('\n').filter(Boolean);
     }
     if (target === "all" || target === "containers") {
-      const { stdout } = await runDockerCommand('docker ps -a -f "status=exited" --format "{{.Names}} ({{.Status}})"');
+      const { stdout } = await runDockerCommand("docker", [
+        "ps", "-a", "-f", "status=exited", "--format", "{{.Names}} ({{.Status}})"
+      ]);
       results.stoppedContainers = stdout.trim().split('\n').filter(Boolean);
     }
     if (target === "all" || target === "volumes") {
-      const { stdout } = await runDockerCommand('docker volume ls -f "dangling=true" --format "{{.Name}}"');
+      const { stdout } = await runDockerCommand("docker", [
+        "volume", "ls", "-f", "dangling=true", "--format", "{{.Name}}"
+      ]);
       results.unusedVolumes = stdout.trim().split('\n').filter(Boolean);
     }
     if (target === "all" || target === "networks") {
-      const { stdout } = await runDockerCommand('docker network ls --format "{{.Name}}"');
+      const { stdout } = await runDockerCommand("docker", [
+        "network", "ls", "--format", "{{.Name}}"
+      ]);
       const networks = stdout.trim().split('\n').filter(n => !['bridge', 'host', 'none'].includes(n));
       results.customNetworks = networks;
     }
@@ -233,23 +243,23 @@ export const handleCleanupUnused: Handler = async (args): Promise<HandlerResult>
   // Actual cleanup
   try {
     if (target === "all") {
-      const { stdout } = await runDockerCommand('docker system prune -a -f --volumes');
+      const { stdout } = await runDockerCommand("docker", ["system", "prune", "-a", "-f", "--volumes"]);
       results.systemPrune = stdout;
     } else {
       if (target === "images") {
-        const { stdout } = await runDockerCommand('docker image prune -a -f');
+        const { stdout } = await runDockerCommand("docker", ["image", "prune", "-a", "-f"]);
         results.imagesPruned = stdout;
       }
       if (target === "containers") {
-        const { stdout } = await runDockerCommand('docker container prune -f');
+        const { stdout } = await runDockerCommand("docker", ["container", "prune", "-f"]);
         results.containersPruned = stdout;
       }
       if (target === "volumes") {
-        const { stdout } = await runDockerCommand('docker volume prune -f');
+        const { stdout } = await runDockerCommand("docker", ["volume", "prune", "-f"]);
         results.volumesPruned = stdout;
       }
       if (target === "networks") {
-        const { stdout } = await runDockerCommand('docker network prune -f');
+        const { stdout } = await runDockerCommand("docker", ["network", "prune", "-f"]);
         results.networksPruned = stdout;
       }
     }
@@ -263,4 +273,3 @@ export const handleCleanupUnused: Handler = async (args): Promise<HandlerResult>
     return errorResponse(error instanceof Error ? error.message : String(error));
   }
 };
-

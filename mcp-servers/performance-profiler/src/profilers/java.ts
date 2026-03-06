@@ -28,6 +28,37 @@ import {
 } from '../utils/process.js';
 import { calculateStats, round, formatBytes } from '../utils/statistics.js';
 
+/** Dangerous patterns for Java benchmark code */
+const DANGEROUS_JAVA_PATTERNS = [
+  /Runtime\s*\.\s*getRuntime\s*\(\s*\)\s*\.\s*exec/,
+  /ProcessBuilder/,
+  /System\s*\.\s*exit/,
+  /\bnew\s+File\b.*\.\s*delete/,
+  /Files\s*\.\s*delete/,
+  /FileOutputStream/,
+  /\bexec\s*\(/,
+];
+
+/** Validate Java benchmark code */
+function validateJavaCode(code: string): void {
+  for (const pattern of DANGEROUS_JAVA_PATTERNS) {
+    if (pattern.test(code)) {
+      throw new Error(
+        `Benchmark code contains forbidden pattern: ${pattern.source}. ` +
+        `Only pure computation code is allowed for benchmarking.`
+      );
+    }
+  }
+}
+
+/** Validate a Java identifier (class or method name) */
+function validateJavaIdentifier(name: string): void {
+  // Allow qualified names like com.example.MyClass
+  if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/.test(name)) {
+    throw new Error(`Invalid Java identifier: ${name}`);
+  }
+}
+
 /**
  * Profile a Java application using JFR (Java Flight Recorder)
  */
@@ -190,8 +221,12 @@ export async function profileFunction(
   const methodName = parts.pop() || functionName;
   const className = parts.join('.') || basename(modulePath, '.java');
 
-  // Create a simple benchmark runner
-  const benchmarkCode = `
+  // Validate identifiers to prevent code injection
+  validateJavaIdentifier(className);
+  validateJavaIdentifier(methodName);
+
+  // Create a simple benchmark runner — className and methodName are validated identifiers
+  const benchmarkCodeStr = `
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -246,7 +281,7 @@ public class Benchmark {
   const benchmarkPath = join(tempDir, 'Benchmark.java');
 
   try {
-    await writeFile(benchmarkPath, benchmarkCode);
+    await writeFile(benchmarkPath, benchmarkCodeStr);
 
     // Compile
     const compileResult = await runCommand(`javac -cp "${modulePath}" ${benchmarkPath}`, {
@@ -300,6 +335,8 @@ export async function benchmarkCode(
   iterations: number = 1000,
   warmup: number = 100
 ): Promise<BenchmarkResult> {
+  validateJavaCode(code);
+
   const tempDir = await createTempDir('java-benchmark');
 
   const benchmarkCode = `

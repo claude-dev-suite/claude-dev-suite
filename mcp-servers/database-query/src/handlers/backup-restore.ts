@@ -3,14 +3,33 @@
  * Handler for backup_restore tool
  */
 
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import { stat, readdir } from "fs/promises";
-import { join } from "path";
+import { join, isAbsolute } from "path";
 import { BackupRestoreSchema, jsonResponse, formatBytes, type Handler, type HandlerResult } from "./types.js";
 import { parseConnectionEnv } from "./db.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+/** Validate a table name to prevent command injection */
+function validateTableName(name: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_$.]*$/.test(name)) {
+    throw new Error(`Invalid table name: ${name}`);
+  }
+  return name;
+}
+
+/** Validate backup path to prevent path traversal */
+function validateBackupPath(p: string): string {
+  if (!isAbsolute(p)) {
+    throw new Error("backupPath must be an absolute path");
+  }
+  if (p.includes("..")) {
+    throw new Error("backupPath must not contain '..'");
+  }
+  return p;
+}
 
 export const handleBackupRestore: Handler = async (args): Promise<HandlerResult> => {
   const { operation, backupPath, format = 'custom', tables, schemaOnly = false, dataOnly = false } = BackupRestoreSchema.parse(args);
@@ -22,18 +41,21 @@ export const handleBackupRestore: Handler = async (args): Promise<HandlerResult>
       if (!backupPath) {
         throw new Error("backupPath is required for backup operation");
       }
+      validateBackupPath(backupPath);
 
       const formatFlag = format === 'custom' ? '-Fc' : format === 'directory' ? '-Fd' : '-Fp';
-      let cmd = `pg_dump ${formatFlag} -f "${backupPath}"`;
+      const args: string[] = [formatFlag, '-f', backupPath];
 
-      if (schemaOnly) cmd += ' --schema-only';
-      if (dataOnly) cmd += ' --data-only';
+      if (schemaOnly) args.push('--schema-only');
+      if (dataOnly) args.push('--data-only');
       if (tables && tables.length > 0) {
-        cmd += tables.map(t => ` -t "${t}"`).join('');
+        for (const t of tables) {
+          args.push('-t', validateTableName(t));
+        }
       }
 
       const startTime = Date.now();
-      await execAsync(cmd, { env: { ...process.env, ...pgEnv } });
+      await execFileAsync('pg_dump', args, { env: { ...process.env, ...pgEnv } });
       const duration = Date.now() - startTime;
 
       const stats = await stat(backupPath);
@@ -54,21 +76,28 @@ export const handleBackupRestore: Handler = async (args): Promise<HandlerResult>
       if (!backupPath) {
         throw new Error("backupPath is required for restore operation");
       }
+      validateBackupPath(backupPath);
 
-      let cmd: string;
+      let restoreCmd: string;
+      let restoreArgs: string[];
+
       if (format === 'plain') {
-        cmd = `psql -f "${backupPath}"`;
+        restoreCmd = 'psql';
+        restoreArgs = ['-f', backupPath];
       } else {
-        cmd = `pg_restore -d ${pgEnv.PGDATABASE} "${backupPath}"`;
-        if (schemaOnly) cmd += ' --schema-only';
-        if (dataOnly) cmd += ' --data-only';
+        restoreCmd = 'pg_restore';
+        restoreArgs = ['-d', pgEnv.PGDATABASE || 'postgres', backupPath];
+        if (schemaOnly) restoreArgs.push('--schema-only');
+        if (dataOnly) restoreArgs.push('--data-only');
         if (tables && tables.length > 0) {
-          cmd += tables.map(t => ` -t "${t}"`).join('');
+          for (const t of tables) {
+            restoreArgs.push('-t', validateTableName(t));
+          }
         }
       }
 
       const startTime = Date.now();
-      await execAsync(cmd, { env: { ...process.env, ...pgEnv } });
+      await execFileAsync(restoreCmd, restoreArgs, { env: { ...process.env, ...pgEnv } });
       const duration = Date.now() - startTime;
 
       return jsonResponse({

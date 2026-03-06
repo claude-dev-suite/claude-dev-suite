@@ -9,6 +9,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { UpgradeService } from '../services/upgrade.service.js';
 import { validateQuery, validateBody } from '../middleware/validateRequest.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import { getLogger } from '../utils/logger.js';
 import type { ApiResponse } from '../types.js';
 
@@ -63,12 +64,7 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const rawPath = req.query.path;
-      if (typeof rawPath !== 'string') {
-        res.status(400).json({ success: false, error: 'Invalid path parameter' });
-        return;
-      }
-      const projectPath = rawPath;
+      const projectPath = resolveProjectPath(req.query.path);
 
       logger.info('Checking for upgrades', { context: { projectPath } });
 
@@ -223,12 +219,7 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const rawPath = req.query.path;
-      if (typeof rawPath !== 'string') {
-        res.status(400).json({ success: false, error: 'Invalid path parameter' });
-        return;
-      }
-      const projectPath = rawPath;
+      const projectPath = resolveProjectPath(req.query.path);
 
       logger.info('Getting upgrade history', { context: { projectPath } });
 
@@ -319,9 +310,16 @@ router.get('/upgrade/features', async (_req: Request, res: Response) => {
 // PREREQUISITE INSTALLATION ROUTES
 // ============================================
 
+// SECURITY: validate npm package names to prevent shell injection via spawn(shell:true)
+const NPM_PACKAGE_NAME_REGEX = /^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+(@[a-zA-Z0-9_.*^~<>=||-]+)?$/;
+
 const InstallPackageRequestSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
-  packages: z.array(z.string()).min(1, 'At least one package is required'),
+  packages: z
+    .array(
+      z.string().regex(NPM_PACKAGE_NAME_REGEX, 'Invalid npm package name')
+    )
+    .min(1, 'At least one package is required'),
   dev: z.boolean().optional().default(true),
 });
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, relative } from 'path';
@@ -7,7 +7,7 @@ import type { ScanResult, SecurityFinding, ScanSecretsInput, SecretPattern } fro
 import { isToolAvailable, getInstallCommand } from '../utils/tool-checker.js';
 import { createEmptyResult, calculateSummary } from '../utils/normalizer.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Built-in secret patterns for fallback
 const SECRET_PATTERNS: SecretPattern[] = [
@@ -108,11 +108,13 @@ async function scanWithGitleaks(path: string, scanHistory: boolean): Promise<Sca
   const scanner = 'gitleaks';
 
   try {
-    const historyFlag = scanHistory ? '' : '--no-git';
-    const { stdout } = await execAsync(
-      `gitleaks detect --source "${path}" ${historyFlag} --report-format json --report-path /dev/stdout`,
+    const gitleaksArgs = ['detect', '--source', path, '--report-format', 'json', '--report-path', '/dev/stdout'];
+    if (!scanHistory) gitleaksArgs.push('--no-git');
+    const { stdout } = await execFileAsync(
+      'gitleaks',
+      gitleaksArgs,
       { maxBuffer: 50 * 1024 * 1024 }
-    ).catch(e => ({ stdout: e.stdout || '[]' }));
+    ).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '[]' }));
 
     const leaks = JSON.parse(stdout || '[]');
     const findings: SecurityFinding[] = leaks.map((leak: any) => ({
@@ -153,10 +155,11 @@ async function scanWithTrufflehog(path: string, scanHistory: boolean): Promise<S
 
   try {
     const scanType = scanHistory ? 'git' : 'filesystem';
-    const { stdout } = await execAsync(
-      `trufflehog ${scanType} "${path}" --json`,
+    const { stdout } = await execFileAsync(
+      'trufflehog',
+      [scanType, path, '--json'],
       { maxBuffer: 50 * 1024 * 1024 }
-    ).catch(e => ({ stdout: e.stdout || '' }));
+    ).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '' }));
 
     const findings: SecurityFinding[] = [];
 

@@ -7,7 +7,7 @@ import path from 'node:path';
  */
 
 import { Router, type Request, type Response } from 'express';
-import { exec, spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { GitService } from '../services/git.service.js';
 import { DetectionService } from '../services/detection.service.js';
 import type { ApiResponse } from '../types.js';
@@ -901,8 +901,12 @@ gitRoutes.post('/auth-login', async (_req: Request, res: Response) => {
               // stdin may already be closed
             }
             // Open browser manually as fallback (gh stdin write may not work on Windows)
-            const openCmd = process.platform === 'win32' ? 'start' : process.platform === 'darwin' ? 'open' : 'xdg-open';
-            exec(`${openCmd} https://github.com/login/device`);
+            // SECURITY: Use execFile with argument array to prevent command injection
+            const openCmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+            const openArgs = process.platform === 'win32'
+              ? ['/c', 'start', '', 'https://github.com/login/device']
+              : ['https://github.com/login/device'];
+            execFile(openCmd, openArgs, { shell: false }, () => { /* ignore result */ });
           }, 500);
 
           resolve(oneTimeCode);

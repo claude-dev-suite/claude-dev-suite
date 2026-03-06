@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { ScanResult, SecurityFinding, ScanContainerInput } from '../types.js';
 import { isToolAvailable, getInstallCommand } from '../utils/tool-checker.js';
 import { createEmptyResult, calculateSummary, normalizeSeverity, filterBySeverity } from '../utils/normalizer.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export async function scanContainer(input: ScanContainerInput): Promise<ScanResult> {
   const startTime = Date.now();
@@ -18,13 +18,14 @@ export async function scanContainer(input: ScanContainerInput): Promise<ScanResu
 
   try {
     const scanType = type === 'image' ? 'image' : 'fs';
-    const { stdout } = await execAsync(
-      `trivy ${scanType} --format json "${target}"`,
+    const { stdout } = await execFileAsync(
+      'trivy',
+      [scanType, '--format', 'json', target],
       {
         maxBuffer: 50 * 1024 * 1024,
         timeout: 600000, // 10 minute timeout for large images
       }
-    ).catch(e => ({ stdout: e.stdout || '{}' }));
+    ).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '{}' }));
 
     const results = JSON.parse(stdout);
     const findings: SecurityFinding[] = [];

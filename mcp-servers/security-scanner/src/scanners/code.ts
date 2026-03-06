@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { resolve } from 'path';
 import type { ScanResult, SecurityFinding, ScanCodeInput } from '../types.js';
 import { isToolAvailable, getInstallCommand } from '../utils/tool-checker.js';
 import { createEmptyResult, calculateSummary, normalizeSeverity } from '../utils/normalizer.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export async function scanCode(input: ScanCodeInput): Promise<ScanResult> {
   const startTime = Date.now();
@@ -17,14 +18,15 @@ export async function scanCode(input: ScanCodeInput): Promise<ScanResult> {
   }
 
   try {
-    const rulesArg = rules.map(r => `--config=${r}`).join(' ');
-    const { stdout } = await execAsync(
-      `semgrep ${rulesArg} --json "${path}"`,
+    const semgrepArgs = [...rules.map(r => `--config=${r}`), '--json', resolve(path)];
+    const { stdout } = await execFileAsync(
+      'semgrep',
+      semgrepArgs,
       {
         maxBuffer: 50 * 1024 * 1024,
         timeout: 300000, // 5 minute timeout
       }
-    ).catch(e => ({ stdout: e.stdout || '{}' }));
+    ).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '{}', stderr: '' }));
 
     const results = JSON.parse(stdout);
     const findings: SecurityFinding[] = (results.results || []).map((r: any) => ({

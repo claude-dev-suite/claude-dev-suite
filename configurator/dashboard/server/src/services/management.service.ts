@@ -34,7 +34,19 @@ const TIMEOUTS = {
 function getDevSuiteDir(): string {
   // Use DEV_SUITE_DIR env var if set (Electron packaged mode)
   if (process.env.DEV_SUITE_DIR) {
-    return process.env.DEV_SUITE_DIR;
+    const raw = process.env.DEV_SUITE_DIR;
+    // SECURITY: validate the env var value before trusting it
+    const resolved = path.resolve(raw);
+    if (!path.isAbsolute(resolved)) {
+      throw new Error('DEV_SUITE_DIR must be an absolute path');
+    }
+    if (resolved.includes('..')) {
+      throw new Error('DEV_SUITE_DIR must not contain path traversal sequences');
+    }
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      throw new Error(`DEV_SUITE_DIR does not point to an existing directory: ${resolved}`);
+    }
+    return resolved;
   }
   // Fallback: Navigate from server/src/services to dev-suite root (development)
   return path.resolve(__dirname, '..', '..', '..', '..', '..');
@@ -636,6 +648,37 @@ export class ManagementService {
     }
   }
 
+  /**
+   * Sanitize agent description for safe embedding in CLAUDE.md.
+   *
+   * Strips constructs that could be used for prompt injection or that would
+   * break the surrounding Markdown structure:
+   * - Fenced code blocks (``` and ~~~) — could smuggle arbitrary instructions
+   * - Bare backtick sequences — can close inline-code spans unexpectedly
+   * - HTML comment tags — could hide injected content
+   * - Leading "#" characters that would create rogue headings
+   * - Newlines are collapsed to a single space so the value stays on one line
+   */
+  private sanitizeAgentDescription(description: string): string {
+    if (!description) return '';
+    return description
+      // Collapse all newlines / carriage-returns to a single space first
+      .replace(/[\r\n]+/g, ' ')
+      // Remove fenced code block delimiters (``` and ~~~)
+      .replace(/`{3,}/g, '')
+      .replace(/~{3,}/g, '')
+      // Remove remaining backtick sequences
+      .replace(/`+/g, '')
+      // Remove HTML comment markers
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<!--/g, '')
+      .replace(/-->/g, '')
+      // Strip leading Markdown heading markers
+      .replace(/^#+\s*/g, '')
+      // Trim leading/trailing whitespace
+      .trim();
+  }
+
   private generateDevSuiteSection(
     agents: Agent[],
     customAgents: Array<{ id: string; name: string; description: string }> = []
@@ -652,8 +695,8 @@ export class ManagementService {
     // Generate routing instructions based on agent descriptions
     let routingInstructions = '';
     const allAgentsForRouting = [
-      ...agents.map((a) => ({ id: a.id, description: a.description, isCustom: false })),
-      ...customAgents.map((a) => ({ id: `custom:${a.id}`, description: a.description, isCustom: true })),
+      ...agents.map((a) => ({ id: a.id, description: this.sanitizeAgentDescription(a.description), isCustom: false })),
+      ...customAgents.map((a) => ({ id: `custom:${a.id}`, description: this.sanitizeAgentDescription(a.description), isCustom: true })),
     ];
 
     if (allAgentsForRouting.length > 0) {

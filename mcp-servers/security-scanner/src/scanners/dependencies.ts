@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { join } from 'path';
@@ -7,7 +7,7 @@ import type { ScanResult, SecurityFinding, ScanDependenciesInput } from '../type
 import { isToolAvailable, getInstallCommand } from '../utils/tool-checker.js';
 import { createEmptyResult, calculateSummary, normalizeSeverity, filterBySeverity } from '../utils/normalizer.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 type PackageManager = 'npm' | 'pip' | 'cargo' | 'go';
 
@@ -25,10 +25,11 @@ async function scanNpm(path: string): Promise<ScanResult> {
 
   try {
     // npm audit returns exit code 1 if vulnerabilities found, so we catch and parse
-    const { stdout } = await execAsync('npm audit --json', {
+    const { stdout } = await execFileAsync('npm', ['audit', '--json'], {
       cwd: path,
       maxBuffer: 10 * 1024 * 1024,
-    }).catch(e => ({ stdout: e.stdout || '{}' }));
+      shell: process.platform === 'win32', // npm is a .cmd on Windows
+    }).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '{}' }));
 
     const audit = JSON.parse(stdout);
     const findings: SecurityFinding[] = [];
@@ -79,10 +80,10 @@ async function scanPip(path: string): Promise<ScanResult> {
   }
 
   try {
-    const { stdout } = await execAsync('pip-audit --format=json', {
+    const { stdout } = await execFileAsync('pip-audit', ['--format=json'], {
       cwd: path,
       maxBuffer: 10 * 1024 * 1024,
-    }).catch(e => ({ stdout: e.stdout || '[]' }));
+    }).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '[]' }));
 
     const vulnerabilities = JSON.parse(stdout);
     const findings: SecurityFinding[] = vulnerabilities.map((v: any) => ({
@@ -122,10 +123,10 @@ async function scanCargo(path: string): Promise<ScanResult> {
   }
 
   try {
-    const { stdout } = await execAsync('cargo audit --json', {
+    const { stdout } = await execFileAsync('cargo', ['audit', '--json'], {
       cwd: path,
       maxBuffer: 10 * 1024 * 1024,
-    }).catch(e => ({ stdout: e.stdout || '{}' }));
+    }).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '{}' }));
 
     const audit = JSON.parse(stdout);
     const findings: SecurityFinding[] = (audit.vulnerabilities?.list || []).map((v: any) => ({
@@ -165,10 +166,10 @@ async function scanGo(path: string): Promise<ScanResult> {
   }
 
   try {
-    const { stdout } = await execAsync('govulncheck -json ./...', {
+    const { stdout } = await execFileAsync('govulncheck', ['-json', './...'], {
       cwd: path,
       maxBuffer: 10 * 1024 * 1024,
-    }).catch(e => ({ stdout: e.stdout || '' }));
+    }).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '' }));
 
     // govulncheck outputs NDJSON
     const findings: SecurityFinding[] = [];

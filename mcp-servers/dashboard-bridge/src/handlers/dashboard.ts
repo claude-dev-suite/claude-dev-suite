@@ -3,7 +3,7 @@
  * Dashboard tool handlers
  */
 
-import { spawn, exec } from "child_process";
+import { spawn, execFile } from "child_process";
 import { promisify } from "util";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
@@ -20,7 +20,7 @@ import {
   type HandlerResult,
 } from "./types.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export const handleDashboardOpen: Handler = async (args): Promise<HandlerResult> => {
   const { page, projectPath } = DashboardOpenSchema.parse(args);
@@ -34,14 +34,29 @@ export const handleDashboardOpen: Handler = async (args): Promise<HandlerResult>
     url = `${DASHBOARD_URL}/${page}`;
   }
 
+  // Validate URL is http/https to prevent command injection
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return textResponse(`Invalid URL protocol: ${parsed.protocol}. Please open manually: ${url}`);
+    }
+  } catch {
+    return textResponse(`Invalid URL. Please open manually: ${url}`);
+  }
+
   const openCommand = process.platform === "darwin"
     ? "open"
     : process.platform === "win32"
-    ? "start"
+    ? "cmd"
     : "xdg-open";
 
   try {
-    await execAsync(`${openCommand} "${url}"`);
+    if (process.platform === "win32") {
+      // On Windows, use 'cmd /c start "" <url>' via execFile to avoid shell injection
+      await execFileAsync("cmd", ["/c", "start", "", url]);
+    } else {
+      await execFileAsync(openCommand, [url]);
+    }
     return textResponse(`Opened dashboard at ${url}`);
   } catch {
     return textResponse(`Please open manually: ${url}`);

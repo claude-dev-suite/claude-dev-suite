@@ -7,6 +7,7 @@
 import { watch } from 'fs';
 import { open, stat, FileHandle } from 'fs/promises';
 import { getParser, detectFormat } from '../parsers/index.js';
+import { safeRegex } from '../utils.js';
 import type {
   WatchLogsInput,
   WatchLogsResult,
@@ -53,9 +54,9 @@ class LogWatcher {
   constructor(input: WatchLogsInput) {
     this.filePath = input.filePath;
     this.format = input.format || 'auto';
-    this.filter = input.filter ? new RegExp(input.filter, 'i') : undefined;
+    this.filter = input.filter ? safeRegex(input.filter, 'i') : undefined;
     this.levels = input.levels;
-    this.alertPatterns = (input.alertPatterns || []).map(p => new RegExp(p, 'i'));
+    this.alertPatterns = (input.alertPatterns || []).map(p => safeRegex(p, 'i'));
     this.alertLevels = input.alertLevels || ['ERROR', 'FATAL'];
     this.pollInterval = input.pollInterval || 1000;
     this.maxEntries = input.maxEntries || 1000;

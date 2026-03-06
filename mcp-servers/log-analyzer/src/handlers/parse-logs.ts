@@ -5,9 +5,13 @@
 
 import { ParseLogsSchema, jsonResponse, type Handler, type HandlerResult } from "./types.js";
 import { parseLogFile } from "../parsers/index.js";
+import { safeRegex, validateLogPath } from "../utils.js";
 
 export const handleParseLogs: Handler = async (args): Promise<HandlerResult> => {
   const input = ParseLogsSchema.parse(args);
+
+  // Path traversal protection
+  validateLogPath(input.filePath);
 
   const { format, result } = await parseLogFile(input.filePath, input.format, {
     startTime: input.startTime ? new Date(input.startTime) : undefined,
@@ -15,7 +19,7 @@ export const handleParseLogs: Handler = async (args): Promise<HandlerResult> => 
     levels: input.levels as any[],
     limit: input.limit,
     offset: input.offset,
-    filter: input.filter ? new RegExp(input.filter, 'i') : undefined,
+    filter: input.filter ? safeRegex(input.filter, 'i') : undefined,
   });
 
   // Calculate time range

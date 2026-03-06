@@ -595,7 +595,9 @@ if [ -f "$MCP_JSON" ]; then
                     # Fallback: use sed to remove lines with ${} placeholders
                     # This is less precise but works without jq
                     # Remove lines like: "VAR_NAME": "${VAR_NAME}"
-                    sed -i.bak '/"'"$server_name"'":/,/^[[:space:]]*}/ {
+                    # SECURITY: escape sed special characters in server_name before interpolation
+                    server_name_escaped=$(printf '%s\n' "$server_name" | sed 's/[[\.*^$()+?{|]/\\&/g')
+                    sed -i.bak '/"'"$server_name_escaped"'":/,/^[[:space:]]*}/ {
                         /"\${[A-Z_]*}"/d
                     }' "$MCP_JSON"
                     # Clean up trailing commas that might break JSON
@@ -662,7 +664,8 @@ echo -e "${YELLOW}[9/9] Analyzing sibling projects CLAUDE.md...${NC}"
 
 # Find parent directory (where sibling projects are)
 PARENT_DIR="$(dirname "$PROJECT_ROOT")"
-DEV_SUITE_NAME="$(basename "$DEV_SUITE_PATH")"
+# DEV_SUITE_DIR is set at the top of this script; use it here
+DEV_SUITE_NAME="$(basename "$DEV_SUITE_DIR")"
 
 # Arrays for sibling analysis
 declare -a SIBLING_CLAUDE_FILES=()
@@ -671,7 +674,7 @@ declare -a SIBLING_NEEDS_UPDATE=()
 # Find CLAUDE.md files in sibling folders (excluding dev-suite)
 while IFS= read -r -d '' claude_file; do
     # Skip files inside dev-suite folder
-    if [[ "$claude_file" != *"/$DEV_SUITE_NAME/"* ]] && [[ "$claude_file" != "$DEV_SUITE_PATH/"* ]]; then
+    if [[ "$claude_file" != *"/$DEV_SUITE_NAME/"* ]] && [[ "$claude_file" != "$DEV_SUITE_DIR/"* ]]; then
         SIBLING_CLAUDE_FILES+=("$claude_file")
     fi
 done < <(find "$PARENT_DIR" -name "CLAUDE.md" -type f -print0 2>/dev/null)

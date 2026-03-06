@@ -9,6 +9,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { RecipesService } from '../services/recipes.service.js';
 import { validateQuery, validateBody } from '../middleware/validateRequest.js';
+import { resolveProjectPath } from '../utils/utilities.js';
 import { getLogger } from '../utils/logger.js';
 import type { ApiResponse } from '../types.js';
 
@@ -99,12 +100,7 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const rawPath = req.query.path;
-      if (typeof rawPath !== 'string') {
-        res.status(400).json({ success: false, error: 'Invalid path parameter' });
-        return;
-      }
-      const projectPath = rawPath;
+      const projectPath = resolveProjectPath(req.query.path);
 
       const recommendations = recipesService.getRecommendedRecipes(projectPath);
       const enabledAutomations = recipesService.getEnabledAutomations(projectPath);
@@ -146,12 +142,7 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const rawPath = req.query.path;
-      if (typeof rawPath !== 'string') {
-        res.status(400).json({ success: false, error: 'Invalid path parameter' });
-        return;
-      }
-      const projectPath = rawPath;
+      const projectPath = resolveProjectPath(req.query.path);
 
       const enabled = recipesService.getEnabledAutomations(projectPath);
 
@@ -385,12 +376,7 @@ router.get(
     const startTime = Date.now();
 
     try {
-      const rawPath = req.query.path;
-      if (typeof rawPath !== 'string') {
-        res.status(400).json({ success: false, error: 'Invalid path parameter' });
-        return;
-      }
-      const projectPath = rawPath;
+      const projectPath = resolveProjectPath(req.query.path);
 
       const tools = recipesService.detectTools(projectPath);
 

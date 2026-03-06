@@ -13,6 +13,39 @@ import type {
 import { CONFIG_DEFAULTS, getEnvConfig } from "./config.js";
 
 // ============================================
+// SSRF Protection (block cloud metadata endpoint)
+// ============================================
+
+/**
+ * Block requests to the cloud metadata IP range (169.254.0.0/16).
+ * This is the only restriction for api-explorer since it needs to reach
+ * arbitrary remote OpenAPI spec URLs.
+ *
+ * Throws an Error if the URL resolves to a blocked range.
+ */
+function blockCloudMetadataUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`Invalid URL: ${rawUrl}`);
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Check IPv4 literals for 169.254.0.0/16
+  const ipv4Literal = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+  if (ipv4Literal) {
+    const parts = hostname.split(".").map(Number);
+    if (parts[0] === 169 && parts[1] === 254) {
+      throw new Error(
+        `SSRF protection: requests to cloud metadata endpoint (169.254.x.x) are not allowed`
+      );
+    }
+  }
+}
+
+// ============================================
 // Cache
 // ============================================
 
@@ -100,6 +133,9 @@ async function fetchWithRetry(
  * Perform actual fetch
  */
 async function doFetch(endpoint: ApiEndpointConfig): Promise<OpenAPISpec> {
+  // SSRF protection: block cloud metadata endpoint before fetching
+  blockCloudMetadataUrl(endpoint.url);
+
   const timeout = endpoint.timeout || getTimeout();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -252,6 +288,16 @@ export async function probeEndpoint(
   contentType?: string;
   error?: string;
 }> {
+  // SSRF protection: block cloud metadata endpoint
+  try {
+    blockCloudMetadataUrl(url);
+  } catch (error) {
+    return {
+      accessible: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 

@@ -376,10 +376,12 @@
         setPath(defaultPath);
       });
 
-      // Show version if available
+      // Show version if available (getVersion returns a Promise via IPC)
       const versionEl = document.getElementById('version');
       if (window.splashAPI.getVersion) {
-        versionEl.textContent = 'v' + window.splashAPI.getVersion();
+        window.splashAPI.getVersion().then((v) => {
+          if (v) versionEl.textContent = 'v' + v;
+        }).catch(() => {});
       }
     }
   </script>

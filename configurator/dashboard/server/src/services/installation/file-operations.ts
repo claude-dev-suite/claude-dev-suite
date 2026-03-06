@@ -23,7 +23,22 @@ const __dirname = path.dirname(__filename);
 export function getDevSuiteDir(): string {
   // Use DEV_SUITE_DIR env var if set (Electron packaged mode)
   if (process.env.DEV_SUITE_DIR) {
-    return process.env.DEV_SUITE_DIR;
+    const raw = process.env.DEV_SUITE_DIR;
+    // SECURITY: validate the env var value before trusting it
+    const resolved = path.resolve(raw);
+    // Must be an absolute path after resolution
+    if (!path.isAbsolute(resolved)) {
+      throw new Error('DEV_SUITE_DIR must be an absolute path');
+    }
+    // Must resolve without any remaining traversal segments
+    if (resolved.includes('..')) {
+      throw new Error('DEV_SUITE_DIR must not contain path traversal sequences');
+    }
+    // Must point to an existing directory
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      throw new Error(`DEV_SUITE_DIR does not point to an existing directory: ${resolved}`);
+    }
+    return resolved;
   }
   // Fallback: Navigate from server/src/services/installation to dev-suite root (development)
   return path.resolve(__dirname, '..', '..', '..', '..', '..', '..');

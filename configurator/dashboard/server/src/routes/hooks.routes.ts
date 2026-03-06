@@ -27,11 +27,7 @@ const detectionService = new DetectionService();
 // Get available Git repositories with hooks info (for multi-repo support)
 hooksRoutes.get('/hooks/repositories', validateQuery(HooksRepositoriesRequestSchema), async (req: Request, res: Response) => {
   try {
-    const rawPath = req.query.path;
-    if (typeof rawPath !== 'string') {
-      return res.status(400).json({ error: 'Invalid path parameter' });
-    }
-    const projectPath = rawPath;
+    const projectPath = resolveProjectPath(req.query.path);
 
     // First detect all git repos in the project
     const repos = await detectionService.detectGitRepos(projectPath);
@@ -48,11 +44,7 @@ hooksRoutes.get('/hooks/repositories', validateQuery(HooksRepositoriesRequestSch
 // Get Git hooks status
 hooksRoutes.get('/hooks/status', validateQuery(HooksStatusRequestSchema), async (req: Request, res: Response) => {
   try {
-    const rawPath = req.query.path;
-    if (typeof rawPath !== 'string') {
-      return res.status(400).json({ error: 'Invalid path parameter' });
-    }
-    const projectPath = rawPath;
+    const projectPath = resolveProjectPath(req.query.path);
 
     const status = hooksService.getGitHooksStatus(projectPath);
 

@@ -220,9 +220,17 @@ async function getSessionMetadata(filePath: string): Promise<{ firstMessage: str
 // GET /api/orchestrator/sessions/:id/history - Get session conversation history
 orchestratorRoutes.get('/orchestrator/sessions/:id/history', async (req: Request, res: Response) => {
   try {
-    const sessionId = req.params.id;
+    const sessionId = req.params.id as string | undefined;
+    // SECURITY: Validate sessionId is a safe UUID-like identifier — no path separators, dots, or
+    // other characters that could be used for path traversal when used in file paths.
+    const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
+    if (!sessionId || !SESSION_ID_PATTERN.test(sessionId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid session ID format',
+      });
+    }
     const rawProjectPath = req.query.project_path;
-    if (typeof rawProjectPath === 'string' && rawProjectPath.includes('..')) throw new Error('Path traversal not allowed');
     const projectPath = resolveProjectPath(rawProjectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 

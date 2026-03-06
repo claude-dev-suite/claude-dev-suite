@@ -27,7 +27,9 @@ contextBridge.exposeInMainWorld('splashAPI', {
   },
 
   // Get app version
+  // NOTE: process.env is not exposed to the renderer.
+  // The version is requested via IPC so the main process can supply it safely.
   getVersion: () => {
-    return process.env.npm_package_version || '1.0.0';
+    return ipcRenderer.invoke('get-app-version');
   }
 });

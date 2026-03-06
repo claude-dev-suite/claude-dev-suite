@@ -8,6 +8,7 @@ import { readFile } from 'fs/promises';
 import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
 import { parseLogFile, parseLogLine } from '../parsers/index.js';
+import { safeRegex } from '../utils.js';
 import type {
   SearchLogsInput,
   SearchLogsResult,
@@ -38,7 +39,8 @@ export async function searchLogs(input: SearchLogsInput): Promise<SearchLogsResu
   // Build search pattern
   let searchPattern: RegExp;
   if (useRegex) {
-    searchPattern = new RegExp(query, caseSensitive ? 'g' : 'gi');
+    // safeRegex validates against ReDoS and syntax errors
+    searchPattern = safeRegex(query, caseSensitive ? 'g' : 'gi');
   } else {
     // Escape regex special characters for literal search
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

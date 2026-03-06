@@ -17,7 +17,19 @@ const logger = getLogger('PackageInstaller');
 // Get dev-suite root directory
 function getDevSuiteDir(): string {
   if (process.env.DEV_SUITE_DIR) {
-    return process.env.DEV_SUITE_DIR;
+    const raw = process.env.DEV_SUITE_DIR;
+    // SECURITY: validate the env var value before trusting it
+    const resolved = path.resolve(raw);
+    if (!path.isAbsolute(resolved)) {
+      throw new Error('DEV_SUITE_DIR must be an absolute path');
+    }
+    if (resolved.includes('..')) {
+      throw new Error('DEV_SUITE_DIR must not contain path traversal sequences');
+    }
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      throw new Error(`DEV_SUITE_DIR does not point to an existing directory: ${resolved}`);
+    }
+    return resolved;
   }
   // Navigate from server/src/services/upgrade to dev-suite root
   return path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
@@ -87,6 +99,23 @@ export class PackageInstallerService {
   }
 
   /**
+   * Validate a single npm package name/specifier.
+   *
+   * Allows standard npm names (scoped or unscoped) with optional version
+   * range, e.g. "react", "@types/node", "lodash@^4.17.0".
+   * Rejects anything that could be shell-interpreted (spaces, semicolons,
+   * backticks, $, quotes, pipe, redirection, etc.).
+   *
+   * This is a defence-in-depth check in addition to the Zod schema validation
+   * performed at the route level.
+   */
+  private validatePackageName(pkg: string): boolean {
+    // Must be non-empty and match npm package name conventions
+    // Scoped: @scope/name[@version], unscoped: name[@version]
+    return /^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+(@[a-zA-Z0-9_.*^~<>=||-]+)?$/.test(pkg);
+  }
+
+  /**
    * Install npm packages as prerequisites
    */
   async installPackages(
@@ -97,6 +126,17 @@ export class PackageInstallerService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+
+    // SECURITY: validate every package name before passing to spawn with shell:true
+    const invalidPackages = packages.filter((pkg) => !this.validatePackageName(pkg));
+    if (invalidPackages.length > 0) {
+      return {
+        success: false,
+        installed: [],
+        error: `Invalid package name(s): ${invalidPackages.join(', ')}`,
+      };
+    }
+
     const packageManager = this.detectPackageManager(projectPath);
     const workDir = this.findPackageJsonDir(projectPath);
 

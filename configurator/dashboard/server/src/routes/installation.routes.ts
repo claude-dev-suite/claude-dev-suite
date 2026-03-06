@@ -89,11 +89,7 @@ installationRoutes.post('/uninstall', validateBody(UninstallRequestSchema), asyn
 // Get installation status
 installationRoutes.get('/install-status', validateQuery(InstallStatusRequestSchema), async (req: Request, res: Response) => {
   try {
-    const rawPath = req.query.path;
-    if (typeof rawPath !== 'string') {
-      return res.status(400).json({ success: false, error: 'Invalid path parameter' });
-    }
-    const projectPath = rawPath;
+    const projectPath = resolveProjectPath(req.query.path);
 
     const status = await installationService.getStatus(projectPath);
 
