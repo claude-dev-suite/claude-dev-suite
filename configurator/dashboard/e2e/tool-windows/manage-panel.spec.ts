@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { test, expect } from '../fixtures/electron-app.fixture';
 import { createInstalledTest } from '../fixtures/installed-project';
+import { waitForManageModal, waitForTabContent } from '../fixtures/helpers';
 
 /**
  * Manage Panel tests — two contexts:
@@ -23,7 +24,7 @@ test.describe('Manage Panel — Non-installed project', () => {
   test('modal shows "Dev-Suite Not Installed" for fresh projects', async ({ mainPage }) => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await manageBtn.click();
-    await mainPage.waitForTimeout(3_000);
+    await waitForTabContent(mainPage, 'Not Installed');
 
     const pageContent = await mainPage.textContent('body');
     const hasNotInstalled =
@@ -84,9 +85,7 @@ installedTest.describe('Manage Panel — Installed project', () => {
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
 
-    const modal = mainPage.locator('.fixed.inset-0.z-50');
-    await expect(modal).toBeVisible({ timeout: 10_000 });
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
 
     const pageContent = await mainPage.textContent('body');
     const hasManageContent =
@@ -100,7 +99,7 @@ installedTest.describe('Manage Panel — Installed project', () => {
   installedTest('shows all management tabs', async ({ mainPage }) => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await manageBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForManageModal(mainPage);
 
     const expectedTabs = ['Agents', 'Custom Agents', 'Skills', 'MCP Servers', 'Automations', 'Hooks', 'Updates'];
 
@@ -118,7 +117,7 @@ installedTest.describe('Manage Panel — Installed project', () => {
   installedTest('Agents tab shows installed agents', async ({ mainPage }) => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await manageBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForManageModal(mainPage);
 
     const pageContent = await mainPage.textContent('body');
     // Our installed project has react-expert and express-expert
@@ -134,13 +133,13 @@ installedTest.describe('Manage Panel — Installed project', () => {
   installedTest('tab switching works', async ({ mainPage }) => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await manageBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForManageModal(mainPage);
 
     // Click the MCP Servers tab
     const mcpTab = mainPage.locator('button:has-text("MCP Servers")');
     if ((await mcpTab.count()) > 0) {
       await mcpTab.click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'MCP Servers');
 
       // Verify MCP tab is now active (has the active class)
       const mcpClasses = await mcpTab.getAttribute('class');
@@ -153,7 +152,7 @@ installedTest.describe('Manage Panel — Installed project', () => {
   installedTest('Refresh button is available', async ({ mainPage }) => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await manageBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForManageModal(mainPage);
 
     const refreshBtn = mainPage.locator('button:has-text("Refresh")');
     const count = await refreshBtn.count();
@@ -163,7 +162,7 @@ installedTest.describe('Manage Panel — Installed project', () => {
   installedTest('Uninstall button is available', async ({ mainPage }) => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await manageBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForManageModal(mainPage);
 
     const uninstallBtn = mainPage.locator('button:has-text("Uninstall")');
     const count = await uninstallBtn.count();

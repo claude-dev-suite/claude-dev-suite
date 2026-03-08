@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { test, expect } from '../fixtures/electron-app.fixture';
 import { createInstalledTest } from '../fixtures/installed-project';
+import { waitForTabContent } from '../fixtures/helpers';
 
 // ── Installed project tests ──────────────────────────────────────────────
 const installedTest = createInstalledTest({ tmpPrefix: 'devsuite-e2e-tabs-' });
 
 installedTest.describe('Header Tabs — Installed project', () => {
   installedTest('Orchestrator and Code Review tabs visible', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
-
     const headerTabs = mainPage.locator('[data-tutorial="header-tabs"]');
     await expect(headerTabs).toBeVisible({ timeout: 15_000 });
 
@@ -21,12 +20,11 @@ installedTest.describe('Header Tabs — Installed project', () => {
   });
 
   installedTest('tab switching changes active panel', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
-
     const crTab = mainPage.locator('button:has-text("Code Review")');
+    await crTab.first().waitFor({ state: 'visible', timeout: 15_000 });
     if ((await crTab.count()) > 0) {
       await crTab.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Review Scope');
 
       // Active tab has primary-500 styling
       const classes = await crTab.first().getAttribute('class');
@@ -40,7 +38,7 @@ installedTest.describe('Header Tabs — Installed project', () => {
 // ── Non-installed project tests ──────────────────────────────────────────
 test.describe('Header Tabs — Non-installed project', () => {
   test('Setup Wizard tab visible, Orchestrator/Code Review hidden', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await mainPage.locator('aside').waitFor({ state: 'visible', timeout: 20_000 });
 
     const pageContent = await mainPage.textContent('body');
 
@@ -54,7 +52,7 @@ test.describe('Header Tabs — Non-installed project', () => {
   });
 
   test('server status indicator shows green Connected', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForTabContent(mainPage, 'Connected');
 
     // Green dot for connected status
     const greenDot = mainPage.locator('.bg-green-500');

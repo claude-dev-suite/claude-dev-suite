@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForTabContent } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-crflow-' });
 
 test.describe('Code Review — Flow', () => {
   test.beforeEach(async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
-
-    // Click the Code Review tab in the header
+    // Wait for the Code Review tab to appear before clicking it
     const crTab = mainPage.locator('button:has-text("Code Review")');
-    if ((await crTab.count()) > 0) {
-      await crTab.first().click();
-      await mainPage.waitForTimeout(3_000);
-    }
+    await crTab.first().waitFor({ state: 'visible', timeout: 15_000 });
+
+    await crTab.first().click();
+    await waitForTabContent(mainPage, 'Review Scope');
   });
 
   test('Code Review panel has scope selector', async ({ mainPage }) => {

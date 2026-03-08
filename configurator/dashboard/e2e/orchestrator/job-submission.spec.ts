@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForOrchestrator } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-orch-' });
 
 test.describe('Orchestrator — Job Submission', () => {
   test('orchestrator panel is shown for installed projects', async ({ mainPage }) => {
     // For installed projects, the app should go directly to the orchestrator.
-    // Wait for the page to settle and check the UI state.
-    await mainPage.waitForTimeout(8_000);
+    // Wait for the panel to be visible before checking UI state.
+    await waitForOrchestrator(mainPage);
 
     const pageContent = await mainPage.textContent('body');
 
@@ -28,7 +29,7 @@ test.describe('Orchestrator — Job Submission', () => {
   });
 
   test('app loads without errors for installed projects', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
+    await waitForOrchestrator(mainPage);
 
     // Verify the main content area renders
     const body = mainPage.locator('body');
@@ -42,7 +43,7 @@ test.describe('Orchestrator — Job Submission', () => {
   });
 
   test('workflow selector is available', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
+    await waitForOrchestrator(mainPage);
 
     // Look for workflow selection dropdown or list
     const workflowElements = mainPage.locator(
@@ -54,7 +55,7 @@ test.describe('Orchestrator — Job Submission', () => {
   });
 
   test('session picker is available', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
+    await waitForOrchestrator(mainPage);
 
     // Look for session-related UI
     const sessionElements = mainPage.locator(

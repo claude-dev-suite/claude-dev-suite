@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForOrchestrator } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-autocomplete-' });
 
 test.describe('Orchestrator — Chat Autocomplete', () => {
   test('chat input has correct placeholder', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -19,7 +20,7 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
   });
 
   test('typing / shows slash command dropdown', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -28,7 +29,19 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
     if ((await input.count()) > 0) {
       await input.first().click();
       await input.first().fill('/');
-      await mainPage.waitForTimeout(1_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('/help') ||
+            body.includes('/clear') ||
+            body.includes('/new') ||
+            body.includes('/resume') ||
+            body.includes('/agents')
+          );
+        },
+        { timeout: 5_000 },
+      );
 
       // Look for autocomplete dropdown
       const pageContent = await mainPage.textContent('body');
@@ -44,7 +57,7 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
   });
 
   test('Arrow keys navigate autocomplete', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -53,7 +66,19 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
     if ((await input.count()) > 0) {
       await input.first().click();
       await input.first().fill('/');
-      await mainPage.waitForTimeout(1_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('/help') ||
+            body.includes('/clear') ||
+            body.includes('/new') ||
+            body.includes('/resume') ||
+            body.includes('/agents')
+          );
+        },
+        { timeout: 5_000 },
+      );
 
       // Press ArrowDown to navigate
       await mainPage.keyboard.press('ArrowDown');
@@ -70,7 +95,7 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
   });
 
   test('Tab selects autocomplete item', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -79,7 +104,19 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
     if ((await input.count()) > 0) {
       await input.first().click();
       await input.first().fill('/');
-      await mainPage.waitForTimeout(1_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('/help') ||
+            body.includes('/clear') ||
+            body.includes('/new') ||
+            body.includes('/resume') ||
+            body.includes('/agents')
+          );
+        },
+        { timeout: 5_000 },
+      );
 
       // Press Tab to select the first item
       await mainPage.keyboard.press('Tab');
@@ -93,7 +130,7 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
   });
 
   test('Escape closes autocomplete dropdown', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -102,7 +139,19 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
     if ((await input.count()) > 0) {
       await input.first().click();
       await input.first().fill('/');
-      await mainPage.waitForTimeout(1_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('/help') ||
+            body.includes('/clear') ||
+            body.includes('/new') ||
+            body.includes('/resume') ||
+            body.includes('/agents')
+          );
+        },
+        { timeout: 5_000 },
+      );
 
       // Press Escape to close dropdown
       await mainPage.keyboard.press('Escape');
@@ -118,7 +167,7 @@ test.describe('Orchestrator — Chat Autocomplete', () => {
   });
 
   test('Send and New buttons are present', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });

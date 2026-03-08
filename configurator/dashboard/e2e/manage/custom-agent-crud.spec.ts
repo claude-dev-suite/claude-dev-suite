@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForManageModal, waitForTabContent } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-ca-crud-' });
 
@@ -9,16 +10,14 @@ test.describe('Manage — Custom Agent CRUD', () => {
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
 
-    const modal = mainPage.locator('.fixed.inset-0.z-50');
-    await expect(modal).toBeVisible({ timeout: 10_000 });
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
 
     // Navigate to Custom Agents tab (scoped to manage tabs nav)
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     const customTab = tabs.locator('button:has-text("Custom Agents")');
     if ((await customTab.count()) > 0) {
       await customTab.click();
-      await mainPage.waitForTimeout(3_000);
+      await waitForTabContent(mainPage, 'Custom Agents');
     }
   });
 
@@ -26,7 +25,7 @@ test.describe('Manage — Custom Agent CRUD', () => {
     const createBtn = mainPage.locator('button:has-text("Create Agent"), button:has-text("Create Your First Agent")');
     if ((await createBtn.count()) > 0) {
       await createBtn.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Upload File');
 
       const pageContent = await mainPage.textContent('body');
       const hasUpload = pageContent?.includes('Upload File');
@@ -41,7 +40,7 @@ test.describe('Manage — Custom Agent CRUD', () => {
     const createBtn = mainPage.locator('button:has-text("Create Agent"), button:has-text("Create Your First Agent")');
     if ((await createBtn.count()) > 0) {
       await createBtn.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Upload File');
 
       // Click Write Manually tab
       const manualTab = mainPage.locator('button:has-text("Write Manually")');
@@ -61,7 +60,7 @@ test.describe('Manage — Custom Agent CRUD', () => {
     const createBtn = mainPage.locator('button:has-text("Create Agent"), button:has-text("Create Your First Agent")');
     if ((await createBtn.count()) > 0) {
       await createBtn.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Upload File');
 
       const manualTab = mainPage.locator('button:has-text("Write Manually")');
       if ((await manualTab.count()) > 0) {
@@ -92,7 +91,7 @@ test.describe('Manage — Custom Agent CRUD', () => {
     const createBtn = mainPage.locator('button:has-text("Create Agent"), button:has-text("Create Your First Agent")');
     if ((await createBtn.count()) > 0) {
       await createBtn.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Upload File');
 
       const uploadTab = mainPage.locator('button:has-text("Upload File")');
       if ((await uploadTab.count()) > 0) {
@@ -115,7 +114,7 @@ test.describe('Manage — Custom Agent CRUD', () => {
     const createBtn = mainPage.locator('button:has-text("Create Agent"), button:has-text("Create Your First Agent")');
     if ((await createBtn.count()) > 0) {
       await createBtn.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Upload File');
 
       // Verify modal opened (Upload/Write/AI tabs visible)
       const pageContent = await mainPage.textContent('body');
@@ -136,7 +135,7 @@ test.describe('Manage — Custom Agent CRUD', () => {
     const createBtn = mainPage.locator('button:has-text("Create Agent"), button:has-text("Create Your First Agent")');
     if ((await createBtn.count()) > 0) {
       await createBtn.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Upload File');
 
       const manualTab = mainPage.locator('button:has-text("Write Manually")');
       if ((await manualTab.count()) > 0) {

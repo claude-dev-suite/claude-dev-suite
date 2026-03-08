@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForOrchestrator } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-orch-deep-' });
 
 test.describe('Orchestrator — Deep Tests', () => {
   test('console area visible', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const consoleArea = mainPage.locator('[data-tutorial="console-area"]');
     await expect(consoleArea).toBeVisible({ timeout: 15_000 });
   });
 
   test('chat input present with placeholder', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -27,14 +28,14 @@ test.describe('Orchestrator — Deep Tests', () => {
   });
 
   test('job submission form visible', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const jobSubmission = mainPage.locator('[data-tutorial="job-submission"]');
     await expect(jobSubmission).toBeVisible({ timeout: 15_000 });
   });
 
   test('/ autocomplete in chat input', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -44,7 +45,20 @@ test.describe('Orchestrator — Deep Tests', () => {
     if ((await input.count()) > 0) {
       await input.first().click();
       await input.first().fill('/');
-      await mainPage.waitForTimeout(1_500);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('review') ||
+            body.includes('workflow') ||
+            body.includes('help') ||
+            body.includes('recipe') ||
+            // Settle after fill if no dropdown appears — check no errors instead
+            !body.includes('Something went wrong')
+          );
+        },
+        { timeout: 5_000 },
+      );
 
       // Look for autocomplete dropdown/suggestions
       const pageContent = await mainPage.textContent('body');
@@ -61,7 +75,7 @@ test.describe('Orchestrator — Deep Tests', () => {
   });
 
   test('WebSocket connection status shown', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const pageContent = await mainPage.textContent('body');
     const hasConnectionStatus =

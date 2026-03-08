@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForManageModal, waitForTabContent } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-hk-' });
 
@@ -9,9 +10,7 @@ test.describe('Manage — Hooks Config', () => {
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
 
-    const modal = mainPage.locator('.fixed.inset-0.z-50');
-    await expect(modal).toBeVisible({ timeout: 10_000 });
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
   });
 
   test('Hooks tab is visible in Manage modal', async ({ mainPage }) => {
@@ -25,7 +24,7 @@ test.describe('Manage — Hooks Config', () => {
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     const hooksTab = tabs.locator('button:has-text("Hooks")');
     await hooksTab.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForTabContent(mainPage, 'Git Hooks');
 
     const pageContent = await mainPage.textContent('body');
     const hasContent =
@@ -41,7 +40,7 @@ test.describe('Manage — Hooks Config', () => {
   test('Git Hooks section with Configure button', async ({ mainPage }) => {
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     await tabs.locator('button:has-text("Hooks")').click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForTabContent(mainPage, 'Git Hooks');
 
     const pageContent = await mainPage.textContent('body');
     const hasGitHooks =
@@ -55,7 +54,7 @@ test.describe('Manage — Hooks Config', () => {
   test('Claude Hooks section with Add Hook button', async ({ mainPage }) => {
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     await tabs.locator('button:has-text("Hooks")').click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForTabContent(mainPage, 'Git Hooks');
 
     const pageContent = await mainPage.textContent('body');
     const hasClaudeHooks =
@@ -69,7 +68,7 @@ test.describe('Manage — Hooks Config', () => {
   test('Repository selector visible for multi-repo', async ({ mainPage }) => {
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     await tabs.locator('button:has-text("Hooks")').click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForTabContent(mainPage, 'Git Hooks');
 
     const pageContent = await mainPage.textContent('body');
     expect(pageContent?.includes('Something went wrong')).toBeFalsy();
@@ -78,7 +77,7 @@ test.describe('Manage — Hooks Config', () => {
   test('Hooks tab loads without errors', async ({ mainPage }) => {
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     await tabs.locator('button:has-text("Hooks")').click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForTabContent(mainPage, 'Git Hooks');
 
     const pageContent = await mainPage.textContent('body');
     expect(pageContent?.includes('Something went wrong')).toBeFalsy();

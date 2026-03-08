@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForOrchestrator } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-queue-' });
 
 test.describe('Orchestrator — Job Queue', () => {
   test('Job Queue panel is visible', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const pageContent = await mainPage.textContent('body');
     const hasQueue =
@@ -17,13 +18,24 @@ test.describe('Orchestrator — Job Queue', () => {
   });
 
   test('empty queue shows Queue is empty when expanded', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     // Queue is collapsed by default — click header to expand
     const queueHeader = mainPage.locator('button:has-text("Job Queue")');
     if ((await queueHeader.count()) > 0) {
       await queueHeader.click();
-      await mainPage.waitForTimeout(2_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('Queue is empty') ||
+            body.includes('No jobs running') ||
+            body.includes('No jobs') ||
+            body.includes('Refresh')
+          );
+        },
+        { timeout: 10_000 },
+      );
     }
 
     const pageContent = await mainPage.textContent('body');
@@ -36,13 +48,19 @@ test.describe('Orchestrator — Job Queue', () => {
   });
 
   test('expanded queue has Refresh button', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     // Expand the queue panel
     const queueHeader = mainPage.locator('button:has-text("Job Queue")');
     if ((await queueHeader.count()) > 0) {
       await queueHeader.click();
-      await mainPage.waitForTimeout(2_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return body.includes('Refresh') || body.includes('Queue is empty');
+        },
+        { timeout: 10_000 },
+      );
     }
 
     const refreshBtn = mainPage.locator('button:has-text("Refresh")');
@@ -51,13 +69,19 @@ test.describe('Orchestrator — Job Queue', () => {
   });
 
   test('expanded queue has Clear Queue button', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     // Expand the queue panel
     const queueHeader = mainPage.locator('button:has-text("Job Queue")');
     if ((await queueHeader.count()) > 0) {
       await queueHeader.click();
-      await mainPage.waitForTimeout(2_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return body.includes('Clear') || body.includes('Queue is empty');
+        },
+        { timeout: 10_000 },
+      );
     }
 
     const pageContent = await mainPage.textContent('body');
@@ -68,13 +92,19 @@ test.describe('Orchestrator — Job Queue', () => {
   });
 
   test('expanded queue has Force Unstick button', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     // Expand the queue panel
     const queueHeader = mainPage.locator('button:has-text("Job Queue")');
     if ((await queueHeader.count()) > 0) {
       await queueHeader.click();
-      await mainPage.waitForTimeout(2_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return body.includes('Unstick') || body.includes('Queue is empty');
+        },
+        { timeout: 10_000 },
+      );
     }
 
     const pageContent = await mainPage.textContent('body');

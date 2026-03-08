@@ -1,0 +1,53 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'configurator/dashboard/**'
+      - '.github/workflows/e2e.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'configurator/dashboard/**'
+      - '.github/workflows/e2e.yml'
+
+jobs:
+  e2e:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dashboard dependencies
+        run: npm ci
+        working-directory: configurator/dashboard
+
+      - name: Build server
+        run: npm run build
+        working-directory: configurator/dashboard/server
+
+      - name: Install MCP server dependencies
+        run: npm ci
+        working-directory: mcp-servers
+
+      - name: Build MCP servers
+        run: npm run build
+        working-directory: mcp-servers
+
+      - name: Run Playwright E2E tests
+        run: npx playwright test --reporter=github,list
+        working-directory: configurator/dashboard
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: configurator/dashboard/e2e-results/
+          retention-days: 7

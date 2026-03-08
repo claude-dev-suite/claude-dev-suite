@@ -78,3 +78,49 @@ export function collectConsoleLogs(page: Page): string[] {
   page.on('console', (msg) => logs.push(`[${msg.type()}] ${msg.text()}`));
   return logs;
 }
+
+/**
+ * Wait for the orchestrator panel to fully load (installed project).
+ * Replaces `waitForTimeout(8_000)` in orchestrator tests.
+ */
+export async function waitForOrchestrator(page: Page, timeout = 20_000): Promise<void> {
+  await page.locator('[data-tutorial="console-area"]').waitFor({ state: 'visible', timeout });
+}
+
+/**
+ * Wait for the Manage modal content to load after opening.
+ * Replaces `waitForTimeout(3_000)` after clicking manage-btn.
+ */
+export async function waitForManageModal(page: Page, timeout = 15_000): Promise<void> {
+  await page.locator('.fixed.inset-0.z-50').waitFor({ state: 'visible', timeout });
+  // Wait for tabs to render inside the modal
+  await page.locator('[data-tutorial="manage-tabs"]').waitFor({ state: 'visible', timeout });
+}
+
+/**
+ * Wait for a manage sub-tab to load after clicking it.
+ * Replaces `waitForTimeout(3_000-5_000)` after tab click.
+ */
+export async function waitForTabContent(page: Page, contentText: string, timeout = 15_000): Promise<void> {
+  await page.waitForFunction(
+    (text) => document.body.textContent?.includes(text) ?? false,
+    contentText,
+    { timeout },
+  );
+}
+
+/**
+ * Wait for the git panel to load after opening.
+ * Replaces `waitForTimeout(3_000-5_000)` after clicking git-tool-btn.
+ */
+export async function waitForGitPanel(page: Page, timeout = 15_000): Promise<void> {
+  await page.locator('[data-tutorial="git-panel"]').waitFor({ state: 'visible', timeout });
+  // Wait for branch info to load
+  await page.waitForFunction(
+    () => {
+      const body = document.body.textContent ?? '';
+      return body.includes('master') || body.includes('main');
+    },
+    { timeout },
+  );
+}

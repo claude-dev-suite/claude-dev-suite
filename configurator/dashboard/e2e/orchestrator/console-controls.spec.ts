@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForOrchestrator } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-console-' });
 
 test.describe('Orchestrator — Console Controls', () => {
   test('console header shows Claude Output', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const consoleArea = mainPage.locator('[data-tutorial="console-area"]');
     await expect(consoleArea).toBeVisible({ timeout: 15_000 });
@@ -18,7 +19,7 @@ test.describe('Orchestrator — Console Controls', () => {
   });
 
   test('console size buttons are visible', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const consoleArea = mainPage.locator('[data-tutorial="console-area"]');
     await expect(consoleArea).toBeVisible({ timeout: 15_000 });
@@ -35,7 +36,7 @@ test.describe('Orchestrator — Console Controls', () => {
   });
 
   test('fullscreen toggle button exists', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const fullscreenBtn = mainPage.locator('[title="Toggle Fullscreen"]');
     const count = await fullscreenBtn.count();
@@ -43,7 +44,7 @@ test.describe('Orchestrator — Console Controls', () => {
   });
 
   test('Execute Job button is present', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const executeBtn = mainPage.locator('button:has-text("Execute Job")');
     const count = await executeBtn.count();
@@ -51,7 +52,7 @@ test.describe('Orchestrator — Console Controls', () => {
   });
 
   test('Reset button is present', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const resetBtn = mainPage.locator('button:has-text("Reset")');
     const count = await resetBtn.count();

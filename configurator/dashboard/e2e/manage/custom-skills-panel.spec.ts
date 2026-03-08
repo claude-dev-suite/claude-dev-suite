@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForManageModal, waitForTabContent } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-skills-' });
 
@@ -9,16 +10,14 @@ test.describe('Manage — Custom Skills Panel', () => {
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
 
-    const modal = mainPage.locator('.fixed.inset-0.z-50');
-    await expect(modal).toBeVisible({ timeout: 10_000 });
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
 
     // Click Skills tab (scoped to manage tabs nav)
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     const skillsTab = tabs.locator('button:has-text("Skills")');
     if ((await skillsTab.count()) > 0) {
       await skillsTab.click();
-      await mainPage.waitForTimeout(3_000);
+      await waitForTabContent(mainPage, 'Custom Skills');
     }
   });
 
@@ -44,7 +43,7 @@ test.describe('Manage — Custom Skills Panel', () => {
     const createBtn = mainPage.locator('button:has-text("Create Skill"), button:has-text("Create Your First Skill")');
     if ((await createBtn.count()) > 0) {
       await createBtn.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Name');
 
       const pageContent = await mainPage.textContent('body');
       // Modal should show form fields

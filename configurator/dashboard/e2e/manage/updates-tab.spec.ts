@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForManageModal, waitForTabContent } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-upd-' });
 
@@ -9,16 +10,14 @@ test.describe('Manage — Updates Tab', () => {
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
 
-    const modal = mainPage.locator('.fixed.inset-0.z-50');
-    await expect(modal).toBeVisible({ timeout: 10_000 });
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
 
     // Click Updates tab (scoped to manage tabs nav)
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     const updatesTab = tabs.locator('button:has-text("Updates")');
     if ((await updatesTab.count()) > 0) {
       await updatesTab.click();
-      await mainPage.waitForTimeout(5_000);
+      await waitForTabContent(mainPage, 'No Installation Manifest');
     }
   });
 
@@ -64,7 +63,7 @@ test.describe('Manage — Updates Tab', () => {
     const historyTab = mainPage.locator('button:has-text("History")');
     if ((await historyTab.count()) > 0) {
       await historyTab.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'History');
 
       const pageContent = await mainPage.textContent('body');
       // Should show history list or empty state

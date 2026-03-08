@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { test, expect } from '../fixtures/electron-app.fixture';
-import { getWindowBounds } from '../fixtures/helpers';
+import { getWindowBounds, waitForGitPanel } from '../fixtures/helpers';
 
 test.describe('Window Resize Behavior', () => {
   test('window enforces min 1000x700', async ({ mainPage, electronApp }) => {
@@ -32,7 +32,7 @@ test.describe('Window Resize Behavior', () => {
     const gitBtn = mainPage.locator('[data-tutorial="git-tool-btn"]');
     await expect(gitBtn).toBeVisible({ timeout: 15_000 });
     await gitBtn.click();
-    await mainPage.waitForTimeout(2_000);
+    await waitForGitPanel(mainPage);
 
     // Use the data-tutorial attribute for the Git panel content
     const panel = mainPage.locator('[data-tutorial="git-panel"]');
@@ -55,7 +55,7 @@ test.describe('Window Resize Behavior', () => {
     const gitBtn = mainPage.locator('[data-tutorial="git-tool-btn"]');
     await expect(gitBtn).toBeVisible({ timeout: 15_000 });
     await gitBtn.click();
-    await mainPage.waitForTimeout(2_000);
+    await waitForGitPanel(mainPage);
 
     const panel = mainPage.locator('[data-tutorial="git-panel"]');
     const isVisible = await panel.isVisible().catch(() => false);

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForOrchestrator } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-session-' });
 
 test.describe('Orchestrator — Session Picker', () => {
   test('/resume command triggers session picker', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -15,7 +16,17 @@ test.describe('Orchestrator — Session Picker', () => {
       await input.first().click();
       await input.first().fill('/resume');
       await mainPage.keyboard.press('Enter');
-      await mainPage.waitForTimeout(3_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('Resume Session') ||
+            body.includes('No previous sessions') ||
+            body.includes('Loading sessions')
+          );
+        },
+        { timeout: 10_000 },
+      );
 
       const pageContent = await mainPage.textContent('body');
       const hasSessionPicker =
@@ -28,7 +39,7 @@ test.describe('Orchestrator — Session Picker', () => {
   });
 
   test('session picker shows loading or sessions list', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -38,7 +49,18 @@ test.describe('Orchestrator — Session Picker', () => {
       await input.first().click();
       await input.first().fill('/resume');
       await mainPage.keyboard.press('Enter');
-      await mainPage.waitForTimeout(3_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('Loading sessions') ||
+            body.includes('No previous sessions') ||
+            body.includes('Resume Session') ||
+            body.includes('messages')
+          );
+        },
+        { timeout: 10_000 },
+      );
 
       const pageContent = await mainPage.textContent('body');
       const hasContent =
@@ -52,7 +74,7 @@ test.describe('Orchestrator — Session Picker', () => {
   });
 
   test('session picker has Cancel button', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -62,7 +84,17 @@ test.describe('Orchestrator — Session Picker', () => {
       await input.first().click();
       await input.first().fill('/resume');
       await mainPage.keyboard.press('Enter');
-      await mainPage.waitForTimeout(3_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('Resume Session') ||
+            body.includes('No previous sessions') ||
+            body.includes('Loading sessions')
+          );
+        },
+        { timeout: 10_000 },
+      );
 
       // Cancel button is inside the session picker modal overlay
       const modal = mainPage.locator('.fixed.inset-0.z-50');
@@ -74,7 +106,7 @@ test.describe('Orchestrator — Session Picker', () => {
   });
 
   test('session picker closes on Cancel', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -84,7 +116,17 @@ test.describe('Orchestrator — Session Picker', () => {
       await input.first().click();
       await input.first().fill('/resume');
       await mainPage.keyboard.press('Enter');
-      await mainPage.waitForTimeout(3_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return (
+            body.includes('Resume Session') ||
+            body.includes('No previous sessions') ||
+            body.includes('Loading sessions')
+          );
+        },
+        { timeout: 10_000 },
+      );
 
       // Cancel button inside the session picker modal
       const modal = mainPage.locator('.fixed.inset-0.z-50');
@@ -92,7 +134,10 @@ test.describe('Orchestrator — Session Picker', () => {
         const cancelBtn = modal.locator('button:has-text("Cancel")');
         if ((await cancelBtn.count()) > 0) {
           await cancelBtn.click();
-          await mainPage.waitForTimeout(1_000);
+          await mainPage.waitForFunction(
+            () => !(document.body.textContent ?? '').includes('Resume Session'),
+            { timeout: 10_000 },
+          );
 
           // Session picker modal should be gone
           const pageContent = await mainPage.textContent('body');
@@ -104,7 +149,7 @@ test.describe('Orchestrator — Session Picker', () => {
   });
 
   test('/new command resets chat', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
+    await waitForOrchestrator(mainPage);
 
     const chatInput = mainPage.locator('[data-tutorial="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
@@ -114,7 +159,10 @@ test.describe('Orchestrator — Session Picker', () => {
       await input.first().click();
       await input.first().fill('/new');
       await mainPage.keyboard.press('Enter');
-      await mainPage.waitForTimeout(2_000);
+      await mainPage.waitForFunction(
+        () => !(document.body.textContent ?? '').includes('Something went wrong'),
+        { timeout: 10_000 },
+      );
 
       // No errors should occur
       const pageContent = await mainPage.textContent('body');

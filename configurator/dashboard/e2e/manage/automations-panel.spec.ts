@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForManageModal, waitForTabContent } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-auto-' });
 
@@ -9,16 +10,14 @@ test.describe('Manage — Automations Panel', () => {
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
 
-    const modal = mainPage.locator('.fixed.inset-0.z-50');
-    await expect(modal).toBeVisible({ timeout: 10_000 });
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
 
     // Click Automations tab (scoped to manage tabs nav)
     const tabs = mainPage.locator('[data-tutorial="manage-tabs"]');
     const autoTab = tabs.locator('button:has-text("Automations")');
     if ((await autoTab.count()) > 0) {
       await autoTab.click();
-      await mainPage.waitForTimeout(5_000);
+      await waitForTabContent(mainPage, 'Recommended');
     }
   });
 
@@ -53,7 +52,7 @@ test.describe('Manage — Automations Panel', () => {
     const activeTab = mainPage.locator('button:has-text("Active")');
     if ((await activeTab.count()) > 0) {
       await activeTab.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'Active');
 
       const pageContent = await mainPage.textContent('body');
       const hasActiveContent =
@@ -69,7 +68,7 @@ test.describe('Manage — Automations Panel', () => {
     const allTab = mainPage.locator('button:has-text("All Automations")');
     if ((await allTab.count()) > 0) {
       await allTab.first().click();
-      await mainPage.waitForTimeout(2_000);
+      await waitForTabContent(mainPage, 'All Automations');
 
       const pageContent = await mainPage.textContent('body');
       // Categories should be visible or the view should load without errors

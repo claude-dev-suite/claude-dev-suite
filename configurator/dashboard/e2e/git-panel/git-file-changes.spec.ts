@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
+import { waitForGitPanel } from '../fixtures/helpers';
 
 /**
  * Git file change tests need a fresh project per test because
@@ -49,7 +50,7 @@ test.describe('Git Panel — File Changes', () => {
     const gitBtn = mainPage.locator('[data-tutorial="git-tool-btn"]');
     await expect(gitBtn).toBeVisible({ timeout: 15_000 });
     await gitBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForGitPanel(mainPage);
 
     const pageContent = await mainPage.textContent('body');
     const hasNewFile =
@@ -67,7 +68,13 @@ test.describe('Git Panel — File Changes', () => {
     const gitBtn = mainPage.locator('[data-tutorial="git-tool-btn"]');
     await expect(gitBtn).toBeVisible({ timeout: 15_000 });
     await gitBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForGitPanel(mainPage);
+
+    // Wait for modified file changes to be detected and Stage All to appear
+    await mainPage.waitForFunction(
+      () => (document.body.textContent ?? '').includes('Modified') || (document.body.textContent ?? '').includes('Stage All'),
+      { timeout: 10_000 },
+    );
 
     const stageAllBtn = mainPage.locator('button:has-text("Stage All")');
     const count = await stageAllBtn.count();
@@ -80,13 +87,19 @@ test.describe('Git Panel — File Changes', () => {
     const gitBtn = mainPage.locator('[data-tutorial="git-tool-btn"]');
     await expect(gitBtn).toBeVisible({ timeout: 15_000 });
     await gitBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForGitPanel(mainPage);
 
     // Click Stage All
     const stageAllBtn = mainPage.locator('button:has-text("Stage All")');
     if ((await stageAllBtn.count()) > 0) {
       await stageAllBtn.first().click();
-      await mainPage.waitForTimeout(3_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return body.includes('Staged') || document.querySelector('textarea') !== null;
+        },
+        { timeout: 10_000 },
+      );
 
       // Commit textarea should now be present and enabled
       const textarea = mainPage.locator('textarea');
@@ -102,12 +115,18 @@ test.describe('Git Panel — File Changes', () => {
     const gitBtn = mainPage.locator('[data-tutorial="git-tool-btn"]');
     await expect(gitBtn).toBeVisible({ timeout: 15_000 });
     await gitBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForGitPanel(mainPage);
 
     const stageAllBtn = mainPage.locator('button:has-text("Stage All")');
     if ((await stageAllBtn.count()) > 0) {
       await stageAllBtn.first().click();
-      await mainPage.waitForTimeout(3_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return body.includes('Staged') || document.querySelector('textarea') !== null;
+        },
+        { timeout: 10_000 },
+      );
 
       // Look for Commit button with file count
       const pageContent = await mainPage.textContent('body');
@@ -124,13 +143,19 @@ test.describe('Git Panel — File Changes', () => {
     const gitBtn = mainPage.locator('[data-tutorial="git-tool-btn"]');
     await expect(gitBtn).toBeVisible({ timeout: 15_000 });
     await gitBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForGitPanel(mainPage);
 
     // Stage all
     const stageAllBtn = mainPage.locator('button:has-text("Stage All")');
     if ((await stageAllBtn.count()) > 0) {
       await stageAllBtn.first().click();
-      await mainPage.waitForTimeout(3_000);
+      await mainPage.waitForFunction(
+        () => {
+          const body = document.body.textContent ?? '';
+          return body.includes('Staged') || document.querySelector('textarea') !== null;
+        },
+        { timeout: 10_000 },
+      );
 
       // Enter commit message
       const textarea = mainPage.locator('textarea');

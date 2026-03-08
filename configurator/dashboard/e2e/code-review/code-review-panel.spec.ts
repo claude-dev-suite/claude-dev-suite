@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForTabContent } from '../fixtures/helpers';
 
 /**
  * Code Review panel tests — requires an installed project
@@ -10,7 +11,7 @@ const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-cr-' });
 
 test.describe('Code Review Panel', () => {
   test('Code Review tab is visible for installed projects', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
+    await mainPage.locator('button:has-text("Code Review")').first().waitFor({ state: 'visible', timeout: 15_000 });
 
     const pageContent = await mainPage.textContent('body');
     const hasCodeReviewTab =
@@ -20,13 +21,12 @@ test.describe('Code Review Panel', () => {
   });
 
   test('clicking Code Review tab opens the panel', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
-
     // Click the Code Review tab in the header
     const crTab = mainPage.locator('button:has-text("Code Review")');
+    await crTab.first().waitFor({ state: 'visible', timeout: 15_000 });
     if ((await crTab.count()) > 0) {
       await crTab.first().click();
-      await mainPage.waitForTimeout(3_000);
+      await waitForTabContent(mainPage, 'Review Scope');
 
       const pageContent = await mainPage.textContent('body');
       const hasCrContent =
@@ -39,12 +39,11 @@ test.describe('Code Review Panel', () => {
   });
 
   test('shows scope selector with Uncommitted Changes and Full Project', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
-
     const crTab = mainPage.locator('button:has-text("Code Review")');
+    await crTab.first().waitFor({ state: 'visible', timeout: 15_000 });
     if ((await crTab.count()) > 0) {
       await crTab.first().click();
-      await mainPage.waitForTimeout(3_000);
+      await waitForTabContent(mainPage, 'Review Scope');
 
       const pageContent = await mainPage.textContent('body');
       const hasScopes =
@@ -57,12 +56,11 @@ test.describe('Code Review Panel', () => {
   });
 
   test('shows review agent cards', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
-
     const crTab = mainPage.locator('button:has-text("Code Review")');
+    await crTab.first().waitFor({ state: 'visible', timeout: 15_000 });
     if ((await crTab.count()) > 0) {
       await crTab.first().click();
-      await mainPage.waitForTimeout(3_000);
+      await waitForTabContent(mainPage, 'Review Scope');
 
       const pageContent = await mainPage.textContent('body');
       // Review agents may include security, performance, qa, etc.
@@ -77,12 +75,11 @@ test.describe('Code Review Panel', () => {
   });
 
   test('Start Review button is present but disabled without agents', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
-
     const crTab = mainPage.locator('button:has-text("Code Review")');
+    await crTab.first().waitFor({ state: 'visible', timeout: 15_000 });
     if ((await crTab.count()) > 0) {
       await crTab.first().click();
-      await mainPage.waitForTimeout(3_000);
+      await waitForTabContent(mainPage, 'Review Scope');
 
       const startBtn = mainPage.locator('button:has-text("Start Review")');
       const count = await startBtn.count();

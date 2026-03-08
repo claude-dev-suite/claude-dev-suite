@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForManageModal } from '../fixtures/helpers';
 
 const test = createInstalledTest({
   tmpPrefix: 'devsuite-e2e-ca-',
@@ -14,7 +15,7 @@ test.describe('Custom Agents Panel', () => {
 
     const modal = mainPage.locator('.fixed.inset-0.z-50');
     await expect(modal).toBeVisible({ timeout: 10_000 });
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
 
     // Look for the Custom Agents tab
     const customAgentsTab = mainPage.locator('[data-tutorial="custom-agents-tab"]');
@@ -30,7 +31,7 @@ test.describe('Custom Agents Panel', () => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
 
     // Click the Custom Agents tab
     const customTab = mainPage.locator('button:has-text("Custom Agents")');
@@ -53,7 +54,7 @@ test.describe('Custom Agents Panel', () => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
-    await mainPage.waitForTimeout(3_000);
+    await waitForManageModal(mainPage);
 
     // Click the Custom Agents tab
     const customTab = mainPage.locator('button:has-text("Custom Agents")');
@@ -84,7 +85,7 @@ test.describe('Custom Agents Panel', () => {
     const manageBtn = mainPage.locator('[data-tutorial="manage-btn"]');
     await expect(manageBtn).toBeVisible({ timeout: 15_000 });
     await manageBtn.click();
-    await mainPage.waitForTimeout(5_000);
+    await waitForManageModal(mainPage);
 
     // No error boundaries should be showing
     const pageContent = await mainPage.textContent('body');

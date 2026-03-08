@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { test, expect } from '../fixtures/electron-app.fixture';
 import { createInstalledTest } from '../fixtures/installed-project';
+import { waitForTabContent } from '../fixtures/helpers';
 
 // ── Installed project tests ──────────────────────────────────────────────
 const installedTest = createInstalledTest({ tmpPrefix: 'devsuite-e2e-kbd-' });
@@ -21,7 +22,7 @@ installedTest.describe('Keyboard Accessibility — Installed project', () => {
   });
 
   installedTest('Tab key moves focus between elements', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
+    await mainPage.locator('[data-tutorial="header-tabs"]').waitFor({ state: 'visible', timeout: 15_000 });
 
     // Get currently focused element
     const initialTag = await mainPage.evaluate(() => document.activeElement?.tagName);
@@ -52,7 +53,10 @@ test.describe('Keyboard Accessibility — Default fixture', () => {
     if ((await continueBtn.count()) > 0) {
       await continueBtn.first().focus();
       await mainPage.keyboard.press('Enter');
-      await mainPage.waitForTimeout(3_000);
+      await mainPage.waitForFunction(
+        () => (document.body.textContent?.length ?? 0) > 0,
+        { timeout: 10_000 },
+      );
 
       // Page content should have changed (wizard advanced)
       const afterContent = await mainPage.textContent('body');
@@ -62,7 +66,7 @@ test.describe('Keyboard Accessibility — Default fixture', () => {
   });
 
   test('Tutorial keyboard nav (ArrowRight/Left/Escape)', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(5_000);
+    await mainPage.locator('aside').waitFor({ state: 'visible', timeout: 20_000 });
 
     // Start the tutorial via help button
     const helpBtn = mainPage.locator('[data-tutorial="help-btn"]');

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { createInstalledTest, expect } from '../fixtures/installed-project';
+import { waitForTabContent } from '../fixtures/helpers';
 
 const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-tut-' });
 
 test.describe('Tutorial System', () => {
   test('help button starts tutorial', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
-
     const helpBtn = mainPage.locator('[data-tutorial="help-btn"]');
     await expect(helpBtn).toBeVisible({ timeout: 15_000 });
     await helpBtn.click();
@@ -23,8 +22,6 @@ test.describe('Tutorial System', () => {
   });
 
   test('tutorial can progress and be skipped', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
-
     const helpBtn = mainPage.locator('[data-tutorial="help-btn"]');
     await expect(helpBtn).toBeVisible({ timeout: 15_000 });
     await helpBtn.click();
@@ -60,8 +57,6 @@ test.describe('Tutorial System', () => {
   });
 
   test('completion saves to localStorage', async ({ mainPage }) => {
-    await mainPage.waitForTimeout(8_000);
-
     const helpBtn = mainPage.locator('[data-tutorial="help-btn"]');
     await expect(helpBtn).toBeVisible({ timeout: 15_000 });
     await helpBtn.click();

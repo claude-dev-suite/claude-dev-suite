@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { test, expect } from '../fixtures/electron-app.fixture';
+import { waitForGitPanel } from '../fixtures/helpers';
 
 test.describe('Git Panel — Operations', () => {
   test.beforeEach(async ({ mainPage }) => {
     const gitBtn = mainPage.locator('[data-tutorial="git-tool-btn"]');
     await expect(gitBtn).toBeVisible({ timeout: 15_000 });
     await gitBtn.click();
-    await mainPage.waitForTimeout(3_000);
+    await waitForGitPanel(mainPage);
   });
 
   test('Git panel shows accordion sections', async ({ mainPage }) => {
