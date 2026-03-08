@@ -158,7 +158,7 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
       pathsCount: paths?.length || 0
     });
 
-    // LIKE LEGACY: Verify selected paths exist AND are readable before building job
+    // Verify selected paths exist before building job
     let verifiedPaths = paths;
     if (paths && paths.length > 0 && scope === 'full-project') {
       const missingFiles: string[] = [];
@@ -167,43 +167,43 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
       for (const relPath of paths) {
         // SECURITY: Skip paths with traversal sequences
         if (relPath.includes('..')) continue;
-        // Normalize path separators for Windows (like legacy)
+        // Normalize path separators for Windows
         const normalizedPath = relPath.replace(/\//g, path.sep);
         const absPath = path.join(workingDir, normalizedPath);
 
-        // Actually try to read the file, not just check existence (like legacy)
         try {
-          fs.accessSync(absPath, fs.constants.R_OK);
-          // Try reading first 100 bytes to verify it's actually readable
-          const fd = fs.openSync(absPath, 'r');
-          const buffer = Buffer.alloc(100);
-          fs.readSync(fd, buffer, 0, 100, 0);
-          fs.closeSync(fd);
-          existingFiles.push(relPath);
+          const stats = fs.statSync(absPath);
+          if (stats.isDirectory()) {
+            // Directories are valid as prefix filters — just verify they exist
+            existingFiles.push(relPath);
+          } else {
+            // For files, verify they are readable
+            fs.accessSync(absPath, fs.constants.R_OK);
+            existingFiles.push(relPath);
+          }
         } catch (e) {
           missingFiles.push(relPath);
-          logger.debug('File not readable', { path: absPath, error: (e as Error).message });
+          logger.debug('Path not accessible', { path: absPath, error: (e as Error).message });
         }
       }
 
-      logger.debug('File verification complete', {
-        readable: existingFiles.length,
-        notReadable: missingFiles.length
+      logger.debug('Path verification complete', {
+        accessible: existingFiles.length,
+        notAccessible: missingFiles.length
       });
 
-      // Only use existing files
+      // Only use existing paths
       if (existingFiles.length === 0) {
         const response: ApiResponse = {
           success: false,
-          error: 'None of the selected files are readable. They may have been deleted, moved, or are OneDrive placeholders not synced locally.',
+          error: 'None of the selected files/directories are accessible.',
         };
         return res.status(400).json(response);
       }
 
-      // Use only verified files
       verifiedPaths = existingFiles;
       if (missingFiles.length > 0) {
-        logger.info('Filtered out unreadable files', { count: missingFiles.length });
+        logger.info('Filtered out inaccessible paths', { count: missingFiles.length });
       }
     }
 

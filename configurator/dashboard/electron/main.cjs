@@ -101,10 +101,10 @@ function applyCSP(session) {
           [
             "default-src 'self'",
             "script-src 'self'",
-            "style-src 'self' 'unsafe-inline'",
-            `connect-src 'self' http://localhost:${SERVER_PORT} ws://localhost:${SERVER_PORT} http://localhost:${VITE_DEV_PORT} ws://localhost:${VITE_DEV_PORT}`,
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            `connect-src 'self' http://localhost:${SERVER_PORT} ws://localhost:${SERVER_PORT} ws://localhost:${SERVER_PORT + 1} http://localhost:${VITE_DEV_PORT} ws://localhost:${VITE_DEV_PORT}`,
             "img-src 'self' data:",
-            "font-src 'self' data:",
+            "font-src 'self' data: https://fonts.gstatic.com",
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'self'",
@@ -265,6 +265,7 @@ function createSplashWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      partition: 'splash',
     },
   });
 
@@ -275,7 +276,9 @@ function createSplashWindow() {
 
   splashWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-  applyCSP(splashWindow.webContents.session);
+  // NOTE: CSP is intentionally NOT applied to the splash window.
+  // It is a trusted local HTML file with no user content or external resources.
+  // CSP is applied to the main window session in createMainWindow().
 
   splashWindow.loadFile(findSplashHtml());
   splashWindow.on('closed', () => {
@@ -483,19 +486,33 @@ function createMainWindow() {
 
   // Load the app
   if (isDev) {
-    // In development, try Vite dev server first, fallback to built files
-    mainWindow
-      .loadURL(`http://localhost:${VITE_DEV_PORT}`)
-      .catch(() => {
-        console.log('[Electron] Vite dev server not running, loading built files');
-        mainWindow.loadFile(findFrontendPath());
-      });
-    // Only open DevTools in development builds
-    mainWindow.webContents.openDevTools();
+    // In development, check if Vite dev server is running before trying to connect
+    const viteCheck = http.get(`http://localhost:${VITE_DEV_PORT}`, (res) => {
+      viteCheck.destroy();
+      console.log('[Electron] Vite dev server detected, loading from it');
+      mainWindow.loadURL(`http://localhost:${VITE_DEV_PORT}`);
+      mainWindow.webContents.openDevTools();
+    });
+    viteCheck.on('error', () => {
+      console.log('[Electron] Vite dev server not running, loading built files');
+      mainWindow.loadFile(findFrontendPath());
+    });
+    viteCheck.setTimeout(1000, () => {
+      viteCheck.destroy();
+      console.log('[Electron] Vite dev server timeout, loading built files');
+      mainWindow.loadFile(findFrontendPath());
+    });
   } else {
     mainWindow.loadFile(findFrontendPath());
     // DevTools are intentionally disabled in production
   }
+
+  // Log renderer errors to main process console
+  mainWindow.webContents.on('console-message', (event) => {
+    if (event.level >= 2) { // warnings and errors only
+      console.log(`[Renderer ${event.level === 2 ? 'WARN' : 'ERROR'}] ${event.message} (${event.sourceId}:${event.line})`);
+    }
+  });
 
   mainWindow.once('ready-to-show', () => {
     closeSplash();

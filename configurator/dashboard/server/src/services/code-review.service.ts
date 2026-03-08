@@ -48,7 +48,6 @@ export class CodeReviewService {
 
     const normalized = path.normalize(targetPath);
     if (normalized.includes('..') && !path.isAbsolute(normalized)) return false;
-    if (/[;&|$`<>(){}[\]!]/.test(targetPath)) return false;
 
     try {
       const stats = fs.statSync(targetPath);

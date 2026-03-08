@@ -38,3 +38,8 @@ coverage/
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# E2E test outputs
+/e2e-results/
+/e2e-report/
+/test-videos/
