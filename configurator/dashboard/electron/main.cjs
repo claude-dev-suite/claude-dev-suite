@@ -258,7 +258,7 @@ function createSplashWindow() {
     center: true,
     alwaysOnTop: true,
     skipTaskbar: false,
-    show: true,
+    show: !process.env.E2E_HEADLESS,
     backgroundColor: '#0f172a',
     webPreferences: {
       preload: findSplashPreload(),
@@ -516,7 +516,7 @@ function createMainWindow() {
 
   mainWindow.once('ready-to-show', () => {
     closeSplash();
-    mainWindow.show();
+    if (!process.env.E2E_HEADLESS) mainWindow.show();
 
     // Initialize auto-updater after window is ready (lazy-loaded)
     if (!isDev) {

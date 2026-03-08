@@ -118,6 +118,7 @@ export const test = base.extend<TestFixtures>({
         ...process.env,
         NODE_ENV: 'test',
         DEV_SUITE_DIR: DEV_SUITE_ROOT,
+        E2E_HEADLESS: '1',
       },
     });
     await use(app);
