@@ -18,6 +18,8 @@ import { upgradeRoutes } from './upgrade.routes.js';
 import { recipesRoutes } from './recipes.routes.js';
 import { templatesRoutes } from './templates.routes.js';
 import { customAgentsRoutes } from './custom-agents.routes.js';
+import { codegenRoutes } from './codegen.routes.js';
+import { usageRoutes } from './usage.routes.js';
 
 export function registerRoutes(app: Express): void {
   // Detection routes
@@ -61,6 +63,12 @@ export function registerRoutes(app: Express): void {
 
   // Custom Agents routes
   app.use('/api', customAgentsRoutes);
+
+  // Code Generator routes
+  app.use('/api', codegenRoutes);
+
+  // Usage Monitor routes
+  app.use('/api', usageRoutes);
 
   // 404 handler for API routes
   app.use('/api/{*path}', (_req, res) => {

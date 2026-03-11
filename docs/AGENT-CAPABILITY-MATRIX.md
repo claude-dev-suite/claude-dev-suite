@@ -2,9 +2,9 @@
 
 This document maps each agent to its required MCP servers and skills.
 
-## Agents by Category (34 Total)
+## Agents by Category (41 Total)
 
-### Core Agents (10)
+### Core Agents (11)
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
@@ -18,8 +18,9 @@ This document maps each agent to its required MCP servers and skills.
 | **log-analyst** | log-analyzer | logging, debugging, observability |
 | **performance-expert** | performance-profiler | profiling, optimization, benchmarking |
 | **dashboard-refactor-expert** | documentation | react, typescript, refactoring |
+| **claude-code-extension-expert** | _(none)_ | skill-authoring, agent-authoring, hook-authoring, mcp-authoring, plugin-authoring |
 
-### Backend Agents (6)
+### Backend Agents (7)
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
@@ -29,8 +30,9 @@ This document maps each agent to its required MCP servers and skills.
 | **rust-expert** | documentation | rust, actix-web, axum, rocket, warp |
 | **go-expert** | documentation | go, gin, fiber, echo, chi |
 | **deno-expert** | documentation | deno, fresh, oak, typescript |
+| **dotnet-expert** | documentation, api-tester | aspnet-core, aspnet-minimal-api, aspnet-middleware, aspnet-signalr, aspnet-blazor, aspnet-identity, aspnet-validation, entity-framework-core, csharp, xunit, nunit, dotnet-quality, dotnet-security, postgresql, sql-server, swagger-dotnet, resilience-patterns, caching-strategies, webhooks, pagination, error-handling, cors-security-headers, error-tracking, health-checks, ddd |
 
-### Frontend Agents (6)
+### Frontend Agents (7)
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
@@ -40,6 +42,7 @@ This document maps each agent to its required MCP servers and skills.
 | **svelte-expert** | documentation | svelte, sveltekit, typescript, tailwindcss |
 | **electron-expert** | documentation | electron, react, typescript, nodejs, ipc |
 | **tauri-expert** | documentation | tauri, rust, typescript, svelte, vite |
+| **angular-expert** | documentation | angular, angular-routing, angular-forms, angular-http, angular-testing, angular-material, angular-ssr, typescript, ngrx, vitest, i18n |
 
 ### Database Agents (3)
 
@@ -49,13 +52,14 @@ This document maps each agent to its required MCP servers and skills.
 | **sql-expert** | documentation, database-query | postgresql, mysql, sql-optimization |
 | **mongodb-expert** | documentation, database-query | mongodb, aggregations, spring-data-mongodb |
 
-### Testing Agents (3)
+### Testing Agents (4)
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
 | **vitest-expert** | documentation, code-quality | vitest, testing-library, mocking, coverage |
 | **playwright-expert** | documentation | playwright, e2e-testing, page-objects |
 | **spring-boot-integration-test-expert** | documentation, database-query, docker-manager | spring-boot-test, testcontainers, junit |
+| **smoke-test-expert** | api-tester, database-query, docker-manager, log-analyzer, documentation | smoke-test, rest-assured, testcontainers |
 
 ### Infrastructure Agents (2)
 
@@ -64,12 +68,13 @@ This document maps each agent to its required MCP servers and skills.
 | **docker-expert** | docker-manager | docker, docker-compose, kubernetes |
 | **devops-expert** | docker-manager | github-actions, ci-cd, deployment |
 
-### Quality Agents (2)
+### Quality Agents (3)
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
 | **qa-expert** | documentation, code-quality | testing-strategies, quality-assurance |
 | **integration-validator-expert** | documentation, api-explorer | api-contracts, openapi, frontend-backend-sync |
+| **open-source-expert** | documentation, code-quality | open-source, git-workflow, clean-code, supply-chain, secrets-management, license-compliance |
 
 ### Security Agents (1)
 
@@ -83,19 +88,31 @@ This document maps each agent to its required MCP servers and skills.
 |-------|-------------|--------|
 | **messaging-expert** | documentation | kafka, rabbitmq, event-driven-architecture, spring-kafka, spring-amqp |
 
+### Cloud Agents (1)
+
+| Agent | MCP Servers | Skills |
+|-------|-------------|--------|
+| **cloud-expert** | documentation | aws, azure, gcp, serverless, cloud-storage, terraform, caching-strategies, resilience-patterns, feature-flags, multitenancy, secrets-management, iac-security, deployment-strategies, health-checks, api-gateway, service-mesh |
+
+### Mobile Agents (1)
+
+| Agent | MCP Servers | Skills |
+|-------|-------------|--------|
+| **mobile-expert** | documentation | react-native, flutter, expo, push-notifications, i18n, webauthn, stripe, file-upload |
+
 ## MCP Server Requirements
 
 | MCP Server | Required By Agents |
 |------------|-------------------|
 | **documentation** | All agents |
-| **database-query** | sql-expert, prisma-expert, mongodb-expert, spring-boot-expert, nestjs-expert, fastapi-expert, spring-boot-integration-test-expert |
-| **docker-manager** | docker-expert, devops-expert, spring-boot-integration-test-expert |
-| **code-quality** | code-reviewer, react-expert, vitest-expert, qa-expert |
+| **database-query** | sql-expert, prisma-expert, mongodb-expert, spring-boot-expert, nestjs-expert, fastapi-expert, spring-boot-integration-test-expert, smoke-test-expert |
+| **docker-manager** | docker-expert, devops-expert, spring-boot-integration-test-expert, smoke-test-expert |
+| **code-quality** | code-reviewer, react-expert, vitest-expert, qa-expert, open-source-expert |
 | **log-analyzer** | log-analyst |
 | **performance-profiler** | performance-expert |
 | **security-scanner** | security-expert |
 | **api-explorer** | integration-validator-expert |
-| **api-tester** | (optional, not required by any agent) |
+| **api-tester** | smoke-test-expert, dotnet-expert |
 | **dashboard-bridge** | (optional, for orchestrator integration) |
 
 ## Recommended Configurations

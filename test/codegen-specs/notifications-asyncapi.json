@@ -1,0 +1,126 @@
+{
+  "asyncapi": "2.6.0",
+  "info": {
+    "title": "Notification Service",
+    "description": "Event-driven notification system for testing AsyncAPI code generation",
+    "version": "1.0.0"
+  },
+  "servers": {
+    "production": {
+      "url": "kafka://broker:9092",
+      "protocol": "kafka"
+    }
+  },
+  "channels": {
+    "user/registered": {
+      "subscribe": {
+        "operationId": "onUserRegistered",
+        "summary": "Receive user registration events",
+        "message": {
+          "payload": {
+            "$ref": "#/components/schemas/UserRegisteredEvent"
+          }
+        }
+      }
+    },
+    "order/placed": {
+      "subscribe": {
+        "operationId": "onOrderPlaced",
+        "summary": "Receive order placement events",
+        "message": {
+          "payload": {
+            "$ref": "#/components/schemas/OrderPlacedEvent"
+          }
+        }
+      }
+    },
+    "notification/email": {
+      "publish": {
+        "operationId": "sendEmailNotification",
+        "summary": "Publish email notification commands",
+        "message": {
+          "payload": {
+            "$ref": "#/components/schemas/EmailNotification"
+          }
+        }
+      }
+    },
+    "notification/push": {
+      "publish": {
+        "operationId": "sendPushNotification",
+        "summary": "Publish push notification commands",
+        "message": {
+          "payload": {
+            "$ref": "#/components/schemas/PushNotification"
+          }
+        }
+      }
+    },
+    "notification/status": {
+      "subscribe": {
+        "operationId": "onNotificationStatusChanged",
+        "summary": "Notification delivery status updates",
+        "message": {
+          "payload": {
+            "$ref": "#/components/schemas/NotificationStatus"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserRegisteredEvent": {
+        "type": "object",
+        "required": ["userId", "email", "timestamp"],
+        "properties": {
+          "userId": { "type": "string" },
+          "email": { "type": "string" },
+          "name": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OrderPlacedEvent": {
+        "type": "object",
+        "required": ["orderId", "userId", "totalAmount"],
+        "properties": {
+          "orderId": { "type": "string" },
+          "userId": { "type": "string" },
+          "totalAmount": { "type": "number" },
+          "items": { "type": "integer" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "EmailNotification": {
+        "type": "object",
+        "required": ["to", "subject", "body"],
+        "properties": {
+          "to": { "type": "string" },
+          "subject": { "type": "string" },
+          "body": { "type": "string" },
+          "templateId": { "type": "string" }
+        }
+      },
+      "PushNotification": {
+        "type": "object",
+        "required": ["userId", "title", "body"],
+        "properties": {
+          "userId": { "type": "string" },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "NotificationStatus": {
+        "type": "object",
+        "required": ["notificationId", "status"],
+        "properties": {
+          "notificationId": { "type": "string" },
+          "status": { "type": "string" },
+          "deliveredAt": { "type": "string", "format": "date-time" },
+          "error": { "type": "string" }
+        }
+      }
+    }
+  }
+}

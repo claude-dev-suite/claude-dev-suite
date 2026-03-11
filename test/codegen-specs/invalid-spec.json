@@ -1,0 +1,8 @@
+{
+  "this": "is not a valid spec",
+  "missing": "openapi or asyncapi field",
+  "random": {
+    "data": true,
+    "number": 42
+  }
+}

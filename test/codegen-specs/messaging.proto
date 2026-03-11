@@ -1,0 +1,207 @@
+// Protocol Buffers definition for a Chat/Messaging system
+// Tests Protobuf parsing in the Code Generator
+
+syntax = "proto3";
+
+package messaging.v1;
+
+option java_package = "dev.devsuite.messaging.v1";
+option go_package = "github.com/dev-suite/messaging/v1";
+
+// Core message types
+
+message User {
+  string id = 1;
+  string username = 2;
+  string display_name = 3;
+  string email = 4;
+  string avatar_url = 5;
+  bool is_online = 6;
+  string last_seen_at = 7;
+}
+
+message Conversation {
+  string id = 1;
+  string title = 2;
+  ConversationType type = 3;
+  repeated string participant_ids = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+enum ConversationType {
+  CONVERSATION_TYPE_UNSPECIFIED = 0;
+  CONVERSATION_TYPE_DIRECT = 1;
+  CONVERSATION_TYPE_GROUP = 2;
+  CONVERSATION_TYPE_CHANNEL = 3;
+}
+
+message ChatMessage {
+  string id = 1;
+  string conversation_id = 2;
+  string sender_id = 3;
+  string content = 4;
+  MessageType type = 5;
+  string created_at = 6;
+  string edited_at = 7;
+  repeated Attachment attachments = 8;
+  repeated Reaction reactions = 9;
+}
+
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_TEXT = 1;
+  MESSAGE_TYPE_IMAGE = 2;
+  MESSAGE_TYPE_FILE = 3;
+  MESSAGE_TYPE_SYSTEM = 4;
+}
+
+message Attachment {
+  string id = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 size_bytes = 4;
+  string url = 5;
+}
+
+message Reaction {
+  string user_id = 1;
+  string emoji = 2;
+  string created_at = 3;
+}
+
+message TypingIndicator {
+  string conversation_id = 1;
+  string user_id = 2;
+  bool is_typing = 3;
+}
+
+message ReadReceipt {
+  string conversation_id = 1;
+  string user_id = 2;
+  string last_read_message_id = 3;
+  string timestamp = 4;
+}
+
+// Service definitions
+
+service UserService {
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc UpdateProfile(UpdateProfileRequest) returns (User);
+  rpc SetOnlineStatus(SetOnlineStatusRequest) returns (User);
+}
+
+service ConversationService {
+  rpc CreateConversation(CreateConversationRequest) returns (Conversation);
+  rpc GetConversation(GetConversationRequest) returns (Conversation);
+  rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse);
+  rpc AddParticipant(AddParticipantRequest) returns (Conversation);
+  rpc RemoveParticipant(RemoveParticipantRequest) returns (Conversation);
+}
+
+service MessageService {
+  rpc SendMessage(SendMessageRequest) returns (ChatMessage);
+  rpc EditMessage(EditMessageRequest) returns (ChatMessage);
+  rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+  rpc AddReaction(AddReactionRequest) returns (ChatMessage);
+  rpc SendTypingIndicator(TypingIndicator) returns (TypingIndicator);
+  rpc SendReadReceipt(ReadReceipt) returns (ReadReceipt);
+}
+
+// Request/Response messages
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message ListUsersRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  string query = 3;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  string next_page_token = 2;
+}
+
+message UpdateProfileRequest {
+  string user_id = 1;
+  string display_name = 2;
+  string avatar_url = 3;
+}
+
+message SetOnlineStatusRequest {
+  string user_id = 1;
+  bool is_online = 2;
+}
+
+message CreateConversationRequest {
+  string title = 1;
+  ConversationType type = 2;
+  repeated string participant_ids = 3;
+}
+
+message GetConversationRequest {
+  string conversation_id = 1;
+}
+
+message ListConversationsRequest {
+  string user_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListConversationsResponse {
+  repeated Conversation conversations = 1;
+  string next_page_token = 2;
+}
+
+message AddParticipantRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+}
+
+message RemoveParticipantRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+}
+
+message SendMessageRequest {
+  string conversation_id = 1;
+  string content = 2;
+  MessageType type = 3;
+  repeated Attachment attachments = 4;
+}
+
+message EditMessageRequest {
+  string message_id = 1;
+  string content = 2;
+}
+
+message DeleteMessageRequest {
+  string message_id = 1;
+}
+
+message DeleteMessageResponse {
+  bool success = 1;
+}
+
+message ListMessagesRequest {
+  string conversation_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+  string before_timestamp = 4;
+}
+
+message ListMessagesResponse {
+  repeated ChatMessage messages = 1;
+  string next_page_token = 2;
+}
+
+message AddReactionRequest {
+  string message_id = 1;
+  string emoji = 2;
+}

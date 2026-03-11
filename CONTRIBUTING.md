@@ -140,8 +140,10 @@ src/
 ├── components/     # React components
 ├── hooks/          # Custom React hooks
 ├── services/       # Business logic
+├── stores/         # Zustand state stores
 ├── types/          # TypeScript types
-└── utils/          # Utility functions
+├── utils/          # Utility functions
+└── validation/     # Zod request schemas
 ```
 
 ### Naming Conventions

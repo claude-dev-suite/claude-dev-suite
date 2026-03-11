@@ -736,3 +736,123 @@ export type CreateCustomSkillRequest = z.infer<typeof CreateCustomSkillRequestSc
 export type UpdateCustomSkillRequest = z.infer<typeof UpdateCustomSkillRequestSchema>;
 export type ValidateCustomSkillRequest = z.infer<typeof ValidateCustomSkillRequestSchema>;
 export type DeleteCustomSkillRequest = z.infer<typeof DeleteCustomSkillRequestSchema>;
+
+// ============================================
+// CODE GENERATION SCHEMAS
+// ============================================
+
+export const CodeGenTechnologySchema = z.enum(['openapi', 'asyncapi', 'typespec', 'protobuf', 'bpmn']);
+
+export const CodeGenTargetLanguageSchema = z.enum([
+  'typescript-express', 'typescript-fastify', 'typescript-nestjs', 'typescript-koa',
+  'java-spring', 'python-fastapi', 'python-flask', 'go-gin', 'go-echo',
+]);
+
+export const CodeGenComponentSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+export const RefinementOptionsSchema = z.object({
+  enabled: z.boolean(),
+  naming: z.boolean(),
+  codeStyle: z.boolean(),
+  errorHandling: z.boolean(),
+  testStubs: z.boolean(),
+});
+
+export const CodeGenValidateRequestSchema = z.object({
+  content: z.string().min(1, 'File content is required').max(5 * 1024 * 1024, 'File too large (max 5MB)'),
+  fileName: z.string().min(1, 'File name is required'),
+  technology: CodeGenTechnologySchema.optional(),
+});
+
+export const CodeGenPreviewRequestSchema = z.object({
+  projectPath: z.string().min(1, 'Project path is required'),
+  content: z.string().min(1, 'File content is required'),
+  fileName: z.string().min(1, 'File name is required'),
+  technology: CodeGenTechnologySchema,
+  targetLanguage: CodeGenTargetLanguageSchema,
+  components: z.array(CodeGenComponentSchema),
+});
+
+export const CodeGenGenerateRequestSchema = z.object({
+  projectPath: z.string().min(1, 'Project path is required'),
+  content: z.string().min(1, 'File content is required'),
+  fileName: z.string().min(1, 'File name is required'),
+  technology: CodeGenTechnologySchema,
+  targetLanguage: CodeGenTargetLanguageSchema,
+  outputDir: z.string().min(1, 'Output directory is required'),
+  components: z.array(CodeGenComponentSchema),
+});
+
+export const CodeGenRefineRequestSchema = z.object({
+  projectPath: z.string().min(1, 'Project path is required'),
+  generatedFiles: z.array(z.object({
+    path: z.string().min(1),
+    content: z.string(),
+    language: z.string(),
+    size: z.number(),
+  })),
+  technology: CodeGenTechnologySchema,
+  targetLanguage: CodeGenTargetLanguageSchema,
+  refinementOptions: RefinementOptionsSchema,
+});
+
+export const CodeGenAcceptRequestSchema = z.object({
+  projectPath: z.string().min(1, 'Project path is required'),
+  files: z.array(z.object({
+    path: z.string().min(1),
+    content: z.string(),
+    accepted: z.boolean(),
+  })),
+  outputDir: z.string().min(1, 'Output directory is required'),
+});
+
+export const CodeGenTargetsRequestSchema = z.object({
+  technology: CodeGenTechnologySchema,
+});
+
+export const CodeGenConventionsRequestSchema = z.object({
+  projectPath: z.string().min(1, 'Project path is required'),
+});
+
+// Type exports
+export type CodeGenValidateRequest = z.infer<typeof CodeGenValidateRequestSchema>;
+export type CodeGenPreviewRequest = z.infer<typeof CodeGenPreviewRequestSchema>;
+export type CodeGenGenerateRequest = z.infer<typeof CodeGenGenerateRequestSchema>;
+export type CodeGenRefineRequest = z.infer<typeof CodeGenRefineRequestSchema>;
+export type CodeGenAcceptRequest = z.infer<typeof CodeGenAcceptRequestSchema>;
+export type CodeGenTargetsRequest = z.infer<typeof CodeGenTargetsRequestSchema>;
+export type CodeGenConventionsRequest = z.infer<typeof CodeGenConventionsRequestSchema>;
+
+// ============================================
+// USAGE MONITOR SCHEMAS
+// ============================================
+
+export const AlertThresholdSchema = z.object({
+  id: z.string().min(1, 'Threshold ID is required'),
+  name: z.string().min(1, 'Threshold name is required'),
+  metric: z.enum(['daily_cost', 'monthly_cost', 'daily_tokens', 'monthly_tokens']),
+  operator: z.enum(['gt', 'gte']),
+  value: z.number().nonnegative('Value must be non-negative'),
+  severity: z.enum(['info', 'warning', 'critical']),
+  enabled: z.boolean(),
+});
+
+export const UsageConfigSchema = z.object({
+  adminApiKey: z.string().optional(),
+  alertThresholds: z.array(AlertThresholdSchema),
+  pollingIntervalMs: z.number().int().positive('Polling interval must be a positive integer'),
+});
+
+export const SaveUsageConfigRequestSchema = z.object({
+  projectPath: z.string().min(1, 'Project path is required'),
+  config: UsageConfigSchema,
+});
+
+// Type exports
+export type AlertThresholdRequest = z.infer<typeof AlertThresholdSchema>;
+export type UsageConfigRequest = z.infer<typeof UsageConfigSchema>;
+export type SaveUsageConfigRequest = z.infer<typeof SaveUsageConfigRequestSchema>;

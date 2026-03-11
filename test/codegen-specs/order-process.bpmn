@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             id="Definitions_1"
+             targetNamespace="http://dev-suite.dev/bpmn/order-process">
+
+  <!--
+    Order Processing Workflow
+    Tests BPMN parsing in the Code Generator.
+    Covers: order validation, payment, inventory check, fulfillment, notification
+  -->
+
+  <process id="OrderProcess" name="Order Processing Workflow" isExecutable="true">
+
+    <startEvent id="StartEvent_OrderReceived" name="Order Received" />
+
+    <sequenceFlow id="Flow_1" sourceRef="StartEvent_OrderReceived" targetRef="Task_ValidateOrder" />
+
+    <userTask id="Task_ValidateOrder" name="Validate Order">
+    </userTask>
+
+    <sequenceFlow id="Flow_2" sourceRef="Task_ValidateOrder" targetRef="Gateway_ValidationResult" />
+
+    <exclusiveGateway id="Gateway_ValidationResult" name="Order Valid?" />
+
+    <sequenceFlow id="Flow_3_Valid" sourceRef="Gateway_ValidationResult" targetRef="Task_CheckInventory" />
+    <sequenceFlow id="Flow_3_Invalid" sourceRef="Gateway_ValidationResult" targetRef="Task_NotifyRejection" />
+
+    <serviceTask id="Task_CheckInventory" name="Check Inventory Availability">
+    </serviceTask>
+
+    <sequenceFlow id="Flow_4" sourceRef="Task_CheckInventory" targetRef="Gateway_InStock" />
+
+    <exclusiveGateway id="Gateway_InStock" name="Items In Stock?" />
+
+    <sequenceFlow id="Flow_5_InStock" sourceRef="Gateway_InStock" targetRef="Task_ProcessPayment" />
+    <sequenceFlow id="Flow_5_OutOfStock" sourceRef="Gateway_InStock" targetRef="Task_BackorderItems" />
+
+    <serviceTask id="Task_ProcessPayment" name="Process Payment">
+    </serviceTask>
+
+    <sequenceFlow id="Flow_6" sourceRef="Task_ProcessPayment" targetRef="Gateway_PaymentResult" />
+
+    <exclusiveGateway id="Gateway_PaymentResult" name="Payment Successful?" />
+
+    <sequenceFlow id="Flow_7_Success" sourceRef="Gateway_PaymentResult" targetRef="Task_ReserveInventory" />
+    <sequenceFlow id="Flow_7_Failed" sourceRef="Gateway_PaymentResult" targetRef="Task_NotifyPaymentFailed" />
+
+    <serviceTask id="Task_ReserveInventory" name="Reserve Inventory">
+    </serviceTask>
+
+    <sequenceFlow id="Flow_8" sourceRef="Task_ReserveInventory" targetRef="Parallel_Fulfillment" />
+
+    <parallelGateway id="Parallel_Fulfillment" name="Start Fulfillment" />
+
+    <sequenceFlow id="Flow_9a" sourceRef="Parallel_Fulfillment" targetRef="Task_PrepareShipment" />
+    <sequenceFlow id="Flow_9b" sourceRef="Parallel_Fulfillment" targetRef="Task_GenerateInvoice" />
+    <sequenceFlow id="Flow_9c" sourceRef="Parallel_Fulfillment" targetRef="Task_SendConfirmation" />
+
+    <serviceTask id="Task_PrepareShipment" name="Prepare Shipment">
+    </serviceTask>
+
+    <serviceTask id="Task_GenerateInvoice" name="Generate Invoice">
+    </serviceTask>
+
+    <sendTask id="Task_SendConfirmation" name="Send Order Confirmation Email">
+    </sendTask>
+
+    <sequenceFlow id="Flow_10a" sourceRef="Task_PrepareShipment" targetRef="Parallel_Join" />
+    <sequenceFlow id="Flow_10b" sourceRef="Task_GenerateInvoice" targetRef="Parallel_Join" />
+    <sequenceFlow id="Flow_10c" sourceRef="Task_SendConfirmation" targetRef="Parallel_Join" />
+
+    <parallelGateway id="Parallel_Join" name="Fulfillment Complete" />
+
+    <sequenceFlow id="Flow_11" sourceRef="Parallel_Join" targetRef="Task_UpdateOrderStatus" />
+
+    <serviceTask id="Task_UpdateOrderStatus" name="Update Order Status to Fulfilled">
+    </serviceTask>
+
+    <sequenceFlow id="Flow_12" sourceRef="Task_UpdateOrderStatus" targetRef="EndEvent_OrderCompleted" />
+
+    <endEvent id="EndEvent_OrderCompleted" name="Order Completed" />
+
+    <!-- Rejection path -->
+    <sendTask id="Task_NotifyRejection" name="Notify Order Rejection">
+    </sendTask>
+
+    <sequenceFlow id="Flow_Reject" sourceRef="Task_NotifyRejection" targetRef="EndEvent_OrderRejected" />
+
+    <endEvent id="EndEvent_OrderRejected" name="Order Rejected" />
+
+    <!-- Backorder path -->
+    <userTask id="Task_BackorderItems" name="Create Backorder Request">
+    </userTask>
+
+    <sequenceFlow id="Flow_Backorder" sourceRef="Task_BackorderItems" targetRef="Task_NotifyBackorder" />
+
+    <sendTask id="Task_NotifyBackorder" name="Notify Customer About Backorder">
+    </sendTask>
+
+    <sequenceFlow id="Flow_BackorderEnd" sourceRef="Task_NotifyBackorder" targetRef="EndEvent_Backordered" />
+
+    <endEvent id="EndEvent_Backordered" name="Order Backordered" />
+
+    <!-- Payment failed path -->
+    <sendTask id="Task_NotifyPaymentFailed" name="Notify Payment Failed">
+    </sendTask>
+
+    <sequenceFlow id="Flow_PaymentFailed" sourceRef="Task_NotifyPaymentFailed" targetRef="EndEvent_PaymentFailed" />
+
+    <endEvent id="EndEvent_PaymentFailed" name="Payment Failed" />
+
+  </process>
+
+</definitions>

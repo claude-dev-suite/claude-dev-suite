@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Code Generator** — Spec-driven code generation dashboard tab with 3-phase pipeline
+  - Supports OpenAPI (JSON/YAML), AsyncAPI, TypeSpec, Protobuf, and BPMN spec formats
+  - Deterministic code generation for 9 target languages/frameworks (TypeScript Express/Fastify/NestJS/Koa, Java Spring, Python FastAPI/Flask, Go Gin/Echo)
+  - AI refinement phase using existing agents + dedicated `codegen-refinement` skill for naming, imports, error-handling adaptation
+  - Convention scanner reads `.prettierrc`, `tsconfig.json`, ESLint config, and `package.json` to align generated code with project style
+  - 5-step dashboard UI: Technology → Upload Spec → Configure → Preview → Generate
+  - Drag-and-drop file upload with real-time spec validation
+  - File browser with code preview and Accept All / Refine with Claude options
+  - Backend: 8 REST endpoints with multer upload, Zod validation, rate limiting
+  - New skill: `skills/codegen/codegen-refinement/SKILL.md`
+
 ---
 
 ## [1.1.0] - 2026-03-05

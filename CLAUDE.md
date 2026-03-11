@@ -97,6 +97,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `templates.service.ts` | Project scaffolding template management |
 | `upgrade.service.ts` | Upgrade installed dev-suite components to latest versions |
 | `workflows.service.ts` | Multi-step workflow orchestration |
+| `codegen.service.ts` | Spec-driven code generation pipeline with validation and AI refinement |
 
 Subdirectories with additional logic: `code-review/`, `detection/`, `git/`, `hooks/`, `installation/`, `orchestrator/`, `upgrade/`
 
@@ -141,7 +142,7 @@ npm run test            # Run all tests
 npm run test:coverage   # Run with coverage report
 ```
 
-**Test coverage**: `detection.service.test.ts`, `agents.service.test.ts`, `management.service.test.ts` (includes `getNewComponents` scenarios), `installation.service.test.ts` (includes `availableAtInstall` snapshot), `hooks.service.test.ts`, `analytics.service.test.ts`, `code-review.service.test.ts`, `workflows.service.test.ts`, `orchestrator.security.test.ts`, `websocket.rate-limit.test.ts`, `logger.test.ts`, route tests in `routes/`
+**Test coverage**: `detection.service.test.ts`, `agents.service.test.ts`, `management.service.test.ts` (includes `getNewComponents` scenarios), `installation.service.test.ts` (includes `availableAtInstall` snapshot), `hooks.service.test.ts`, `analytics.service.test.ts`, `code-review.service.test.ts`, `codegen.service.test.ts`, `workflows.service.test.ts`, `orchestrator.security.test.ts`, `websocket.rate-limit.test.ts`, `logger.test.ts`, route tests in `routes/` (including `routes/codegen.routes.test.ts`)
 
 **Manual verification checklist** (when modifying initialization logic):
 - Detection identifies frameworks, databases, and Git provider correctly

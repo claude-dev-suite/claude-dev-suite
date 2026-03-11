@@ -373,3 +373,43 @@ export {
   isCustomAgent,
   isBestPracticeSeverity,
 } from './custom-agents.js';
+
+// ============================================
+// CODE GENERATION TYPES
+// ============================================
+
+export type {
+  CodeGenTechnology,
+  CodeGenTargetLanguage,
+  CodeGenComponent,
+  RefinementOptions,
+  ValidationResult as CodeGenValidationResult,
+  GeneratedFile,
+  RefinedFile,
+  CodeGenResult,
+  CodeGenPreview,
+  ProjectConventions,
+  RefinementProfile,
+  CodeGenTargetInfo,
+} from './codegen.js';
+
+export {
+  isCodeGenTechnology,
+  isCodeGenTargetLanguage,
+} from './codegen.js';
+
+// ============================================
+// USAGE MONITOR TYPES
+// ============================================
+
+export type {
+  UsageConfig,
+  AlertThreshold,
+  UsageReport,
+  ModelUsage,
+  CostReport,
+  CostBreakdown,
+  UsageAlert,
+  DeepLink,
+  UsageSummary,
+} from './usage.js';

@@ -1,0 +1,105 @@
+openapi: "3.0.3"
+info:
+  title: Petstore API (YAML)
+  description: Same Petstore API in YAML format for testing YAML parsing
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local dev server
+
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List all pets
+      tags: [pets]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [available, pending, sold]
+      responses:
+        "200":
+          description: A list of pets
+        "400":
+          description: Invalid parameters
+    post:
+      operationId: createPet
+      summary: Create a new pet
+      tags: [pets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePetRequest"
+      responses:
+        "201":
+          description: Pet created
+        "422":
+          description: Validation error
+
+  /pets/{petId}:
+    get:
+      operationId: getPetById
+      summary: Get pet by ID
+      tags: [pets]
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pet details
+        "404":
+          description: Not found
+    delete:
+      operationId: deletePet
+      summary: Delete a pet
+      tags: [pets]
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name, species]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        species:
+          type: string
+        age:
+          type: integer
+        status:
+          type: string
+
+    CreatePetRequest:
+      type: object
+      required: [name, species]
+      properties:
+        name:
+          type: string
+        species:
+          type: string
+        age:
+          type: integer

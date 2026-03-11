@@ -94,13 +94,19 @@ function sanitizeError(error) {
  */
 function applyCSP(session) {
   session.webRequest.onHeadersReceived((details, callback) => {
+    // In dev mode, Vite injects inline scripts for HMR and React refresh
+    // that require 'unsafe-inline' and 'unsafe-eval' in script-src
+    const scriptSrc = isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+      : "script-src 'self'";
+
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           [
             "default-src 'self'",
-            "script-src 'self'",
+            scriptSrc,
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             `connect-src 'self' http://localhost:${SERVER_PORT} ws://localhost:${SERVER_PORT} ws://localhost:${SERVER_PORT + 1} http://localhost:${VITE_DEV_PORT} ws://localhost:${VITE_DEV_PORT}`,
             "img-src 'self' data:",

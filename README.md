@@ -1,6 +1,6 @@
 # Dev-Suite
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/claude-dev-suite/claude-dev-suite)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/claude-dev-suite/claude-dev-suite)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **A comprehensive AI-powered development toolkit that extends Claude Code with specialized agents, MCP servers, and visual orchestration.**
@@ -14,6 +14,7 @@
 - [Quick Start](#quick-start)
 - [Key Features](#key-features)
   - [Web Dashboard & Orchestrator](#web-dashboard--orchestrator)
+  - [Code Generator](#code-generator)
   - [MCP Servers](#mcp-servers)
   - [Specialized Agents](#specialized-agents)
   - [Skills & Knowledge Base](#skills--knowledge-base)
@@ -42,8 +43,8 @@
 Dev-Suite transforms Claude Code into a full-stack development powerhouse by providing:
 
 - **10 MCP Servers** - Extend Claude with 79 tools for documentation, databases, Docker, API testing, logs, performance profiling, security scanning, and more
-- **36 Specialized Agents** - Domain experts for React, Angular, Spring Boot, ASP.NET, Python, testing, security, DevOps, and infrastructure
-- **260+ Skills** - Framework-specific knowledge bases with quick-reference guides
+- **41 Specialized Agents** - Domain experts for React, Angular, Spring Boot, ASP.NET, Python, testing, security, DevOps, and infrastructure
+- **320+ Skills** - Framework-specific knowledge bases with quick-reference guides
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
 - **10 Project Templates** - Scaffolding for React, Next.js, Spring Boot, FastAPI, NestJS, and more
 - **Task Orchestrator** - Submit complex multi-agent tasks from the GUI with real-time streaming updates
@@ -160,6 +161,30 @@ Track development activity and knowledge base usage:
 
 Access at: `http://localhost:3456/analytics` (when dashboard is running)
 
+#### **Code Generator** NEW
+
+Spec-driven code generation with AI refinement:
+
+```
+Dashboard → Upload Spec → Deterministic Generation → AI Refinement → Accept/Reject
+```
+
+**Supported formats**: OpenAPI (JSON/YAML), AsyncAPI, TypeSpec, Protobuf, BPMN
+
+**Features**:
+- **9 target languages/frameworks**: TypeScript (Express, Fastify, NestJS, Koa), Java (Spring), Python (FastAPI, Flask), Go (Gin, Echo)
+- **Convention-aware**: Reads `.prettierrc`, `tsconfig.json`, ESLint config to match project style
+- **AI refinement**: Uses specialized agents + refinement skill for naming, imports, and code quality
+- **5-step wizard**: Technology → Upload Spec → Configure → Preview → Generate
+- **File browser**: Preview generated code before accepting
+
+**How to use**:
+1. Open dashboard and navigate to **Code Generator** tab
+2. Select spec technology (OpenAPI, AsyncAPI, etc.)
+3. Upload your spec file (drag-and-drop supported)
+4. Choose target language, framework, and output directory
+5. Preview → Generate → Optionally refine with Claude
+
 ---
 
 ### MCP Servers
@@ -187,12 +212,16 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 
 ### Specialized Agents
 
-36 domain experts with deep knowledge in specific technologies:
+41 domain experts with deep knowledge in specific technologies:
 
 #### Core Agents
 - **architect** - System design, architecture decisions, trade-offs
 - **code-reviewer** - Code quality, best practices, refactoring
 - **python-expert** - Python 3.10-3.14, async patterns, package management
+- **typescript-expert** - TypeScript 5, advanced types, strict configuration
+- **nodejs-expert** - Event loop, async patterns, streams, worker threads
+- **dashboard-refactor-expert** - Dashboard React/TypeScript refactoring
+- **claude-code-extension-expert** - Claude Code extensions, skills, hooks, MCP plugins
 
 #### Frontend Agents
 - **react-expert** - React 19, hooks, performance optimization
@@ -231,6 +260,10 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 - **integration-validator-expert** - API contract validation, frontend-backend alignment
 - **open-source-expert** - OSS readiness, licensing, community health, compliance
 
+#### Cloud & Mobile Agents
+- **cloud-expert** - AWS, Azure, GCP, Terraform, serverless, API gateway, service mesh
+- **mobile-expert** - React Native, Flutter, Expo, push notifications, payments
+
 #### Messaging & Performance
 - **messaging-expert** - Kafka, RabbitMQ, NATS, SQS, event-driven architecture
 - **performance-expert** - Profiling, optimization, bottlenecks
@@ -242,7 +275,7 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 
 ### Skills & Knowledge Base
 
-**260+ Skills** organized by category:
+**320+ Skills** organized by category:
 
 - **Frontend**: React, Vue, Angular, Svelte, Next.js, Nuxt, TailwindCSS, shadcn/ui
 - **Backend**: Spring Boot, NestJS, Express, FastAPI, ASP.NET Core, Rust, Go, Deno frameworks

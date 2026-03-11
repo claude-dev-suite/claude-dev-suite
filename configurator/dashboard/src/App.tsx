@@ -20,6 +20,12 @@ const OrchestratorPanel = lazy(() =>
 const CodeReviewPanel = lazy(() =>
   import('./components/manage/CodeReviewPanel').then(module => ({ default: module.CodeReviewPanel }))
 );
+const CodeGenPanel = lazy(() =>
+  import('./components/codegen/CodeGenPanel').then(module => ({ default: module.CodeGenPanel }))
+);
+const UsagePanel = lazy(() =>
+  import('./components/usage/UsagePanel').then(module => ({ default: module.UsagePanel }))
+);
 
 export function App() {
   const logger = getLogger('App');
@@ -109,7 +115,7 @@ export function App() {
 
   // Redirect to wizard if not installed and on a panel that requires installation
   useEffect(() => {
-    if (!isInstalled && (currentPanel === 'orchestrator' || currentPanel === 'code-review')) {
+    if (!isInstalled && (currentPanel === 'orchestrator' || currentPanel === 'code-review' || currentPanel === 'codegen' || currentPanel === 'usage')) {
       setCurrentPanel('wizard');
       setWizardStep(1);
     }
@@ -203,6 +209,42 @@ export function App() {
             >
               <Suspense fallback={<LoadingPanel message="Loading Code Review..." />}>
                 <CodeReviewPanel projectPath={projectPath} onStartReview={handleStartReview} />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        )}
+
+        {/* Code Generator panel */}
+        {currentPanel === 'codegen' && projectPath && isInstalled && (
+          <div className="h-full">
+            <ErrorBoundary
+              fallback={
+                <ErrorFallback
+                  showHomeButton={true}
+                  onHome={() => setCurrentPanel('orchestrator')}
+                />
+              }
+            >
+              <Suspense fallback={<LoadingPanel message="Loading Code Generator..." />}>
+                <CodeGenPanel projectPath={projectPath} onStartRefinement={handleStartReview} />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        )}
+
+        {/* Usage Monitor panel */}
+        {currentPanel === 'usage' && projectPath && isInstalled && (
+          <div className="h-full">
+            <ErrorBoundary
+              fallback={
+                <ErrorFallback
+                  showHomeButton={true}
+                  onHome={() => setCurrentPanel('orchestrator')}
+                />
+              }
+            >
+              <Suspense fallback={<LoadingPanel message="Loading Usage Monitor..." />}>
+                <UsagePanel projectPath={projectPath} />
               </Suspense>
             </ErrorBoundary>
           </div>
