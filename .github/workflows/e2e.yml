@@ -28,6 +28,10 @@ jobs:
         run: npm ci
         working-directory: configurator/dashboard
 
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: configurator/dashboard/server
+
       - name: Build server
         run: npm run build
         working-directory: configurator/dashboard/server
