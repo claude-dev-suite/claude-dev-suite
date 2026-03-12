@@ -32,7 +32,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.0.0",
-    "@types/node": "^25.2.1",
+    "@types/node": "^25.4.0",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.12",
     "@vitest/coverage-v8": "^2.1.0",
