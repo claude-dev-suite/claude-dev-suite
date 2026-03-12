@@ -170,6 +170,9 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
         // Normalize path separators for Windows
         const normalizedPath = relPath.replace(/\//g, path.sep);
         const absPath = path.join(workingDir, normalizedPath);
+        // Verify the resolved path stays within the working directory
+        const realAbsPath = path.resolve(absPath);
+        if (!realAbsPath.startsWith(workingDir + path.sep) && realAbsPath !== workingDir) continue;
 
         try {
           const stats = fs.statSync(absPath);

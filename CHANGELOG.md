@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **CI/CD** — E2E workflow uses 6-way sharding to stay within timeout limits
 - **E2E Fixture** — Fixed race condition where `mainPage` fixture could capture DevTools window instead of the app window
 - **CI/CD** — CI workflow now installs server dependencies before TypeScript build
+- **Security** — Fixed 13 ReDoS vulnerabilities in codegen spec parsers (OpenAPI, AsyncAPI, TypeSpec, Protobuf, BPMN)
+- **Security** — Fixed path-injection in `management.service.ts` `updateClaudeMd()` with `resolveProjectPath()` validation
+- **Security** — Fixed path-injection in `code-review.routes.ts` with path containment check for file diffs
 
 ### Added
 

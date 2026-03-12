@@ -401,7 +401,7 @@ function parseOpenApiSpec(content: string): Pick<SpecInfo, 'title' | 'version' |
     }
   } catch {
     // YAML fallback — regex-based extraction (no YAML parser dependency)
-    const titleMatch = content.match(/^\s*title:\s*["']?(.+?)["']?\s*$/m);
+    const titleMatch = content.match(/^\s*title:[ \t]*["']?([^"'\r\n]+)["']?[ \t]*$/m);
     if (titleMatch?.[1]) title = titleMatch[1].trim();
     const versionMatch = content.match(/(?:openapi|swagger):\s*["']?([0-9.]+)["']?/i);
     if (versionMatch?.[1]) version = versionMatch[1];
@@ -465,11 +465,11 @@ function parseAsyncApiSpec(content: string): Pick<SpecInfo, 'title' | 'version' 
       channels.push({ name: channelName, operationId, messageType });
     }
   } catch {
-    const titleMatch = content.match(/^\s*title:\s*["']?(.+?)["']?\s*$/m);
+    const titleMatch = content.match(/^\s*title:[ \t]*["']?([^"'\r\n]+)["']?[ \t]*$/m);
     if (titleMatch?.[1]) title = titleMatch[1].trim();
     const versionMatch = content.match(/asyncapi:\s*["']?([0-9.]+)["']?/i);
     if (versionMatch?.[1]) version = versionMatch[1];
-    const channelRe = /^(\s{0,2})([\w./{}:-]+):\s*\n(?:[\s\S]*?)(?=\n\s{0,2}\w|\Z)/gm;
+    const channelRe = /^(\s{0,2})([\w./{}:-]+):[ \t]*$/gm;
     let m: RegExpExecArray | null;
     while ((m = channelRe.exec(content)) !== null) {
       const channelName = m[2] ?? '';
@@ -495,7 +495,7 @@ function parseTypeSpecContent(content: string): Pick<SpecInfo, 'title' | 'versio
   while ((m = modelRe.exec(content)) !== null) {
     const name = m[1] ?? '';
     const body = m[2] ?? '';
-    const propRe = /(\w+)(\?)?\s*:\s*([\w\[\]]+)/g;
+    const propRe = /^[ \t]*(\w+)(\?)?[ \t]*:[ \t]*([\w\[\]]+)[ \t]*$/gm;
     const properties: ModelDef['properties'] = [];
     let pm: RegExpExecArray | null;
     while ((pm = propRe.exec(body)) !== null) {
@@ -533,7 +533,7 @@ function parseProtobufContent(content: string): Pick<SpecInfo, 'title' | 'versio
   while ((m = msgRe.exec(content)) !== null) {
     const name = m[1] ?? '';
     const body = m[2] ?? '';
-    const fieldRe = /(?:repeated\s+)?(\w+)\s+(\w+)\s*=\s*(\d+)\s*;/g;
+    const fieldRe = /^[ \t]*(?:repeated[ \t]+)?(\w+)[ \t]+(\w+)[ \t]*=[ \t]*(\d+)[ \t]*;[ \t]*$/gm;
     const fields: ProtoMessageDef['fields'] = [];
     let fm: RegExpExecArray | null;
     while ((fm = fieldRe.exec(body)) !== null) {
@@ -546,7 +546,7 @@ function parseProtobufContent(content: string): Pick<SpecInfo, 'title' | 'versio
   while ((m = svcRe.exec(content)) !== null) {
     const name = m[1] ?? '';
     const body = m[2] ?? '';
-    const rpcRe = /rpc\s+(\w+)\s*\((\w+)\)\s*returns\s*\((\w+)\)/g;
+    const rpcRe = /rpc[ \t]+(\w+)[ \t]*\([ \t]*(\w+)[ \t]*\)[ \t]*returns[ \t]*\([ \t]*(\w+)[ \t]*\)/g;
     const methods: ProtoServiceDef['methods'] = [];
     let rm: RegExpExecArray | null;
     while ((rm = rpcRe.exec(body)) !== null) {
@@ -565,22 +565,38 @@ function parseProtobufContent(content: string): Pick<SpecInfo, 'title' | 'versio
 function parseBpmnContent(content: string): Pick<SpecInfo, 'title' | 'version' | 'bpmnProcesses'> {
   const bpmnProcesses: BpmnProcessDef[] = [];
 
-  const processRe = /<(?:bpmn2?:)?process[^>]+id=["']([^"']+)["'][^>]*(?:name=["']([^"']+)["'])?[^>]*>/g;
+  const processRe = /<(?:bpmn2?:)?process\b([^>]*)>/g;
   let m: RegExpExecArray | null;
   while ((m = processRe.exec(content)) !== null) {
-    const id = m[1] ?? '';
-    const name = m[2] ?? id;
+    const attrs = m[1] ?? '';
+    const idMatch = attrs.match(/\bid=["']([^"']+)["']/);
+    if (!idMatch) continue;
+    const id = idMatch[1] ?? '';
+    const nameMatch = attrs.match(/\bname=["']([^"']+)["']/);
+    const name = nameMatch?.[1] ?? id;
     const tasks: BpmnProcessDef['tasks'] = [];
 
-    const svcRe = /<(?:bpmn2?:)?serviceTask[^>]+id=["']([^"']+)["'][^>]*(?:name=["']([^"']+)["'])?[^>]*>/g;
+    const svcRe = /<(?:bpmn2?:)?serviceTask\b([^>]*)>/g;
     let tm: RegExpExecArray | null;
     while ((tm = svcRe.exec(content)) !== null) {
-      tasks.push({ id: tm[1] ?? '', name: tm[2] ?? '', type: 'serviceTask' });
+      const svcAttrs = tm[1] ?? '';
+      const svcIdMatch = svcAttrs.match(/\bid=["']([^"']+)["']/);
+      if (!svcIdMatch) continue;
+      const svcId = svcIdMatch[1] ?? '';
+      const svcNameMatch = svcAttrs.match(/\bname=["']([^"']+)["']/);
+      const svcName = svcNameMatch?.[1] ?? svcId;
+      tasks.push({ id: svcId, name: svcName, type: 'serviceTask' });
     }
 
-    const userRe = /<(?:bpmn2?:)?userTask[^>]+id=["']([^"']+)["'][^>]*(?:name=["']([^"']+)["'])?[^>]*>/g;
+    const userRe = /<(?:bpmn2?:)?userTask\b([^>]*)>/g;
     while ((tm = userRe.exec(content)) !== null) {
-      tasks.push({ id: tm[1] ?? '', name: tm[2] ?? '', type: 'userTask' });
+      const userAttrs = tm[1] ?? '';
+      const userIdMatch = userAttrs.match(/\bid=["']([^"']+)["']/);
+      if (!userIdMatch) continue;
+      const userId = userIdMatch[1] ?? '';
+      const userNameMatch = userAttrs.match(/\bname=["']([^"']+)["']/);
+      const userName = userNameMatch?.[1] ?? userId;
+      tasks.push({ id: userId, name: userName, type: 'userTask' });
     }
 
     bpmnProcesses.push({ id, name, tasks });
@@ -1562,7 +1578,7 @@ export class CodeGenService {
           }
           const versionMatch = content.match(/(?:openapi|swagger):\s*["']?([0-9.]+)/i);
           parsedVersion = versionMatch?.[1] ?? null;
-          const titleMatch = content.match(/^\s*title:\s*["']?(.+?)["']?\s*$/m);
+          const titleMatch = content.match(/^\s*title:[ \t]*["']?([^"'\r\n]+)["']?[ \t]*$/m);
           parsedTitle = titleMatch?.[1]?.trim();
           const pathMatches = content.match(/^\s{2}(\/[^\s:]+):/gm);
           endpoints = pathMatches?.length ?? 0;
@@ -1597,7 +1613,7 @@ export class CodeGenService {
         } catch {
           const versionMatch = content.match(/asyncapi:\s*["']?([0-9.]+)/i);
           version = versionMatch?.[1] ?? null;
-          const titleMatch = content.match(/^\s*title:\s*["']?(.+?)["']?\s*$/m);
+          const titleMatch = content.match(/^\s*title:[ \t]*["']?([^"'\r\n]+)["']?[ \t]*$/m);
           title = titleMatch?.[1]?.trim();
         }
 
