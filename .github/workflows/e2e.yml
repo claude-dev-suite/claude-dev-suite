@@ -40,6 +40,10 @@ jobs:
         run: npm run build
         working-directory: configurator/dashboard/server
 
+      - name: Build frontend
+        run: npm run build
+        working-directory: configurator/dashboard
+
       - name: Install MCP server dependencies
         run: npm ci
         working-directory: mcp-servers
@@ -48,7 +52,7 @@ jobs:
         run: npm run build
         working-directory: mcp-servers
 
-      - name: Run Playwright E2E tests (shard ${{ matrix.shard }}/4)
+      - name: Run Playwright E2E tests (shard ${{ matrix.shard }}/6)
         run: npx playwright test --reporter=github,list --shard=${{ matrix.shard }}/6
         working-directory: configurator/dashboard
 

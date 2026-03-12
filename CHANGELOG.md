@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI/CD** — E2E workflow now installs server dependencies and builds frontend before running Playwright tests
+- **CI/CD** — E2E workflow uses 6-way sharding to stay within timeout limits
+- **E2E Fixture** — Fixed race condition where `mainPage` fixture could capture DevTools window instead of the app window
+- **CI/CD** — CI workflow now installs server dependencies before TypeScript build
+
 ### Added
 
 - **Code Generator** — Spec-driven code generation dashboard tab with 3-phase pipeline

@@ -145,15 +145,28 @@ export const test = base.extend<TestFixtures>({
 
     // Wait for the main window to appear (server starts, dashboard loads).
     // The splash window closes and a new BrowserWindow opens.
-    const mainPage = await electronApp.waitForEvent('window', {
-      timeout: 90_000, // server startup can take time
-    });
+    // In dev mode Electron may also open a DevTools window, so we keep
+    // listening until we get a page whose URL is NOT devtools://.
+    let mainPage: Page | null = null;
+    const deadline = Date.now() + 90_000;
+    while (!mainPage && Date.now() < deadline) {
+      const candidate = await electronApp.waitForEvent('window', {
+        timeout: Math.max(deadline - Date.now(), 1_000),
+      });
+      const url = candidate.url();
+      if (!url.startsWith('devtools://')) {
+        mainPage = candidate;
+      }
+    }
+    if (!mainPage) {
+      throw new Error('Main window did not appear within 90 seconds');
+    }
 
     // Wait for the React app to mount
     await mainPage.waitForLoadState('domcontentloaded');
     // Wait for either the wizard or the orchestrator to be visible
     await mainPage.waitForSelector('[data-testid], .splash-container, main', {
-      timeout: 30_000,
+      timeout: 60_000,
     });
 
     await use(mainPage);

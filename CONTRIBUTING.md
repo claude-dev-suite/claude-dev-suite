@@ -61,13 +61,18 @@ cd server && npm run dev
 ### Running Tests
 
 ```bash
-# Dashboard tests
+# Dashboard unit tests
 cd configurator/dashboard
 npm test
 
-# Server tests
+# Server unit tests
 cd configurator/dashboard/server
 npm test
+
+# E2E tests (requires server + frontend builds)
+cd configurator/dashboard
+npm run build && cd server && npm run build && cd ..
+npm run test:e2e
 ```
 
 ## How to Contribute
