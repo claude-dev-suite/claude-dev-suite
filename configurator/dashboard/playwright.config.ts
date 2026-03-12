@@ -17,7 +17,7 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 120_000, // 2 min — accounts for server startup
   expect: { timeout: 10_000 },
-  retries: 1,
+  retries: process.env.CI ? 0 : 1,
   workers: 1, // Electron tests must run serially (single app instance)
   reporter: [
     ['list'],

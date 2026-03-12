@@ -15,7 +15,11 @@ on:
 jobs:
   e2e:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     steps:
       - uses: actions/checkout@v4
@@ -44,14 +48,14 @@ jobs:
         run: npm run build
         working-directory: mcp-servers
 
-      - name: Run Playwright E2E tests
-        run: npx playwright test --reporter=github,list
+      - name: Run Playwright E2E tests (shard ${{ matrix.shard }}/4)
+        run: npx playwright test --reporter=github,list --shard=${{ matrix.shard }}/4
         working-directory: configurator/dashboard
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-results
+          name: e2e-results-${{ matrix.shard }}
           path: configurator/dashboard/e2e-results/
           retention-days: 7
