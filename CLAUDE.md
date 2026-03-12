@@ -142,7 +142,7 @@ npm run test            # Run all tests
 npm run test:coverage   # Run with coverage report
 ```
 
-**Test coverage**: `detection.service.test.ts`, `agents.service.test.ts`, `management.service.test.ts` (includes `getNewComponents` scenarios), `installation.service.test.ts` (includes `availableAtInstall` snapshot), `hooks.service.test.ts`, `analytics.service.test.ts`, `code-review.service.test.ts`, `codegen.service.test.ts`, `workflows.service.test.ts`, `orchestrator.security.test.ts`, `websocket.rate-limit.test.ts`, `logger.test.ts`, route tests in `routes/` (including `routes/codegen.routes.test.ts`)
+**Test coverage**: `detection.service.test.ts`, `agents.service.test.ts`, `management.service.test.ts` (includes `getNewComponents` scenarios), `installation.service.test.ts` (includes `availableAtInstall` snapshot), `hooks.service.test.ts`, `analytics.service.test.ts`, `code-review.service.test.ts`, `codegen.service.test.ts`, `workflows.service.test.ts`, `orchestrator.security.test.ts`, `websocket.rate-limit.test.ts`, `logger.test.ts`, `security-codeql.test.ts` (path-injection and ReDoS regression tests), route tests in `routes/` (including `routes/codegen.routes.test.ts`)
 
 **Manual verification checklist** (when modifying initialization logic):
 - Detection identifies frameworks, databases, and Git provider correctly

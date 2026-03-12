@@ -626,7 +626,8 @@ export class ManagementService {
     customAgents: Array<{ id: string; name: string; description: string }> = []
   ): void {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
-    const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
+    const resolved = resolveProjectPath(projectPath);
+    const claudeMdPath = path.join(resolved, 'CLAUDE.md');
     const section = this.generateDevSuiteSection(agents, customAgents);
 
     if (!fs.existsSync(claudeMdPath)) {
