@@ -116,9 +116,57 @@
         }
       }
     }
+    ,
+    {
+      "id": "python-ruff-format-hook",
+      "version": "1.0.0",
+      "type": "hook",
+      "name": "Python Ruff Auto-Format Hook",
+      "description": "Automatically runs ruff format and ruff check --fix after Python file modifications to maintain consistent code formatting.",
+      "addedInVersion": "3.0.0",
+      "stackRequirements": {
+        "requiresPackage": ["ruff"]
+      },
+      "dependencies": {},
+      "apply": {
+        "type": "hook-merge",
+        "target": ".claude/settings.json",
+        "event": "PostToolUse",
+        "config": {
+          "matcher": "Write|Edit",
+          "hooks": ["[[ \"$CLAUDE_FILE_PATHS\" =~ \\.py$ ]] && (ruff format \"$CLAUDE_FILE_PATHS\" 2>/dev/null; ruff check --fix \"$CLAUDE_FILE_PATHS\" 2>/dev/null) || true"]
+        }
+      }
+    },
+    {
+      "id": "pytest-smoke-hook",
+      "version": "1.0.0",
+      "type": "hook",
+      "name": "Pytest Smoke Test Hook",
+      "description": "Triggers pytest after Python implementation agents complete to verify the test suite remains green.",
+      "addedInVersion": "3.0.0",
+      "stackRequirements": {
+        "requiresAny": {
+          "testing": ["pytest"]
+        }
+      },
+      "dependencies": {
+        "agents": ["qa-expert"]
+      },
+      "apply": {
+        "type": "hook-merge",
+        "target": ".claude/settings.json",
+        "event": "SubagentStop",
+        "config": {
+          "matcherBuilder": "buildPytestSmokeMatcher",
+          "promptTemplate": "pytest-smoke-prompt"
+        }
+      }
+    }
   ],
   "promptTemplates": {
     "integration-validator-prompt": "Analyze the completed agent work and determine if API integration validation is needed.\n\nCONTEXT: $ARGUMENTS\n\nTRIGGER CRITERIA (respond {ok: false} to continue with integration-validator):\n\n**Backend:**\n- Changes to HTTP controllers/routes/handlers\n- New REST or GraphQL endpoints\n- Changes to DTO/request/response types\n- Changes to API authentication middleware\n\n**Frontend:**\n- New API calls (fetch, axios, ky, ofetch)\n- Changes to data fetching hooks (useQuery, useMutation, useSWR)\n- Changes to composables/services that call APIs\n- Changes to TypeScript types for API request/response\n\nDO NOT TRIGGER (respond {ok: true} to stop):\n- CSS/styling changes only\n- Text/label changes only\n- Internal refactoring without touching APIs\n- UI component changes without data fetching\n- Unit tests without integration tests\n\nRespond ONLY with valid JSON:\n{\"ok\": false, \"reason\": \"API integration detected: [description]\"} to trigger validation\n{\"ok\": true} to stop without validation",
-    "smoke-test-prompt": "Analyze the completed agent work and determine if smoke testing is needed.\n\nCONTEXT: $ARGUMENTS\n\nTRIGGER CRITERIA (respond {ok: false} to continue with smoke-test-expert):\n- New REST or GraphQL endpoints implemented\n- Bug fixes to existing API handlers or services\n- Database schema changes with affected endpoints\n- Authentication or authorization logic changes\n- New service integrations or external API calls\n\nDO NOT TRIGGER (respond {ok: true} to stop):\n- Frontend-only changes (CSS, components, UI)\n- Documentation or comment changes only\n- Test file changes only (unit tests, integration tests)\n- Configuration or environment variable changes only\n- Refactoring without behavioral changes\n\nRespond ONLY with valid JSON:\n{\"ok\": false, \"reason\": \"Backend implementation detected: [description]\"} to trigger smoke test\n{\"ok\": true} to stop without smoke test"
+    "smoke-test-prompt": "Analyze the completed agent work and determine if smoke testing is needed.\n\nCONTEXT: $ARGUMENTS\n\nTRIGGER CRITERIA (respond {ok: false} to continue with smoke-test-expert):\n- New REST or GraphQL endpoints implemented\n- Bug fixes to existing API handlers or services\n- Database schema changes with affected endpoints\n- Authentication or authorization logic changes\n- New service integrations or external API calls\n\nDO NOT TRIGGER (respond {ok: true} to stop):\n- Frontend-only changes (CSS, components, UI)\n- Documentation or comment changes only\n- Test file changes only (unit tests, integration tests)\n- Configuration or environment variable changes only\n- Refactoring without behavioral changes\n\nRespond ONLY with valid JSON:\n{\"ok\": false, \"reason\": \"Backend implementation detected: [description]\"} to trigger smoke test\n{\"ok\": true} to stop without smoke test",
+    "pytest-smoke-prompt": "Analyze the completed agent work and determine if pytest should be run.\n\nCONTEXT: $ARGUMENTS\n\nTRIGGER CRITERIA (respond {ok: false} to run tests with qa-expert):\n- New Python functions, classes, or modules implemented\n- Bug fixes to existing Python logic\n- Changes to data models or validation rules\n- New file generators or parsers implemented\n- Changes to business logic in services/ modules\n\nDO NOT TRIGGER (respond {ok: true} to stop):\n- Documentation or comment changes only\n- Test file changes only\n- Configuration or pyproject.toml changes only\n- UI/Streamlit layout changes without logic changes\n- Dependency updates without code changes\n\nRespond ONLY with valid JSON:\n{\"ok\": false, \"reason\": \"Python implementation detected: [description]\"} to trigger pytest\n{\"ok\": true} to stop without running tests"
   }
 }

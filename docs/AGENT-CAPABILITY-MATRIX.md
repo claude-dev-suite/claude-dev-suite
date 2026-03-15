@@ -2,7 +2,7 @@
 
 This document maps each agent to its required MCP servers and skills.
 
-## Agents by Category (41 Total)
+## Agents by Category
 
 ### Core Agents (11)
 
@@ -20,7 +20,7 @@ This document maps each agent to its required MCP servers and skills.
 | **dashboard-refactor-expert** | documentation | react, typescript, refactoring |
 | **claude-code-extension-expert** | _(none)_ | skill-authoring, agent-authoring, hook-authoring, mcp-authoring, plugin-authoring |
 
-### Backend Agents (7)
+### Backend Agents (8)
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
@@ -31,6 +31,7 @@ This document maps each agent to its required MCP servers and skills.
 | **go-expert** | documentation | go, gin, fiber, echo, chi |
 | **deno-expert** | documentation | deno, fresh, oak, typescript |
 | **dotnet-expert** | documentation, api-tester | aspnet-core, aspnet-minimal-api, aspnet-middleware, aspnet-signalr, aspnet-blazor, aspnet-identity, aspnet-validation, entity-framework-core, csharp, xunit, nunit, dotnet-quality, dotnet-security, postgresql, sql-server, swagger-dotnet, resilience-patterns, caching-strategies, webhooks, pagination, error-handling, cors-security-headers, error-tracking, health-checks, ddd |
+| **streamlit-expert** | documentation | streamlit, python, pandas, pydantic, pytest, ruff |
 
 ### Frontend Agents (7)
 
@@ -100,6 +101,20 @@ This document maps each agent to its required MCP servers and skills.
 |-------|-------------|--------|
 | **mobile-expert** | documentation | react-native, flutter, expo, push-notifications, i18n, webauthn, stripe, file-upload |
 
+### Data Agents (1)
+
+| Agent | MCP Servers | Skills |
+|-------|-------------|--------|
+| **data-engineering-expert** | documentation | pandas, pydantic, python, pytest, ruff |
+
+### Industrial Automation Agents (3)
+
+| Agent | MCP Servers | Skills |
+|-------|-------------|--------|
+| **dcs-analyst** | documentation | industrial/freelance-formats, industrial/isa-standards, industrial/dcs-platforms |
+| **freelance-engineer** | documentation | industrial/freelance-formats, industrial/isa-standards, industrial/bulk-engineering |
+| **automation-architect** | documentation | industrial/freelance-formats, industrial/isa-standards, industrial/dcs-platforms, industrial/iec61131, industrial/bulk-engineering, pandas, pydantic |
+
 ## MCP Server Requirements
 
 | MCP Server | Required By Agents |
@@ -154,5 +169,21 @@ This document maps each agent to its required MCP servers and skills.
 {
   "agents": ["go-expert", "sql-expert", "docker-expert"],
   "mcpServers": ["documentation", "database-query", "docker-manager"]
+}
+```
+
+### Python Streamlit + Data Engineering
+```json
+{
+  "agents": ["streamlit-expert", "data-engineering-expert", "python-expert", "qa-expert"],
+  "mcpServers": ["documentation", "database-query"]
+}
+```
+
+### Industrial DCS / PLC Automation (ABB Freelance)
+```json
+{
+  "agents": ["dcs-analyst", "freelance-engineer", "automation-architect", "data-engineering-expert", "python-expert"],
+  "mcpServers": ["documentation"]
 }
 ```
