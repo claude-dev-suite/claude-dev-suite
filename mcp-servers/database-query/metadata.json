@@ -34,6 +34,8 @@
     "sequelize",
     "postgresql",
     "mysql",
-    "mongodb"
+    "mongodb",
+    "sqlite",
+    "sqlalchemy"
   ]
 }
