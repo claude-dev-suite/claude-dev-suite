@@ -1,0 +1,1426 @@
+/**
+ * Orchestrator Service - Agent SDK Implementation
+ *
+ * Provides Claude chat sessions and job execution using the official
+ * @anthropic-ai/claude-agent-sdk. Supports:
+ * - Persistent chat sessions (resume via sessionId)
+ * - Job queue with batch support
+ * - AbortController for cancellation
+ * - Real-time output streaming via WebSocket
+ *
+ * Based on legacy lib/orchestrator-sdk.ts
+ */
+
+import { query } from '@anthropic-ai/claude-agent-sdk';
+import type { WebSocket } from 'ws';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import { getProjectPath, ORCHESTRATOR_PORT } from '../utils/constants.js';
+import type {
+  Job,
+  JobStatus,
+  SubTask,
+  ChatSessionState,
+  WsMessage,
+  ChatMessagePayload,
+  ChatOutputPayload,
+  ChatCompletePayload,
+  ChatSessionPayload,
+  JobQueuedPayload,
+  JobStartedPayload,
+  JobOutputPayload,
+  JobCompletePayload,
+  JobErrorPayload,
+  JobCancelledPayload,
+} from '../types/orchestrator.js';
+import { wsLogger, generateCorrelationId } from '../utils/logger.js';
+
+// ============================================
+// CONFIGURATION
+// ============================================
+
+interface OrchestratorConfig {
+  chat: {
+    maxTurns: number;
+    maxBudgetUsd: number;
+    maxMessageLength: number;
+    permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions';
+  };
+  job: {
+    maxTurns: number;
+    maxBudgetUsd: number;
+    permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions';
+  };
+}
+
+const config: OrchestratorConfig = {
+  chat: {
+    maxTurns: parseInt(process.env.ORCHESTRATOR_CHAT_MAX_TURNS || '50', 10),
+    maxBudgetUsd: parseFloat(process.env.ORCHESTRATOR_CHAT_MAX_BUDGET || '5.0'),
+    maxMessageLength: parseInt(process.env.ORCHESTRATOR_MAX_MESSAGE_LENGTH || '50000', 10),
+    permissionMode: (process.env.ORCHESTRATOR_CHAT_PERMISSION_MODE as OrchestratorConfig['chat']['permissionMode']) || 'default',
+  },
+  job: {
+    maxTurns: parseInt(process.env.ORCHESTRATOR_JOB_MAX_TURNS || '100', 10),
+    maxBudgetUsd: parseFloat(process.env.ORCHESTRATOR_JOB_MAX_BUDGET || '10.0'),
+    permissionMode: (process.env.ORCHESTRATOR_JOB_PERMISSION_MODE as OrchestratorConfig['job']['permissionMode']) || 'acceptEdits',
+  },
+};
+
+// ============================================
+// STATE MANAGEMENT
+// ============================================
+
+interface OrchestratorState {
+  clients: Set<WebSocket>;
+  clientMap: Map<string, WebSocket>;  // clientId -> ws for deduplication
+  chat: ChatSessionState & {
+    abortController: AbortController | null;
+  };
+  jobQueue: Job[];
+  currentJob: (Job & {
+    currentSubTaskIndex: number;
+    completedSubTasks: Record<string, string>;
+    currentOutputBuffer: string;
+  }) | null;
+  jobAbortController: AbortController | null;
+  installedAgents: Set<string>;
+}
+
+const state: OrchestratorState = {
+  clients: new Set(),
+  clientMap: new Map(),
+  chat: {
+    sessionId: null,
+    active: false,
+    projectPath: null,
+    abortController: null,
+  },
+  jobQueue: [],
+  currentJob: null,
+  jobAbortController: null,
+  installedAgents: new Set(),
+};
+
+// ============================================
+// UTILITIES
+// ============================================
+
+/**
+ * Broadcast message to all connected clients, cleaning up dead connections
+ */
+function broadcast(message: WsMessage<unknown>): void {
+  const data = JSON.stringify(message);
+  const deadClients: WebSocket[] = [];
+
+  state.clients.forEach((client) => {
+    if (client.readyState === 1) { // WebSocket.OPEN
+      try {
+        client.send(data);
+      } catch (error) {
+        wsLogger.error('Failed to send message to client', { error });
+        deadClients.push(client);
+      }
+    } else if (client.readyState === 3) { // WebSocket.CLOSED
+      deadClients.push(client);
+    }
+  });
+
+  // Clean up dead connections
+  deadClients.forEach((client) => state.clients.delete(client));
+}
+
+function sendToClient(ws: WebSocket, message: WsMessage<unknown>): void {
+  if (ws.readyState === 1) {
+    try {
+      ws.send(JSON.stringify(message));
+    } catch (error) {
+      wsLogger.error('Failed to send message to client', { error });
+      state.clients.delete(ws);
+    }
+  }
+}
+
+/**
+ * Get allowed workspace roots for path validation
+ * Prevents access to sensitive system directories
+ */
+function getAllowedWorkspaceRoots(): string[] {
+  const roots: string[] = [];
+
+  // User's home directory and subdirectories are allowed
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
+  if (homeDir) {
+    roots.push(path.normalize(homeDir));
+  }
+
+  // Current working directory and subdirectories
+  roots.push(path.normalize(process.cwd()));
+
+  // Explicitly configured workspace from environment
+  if (process.env.WORKSPACE_ROOT) {
+    roots.push(path.normalize(process.env.WORKSPACE_ROOT));
+  }
+
+  return roots;
+}
+
+/**
+ * Check if a path escapes allowed workspace boundaries
+ */
+function isPathWithinAllowedRoots(resolvedPath: string, allowedRoots: string[]): boolean {
+  const normalizedPath = path.normalize(resolvedPath);
+
+  // Path must start with at least one allowed root
+  return allowedRoots.some(root => {
+    // Ensure root and path use same separator format for comparison
+    const normalizedRoot = path.normalize(root);
+    return normalizedPath.startsWith(normalizedRoot);
+  });
+}
+
+/**
+ * Blocked system directories that should never be accessible
+ */
+const BLOCKED_SYSTEM_PATHS = [
+  '/etc',
+  '/boot',
+  '/sys',
+  '/proc',
+  '/dev',
+  'C:\\Windows',
+  'C:\\Program Files',
+  'C:\\Program Files (x86)',
+  '/System',
+  '/Library/System',
+];
+
+/**
+ * Check if path attempts to access blocked system directories
+ */
+function isBlockedSystemPath(resolvedPath: string): boolean {
+  const normalizedPath = path.normalize(resolvedPath).toLowerCase();
+
+  return BLOCKED_SYSTEM_PATHS.some(blocked => {
+    const normalizedBlocked = path.normalize(blocked).toLowerCase();
+    return normalizedPath.startsWith(normalizedBlocked);
+  });
+}
+
+/**
+ * Validate project path with comprehensive security checks
+ * CRITICAL: Prevents path traversal attacks (OWASP A01 - Broken Access Control)
+ *
+ * Security measures:
+ * 1. Type and presence validation
+ * 2. Pre-resolution traversal detection
+ * 3. Path normalization to handle edge cases
+ * 4. Post-resolution workspace boundary validation
+ * 5. System directory blocking
+ * 6. Existence verification
+ * 7. Security event logging
+ */
+function validateProjectPath(projectPath: string): { valid: boolean; error?: string; path?: string } {
+  // 1. Basic validation
+  if (!projectPath || typeof projectPath !== 'string') {
+    wsLogger.warn('Path validation failed: empty or invalid type');
+    return { valid: false, error: 'Project path is required' };
+  }
+
+  // 2. Pre-resolution traversal check (catches obvious attempts)
+  if (projectPath.includes('..')) {
+    wsLogger.warn('Path traversal attempt blocked (pre-resolution)', { projectPath });
+    return { valid: false, error: 'Path traversal not allowed' };
+  }
+
+  // 3. Resolve and normalize path (handles symlinks, relative paths, etc.)
+  const resolvedPath = path.resolve(projectPath);
+  const normalizedPath = path.normalize(resolvedPath);
+
+  // 4. Post-resolution traversal check (catches encoded/complex attempts)
+  if (normalizedPath.includes('..')) {
+    wsLogger.warn('Path traversal attempt blocked (post-resolution)', {
+      input: projectPath,
+      resolved: resolvedPath,
+      normalized: normalizedPath,
+    });
+    return { valid: false, error: 'Path traversal not allowed' };
+  }
+
+  // 5. Workspace boundary validation - CRITICAL SECURITY CHECK
+  const allowedRoots = getAllowedWorkspaceRoots();
+  if (!isPathWithinAllowedRoots(normalizedPath, allowedRoots)) {
+    wsLogger.warn('Path escapes allowed workspace', {
+      input: projectPath,
+      resolved: normalizedPath,
+      allowedRoots: allowedRoots,
+    });
+    return { valid: false, error: 'Path must be within allowed workspace directories' };
+  }
+
+  // 6. Block access to sensitive system directories
+  if (isBlockedSystemPath(normalizedPath)) {
+    wsLogger.warn('Blocked system path access attempt', {
+      input: projectPath,
+      resolved: normalizedPath,
+    });
+    return { valid: false, error: 'Access to system directories is not allowed' };
+  }
+
+  // 7. Verify absolute path (defense in depth)
+  if (!path.isAbsolute(normalizedPath)) {
+    wsLogger.warn('Non-absolute path after resolution', { normalizedPath });
+    return { valid: false, error: 'Path must be absolute' };
+  }
+
+  // 8. Verify path exists
+  if (!fs.existsSync(normalizedPath)) {
+    return { valid: false, error: 'Path does not exist' };
+  }
+
+  // Success - log for audit trail
+  wsLogger.debug('Path validation successful', {
+    input: projectPath,
+    resolved: normalizedPath,
+  });
+
+  return { valid: true, path: normalizedPath };
+}
+
+/**
+ * Validate message length - FIX #11
+ */
+function validateMessageLength(text: string): { valid: boolean; error?: string } {
+  if (text.length > config.chat.maxMessageLength) {
+    return {
+      valid: false,
+      error: `Message too long (max ${config.chat.maxMessageLength} characters, got ${text.length})`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate agent ID against installed agents - FIX #8
+ */
+function validateAgentId(agentId: string): boolean {
+  // If no agents loaded yet, allow any (will be validated at runtime)
+  if (state.installedAgents.size === 0) {
+    return true;
+  }
+  return state.installedAgents.has(agentId);
+}
+
+/**
+ * Format tool use with icons - FIX #13: Added more icons
+ */
+function formatToolUse(name: string, input: Record<string, unknown>): string {
+  const icons: Record<string, string> = {
+    Read: '📖',
+    Write: '✍️',
+    Edit: '✏️',
+    Bash: '💻',
+    Glob: '🔍',
+    Grep: '🔎',
+    Task: '🤖',
+    WebFetch: '🌐',
+    WebSearch: '🔎',
+    AskUserQuestion: '❓',
+    TodoWrite: '📝',
+    NotebookEdit: '📓',
+    LSP: '🔗',
+    KillShell: '🛑',
+    TaskOutput: '📤',
+    EnterPlanMode: '📋',
+    ExitPlanMode: '✅',
+    Skill: '⚡',
+  };
+  const icon = icons[name] || '🔧';
+
+  switch (name) {
+    case 'Read':
+      return `${icon} Reading: ${input.file_path || ''}`;
+    case 'Write':
+      return `${icon} Writing: ${input.file_path || ''}`;
+    case 'Edit':
+      return `${icon} Editing: ${input.file_path || ''}`;
+    case 'Bash': {
+      const cmd = String(input.command || '');
+      return `${icon} Running: ${cmd.length > 60 ? cmd.substring(0, 60) + '...' : cmd}`;
+    }
+    case 'Glob':
+      return `${icon} Searching: ${input.pattern || ''}`;
+    case 'Grep':
+      return `${icon} Grep: ${input.pattern || ''}`;
+    case 'Task':
+      return `${icon} Delegating: ${input.description || input.subagent_type || ''}`;
+    case 'NotebookEdit':
+      return `${icon} Notebook: ${input.notebook_path || ''}`;
+    case 'LSP':
+      return `${icon} LSP: ${input.operation || ''}`;
+    default:
+      return `${icon} ${name}`;
+  }
+}
+
+function truncateText(text: string, maxLen = 150): string {
+  if (text.length <= maxLen) return text;
+  return text.substring(0, maxLen) + '...';
+}
+
+// ============================================
+// TYPE GUARDS - FIX #6, #7
+// ============================================
+
+interface SystemInitMessage {
+  type: 'system';
+  subtype: 'init';
+  session_id: string;
+}
+
+interface AssistantMessage {
+  type: 'assistant';
+  message: {
+    content: Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown> }>;
+  };
+}
+
+interface UserMessage {
+  type: 'user';
+  message: {
+    content: Array<{ type: string; content?: string }>;
+  };
+}
+
+interface ResultMessage {
+  type: 'result';
+  is_error: boolean;
+  result?: string;
+  total_cost_usd?: number;
+  num_turns?: number;
+  session_id?: string;
+  usage?: { input_tokens: number; output_tokens: number };
+}
+
+function isSystemInitMessage(msg: unknown): msg is SystemInitMessage {
+  if (typeof msg !== 'object' || msg === null) return false;
+  const obj = msg as Record<string, unknown>;
+  return (
+    obj.type === 'system' &&
+    obj.subtype === 'init' &&
+    typeof obj.session_id === 'string'
+  );
+}
+
+function isAssistantMessage(msg: unknown): msg is AssistantMessage {
+  if (typeof msg !== 'object' || msg === null) return false;
+  const obj = msg as Record<string, unknown>;
+  return (
+    obj.type === 'assistant' &&
+    typeof obj.message === 'object' &&
+    obj.message !== null &&
+    Array.isArray((obj.message as Record<string, unknown>).content)
+  );
+}
+
+function isUserMessage(msg: unknown): msg is UserMessage {
+  if (typeof msg !== 'object' || msg === null) return false;
+  const obj = msg as Record<string, unknown>;
+  return (
+    obj.type === 'user' &&
+    typeof obj.message === 'object' &&
+    obj.message !== null &&
+    Array.isArray((obj.message as Record<string, unknown>).content)
+  );
+}
+
+function isResultMessage(msg: unknown): msg is ResultMessage {
+  if (typeof msg !== 'object' || msg === null) return false;
+  const obj = msg as Record<string, unknown>;
+  return obj.type === 'result' && typeof obj.is_error === 'boolean';
+}
+
+// ============================================
+// CHAT SESSION HANDLER
+// ============================================
+
+async function handleChatMessage(ws: WebSocket, payload: ChatMessagePayload): Promise<void> {
+  const correlationId = generateCorrelationId();
+  const text = payload.text;
+  const projectPathInput = payload.projectPath || state.chat.projectPath || getProjectPath();
+  // FIX: Read sessionId from frontend payload for context persistence
+  const clientSessionId = (payload as unknown as { sessionId?: string }).sessionId;
+
+  wsLogger.info('Chat message received', {
+    correlationId,
+    data: {
+      messageLength: text?.length || 0,
+      projectPath: projectPathInput,
+      sessionId: clientSessionId || state.chat.sessionId || 'new',
+    },
+  });
+
+  if (!text) {
+    wsLogger.warn('Chat message rejected: no text provided', { correlationId });
+    sendToClient(ws, { type: 'error', payload: { message: 'No message provided' } });
+    return;
+  }
+
+  // FIX #11: Validate message length
+  const lengthValidation = validateMessageLength(text);
+  if (!lengthValidation.valid) {
+    wsLogger.warn('Chat message rejected: message too long', {
+      correlationId,
+      data: { length: text.length, maxLength: config.chat.maxMessageLength },
+    });
+    sendToClient(ws, { type: 'chat_error', payload: { error: lengthValidation.error } });
+    return;
+  }
+
+  // Validate project path
+  const pathValidation = validateProjectPath(projectPathInput);
+  if (!pathValidation.valid) {
+    wsLogger.warn('Chat message rejected: invalid project path', {
+      correlationId,
+      data: { projectPath: projectPathInput, error: pathValidation.error },
+    });
+    sendToClient(ws, { type: 'chat_error', payload: { error: pathValidation.error } });
+    return;
+  }
+
+  // FIX #4: Cancel previous query with proper wait
+  if (state.chat.abortController) {
+    state.chat.abortController.abort();
+    // Wait for the active flag to clear (max 2 seconds)
+    const maxWait = 2000;
+    const startTime = Date.now();
+    while (state.chat.active && Date.now() - startTime < maxWait) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (state.chat.active) {
+      wsLogger.warn('Previous chat did not stop in time, proceeding anyway');
+    }
+  }
+
+  state.chat.abortController = new AbortController();
+  state.chat.active = true;
+  state.chat.projectPath = pathValidation.path!;
+
+  broadcast({ type: 'chat_started', payload: { message: text } });
+
+  // FIX: Use client-provided sessionId if available, otherwise use server state
+  // This allows context persistence across page reloads
+  const resumeSessionId = clientSessionId || state.chat.sessionId || undefined;
+  if (clientSessionId && clientSessionId !== state.chat.sessionId) {
+    wsLogger.info('Session resumed from client', {
+      correlationId,
+      data: { sessionId: clientSessionId },
+    });
+    state.chat.sessionId = clientSessionId; // Sync server state with client
+  }
+
+  wsLogger.info('Chat session started', {
+    correlationId,
+    data: {
+      sessionId: resumeSessionId || 'new',
+      projectPath: pathValidation.path,
+      messagePreview: text.substring(0, 100),
+    },
+  });
+
+  const sessionStartTime = Date.now();
+
+  try {
+    for await (const message of query({
+      prompt: text,
+      options: {
+        cwd: pathValidation.path!,
+        resume: resumeSessionId,
+        allowedTools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
+        // FIX #2: Use configurable permission mode (default: 'default' for safety)
+        permissionMode: config.chat.permissionMode,
+        abortController: state.chat.abortController,
+        maxTurns: config.chat.maxTurns,
+        maxBudgetUsd: config.chat.maxBudgetUsd,
+      },
+    })) {
+      // Check if abort was signaled during iteration (like legacy)
+      if (state.chat.abortController?.signal?.aborted) {
+        wsLogger.info('Abort signal detected during iteration');
+        broadcast({ type: 'chat_cancelled', payload: {} });
+        break;
+      }
+
+      // FIX #6: Use type guards for system init
+      if (isSystemInitMessage(message)) {
+        state.chat.sessionId = message.session_id;
+        wsLogger.info('Chat session initialized', {
+          correlationId,
+          data: { sessionId: message.session_id },
+        });
+        broadcast({
+          type: 'chat_session',
+          payload: { sessionId: message.session_id } as ChatSessionPayload,
+        });
+      }
+
+      // FIX #6: Use type guards for assistant message
+      if (isAssistantMessage(message)) {
+        for (const block of message.message.content) {
+          if (block.type === 'text' && block.text) {
+            broadcast({
+              type: 'chat_output',
+              payload: {
+                text: `\x1b[36m${block.text}\x1b[0m`,
+                raw: true,
+                contentType: 'text',
+              } as ChatOutputPayload,
+            });
+          } else if (block.type === 'tool_use' && block.name) {
+            const toolText = formatToolUse(block.name, block.input || {});
+            broadcast({
+              type: 'chat_output',
+              payload: {
+                text: `\x1b[33m${toolText}\x1b[0m\n`,
+                raw: true,
+                contentType: 'tool',
+              } as ChatOutputPayload,
+            });
+          }
+        }
+      }
+
+      // FIX #6: Use type guards for user message (tool results)
+      if (isUserMessage(message)) {
+        for (const block of message.message.content) {
+          if (block.type === 'tool_result') {
+            const content = block.content || '';
+            const preview =
+              typeof content === 'string'
+                ? truncateText(content.replace(/\n/g, ' '), 150)
+                : truncateText(JSON.stringify(content), 150);
+            broadcast({
+              type: 'chat_output',
+              payload: {
+                text: `\x1b[90m  → ${preview}\x1b[0m\n`,
+                raw: true,
+                contentType: 'result',
+              } as ChatOutputPayload,
+            });
+          }
+        }
+      }
+
+      // FIX #6: Use type guards for result message
+      if (isResultMessage(message)) {
+        const duration = Date.now() - sessionStartTime;
+
+        broadcast({
+          type: 'chat_output',
+          payload: {
+            text: `\x1b[32m\n━━━ Done ━━━\x1b[0m\n`,
+            raw: true,
+          } as ChatOutputPayload,
+        });
+
+        broadcast({
+          type: 'chat_complete',
+          payload: {
+            success: !message.is_error,
+            result: message.result || '',
+            cost: message.total_cost_usd || 0,
+            turns: message.num_turns || 0,
+            sessionId: message.session_id || state.chat.sessionId || '',
+            tokens: message.usage || { input: 0, output: 0 },
+          } as ChatCompletePayload,
+        });
+
+        wsLogger.info('Chat session completed', {
+          correlationId,
+          data: {
+            sessionId: message.session_id || state.chat.sessionId,
+            success: !message.is_error,
+            cost: message.total_cost_usd || 0,
+            turns: message.num_turns || 0,
+            duration,
+            tokens: message.usage || { input: 0, output: 0 },
+          },
+          duration,
+        });
+      }
+    }
+  } catch (error) {
+    const err = error as Error;
+    // Check if this was a cancellation (like legacy - multiple ways to detect)
+    const isAbort = err.name === 'AbortError'
+      || state.chat.abortController?.signal?.aborted
+      || (err.message && err.message.toLowerCase().includes('abort'));
+
+    if (isAbort) {
+      wsLogger.info('Chat session cancelled', {
+        correlationId,
+        data: { sessionId: state.chat.sessionId },
+      });
+      broadcast({ type: 'chat_cancelled', payload: {} });
+    } else {
+      wsLogger.error('Chat session error', {
+        correlationId,
+        data: {
+          sessionId: state.chat.sessionId,
+          error: err.message,
+        },
+        error: err,
+      });
+      broadcast({ type: 'chat_error', payload: { error: err.message } });
+    }
+  } finally {
+    state.chat.active = false;
+    state.chat.abortController = null;
+  }
+}
+
+// ============================================
+// NEW CHAT (CLEAR SESSION)
+// ============================================
+
+function handleNewChat(): void {
+  // Abort any running query
+  if (state.chat.abortController) {
+    state.chat.abortController.abort();
+  }
+
+  // Clear session to start fresh
+  const oldSessionId = state.chat.sessionId;
+  state.chat.sessionId = null;
+  state.chat.active = false;
+  state.chat.abortController = null;
+
+  wsLogger.info('New chat - cleared session', { oldSessionId });
+  broadcast({ type: 'chat_cleared', payload: { previousSessionId: oldSessionId } });
+}
+
+// ============================================
+// CANCEL CHAT
+// ============================================
+
+function handleCancelChat(): void {
+  wsLogger.info('Cancel chat requested', { hasAbortController: !!state.chat.abortController, active: state.chat.active });
+  if (state.chat.abortController) {
+    wsLogger.info('Cancelling chat');
+    state.chat.abortController.abort();
+    broadcast({ type: 'chat_cancelled', payload: {} });
+  } else {
+    wsLogger.info('No active chat to cancel');
+  }
+}
+
+// ============================================
+// JOB EXECUTION
+// ============================================
+
+/**
+ * Truncate output text to fit within token limits
+ * Keeps first and last portions for context
+ */
+function truncateOutput(text: string, maxChars = 8000): string {
+  if (!text || text.length <= maxChars) return text;
+  const half = Math.floor(maxChars / 2);
+  return text.slice(0, half) + '\n\n[... output truncated for brevity ...]\n\n' + text.slice(-half);
+}
+
+/**
+ * Generate prompt for a specific subtask, including context from completed dependencies
+ * (Like legacy generateSubTaskPrompt)
+ */
+function generateSubTaskPrompt(job: Job & { currentSubTaskIndex: number; completedSubTasks: Record<string, string> }): string {
+  const task = job.subTasks![job.currentSubTaskIndex];
+  let prompt = `Execute the following task: "${job.title}"\n\n`;
+
+  // Add working directory context
+  if (job.projectPath) {
+    prompt += `**Working Directory:** \`${job.projectPath}\`\nAll file paths are relative to this directory.\n\n`;
+  }
+
+  if (job.context) {
+    prompt += `Context: ${job.context}\n\n`;
+  }
+
+  prompt += `## Task Overview\n`;
+  prompt += `This is part of a multi-step workflow. You are executing step ${job.currentSubTaskIndex + 1} of ${job.subTasks!.length}.\n\n`;
+
+  prompt += `## Current Task\n`;
+  prompt += `Use the ${task.agentId} agent to: ${task.task}\n\n`;
+
+  // Inject context from completed dependent tasks (like legacy)
+  if (task.dependencies && task.dependencies.length > 0) {
+    prompt += `## Context from Previous Tasks\n\n`;
+    prompt += `The following tasks have been completed. Use their output as context:\n\n`;
+
+    task.dependencies.forEach((depId: string) => {
+      const output = job.completedSubTasks[depId];
+      if (output) {
+        prompt += `### ${depId} output:\n`;
+        prompt += `\`\`\`\n${truncateOutput(output)}\n\`\`\`\n\n`;
+      }
+    });
+  } else if (job.currentSubTaskIndex > 0) {
+    // Even without explicit dependencies, include previous task output for context
+    const prevTask = job.subTasks![job.currentSubTaskIndex - 1];
+    const prevOutput = job.completedSubTasks[prevTask.agentId];
+    if (prevOutput) {
+      prompt += `## Context from Previous Task\n\n`;
+      prompt += `The previous task (${prevTask.agentId}) produced this output:\n`;
+      prompt += `\`\`\`\n${truncateOutput(prevOutput, 4000)}\n\`\`\`\n\n`;
+    }
+  }
+
+  prompt += `Start working on this task now.`;
+  return prompt;
+}
+
+function generateJobPrompt(job: Job): string {
+  if (job.prompt && (!job.subTasks || job.subTasks.length === 0)) {
+    let prompt = job.prompt;
+    // Add working directory context
+    if (job.projectPath) {
+      prompt = `**Working Directory:** \`${job.projectPath}\`\nAll file paths are relative to this directory.\n\n${prompt}`;
+    }
+    if (job.context) {
+      prompt = `Context: ${job.context}\n\n${prompt}`;
+    }
+    return prompt;
+  }
+
+  let prompt = `Execute the following task: "${job.title}"\n\n`;
+
+  // Add working directory context so Claude knows where it is
+  if (job.projectPath) {
+    prompt += `**Working Directory:** \`${job.projectPath}\`\nAll file paths are relative to this directory.\n\n`;
+  }
+
+  if (job.context) {
+    prompt += `Context: ${job.context}\n\n`;
+  }
+
+  if (!job.subTasks || job.subTasks.length === 0) {
+    prompt += `Start working on this task now.`;
+    return prompt;
+  }
+
+  // Multi-subtask job - generate first subtask prompt
+  const firstTask = job.subTasks[0];
+  prompt += `## Task Overview\n`;
+  prompt += `This is part of a multi-step workflow. You are executing step 1 of ${job.subTasks.length}.\n\n`;
+  prompt += `## Current Task\n`;
+  prompt += `Use the ${firstTask.agentId} agent to: ${firstTask.task}\n\n`;
+  prompt += `Start working on this task now.`;
+
+  return prompt;
+}
+
+/**
+ * Execute a single subtask and return its output
+ */
+async function executeSubTask(
+  job: Job & { currentSubTaskIndex: number; completedSubTasks: Record<string, string>; currentOutputBuffer: string },
+  prompt: string,
+  projectPath: string
+): Promise<{ success: boolean; output: string }> {
+  let outputBuffer = '';
+
+  for await (const message of query({
+    prompt,
+    options: {
+      cwd: projectPath,
+      allowedTools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
+      permissionMode: config.job.permissionMode,
+      abortController: state.jobAbortController || undefined,
+      maxTurns: config.job.maxTurns,
+      maxBudgetUsd: config.job.maxBudgetUsd,
+    },
+  })) {
+    if (isAssistantMessage(message)) {
+      for (const block of message.message.content) {
+        if (block.type === 'text' && block.text) {
+          outputBuffer += block.text + '\n';
+          broadcast({
+            type: 'job_output',
+            payload: {
+              jobId: job.id,
+              text: `\x1b[36m${block.text}\x1b[0m\n`,
+              raw: true,
+            } as JobOutputPayload,
+          });
+        } else if (block.type === 'tool_use' && block.name) {
+          const toolText = formatToolUse(block.name, block.input || {});
+          outputBuffer += toolText + '\n';
+          broadcast({
+            type: 'job_output',
+            payload: {
+              jobId: job.id,
+              text: `\x1b[33m${toolText}\x1b[0m\n`,
+              raw: true,
+            } as JobOutputPayload,
+          });
+        }
+      }
+    }
+
+    if (isUserMessage(message)) {
+      for (const block of message.message.content) {
+        if (block.type === 'tool_result') {
+          const content = block.content || '';
+          const preview =
+            typeof content === 'string'
+              ? truncateText(content.replace(/\n/g, ' '), 150)
+              : truncateText(JSON.stringify(content), 150);
+          broadcast({
+            type: 'job_output',
+            payload: {
+              jobId: job.id,
+              text: `\x1b[90m  → ${preview}\x1b[0m\n`,
+              raw: true,
+            } as JobOutputPayload,
+          });
+        }
+      }
+    }
+
+    if (isResultMessage(message)) {
+      job.cost = (job.cost || 0) + (message.total_cost_usd || 0);
+      return { success: !message.is_error, output: outputBuffer };
+    }
+  }
+
+  return { success: true, output: outputBuffer };
+}
+
+async function executeJob(job: Job): Promise<void> {
+  const correlationId = generateCorrelationId();
+  const jobStartTime = Date.now();
+
+  wsLogger.info('Job started', {
+    correlationId,
+    data: {
+      jobId: job.id,
+      title: job.title,
+      hasSubTasks: !!job.subTasks?.length,
+      subTaskCount: job.subTasks?.length || 0,
+    },
+  });
+
+  // Initialize job with subtask tracking (like legacy)
+  const trackedJob = job as Job & {
+    currentSubTaskIndex: number;
+    completedSubTasks: Record<string, string>;
+    currentOutputBuffer: string;
+  };
+  trackedJob.currentSubTaskIndex = 0;
+  trackedJob.completedSubTasks = {};
+  trackedJob.currentOutputBuffer = '';
+
+  state.currentJob = trackedJob;
+  state.jobAbortController = new AbortController();
+  job.status = 'running';
+
+  const projectPath = job.projectPath || getProjectPath();
+  const pathValidation = validateProjectPath(projectPath);
+
+  if (!pathValidation.valid) {
+    wsLogger.error('Job failed: invalid project path', {
+      correlationId,
+      data: {
+        jobId: job.id,
+        projectPath,
+        error: pathValidation.error,
+      },
+    });
+    broadcast({
+      type: 'job_error',
+      payload: { jobId: job.id, error: pathValidation.error } as JobErrorPayload,
+    });
+    state.currentJob = null;
+    processNextJob();
+    return;
+  }
+
+  // FIX #8: Validate agent IDs in subTasks
+  if (job.subTasks && job.subTasks.length > 0) {
+    for (const subTask of job.subTasks) {
+      if (!validateAgentId(subTask.agentId)) {
+        broadcast({
+          type: 'job_error',
+          payload: {
+            jobId: job.id,
+            error: `Unknown agent: ${subTask.agentId}. Available agents: ${Array.from(state.installedAgents).join(', ')}`,
+          } as JobErrorPayload,
+        });
+        state.currentJob = null;
+        processNextJob();
+        return;
+      }
+    }
+  }
+
+  broadcast({
+    type: 'job_started',
+    payload: { jobId: job.id, title: job.title } as JobStartedPayload,
+  });
+  wsLogger.info('Job starting', { jobId: job.id, title: job.title });
+
+  try {
+    // Check if this is a multi-subtask job
+    const hasMultipleSubTasks = job.subTasks && job.subTasks.length > 1;
+
+    if (hasMultipleSubTasks) {
+      // Execute subtasks sequentially (like legacy)
+      wsLogger.info('Multi-subtask job', { subtaskCount: job.subTasks!.length });
+
+      while (trackedJob.currentSubTaskIndex < job.subTasks!.length) {
+        const currentTask = job.subTasks![trackedJob.currentSubTaskIndex];
+
+        // Broadcast subtask starting
+        broadcast({
+          type: 'subtask_started',
+          payload: {
+            jobId: job.id,
+            agentId: currentTask.agentId,
+            subTaskIndex: trackedJob.currentSubTaskIndex,
+            totalSubTasks: job.subTasks!.length,
+          },
+        });
+
+        wsLogger.info('Subtask starting', { index: trackedJob.currentSubTaskIndex + 1, total: job.subTasks!.length, agentId: currentTask.agentId });
+
+        // Show subtask header in output
+        broadcast({
+          type: 'job_output',
+          payload: {
+            jobId: job.id,
+            text: `\n\x1b[1m\x1b[35m═══ Subtask ${trackedJob.currentSubTaskIndex + 1}/${job.subTasks!.length}: @${currentTask.agentId} ═══\x1b[0m\n\n`,
+            raw: true,
+          } as JobOutputPayload,
+        });
+
+        // Generate prompt for this subtask
+        const prompt = generateSubTaskPrompt(trackedJob);
+
+        // Execute subtask
+        const result = await executeSubTask(trackedJob, prompt, pathValidation.path!);
+
+        // Save output for context carry-forward
+        trackedJob.completedSubTasks[currentTask.agentId] = result.output;
+
+        // Broadcast subtask completion
+        broadcast({
+          type: 'subtask_complete',
+          payload: {
+            jobId: job.id,
+            agentId: currentTask.agentId,
+            subTaskIndex: trackedJob.currentSubTaskIndex,
+            success: result.success,
+          },
+        });
+
+        wsLogger.info('Subtask completed', { index: trackedJob.currentSubTaskIndex + 1, success: result.success });
+
+        // Move to next subtask
+        trackedJob.currentSubTaskIndex++;
+      }
+
+      // All subtasks complete
+      job.status = 'completed';
+      broadcast({
+        type: 'job_output',
+        payload: {
+          jobId: job.id,
+          text: `\x1b[32m\n━━━ All ${job.subTasks!.length} Tasks Complete ━━━\x1b[0m\n`,
+          raw: true,
+        } as JobOutputPayload,
+      });
+
+    } else {
+      // Single task or no subtasks - execute directly (original logic)
+      const prompt = generateJobPrompt(job);
+
+      for await (const message of query({
+        prompt,
+        options: {
+          cwd: pathValidation.path!,
+          allowedTools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
+          permissionMode: config.job.permissionMode,
+          abortController: state.jobAbortController || undefined,
+          maxTurns: config.job.maxTurns,
+          maxBudgetUsd: config.job.maxBudgetUsd,
+        },
+      })) {
+        if (isAssistantMessage(message)) {
+          for (const block of message.message.content) {
+            if (block.type === 'text' && block.text) {
+              broadcast({
+                type: 'job_output',
+                payload: {
+                  jobId: job.id,
+                  text: `\x1b[36m${block.text}\x1b[0m\n`,
+                  raw: true,
+                } as JobOutputPayload,
+              });
+            } else if (block.type === 'tool_use' && block.name) {
+              const toolText = formatToolUse(block.name, block.input || {});
+              broadcast({
+                type: 'job_output',
+                payload: {
+                  jobId: job.id,
+                  text: `\x1b[33m${toolText}\x1b[0m\n`,
+                  raw: true,
+                } as JobOutputPayload,
+              });
+            }
+          }
+        }
+
+        if (isUserMessage(message)) {
+          for (const block of message.message.content) {
+            if (block.type === 'tool_result') {
+              const content = block.content || '';
+              const preview =
+                typeof content === 'string'
+                  ? truncateText(content.replace(/\n/g, ' '), 150)
+                  : truncateText(JSON.stringify(content), 150);
+              broadcast({
+                type: 'job_output',
+                payload: {
+                  jobId: job.id,
+                  text: `\x1b[90m  → ${preview}\x1b[0m\n`,
+                  raw: true,
+                } as JobOutputPayload,
+              });
+            }
+          }
+        }
+
+        if (isResultMessage(message)) {
+          job.status = message.is_error ? 'failed' : 'completed';
+          job.result = message.result;
+          job.cost = message.total_cost_usd;
+
+          broadcast({
+            type: 'job_output',
+            payload: {
+              jobId: job.id,
+              text: `\x1b[32m\n━━━ Task Complete ━━━\x1b[0m\n`,
+              raw: true,
+            } as JobOutputPayload,
+          });
+
+          if (message.result) {
+            broadcast({
+              type: 'job_output',
+              payload: {
+                jobId: job.id,
+                text: `${message.result}\n`,
+                raw: true,
+              } as JobOutputPayload,
+            });
+          }
+        }
+      }
+    }
+
+    const duration = Date.now() - jobStartTime;
+
+    // Broadcast job complete
+    broadcast({
+      type: 'job_complete',
+      payload: {
+        jobId: job.id,
+        success: job.status === 'completed',
+        exitCode: job.status === 'completed' ? 0 : 1,
+        cost: job.cost || 0,
+        batchId: job.batchId,
+      } as JobCompletePayload,
+    });
+
+    wsLogger.info('Job completed', {
+      correlationId,
+      data: {
+        jobId: job.id,
+        status: job.status,
+        cost: job.cost || 0,
+        duration,
+      },
+      duration,
+    });
+
+  } catch (error) {
+    const err = error as Error;
+    // Check if this was a cancellation (multiple ways to detect, like legacy)
+    const isAbort = err.name === 'AbortError'
+      || state.jobAbortController?.signal?.aborted
+      || (err.message && err.message.toLowerCase().includes('abort'));
+
+    if (isAbort) {
+      job.status = 'cancelled';
+      wsLogger.info('Job cancelled', {
+        correlationId,
+        data: { jobId: job.id },
+      });
+      broadcast({
+        type: 'job_cancelled',
+        payload: { jobId: job.id, reason: 'Cancelled by user' } as JobCancelledPayload & { reason: string },
+      });
+    } else {
+      job.status = 'failed';
+      job.error = err.message;
+      wsLogger.error('Job failed', {
+        correlationId,
+        data: {
+          jobId: job.id,
+          error: err.message,
+        },
+        error: err,
+      });
+      broadcast({ type: 'job_error', payload: { jobId: job.id, error: err.message } as JobErrorPayload });
+    }
+  } finally {
+    state.currentJob = null;
+    state.jobAbortController = null;
+    processNextJob();
+  }
+}
+
+function processNextJob(): void {
+  if (state.currentJob || state.jobQueue.length === 0) {
+    return;
+  }
+
+  const job = state.jobQueue.shift()!;
+  executeJob(job);
+}
+
+// ============================================
+// JOB HANDLERS
+// ============================================
+
+function handleSubmitJob(payload: Record<string, unknown>): void {
+  const correlationId = generateCorrelationId();
+  const jobId = (payload.id as string) || `job-${Date.now()}`;
+  const title = (payload.title as string) || 'Untitled Job';
+
+  wsLogger.info('Job submitted', {
+    correlationId,
+    data: {
+      jobId,
+      title,
+      hasSubTasks: !!(payload.subTasks as SubTask[] | undefined)?.length,
+      subTaskCount: (payload.subTasks as SubTask[] | undefined)?.length || 0,
+    },
+  });
+
+  // FIX #17: Validate job title length
+  if (title.trim().length < 3) {
+    wsLogger.warn('Job rejected: invalid title', {
+      correlationId,
+      data: { jobId, title },
+    });
+    broadcast({
+      type: 'job_error',
+      payload: { jobId, error: 'Job title must be at least 3 characters' } as JobErrorPayload,
+    });
+    return;
+  }
+
+  const job: Job = {
+    id: jobId,
+    title,
+    prompt: (payload.prompt as string) || '',
+    context: payload.context as string | undefined,
+    projectPath: (payload.projectPath as string) || getProjectPath(),
+    status: 'pending',
+    subTasks: payload.subTasks as SubTask[] | undefined,
+    batchId: payload.batchId as string | undefined,
+    createdAt: new Date().toISOString(),
+  };
+
+  state.jobQueue.push(job);
+  wsLogger.info('Job queued', {
+    correlationId,
+    data: {
+      jobId: job.id,
+      queueLength: state.jobQueue.length,
+      position: state.jobQueue.length,
+    },
+  });
+
+  broadcast({
+    type: 'job_queued',
+    payload: {
+      jobId: job.id,
+      position: state.jobQueue.length,
+      batchId: job.batchId,
+    } as JobQueuedPayload,
+  });
+
+  if (!state.currentJob) {
+    processNextJob();
+  }
+}
+
+function handleCancelJob(payload: Record<string, unknown>): void {
+  const jobId = payload.jobId as string;
+
+  // Check queue first
+  const queueIndex = state.jobQueue.findIndex((j) => j.id === jobId);
+  if (queueIndex !== -1) {
+    state.jobQueue.splice(queueIndex, 1);
+    // FIX #25: Include reason in cancellation
+    broadcast({
+      type: 'job_cancelled',
+      payload: { jobId, reason: 'Cancelled from queue before execution' } as JobCancelledPayload & { reason: string },
+    });
+    return;
+  }
+
+  // Cancel running job
+  if (state.currentJob?.id === jobId && state.jobAbortController) {
+    state.jobAbortController.abort();
+  }
+}
+
+// ============================================
+// STATUS HANDLER
+// ============================================
+
+interface StatusPayload {
+  connected: boolean;
+  chatActive: boolean;
+  chatSessionId: string | null;
+  queueLength: number;
+  currentJob: string | null;
+  jobs: Array<{ id: string; title: string; status: JobStatus }>;
+  config: {
+    chatMaxTurns: number;
+    chatMaxBudget: number;
+    jobMaxTurns: number;
+    jobMaxBudget: number;
+  };
+}
+
+function getStatus(): StatusPayload {
+  return {
+    connected: true,
+    chatActive: state.chat.active,
+    chatSessionId: state.chat.sessionId,
+    queueLength: state.jobQueue.length,
+    currentJob: state.currentJob?.id || null,
+    jobs: state.jobQueue.map((j) => ({ id: j.id, title: j.title, status: j.status })),
+    config: {
+      chatMaxTurns: config.chat.maxTurns,
+      chatMaxBudget: config.chat.maxBudgetUsd,
+      jobMaxTurns: config.job.maxTurns,
+      jobMaxBudget: config.job.maxBudgetUsd,
+    },
+  };
+}
+
+function handleGetStatus(ws: WebSocket): void {
+  sendToClient(ws, {
+    type: 'status',
+    payload: getStatus(),
+  });
+}
+
+// ============================================
+// CLIENT MANAGEMENT
+// ============================================
+
+function addClient(ws: WebSocket): void {
+  state.clients.add(ws);
+  wsLogger.info('Client connected (no clientId)', { total: state.clients.size });
+}
+
+/**
+ * Replace existing connection with same clientId to prevent duplicates
+ */
+function replaceClient(clientId: string, ws: WebSocket): void {
+  // Close old connection if exists
+  const oldWs = state.clientMap.get(clientId);
+  if (oldWs && oldWs !== ws) {
+    wsLogger.info('Replacing old connection for client', { clientId });
+    state.clients.delete(oldWs);
+    try {
+      oldWs.close(4000, 'Replaced by new connection');
+    } catch (e) {
+      // Ignore close errors
+    }
+  }
+
+  state.clientMap.set(clientId, ws);
+  state.clients.add(ws);
+  wsLogger.info('Client connected', { clientId, total: state.clients.size });
+}
+
+function removeClient(ws: WebSocket, clientId?: string): void {
+  state.clients.delete(ws);
+  if (clientId) {
+    // Only remove from map if it's the same connection
+    if (state.clientMap.get(clientId) === ws) {
+      state.clientMap.delete(clientId);
+    }
+  }
+  wsLogger.info('Client disconnected', { total: state.clients.size });
+}
+
+/**
+ * Set installed agents for validation - FIX #8
+ */
+function setInstalledAgents(agents: string[]): void {
+  state.installedAgents = new Set(agents);
+  wsLogger.info('Loaded agents for validation', { count: agents.length });
+}
+
+/**
+ * Get current configuration
+ */
+function getConfig(): OrchestratorConfig {
+  return config;
+}
+
+// ============================================
+// EXPORTS
+// ============================================
+
+export const orchestratorService = {
+  // State
+  getState: () => state,
+  getStatus,
+  getConfig,
+
+  // Client management
+  addClient,
+  replaceClient,
+  removeClient,
+  broadcast,
+  sendToClient,
+
+  // Chat handlers
+  handleChatMessage,
+  handleNewChat,
+  handleCancelChat,
+
+  // Job handlers
+  handleSubmitJob,
+  handleCancelJob,
+  processNextJob,
+
+  // Status
+  handleGetStatus,
+
+  // Configuration
+  setInstalledAgents,
+
+  // Port
+  port: ORCHESTRATOR_PORT,
+};
+
+export type { OrchestratorState, StatusPayload, OrchestratorConfig };
