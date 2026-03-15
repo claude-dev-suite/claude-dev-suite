@@ -62,15 +62,15 @@ jobs:
 
       - name: Download bundled Node.js
         working-directory: configurator/dashboard
-        shell: powershell
+        shell: bash
         run: |
-          $nodeVersion = "20.11.1"
-          $nodeUrl = "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-win-x64.zip"
-          Invoke-WebRequest -Uri $nodeUrl -OutFile node.zip
-          Expand-Archive -Path node.zip -DestinationPath . -Force
-          if (Test-Path node) { Remove-Item -Recurse -Force node }
-          Rename-Item "node-v$nodeVersion-win-x64" node
-          Remove-Item node.zip
+          NODE_VERSION="20.11.1"
+          NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x64.zip"
+          curl -fL --retry 5 --retry-delay 10 --retry-connrefused -o node.zip "$NODE_URL"
+          unzip -q node.zip
+          rm -rf node
+          mv "node-v${NODE_VERSION}-win-x64" node
+          rm node.zip
 
       - name: Build frontend
         working-directory: configurator/dashboard
