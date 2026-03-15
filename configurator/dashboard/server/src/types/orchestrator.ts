@@ -204,7 +204,8 @@ export type WsClientMessageType =
   | 'get_queue_status'  // Get detailed queue status
   | 'clear_queue'       // Clear all jobs from queue
   | 'remove_from_queue' // Remove specific job from queue
-  | 'force_unstick';    // Force-clear stuck job
+  | 'force_unstick'     // Force-clear stuck job
+  | 'permission_response'; // User response to a permission request
 
 /**
  * WebSocket message types - Server to Client
@@ -234,7 +235,8 @@ export type WsServerMessageType =
   | 'queue_status'      // Queue status response
   | 'queue_cleared'     // Queue was cleared
   | 'job_removed'       // Job removed from queue
-  | 'queue_unstuck';    // Queue was force-unstuck
+  | 'queue_unstuck'     // Queue was force-unstuck
+  | 'permission_request'; // Permission required for a tool operation
 
 /**
  * All WebSocket message types
@@ -467,6 +469,42 @@ export interface WsMessage<T = unknown> {
   type: WsMessageType;
   /** Message payload */
   payload: T;
+}
+
+// ============================================
+// PERMISSION PAYLOADS
+// ============================================
+
+/**
+ * Permission request payload (server to client)
+ */
+export interface PermissionRequestPayload {
+  /** Unique request ID */
+  requestId: string;
+  /** Job ID this request belongs to */
+  jobId: string;
+  /** Tool being requested */
+  toolName: string;
+  /** Tool input arguments */
+  input: Record<string, unknown>;
+  /** Risk classification */
+  risk: 'low' | 'medium' | 'high' | 'critical';
+  /** Human-readable risk category */
+  category: string;
+  /** Human-readable description of the operation */
+  description: string;
+  /** How long (ms) before auto-allow */
+  timeoutMs: number;
+}
+
+/**
+ * Permission response payload (client to server)
+ */
+export interface PermissionResponsePayload {
+  /** Request ID to resolve */
+  requestId: string;
+  /** User decision */
+  decision: 'allow' | 'deny';
 }
 
 // ============================================

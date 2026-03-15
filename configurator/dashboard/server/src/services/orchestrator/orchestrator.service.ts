@@ -144,6 +144,10 @@ export class OrchestratorService {
     this.jobService.handleForceUnstick();
   }
 
+  handlePermissionResponse(payload: Record<string, unknown>): void {
+    this.jobService.handlePermissionResponse(payload);
+  }
+
   getQueueStatus() {
     return this.jobService.getQueueStatus();
   }

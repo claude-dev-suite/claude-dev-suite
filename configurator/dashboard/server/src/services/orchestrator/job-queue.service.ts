@@ -28,6 +28,7 @@ import type { ValidationService } from './validation.service.js';
 import type { WebSocketClientService } from './websocket-client.service.js';
 import type { AgentSDKService } from './agent-sdk.service.js';
 import { JobPromptService } from './job-prompt.service.js';
+import { PermissionService } from './permission.service.js';
 import {
   processAssistantBlock,
   processUserBlock,
@@ -51,6 +52,7 @@ export class JobQueueService {
   private wsClientService: WebSocketClientService;
   private sdkService: AgentSDKService;
   private promptService: JobPromptService;
+  private permissionService: PermissionService;
   /** Session ID from current job execution (for chat continuity) */
   private currentJobSessionId: string | null = null;
   /** Output buffer for current job (for context summary generation) */
@@ -71,6 +73,7 @@ export class JobQueueService {
     this.wsClientService = wsClientService;
     this.sdkService = sdkService;
     this.promptService = new JobPromptService(sdkService);
+    this.permissionService = new PermissionService();
     this.state = {
       queue: [],
       current: null,
@@ -112,6 +115,35 @@ export class JobQueueService {
 
       if (this.sdkService.isAssistantMessage(message)) {
         for (const block of message.message.content) {
+          // Permission check for interactive mode
+          if (
+            block.type === 'tool_use' &&
+            block.name &&
+            this.config.job.permissionMode === 'interactive'
+          ) {
+            const input = (block.input || {}) as Record<string, unknown>;
+            const risk = this.permissionService.classifyOperation(block.name, input);
+            if (risk.risk === 'high' || risk.risk === 'critical') {
+              const requestId = Math.random().toString(36).slice(2, 11);
+              this.wsClientService.broadcast({
+                type: 'permission_request',
+                payload: {
+                  requestId,
+                  jobId: job.id,
+                  toolName: block.name,
+                  input,
+                  ...risk,
+                  timeoutMs: 30_000,
+                },
+              });
+              const decision = await this.permissionService.createRequest(requestId, 30_000);
+              if (decision === 'deny') {
+                this.state.abortController?.abort();
+                throw new Error(`Operation denied by user: ${risk.description}`);
+              }
+            }
+          }
+
           const blockOutput = processAssistantBlock(
             block as { type: string; text?: string; name?: string; input?: Record<string, unknown> },
             job.id,
@@ -320,6 +352,7 @@ export class JobQueueService {
         () => this.broadcastQueueStatus()
       );
     } finally {
+      this.permissionService.clearAll();
       this.state.current = null;
       this.state.abortController = null;
       this.processNextJob();
@@ -455,6 +488,21 @@ export class JobQueueService {
       () => this.processNextJob(),
       () => this.broadcastQueueStatus()
     );
+  }
+
+  /**
+   * Handle a permission response from the client.
+   */
+  handlePermissionResponse(payload: Record<string, unknown>): void {
+    const { requestId, decision } = payload as { requestId?: string; decision?: string };
+    if (!requestId || (decision !== 'allow' && decision !== 'deny')) {
+      wsLogger.warn('Invalid permission_response payload', { data: payload });
+      return;
+    }
+    const resolved = this.permissionService.resolveRequest(requestId, decision as 'allow' | 'deny');
+    if (!resolved) {
+      wsLogger.warn('No pending permission request for requestId', { data: { requestId } });
+    }
   }
 
   /**

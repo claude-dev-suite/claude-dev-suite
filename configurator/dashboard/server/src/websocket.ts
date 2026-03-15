@@ -363,6 +363,19 @@ function handleMessage(ws: WebSocket, message: WsMessage<unknown>): void {
       orchestratorService.handleForceUnstick();
       break;
 
+    case 'permission_response': {
+      const { requestId, decision } = message.payload as { requestId?: string; decision?: string };
+      if (!requestId || (decision !== 'allow' && decision !== 'deny')) {
+        orchestratorService.sendToClient(ws, {
+          type: 'error',
+          payload: { message: 'Invalid permission_response: need requestId and decision (allow|deny)' },
+        });
+        return;
+      }
+      orchestratorService.handlePermissionResponse(message.payload as Record<string, unknown>);
+      break;
+    }
+
     default:
       wsLogger.warn('Unknown message type received', {
         correlationId,

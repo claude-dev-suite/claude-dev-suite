@@ -21,6 +21,8 @@ import { JobQueuePanel } from './JobQueuePanel';
 import { ConsoleHeader } from './ConsoleHeader';
 import { TaskModal } from './TaskModal';
 import { buildJobSummary, buildExecutionSummary, buildConsolidationTask } from './orchestrator-helpers';
+import { PermissionDialog, type PermissionRequest as PermissionDialogRequest } from './PermissionDialog';
+import { useOrchestratorStore } from '@/stores/orchestrator.store';
 
 export interface OrchestratorPanelProps {
   projectPath: string;
@@ -43,6 +45,9 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
   const data = useOrchestratorData(projectPath);
   const state = useOrchestratorState();
   const taskModal = useTaskModal();
+
+  // Permission dialog state from global store
+  const { pendingPermission, setPendingPermission } = useOrchestratorStore();
 
   // Additional local state
   const [showSessionPicker, setShowSessionPicker] = useState(false);
@@ -167,6 +172,9 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
       setQueueStatus((prev) => prev ? { ...prev, currentJob: null } : null);
       state.setIsProcessing(false);
       state.setProgressStatus('Queue unstuck - ready');
+    },
+    onPermissionRequest: (request) => {
+      setPendingPermission(request);
     },
   });
 
@@ -490,6 +498,18 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
     [ws, state]
   );
 
+  // Handle interactive permission dialog decision
+  const handlePermissionDecision = useCallback(
+    (requestId: string, decision: 'allow' | 'deny') => {
+      ws.sendPermissionDecision(requestId, decision);
+      const color = decision === 'allow' ? '\x1b[32m' : '\x1b[31m';
+      const label = decision === 'allow' ? 'Allowed' : 'Denied & aborting job';
+      state.addOutput(`${color}🔐 Permission: ${label}\x1b[0m`);
+      setPendingPermission(null);
+    },
+    [ws, state, setPendingPermission]
+  );
+
   const cancelJob = useCallback(() => {
     if (!ws.connected) return;
 
@@ -634,6 +654,13 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
           <PermissionPrompt
             permissionRequest={state.permissionRequest}
             onPermissionResponse={sendPermissionResponse}
+          />
+        )}
+
+        {pendingPermission && (
+          <PermissionDialog
+            request={pendingPermission as PermissionDialogRequest}
+            onDecision={handlePermissionDecision}
           />
         )}
 

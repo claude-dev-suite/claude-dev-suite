@@ -18,6 +18,18 @@ import { create, type StateCreator } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { Job, JobStatus } from '@/types';
 
+export interface PermissionRequest {
+  requestId: string;
+  jobId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  risk: 'low' | 'medium' | 'high' | 'critical';
+  category: string;
+  description: string;
+  timeoutMs: number;
+  receivedAt: number;
+}
+
 interface OrchestratorState {
   // ============================================
   // STATE
@@ -46,6 +58,9 @@ interface OrchestratorState {
 
   /** Whether waiting for user input */
   waitingForInput: boolean;
+
+  /** Pending permission request from server (null when none) */
+  pendingPermission: PermissionRequest | null;
 
   // ============================================
   // ACTIONS
@@ -84,6 +99,9 @@ interface OrchestratorState {
   /** Set waiting for input status */
   setWaitingForInput: (waiting: boolean) => void;
 
+  /** Set or clear the pending permission request */
+  setPendingPermission: (req: PermissionRequest | null) => void;
+
   /** Append output line to console */
   appendOutput: (text: string) => void;
 
@@ -109,6 +127,7 @@ const initialState = {
   chatActive: false,
   currentAgent: null,
   waitingForInput: false,
+  pendingPermission: null as PermissionRequest | null,
 };
 
 /**
@@ -206,6 +225,9 @@ const storeCreator: StateCreator<OrchestratorState, [['zustand/devtools', never]
 
       setWaitingForInput: (waiting) =>
         set({ waitingForInput: waiting }, false, 'setWaitingForInput'),
+
+      setPendingPermission: (req) =>
+        set({ pendingPermission: req }, false, 'setPendingPermission'),
 
       startNewChat: () =>
         set(

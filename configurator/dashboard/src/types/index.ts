@@ -139,6 +139,9 @@ export type {
   ErrorPayload,
   // WebSocket message wrapper
   WsMessage,
+  // Permission types
+  PermissionRequestPayload,
+  PermissionResponsePayload,
   // Queue management types
   QueueStatusPayload,
   QueueClearedPayload,

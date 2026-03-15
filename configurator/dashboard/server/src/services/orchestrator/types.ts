@@ -20,12 +20,12 @@ export interface OrchestratorConfig {
     maxTurns: number | undefined;  // undefined = no limit
     maxBudgetUsd: number;  // 0 = no limit
     maxMessageLength: number;
-    permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions';
+    permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions' | 'interactive';
   };
   job: {
     maxTurns: number | undefined;  // undefined = no limit
     maxBudgetUsd: number;  // 0 = no limit
-    permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions';
+    permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions' | 'interactive';
   };
 }
 
@@ -159,6 +159,7 @@ export interface IJobQueueService {
   handleCancelJob(payload: Record<string, unknown>): void;
   processNextJob(): void;
   getJobState(): JobState;
+  handlePermissionResponse(payload: Record<string, unknown>): void;
 }
 
 // ============================================

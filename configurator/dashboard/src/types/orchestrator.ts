@@ -236,7 +236,8 @@ export type WsServerMessageType =
   | 'status'            // Status update
   | 'error'             // General error
   | 'input_required'    // Claude needs user input
-  | 'permission_required' // Claude needs permission
+  | 'permission_required' // Claude needs permission (legacy)
+  | 'permission_request' // Interactive permission request
   | 'queue_status'      // Queue status response
   | 'queue_cleared'     // Queue was cleared
   | 'job_removed'       // Job removed from queue
@@ -503,6 +504,32 @@ export function isWsMessage(value: unknown): value is WsMessage {
   if (typeof value !== 'object' || value === null) return false;
   const obj = value as Record<string, unknown>;
   return typeof obj.type === 'string' && 'payload' in obj;
+}
+
+// ============================================
+// PERMISSION TYPES
+// ============================================
+
+/**
+ * Permission request payload (server to client)
+ */
+export interface PermissionRequestPayload {
+  requestId: string;
+  jobId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  risk: 'low' | 'medium' | 'high' | 'critical';
+  category: string;
+  description: string;
+  timeoutMs: number;
+}
+
+/**
+ * Permission response payload (client to server)
+ */
+export interface PermissionResponsePayload {
+  requestId: string;
+  decision: 'allow' | 'deny';
 }
 
 // ============================================

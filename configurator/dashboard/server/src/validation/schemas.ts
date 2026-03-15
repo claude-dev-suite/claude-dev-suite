@@ -480,6 +480,8 @@ export const WsMessageSchema = z.object({
     'clear_queue',
     'remove_from_queue',
     'force_unstick',
+    // Permission system
+    'permission_response',
   ]),
   payload: z.unknown(),
 });

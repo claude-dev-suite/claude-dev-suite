@@ -27,6 +27,17 @@ export interface UseOrchestratorWebSocketOptions {
   onQueueCleared?: (clearedCount: number) => void;
   onJobRemoved?: (jobId: string) => void;
   onQueueUnstuck?: (message: string) => void;
+  onPermissionRequest?: (request: {
+    requestId: string;
+    jobId: string;
+    toolName: string;
+    input: Record<string, unknown>;
+    risk: 'low' | 'medium' | 'high' | 'critical';
+    category: string;
+    description: string;
+    timeoutMs: number;
+    receivedAt: number;
+  }) => void;
 }
 
 export interface UseOrchestratorWebSocketReturn {
@@ -37,6 +48,7 @@ export interface UseOrchestratorWebSocketReturn {
   sendChatMessage: (message: string, sessionId?: string | null, resumeSession?: boolean, jobContext?: JobContextSummary, allowedTools?: string[]) => void;
   sendUserInput: (text: string, jobId: string) => void;
   sendPermissionResponse: (response: 'y' | 'a' | 'n', jobId: string) => void;
+  sendPermissionDecision: (requestId: string, decision: 'allow' | 'deny') => void;
   cancelJob: (jobId?: string) => void;
   cancelChat: () => void;
   newChat: () => void;
@@ -225,6 +237,20 @@ export function useOrchestratorWebSocket(
           payload.target as string || '',
           payload.jobId as string || ''
         );
+        break;
+
+      case 'permission_request':
+        opts.onPermissionRequest?.({
+          requestId: payload.requestId as string || '',
+          jobId: payload.jobId as string || '',
+          toolName: payload.toolName as string || '',
+          input: (payload.input as Record<string, unknown>) || {},
+          risk: (payload.risk as 'low' | 'medium' | 'high' | 'critical') || 'high',
+          category: payload.category as string || '',
+          description: payload.description as string || '',
+          timeoutMs: (payload.timeoutMs as number) || 30_000,
+          receivedAt: Date.now(),
+        });
         break;
 
       case 'error': {
@@ -440,13 +466,23 @@ export function useOrchestratorWebSocket(
     }));
   }, [connected]);
 
-  // Send permission response
+  // Send permission response (legacy PTY-style)
   const sendPermissionResponse = useCallback((response: 'y' | 'a' | 'n', jobId: string) => {
     if (!wsRef.current || !connected) return;
 
     wsRef.current.send(JSON.stringify({
       type: 'permission_response',
       payload: { response, jobId },
+    }));
+  }, [connected]);
+
+  // Send interactive permission decision (new SDK-style: allow/deny)
+  const sendPermissionDecision = useCallback((requestId: string, decision: 'allow' | 'deny') => {
+    if (!wsRef.current || !connected) return;
+
+    wsRef.current.send(JSON.stringify({
+      type: 'permission_response',
+      payload: { requestId, decision },
     }));
   }, [connected]);
 
@@ -527,6 +563,7 @@ export function useOrchestratorWebSocket(
     sendChatMessage,
     sendUserInput,
     sendPermissionResponse,
+    sendPermissionDecision,
     cancelJob,
     cancelChat,
     newChat,
