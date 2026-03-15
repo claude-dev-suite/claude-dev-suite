@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 /**
  * Testing frameworks documentation
- * Includes: Vitest, Jest, Playwright, Cypress, Pytest, Testing Library, Spring Boot Test
+ * Includes: Vitest, Jest, Playwright, Cypress, Pytest, Testing Library, Spring Boot Test,
+ *           Python integration testing (testcontainers-python, pytest-django, FastAPI testing,
+ *           factory_boy, Celery testing, Pact Python)
  */
 
 import type { DocsRecord } from "./types.js";
@@ -16,6 +18,14 @@ export const TESTING_TECHNOLOGIES = [
   "spring-boot-test",
   "testcontainers",
   "xunit",
+  // Python integration testing
+  "testcontainers-python",
+  "pytest-django",
+  "fastapi-testing",
+  "factory-boy",
+  "celery-testing",
+  "python-integration-testing",
+  "pact-python",
   // Performance & Contract testing
   "load-testing",
   "contract-testing",
@@ -146,6 +156,88 @@ export const testingDocs: DocsRecord = {
     fixtures: {
       local: "xunit/fixtures.md",
       url: "https://xunit.net/docs/shared-context",
+    },
+  },
+
+  // Python integration testing
+  "testcontainers-python": {
+    basics: {
+      local: "testcontainers-python/basics.md",
+      url: "https://testcontainers-python.readthedocs.io/en/latest/",
+    },
+    databases: {
+      local: "testcontainers-python/databases.md",
+      url: "https://testcontainers-python.readthedocs.io/en/latest/database/",
+    },
+    messaging: {
+      local: "testcontainers-python/messaging.md",
+      url: "https://testcontainers-python.readthedocs.io/en/latest/kafka/",
+    },
+  },
+
+  "pytest-django": {
+    basics: {
+      local: "pytest-django/basics.md",
+      url: "https://pytest-django.readthedocs.io/en/latest/",
+    },
+    advanced: {
+      local: "pytest-django/advanced.md",
+      url: "https://pytest-django.readthedocs.io/en/latest/helpers.html",
+    },
+  },
+
+  "fastapi-testing": {
+    basics: {
+      local: "fastapi-testing/basics.md",
+      url: "https://fastapi.tiangolo.com/tutorial/testing/",
+    },
+    async: {
+      local: "fastapi-testing/async.md",
+      url: "https://fastapi.tiangolo.com/advanced/async-tests/",
+    },
+    "http-mocking": {
+      local: "fastapi-testing/http-mocking.md",
+      url: "https://lundberg.github.io/respx/",
+    },
+  },
+
+  "factory-boy": {
+    basics: {
+      local: "factory-boy/basics.md",
+      url: "https://factoryboy.readthedocs.io/en/stable/",
+    },
+    advanced: {
+      local: "factory-boy/advanced.md",
+      url: "https://factoryboy.readthedocs.io/en/stable/recipes.html",
+    },
+  },
+
+  "celery-testing": {
+    basics: {
+      local: "celery-testing/basics.md",
+      url: "https://docs.celeryq.dev/en/stable/userguide/testing.html",
+    },
+  },
+
+  "python-integration-testing": {
+    patterns: {
+      local: "python-integration-testing/patterns.md",
+      url: "https://docs.pytest.org/en/stable/how-to/fixtures.html",
+    },
+    sqlalchemy: {
+      local: "python-integration-testing/sqlalchemy.md",
+      url: "https://docs.sqlalchemy.org/en/20/orm/session_transaction.html",
+    },
+    alembic: {
+      local: "python-integration-testing/alembic.md",
+      url: "https://pytest-alembic.readthedocs.io/en/latest/",
+    },
+  },
+
+  "pact-python": {
+    basics: {
+      local: "pact-python/basics.md",
+      url: "https://docs.pact.io/implementation_guides/python",
     },
   },
 
