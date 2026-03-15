@@ -1,0 +1,55 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import { PrismaClient } from '@prisma/client';
+
+import { errorHandler } from './middleware/error-handler.js';
+import { apiRouter } from './routes/index.js';
+
+const app = express();
+const prisma = new PrismaClient();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(morgan('dev'));
+app.use(express.json());
+
+// Routes
+app.use('/api', apiRouter);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// Error handler
+app.use(errorHandler);
+
+// Start server
+async function main() {
+  try {
+    await prisma.$connect();
+    console.log('Database connected');
+
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down...');
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+main();
+
+export { prisma };

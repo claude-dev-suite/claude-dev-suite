@@ -332,16 +332,7 @@ addopts = "--hypothesis-show-statistics"
 ## Reference Documentation
 - [Fixtures](quick-ref/fixtures.md)
 - [Mocking](quick-ref/mocking.md)
-- [Integration Testing Patterns](quick-ref/integration-patterns.md) — test pyramid, conftest architecture, markers, CI/CD (GitHub Actions services vs testcontainers), xdist parallel testing
-- [SQLAlchemy 2.0 Fixtures](quick-ref/sqlalchemy-fixtures.md) — savepoint isolation, async SQLAlchemy, engine/session fixtures, factory-boy
-- [Alembic Migration Testing](quick-ref/alembic-testing.md) — pytest-alembic, alembic_runner, migrate per test, schema sync checks
-- [Redis and Kafka Testing](quick-ref/redis-kafka-testing.md) — fakeredis, mockafka-py, pytest-redis, testcontainers Kafka, aiokafka async
-- [Pact Python (Contract Testing)](quick-ref/pact-python.md) — consumer tests, matchers, provider verification, Pact Broker, can-i-deploy
-- [gRPC Service Testing](quick-ref/grpc-testing.md) — pytest-grpc, grpc_testing module, async gRPC, integration with real DB
-- [testcontainers-python](quick-ref/testcontainers-python.md) — all container modules (Postgres/MySQL/MongoDB/Redis/Kafka/RabbitMQ/Minio/LocalStack/Elasticsearch/Cassandra/ClickHouse), all wait strategies, DockerCompose, Network, pytest fixture patterns (session/module/function scope), async SQLAlchemy + asyncpg, env/volume/init-script config, CI/CD GitHub Actions, troubleshooting
 
 **Official docs:**
 - pytest: https://docs.pytest.org/
 - hypothesis: https://hypothesis.readthedocs.io/
-- SQLAlchemy session transactions: https://docs.sqlalchemy.org/en/20/orm/session_transaction.html
-- pact-python: https://github.com/pact-foundation/pact-python
