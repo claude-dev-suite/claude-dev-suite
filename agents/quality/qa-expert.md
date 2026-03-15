@@ -24,7 +24,9 @@ skills:
   - testing/load-testing
   - testing/contract-testing
   - testing/jest
+  - testing/vitest
   - testing/cypress
+  - testing/playwright
   - quality/jacoco
 ---
 

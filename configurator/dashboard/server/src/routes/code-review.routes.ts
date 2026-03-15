@@ -117,12 +117,13 @@ codeReviewRoutes.get('/code-review/full-code', (req: Request, res: Response) => 
 // Build review job
 codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) => {
   try {
-    const { projectPath: rawPath, scope, selectedAgents, paths, repo } = req.body as {
+    const { projectPath: rawPath, scope, selectedAgents, paths, repo, depth } = req.body as {
       projectPath: string;
       scope: 'uncommitted' | 'full-project';
       selectedAgents: string[];
       paths?: string[];
       repo?: string;
+      depth?: 'quick' | 'deep';
     };
 
     // Validate required fields
@@ -215,8 +216,9 @@ codeReviewRoutes.post('/code-review/build-job', (req: Request, res: Response) =>
     const job = codeReviewService.buildReviewJob({
       scope,
       selectedAgents,
-      paths: verifiedPaths,  // Use verified paths
+      paths: verifiedPaths,
       repo,
+      depth: depth === 'deep' ? 'deep' : 'quick',
     });
 
     // Include projectPath in response (like legacy)

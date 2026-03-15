@@ -16,6 +16,8 @@ skills:
   - security/owasp
   - quality/eslint
   - quality/typescript-eslint
+  # Frontend review
+  - frontend/react
 ---
 
 # Code Reviewer Agent

@@ -24,6 +24,9 @@ skills:
   - backend-frameworks/spring-graphql
   - infrastructure/docker
   - infrastructure/kubernetes
+  # ORM and data layer
+  - databases/prisma
+  - backend-frameworks/spring-data-jpa
 ---
 
 # Software Architect Agent

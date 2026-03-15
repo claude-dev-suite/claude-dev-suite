@@ -12,7 +12,8 @@ export const config = {
      * Base URL for API requests
      * In Electron/file protocol, use absolute URL. In dev mode, use relative.
      */
-    baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3456',
+    baseUrl: import.meta.env.VITE_API_URL ||
+      `http://localhost:${(window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456}`,
     /**
      * Default timeout for HTTP requests (30 seconds)
      */

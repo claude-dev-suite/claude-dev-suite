@@ -4,7 +4,8 @@ import { test, expect } from '../fixtures/electron-app.fixture';
 test.describe('API Endpoints', () => {
   test('GET /api/detect returns project stack', async ({ mainPage, testProjectDir }) => {
     const result = await mainPage.evaluate(async (dir) => {
-      const res = await fetch(`http://localhost:3456/api/detect?path=${encodeURIComponent(dir)}`);
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/detect?path=${encodeURIComponent(dir)}`);
       const json = await res.json();
       return { status: res.status, hasProjectType: !!json.project_type || !!json.projectType };
     }, testProjectDir);
@@ -15,7 +16,8 @@ test.describe('API Endpoints', () => {
 
   test('GET /api/agents returns agent list', async ({ mainPage }) => {
     const result = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/agents');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/agents`);
       const json = await res.json();
       return { status: res.status, isArray: Array.isArray(json.agents) };
     });
@@ -26,7 +28,8 @@ test.describe('API Endpoints', () => {
 
   test('GET /api/mcp-servers returns MCP list', async ({ mainPage }) => {
     const result = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/mcp-servers');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/mcp-servers`);
       const json = await res.json();
       return { status: res.status, isArray: Array.isArray(json.servers) };
     });
@@ -37,7 +40,8 @@ test.describe('API Endpoints', () => {
 
   test('GET /api/automation-recipes returns recipes', async ({ mainPage }) => {
     const result = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/automation-recipes');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/automation-recipes`);
       const json = await res.json();
       return { status: res.status, success: json.success };
     });
@@ -48,7 +52,8 @@ test.describe('API Endpoints', () => {
 
   test('GET /api/git/repos returns repository info', async ({ mainPage, testProjectDir }) => {
     const result = await mainPage.evaluate(async (dir) => {
-      const res = await fetch(`http://localhost:3456/api/git/repos?path=${encodeURIComponent(dir)}`);
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/git/repos?path=${encodeURIComponent(dir)}`);
       const json = await res.json();
       return { status: res.status, success: json.success, hasData: !!json.data };
     }, testProjectDir);
@@ -59,7 +64,8 @@ test.describe('API Endpoints', () => {
 
   test('GET /api/hooks/status returns hooks info', async ({ mainPage, testProjectDir }) => {
     const result = await mainPage.evaluate(async (dir) => {
-      const res = await fetch(`http://localhost:3456/api/hooks/status?path=${encodeURIComponent(dir)}`);
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/hooks/status?path=${encodeURIComponent(dir)}`);
       return { status: res.status };
     }, testProjectDir);
 
@@ -69,9 +75,10 @@ test.describe('API Endpoints', () => {
 
   test('GET /api/tokens returns new token each call', async ({ mainPage }) => {
     const result = await mainPage.evaluate(async () => {
-      const res1 = await fetch('http://localhost:3456/api/tokens');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res1 = await fetch(`http://localhost:${port}/api/tokens`);
       const json1 = await res1.json();
-      const res2 = await fetch('http://localhost:3456/api/tokens');
+      const res2 = await fetch(`http://localhost:${port}/api/tokens`);
       const json2 = await res2.json();
       return {
         token1: json1.data.wsToken,

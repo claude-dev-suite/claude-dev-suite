@@ -123,14 +123,28 @@ Tech stack: React 19, Express 5, Electron 40, Vite 7, Zustand, Zod 4, TypeScript
 ### Add a New Skill
 1. Create `skills/{category}/{technology}/SKILL.md` with skill definition
 2. Optionally add `quick-ref/` subdirectory with focused guides (basics.md, patterns.md, etc.)
-3. Reference KB in quick-refs: `> **Knowledge Base:** Read knowledge/{tech}/{topic}.md for complete documentation.`
-4. Add the skill directory name to relevant agent frontmatter `skills` arrays
+3. Add the skill directory name to relevant agent frontmatter `skills` arrays
 
 ### Add Documentation to Knowledge Base
-1. Clone the KB repo: `https://github.com/claude-dev-suite/knowledge_base.git`
-2. Add markdown files under `knowledge/{technology}/{topic}.md`
-3. Update `mcp-servers/documentation/src/docs-index.ts` with new entries
-4. Commit and push to KB repository (documentation MCP server fetches on-demand with 2h cache)
+**IMPORTANT: never leave the KB repo or its content inside this repository.**
+
+1. Clone the KB repo into a temp location **outside** this repo:
+   ```bash
+   git clone https://github.com/claude-dev-suite/knowledge_base.git /tmp/kb
+   ```
+2. Add markdown files under `knowledge/{technology}/{topic}.md` inside the cloned repo
+3. Update `mcp-servers/documentation/src/docs-index.ts` in **this** repo with new entries
+4. Commit and push to the KB repository:
+   ```bash
+   cd /tmp/kb && git add . && git commit -m "add {technology} docs" && git push
+   ```
+5. **Delete the local clone immediately after pushing:**
+   ```bash
+   rm -rf /tmp/kb
+   ```
+6. Verify no `knowledge/` folder exists in this repo: `ls knowledge 2>&1 | grep -q 'No such' && echo OK`
+
+The documentation MCP server fetches content on-demand from the remote repo with a 2h cache — no local copy needed.
 
 ## Testing
 

@@ -20,6 +20,7 @@ import { templatesRoutes } from './templates.routes.js';
 import { customAgentsRoutes } from './custom-agents.routes.js';
 import { codegenRoutes } from './codegen.routes.js';
 import { usageRoutes } from './usage.routes.js';
+import { livePerformanceRoutes } from './live-performance.routes.js';
 
 export function registerRoutes(app: Express): void {
   // Detection routes
@@ -69,6 +70,9 @@ export function registerRoutes(app: Express): void {
 
   // Usage Monitor routes
   app.use('/api', usageRoutes);
+
+  // Live Performance routes
+  app.use('/api', livePerformanceRoutes);
 
   // 404 handler for API routes
   app.use('/api/{*path}', (_req, res) => {

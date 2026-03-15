@@ -6,14 +6,11 @@ test.describe('Security — Path Traversal Prevention', () => {
     electronApp,
     splashPage,
   }) => {
-    // Test path validation through the actual IPC flow.
-    // The splash renderer calls splashAPI.confirmPath(path) which triggers
-    // the main process validateProjectPath().
     const traversalPaths = [
       'C:/Users/../../etc/passwd',
       '../../../etc/shadow',
-      '', // empty
-      '   ', // whitespace only
+      '',
+      '   ',
     ];
 
     for (const tp of traversalPaths) {
@@ -31,9 +28,10 @@ test.describe('Security — Path Traversal Prevention', () => {
 
   test('API endpoints reject traversal in query params', async ({ mainPage }) => {
     const response = await mainPage.evaluate(async () => {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
       try {
         const res = await fetch(
-          'http://localhost:3456/api/detect?path=' +
+          `http://localhost:${port}/api/detect?path=` +
             encodeURIComponent('C:\\Users\\..\\..\\Windows\\System32'),
         );
         return { status: res.status, ok: res.ok };
@@ -47,8 +45,9 @@ test.describe('Security — Path Traversal Prevention', () => {
 
   test('API endpoints reject empty path', async ({ mainPage }) => {
     const response = await mainPage.evaluate(async () => {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
       try {
-        const res = await fetch('http://localhost:3456/api/detect?path=');
+        const res = await fetch(`http://localhost:${port}/api/detect?path=`);
         return { status: res.status, ok: res.ok };
       } catch {
         return { status: 0, ok: false };
@@ -60,8 +59,9 @@ test.describe('Security — Path Traversal Prevention', () => {
 
   test('server is only accessible on localhost', async ({ mainPage }) => {
     const health = await mainPage.evaluate(async () => {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
       try {
-        const res = await fetch('http://localhost:3456/health');
+        const res = await fetch(`http://localhost:${port}/health`);
         const data = await res.json();
         return data;
       } catch {

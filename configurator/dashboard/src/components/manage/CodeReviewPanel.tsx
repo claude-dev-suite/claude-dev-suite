@@ -27,9 +27,11 @@ interface Repository {
 export interface CodeReviewPanelProps {
   projectPath: string;
   onStartReview?: (job: unknown) => void;
+  onOpenMcpSettings?: () => void;
 }
 
 type Scope = 'uncommitted' | 'full-project';
+type Depth = 'quick' | 'deep';
 
 const agentIcons: Record<string, string> = {
   'security-expert': '🔒',
@@ -39,7 +41,7 @@ const agentIcons: Record<string, string> = {
   'architect': '🏗️',
 };
 
-export function CodeReviewPanel({ projectPath, onStartReview }: CodeReviewPanelProps) {
+export function CodeReviewPanel({ projectPath, onStartReview, onOpenMcpSettings }: CodeReviewPanelProps) {
   // State
   const [options, setOptions] = useState<Record<string, ReviewOption>>({});
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
@@ -48,6 +50,7 @@ export function CodeReviewPanel({ projectPath, onStartReview }: CodeReviewPanelP
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [totalFiles, setTotalFiles] = useState(0);
+  const [depth, setDepth] = useState<Depth>('quick');
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -238,6 +241,7 @@ export function CodeReviewPanel({ projectPath, onStartReview }: CodeReviewPanelP
           paths: scope === 'full-project' ? selectedPaths : undefined,
           selectedAgents,
           repo: repositories.length > 1 ? selectedRepo : undefined,
+          depth,
         }),
       });
 
@@ -338,6 +342,70 @@ export function CodeReviewPanel({ projectPath, onStartReview }: CodeReviewPanelP
             </div>
             <p className="text-xs text-surface-400 ml-7">
               Select specific files or directories
+            </p>
+          </button>
+        </div>
+      </div>
+
+      {/* Review Depth */}
+      <div data-tutorial="code-review-depth">
+        <label className="block text-sm font-medium text-surface-300 mb-3">
+          Review Depth
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setDepth('quick')}
+            className={clsx(
+              'p-4 rounded-lg border-2 transition-all text-left',
+              depth === 'quick'
+                ? 'border-primary-500 bg-primary-500/10'
+                : 'border-surface-700 bg-surface-800/50 hover:border-surface-600'
+            )}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className={clsx(
+                  'w-5 h-5 rounded-full border-2 flex items-center justify-center',
+                  depth === 'quick' ? 'border-primary-500' : 'border-surface-600'
+                )}
+              >
+                {depth === 'quick' && (
+                  <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                )}
+              </div>
+              <span className="font-medium text-white text-sm">Quick</span>
+              <span className="text-xs text-surface-500 ml-auto">Fewer tokens</span>
+            </div>
+            <p className="text-xs text-surface-400 ml-7">
+              Scan code with Grep/Read. Fast, focused on patterns.
+            </p>
+          </button>
+
+          <button
+            onClick={() => setDepth('deep')}
+            className={clsx(
+              'p-4 rounded-lg border-2 transition-all text-left',
+              depth === 'deep'
+                ? 'border-amber-500 bg-amber-500/10'
+                : 'border-surface-700 bg-surface-800/50 hover:border-surface-600'
+            )}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className={clsx(
+                  'w-5 h-5 rounded-full border-2 flex items-center justify-center',
+                  depth === 'deep' ? 'border-amber-500' : 'border-surface-600'
+                )}
+              >
+                {depth === 'deep' && (
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                )}
+              </div>
+              <span className="font-medium text-white text-sm">Deep</span>
+              <span className="text-xs text-amber-600 ml-auto">More tokens</span>
+            </div>
+            <p className="text-xs text-surface-400 ml-7">
+              Loads knowledge base for detected stack before reviewing.
             </p>
           </button>
         </div>
@@ -453,6 +521,46 @@ export function CodeReviewPanel({ projectPath, onStartReview }: CodeReviewPanelP
           </div>
         )}
       </div>
+
+      {/* Contextual Warnings */}
+      {selectedAgents.includes('architect') && (
+        <div className="p-4 bg-amber-500/10 border-l-4 border-amber-500 rounded-r-lg">
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-amber-400">API Explorer requires configuration</p>
+              <p className="text-xs text-amber-300/80 mt-1">
+                The architect agent uses the API Explorer MCP server, which needs{' '}
+                <code className="font-mono bg-amber-500/20 px-1 rounded">API_EXPLORER_ENDPOINTS</code>{' '}
+                configured in your project's <code className="font-mono bg-amber-500/20 px-1 rounded">.mcp.json</code>{' '}
+                to access OpenAPI specs. Without it, API design analysis will be limited to code inspection only.
+              </p>
+              {onOpenMcpSettings && (
+                <button
+                  onClick={onOpenMcpSettings}
+                  className="mt-2 text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors"
+                >
+                  Configure in MCP Settings
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedAgents.includes('performance') && (
+        <div className="p-4 bg-blue-500/10 border-l-4 border-blue-500 rounded-r-lg">
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-blue-400">Performance profiler requires a running app</p>
+              <p className="text-xs text-blue-300/80 mt-1">
+                Static code analysis will work normally. Advanced features (live profiling, load testing, endpoint
+                benchmarking) require the application to be running. Use the Live Performance tab for runtime
+                analysis.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error Display */}
       {error && (

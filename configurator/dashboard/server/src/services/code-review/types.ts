@@ -16,6 +16,8 @@ export interface SubTask {
   dependencies: string[];
 }
 
+export type ReviewDepth = 'quick' | 'deep';
+
 export interface ReviewJob {
   title: string;
   context: string;

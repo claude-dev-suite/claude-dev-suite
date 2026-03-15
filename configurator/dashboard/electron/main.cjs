@@ -39,6 +39,7 @@ function getUpdater() {
 
 // Configuration
 const SERVER_PORT = parseInt(process.env.PORT || '3456', 10);
+const WS_PORT = parseInt(process.env.ORCHESTRATOR_WS_PORT || String(SERVER_PORT + 1), 10);
 const VITE_DEV_PORT = 5173;
 const SERVER_STARTUP_TIMEOUT = 15000;
 const SERVER_CHECK_INTERVAL = 500;
@@ -108,7 +109,7 @@ function applyCSP(session) {
             "default-src 'self'",
             scriptSrc,
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            `connect-src 'self' http://localhost:${SERVER_PORT} ws://localhost:${SERVER_PORT} ws://localhost:${SERVER_PORT + 1} http://localhost:${VITE_DEV_PORT} ws://localhost:${VITE_DEV_PORT}`,
+            `connect-src 'self' http://localhost:${SERVER_PORT} ws://localhost:${WS_PORT} http://localhost:${VITE_DEV_PORT} ws://localhost:${VITE_DEV_PORT}`,
             "img-src 'self' data:",
             "font-src 'self' data: https://fonts.gstatic.com",
             "object-src 'none'",
@@ -491,8 +492,10 @@ function createMainWindow() {
   });
 
   // Load the app
-  if (isDev) {
-    // In development, check if Vite dev server is running before trying to connect
+  if (isDev && !process.env.E2E_HEADLESS) {
+    // In development (non-E2E), check if Vite dev server is running before trying to connect.
+    // E2E tests always load built files to avoid conflicts with a running dev server
+    // and to prevent DevTools from opening (which confuses the Playwright window fixture).
     const viteCheck = http.get(`http://localhost:${VITE_DEV_PORT}`, (res) => {
       viteCheck.destroy();
       console.log('[Electron] Vite dev server detected, loading from it');
@@ -510,7 +513,7 @@ function createMainWindow() {
     });
   } else {
     mainWindow.loadFile(findFrontendPath());
-    // DevTools are intentionally disabled in production
+    // DevTools are intentionally disabled in production and E2E mode
   }
 
   // Log renderer errors to main process console

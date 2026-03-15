@@ -14,8 +14,27 @@ import type { ElectronApplication, Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import net from 'net';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+
+/**
+ * Ask the OS for a free ephemeral port by binding to :0.
+ * Each test gets its own port — no conflicts between tests or with the
+ * developer's running dev-suite instance (port 3456).
+ */
+function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.listen(0, '127.0.0.1', () => {
+      const addr = srv.address();
+      if (!addr || typeof addr === 'string') return reject(new Error('unexpected address'));
+      const port = addr.port;
+      srv.close(() => resolve(port));
+    });
+    srv.on('error', reject);
+  });
+}
 
 // Re-export expect so tests import everything from here
 export { expect } from '@playwright/test';
@@ -111,6 +130,10 @@ export const test = base.extend<TestFixtures>({
 
   // ── Electron app ────────────────────────────────────────────────────
   electronApp: async ({ testProjectDir }, use) => {
+    // Each test gets its own ephemeral ports — no conflicts between tests
+    // or with the developer's running dev-suite instance on port 3456/3457.
+    const port = await getFreePort();
+    const wsPort = await getFreePort();
     const app = await _electron.launch({
       args: [MAIN_ENTRY],
       cwd: testProjectDir,
@@ -119,6 +142,8 @@ export const test = base.extend<TestFixtures>({
         NODE_ENV: 'test',
         DEV_SUITE_DIR: DEV_SUITE_ROOT,
         E2E_HEADLESS: '1',
+        PORT: String(port),
+        ORCHESTRATOR_WS_PORT: String(wsPort),
       },
     });
     await use(app);

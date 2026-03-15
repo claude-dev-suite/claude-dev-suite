@@ -14,6 +14,7 @@ import { defineConfig } from '@playwright/test';
  *   npm run test:e2e:ui       # interactive UI mode
  */
 export default defineConfig({
+  globalSetup: './e2e/global-setup.ts',
   testDir: './e2e',
   timeout: 120_000, // 2 min — accounts for server startup
   expect: { timeout: 10_000 },

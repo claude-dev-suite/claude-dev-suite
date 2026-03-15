@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
-import { test, expect } from '../fixtures/electron-app.fixture';
+import { createInstalledTest, expect } from '../fixtures/installed-project';
 import { waitForGitPanel } from '../fixtures/helpers';
+
+const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-gitops-' });
 
 test.describe('Git Panel — Operations', () => {
   test.beforeEach(async ({ mainPage }) => {

@@ -2,22 +2,17 @@
 import { test, expect } from '../fixtures/electron-app.fixture';
 
 test.describe('Main Window — Navigation Security', () => {
-  test('CSP headers are set on responses', async ({ mainPage, electronApp }) => {
-    // Intercept a response and check CSP header
-    const cspHeader = await mainPage.evaluate(async () => {
-      // Make a request to the local server and inspect response headers
-      const res = await fetch('http://localhost:3456/health');
-      // Note: CSP is set by Electron's onHeadersReceived, not by the server.
-      // We can't read response headers from fetch() due to CORS restrictions,
-      // but we can verify CSP is enforced by trying to load an external script.
+  test('CSP headers are set on responses', async ({ mainPage }) => {
+    const ok = await mainPage.evaluate(async () => {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/health`);
       return res.ok;
     });
 
-    expect(cspHeader).toBe(true);
+    expect(ok).toBe(true);
   });
 
   test('inline script execution is blocked by CSP', async ({ mainPage }) => {
-    // Try to inject an inline script — should be blocked by CSP
     const result = await mainPage.evaluate(() => {
       try {
         const script = document.createElement('script');
@@ -29,26 +24,16 @@ test.describe('Main Window — Navigation Security', () => {
       }
     });
 
-    // CSP should prevent inline script execution
-    // Note: In some configurations, the script may silently fail
-    // The important thing is that our app uses 'self' for script-src
-    // This test verifies the mechanism exists
     expect(typeof result).toBe('boolean');
   });
 
-  test('navigation to external URLs is blocked', async ({ mainPage, electronApp }) => {
-    const initialUrl = mainPage.url();
-
-    // Attempt to navigate to an external URL
-    // The will-navigate handler should prevent this
+  test('navigation to external URLs is blocked', async ({ mainPage }) => {
     await mainPage.evaluate(() => {
       window.location.href = 'https://example.com';
     });
 
-    // Give it a moment to process
     await mainPage.waitForTimeout(2_000);
 
-    // Should still be on the original URL (navigation blocked)
     const currentUrl = mainPage.url();
     expect(currentUrl).not.toContain('example.com');
   });
@@ -56,14 +41,12 @@ test.describe('Main Window — Navigation Security', () => {
   test('window.open is blocked', async ({ mainPage, electronApp }) => {
     const windowCountBefore = electronApp.windows().length;
 
-    // Try to open a new window
     await mainPage.evaluate(() => {
       window.open('https://example.com', '_blank');
     });
 
     await mainPage.waitForTimeout(1_000);
 
-    // No new window should have opened
     const windowCountAfter = electronApp.windows().length;
     expect(windowCountAfter).toBe(windowCountBefore);
   });
@@ -71,7 +54,6 @@ test.describe('Main Window — Navigation Security', () => {
   test('nodeIntegration is disabled', async ({ mainPage }) => {
     const hasNodeAccess = await mainPage.evaluate(() => {
       try {
-        // In a sandboxed renderer without nodeIntegration, require should not exist
         return typeof (globalThis as Record<string, unknown>).require === 'function';
       } catch {
         return false;

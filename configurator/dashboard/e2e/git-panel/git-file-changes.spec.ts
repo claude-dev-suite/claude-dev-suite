@@ -33,6 +33,29 @@ const test = base.extend({
     fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const x = 1;\n');
 
+    // Mark as installed so the app skips the wizard and shows the main dashboard.
+    // Without .dev-suite.json the app shows the wizard; the git panel button is
+    // only visible in the main dashboard view.
+    fs.writeFileSync(
+      path.join(dir, '.dev-suite.json'),
+      JSON.stringify(
+        {
+          version: '1.1.0',
+          agents: { enabled: ['react-expert'] },
+          mcpServers: { enabled: [] },
+          installedAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+    );
+    fs.mkdirSync(path.join(dir, '.claude', 'agents'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, '.claude', 'agents', 'react-expert.md'),
+      '---\nname: react-expert\ndescription: React specialist\n---\nReact agent.\n',
+    );
+    fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Project\nDev-suite configured.\n');
+
     execSync('git add -A', { cwd: dir, stdio: 'pipe' });
     execSync('git commit -m "initial commit"', { cwd: dir, stdio: 'pipe' });
 

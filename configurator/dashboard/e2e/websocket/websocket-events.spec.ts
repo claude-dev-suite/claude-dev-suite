@@ -6,7 +6,8 @@ const test = createInstalledTest({ tmpPrefix: 'devsuite-e2e-ws-' });
 test.describe('WebSocket Events', () => {
   test('token endpoint returns valid token and port', async ({ mainPage }) => {
     const result = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/tokens');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/tokens`);
       const json = await res.json();
       return json;
     });
@@ -14,22 +15,20 @@ test.describe('WebSocket Events', () => {
     expect(result.success).toBe(true);
     expect(typeof result.data.wsToken).toBe('string');
     expect(result.data.wsToken.length).toBeGreaterThan(0);
-    expect(result.data.wsPort).toBe(3457);
+    expect(result.data.wsPort).toBeGreaterThan(0);
   });
 
   test('WebSocket connects with valid token', async ({ mainPage }) => {
     const connected = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/tokens');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/tokens`);
       const json = await res.json();
       const token = json.data.wsToken;
-      const port = json.data.wsPort;
+      const wsPort = json.data.wsPort;
 
       return new Promise<boolean>((resolve) => {
-        const ws = new WebSocket(`ws://localhost:${port}?token=${token}`);
-        ws.onopen = () => {
-          ws.close();
-          resolve(true);
-        };
+        const ws = new WebSocket(`ws://localhost:${wsPort}?token=${token}`);
+        ws.onopen = () => { ws.close(); resolve(true); };
         ws.onerror = () => resolve(false);
         setTimeout(() => resolve(false), 10_000);
       });
@@ -40,10 +39,15 @@ test.describe('WebSocket Events', () => {
 
   test('WebSocket rejects invalid token', async ({ mainPage }) => {
     const closeCode = await mainPage.evaluate(async () => {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/tokens`);
+      const json = await res.json();
+      const wsPort = json.data.wsPort;
+
       return new Promise<number>((resolve) => {
-        const ws = new WebSocket('ws://localhost:3457?token=invalid-bad-token');
+        const ws = new WebSocket(`ws://localhost:${wsPort}?token=invalid-bad-token`);
         ws.onclose = (e) => resolve(e.code);
-        ws.onerror = () => {}; // suppress console noise
+        ws.onerror = () => {};
         setTimeout(() => resolve(-1), 10_000);
       });
     });
@@ -53,8 +57,13 @@ test.describe('WebSocket Events', () => {
 
   test('WebSocket rejects missing token', async ({ mainPage }) => {
     const closeCode = await mainPage.evaluate(async () => {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/tokens`);
+      const json = await res.json();
+      const wsPort = json.data.wsPort;
+
       return new Promise<number>((resolve) => {
-        const ws = new WebSocket('ws://localhost:3457');
+        const ws = new WebSocket(`ws://localhost:${wsPort}`);
         ws.onclose = (e) => resolve(e.code);
         ws.onerror = () => {};
         setTimeout(() => resolve(-1), 10_000);
@@ -66,13 +75,14 @@ test.describe('WebSocket Events', () => {
 
   test('get_status returns status message', async ({ mainPage }) => {
     const responseType = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/tokens');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/tokens`);
       const json = await res.json();
       const token = json.data.wsToken;
-      const port = json.data.wsPort;
+      const wsPort = json.data.wsPort;
 
       return new Promise<string>((resolve) => {
-        const ws = new WebSocket(`ws://localhost:${port}?token=${token}`);
+        const ws = new WebSocket(`ws://localhost:${wsPort}?token=${token}`);
         ws.onmessage = (e) => {
           try {
             const msg = JSON.parse(e.data);
@@ -82,9 +92,7 @@ test.describe('WebSocket Events', () => {
             resolve('parse_error');
           }
         };
-        ws.onopen = () => {
-          ws.send(JSON.stringify({ type: 'get_status' }));
-        };
+        ws.onopen = () => { ws.send(JSON.stringify({ type: 'get_status' })); };
         ws.onerror = () => resolve('error');
         setTimeout(() => resolve('timeout'), 10_000);
       });

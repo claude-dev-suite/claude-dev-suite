@@ -4,7 +4,8 @@ import { test, expect } from '../fixtures/electron-app.fixture';
 test.describe('API Validation', () => {
   test('POST /api/install rejects missing body', async ({ mainPage }) => {
     const status = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/install', {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/install`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -18,7 +19,8 @@ test.describe('API Validation', () => {
 
   test('POST /api/git/commit rejects empty message', async ({ mainPage, testProjectDir }) => {
     const status = await mainPage.evaluate(async (dir) => {
-      const res = await fetch('http://localhost:3456/api/git/commit', {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/git/commit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectPath: dir, message: '' }),
@@ -31,7 +33,8 @@ test.describe('API Validation', () => {
 
   test('POST /api/git/stage rejects missing files', async ({ mainPage, testProjectDir }) => {
     const status = await mainPage.evaluate(async (dir) => {
-      const res = await fetch('http://localhost:3456/api/git/stage', {
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/git/stage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectPath: dir }),
@@ -44,7 +47,8 @@ test.describe('API Validation', () => {
 
   test('GET /api/git/repos rejects missing path', async ({ mainPage }) => {
     const status = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/git/repos');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/git/repos`);
       return res.status;
     });
 
@@ -53,7 +57,8 @@ test.describe('API Validation', () => {
 
   test('GET /api/detect rejects non-existent path', async ({ mainPage }) => {
     const status = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/detect?path=/nonexistent/path/12345');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/detect?path=/nonexistent/path/12345`);
       return res.status;
     });
 
@@ -62,7 +67,8 @@ test.describe('API Validation', () => {
 
   test('GET /api/install returns 404', async ({ mainPage }) => {
     const status = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/install');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/install`);
       return res.status;
     });
 
@@ -72,7 +78,8 @@ test.describe('API Validation', () => {
 
   test('API returns JSON content-type', async ({ mainPage }) => {
     const contentType = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/health');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/health`);
       return res.headers.get('content-type');
     });
 

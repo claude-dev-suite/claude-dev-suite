@@ -14,6 +14,7 @@ import {
   // Types
   type ReviewOption,
   type ReviewJob,
+  type ReviewDepth,
   type SourceFilesResult,
   type DiffResult,
   type ReviewIssue,
@@ -34,7 +35,7 @@ import {
 } from './code-review/index.js';
 
 // Re-export types for backward compatibility
-export type { ReviewOption, ReviewJob, SourceFilesResult, DiffResult, ReviewIssue, ReviewSummary };
+export type { ReviewOption, ReviewJob, ReviewDepth, SourceFilesResult, DiffResult, ReviewIssue, ReviewSummary };
 export type { SubTask, FileTreeNode } from './code-review/index.js';
 export { REVIEW_OPTIONS };
 
@@ -195,6 +196,7 @@ export class CodeReviewService {
     selectedAgents: string[];
     paths?: string[];
     repo?: string;
+    depth?: 'quick' | 'deep';
   }): ReviewJob {
     return buildReviewJobImpl(options);
   }

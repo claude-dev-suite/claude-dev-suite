@@ -11,7 +11,8 @@ test.describe('Error Handling', () => {
 
   test('API returns 400 for empty path', async ({ mainPage }) => {
     const status = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/detect?path=');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/detect?path=`);
       return res.status;
     });
 
@@ -20,17 +21,18 @@ test.describe('Error Handling', () => {
 
   test('API rejects path traversal', async ({ mainPage }) => {
     const status = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/api/detect?path=../../../etc/passwd');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/api/detect?path=../../../etc/passwd`);
       return res.status;
     });
 
-    // Server should reject with 400 (validation) or 500 (path security error)
     expect(status).toBeGreaterThanOrEqual(400);
   });
 
   test('health endpoint returns 200', async ({ mainPage }) => {
     const result = await mainPage.evaluate(async () => {
-      const res = await fetch('http://localhost:3456/health');
+      const port = (window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456;
+      const res = await fetch(`http://localhost:${port}/health`);
       const json = await res.json();
       return { status: res.status, body: json };
     });
@@ -42,11 +44,9 @@ test.describe('Error Handling', () => {
   test('server status shows Connected', async ({ mainPage }) => {
     await mainPage.waitForTimeout(5_000);
 
-    // Green dot should be visible (server connected)
     const greenDot = mainPage.locator('.bg-green-500');
     const greenCount = await greenDot.count();
 
-    // Red pulsing dot should NOT be visible
     const redDot = mainPage.locator('.bg-red-500.animate-pulse');
     const redCount = await redDot.count();
 

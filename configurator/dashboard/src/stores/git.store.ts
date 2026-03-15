@@ -27,7 +27,7 @@ import type {
 // API FUNCTIONS
 // ============================================
 
-const API_BASE = 'http://localhost:3456/api/git';
+const API_BASE = `http://localhost:${(window as Window & { electronAPI?: { serverPort?: number } }).electronAPI?.serverPort ?? 3456}/api/git`;
 
 async function fetchApi<T>(
   endpoint: string,

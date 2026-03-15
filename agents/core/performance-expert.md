@@ -17,6 +17,9 @@ skills:
   - best-practices/caching-strategies
   - testing/load-testing
   - observability/opentelemetry
+  # Database performance (N+1, query optimization, connection pooling)
+  - databases/postgresql
+  - backend-frameworks/spring-data-jpa
 ---
 
 # Performance Expert Agent

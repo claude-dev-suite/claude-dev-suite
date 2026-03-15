@@ -5,7 +5,7 @@
  * Builds orchestrator jobs for code review.
  */
 
-import type { ReviewJob, SubTask } from './types.js';
+import type { ReviewJob, ReviewDepth, SubTask } from './types.js';
 import { REVIEW_OPTIONS } from './constants.js';
 
 /**
@@ -17,6 +17,25 @@ export function validateReviewOptions(options: string[]): string[] {
 }
 
 /**
+ * Deep mode prefix injected before each agent's task prompt.
+ * Instructs the agent to load KB docs for the detected stack before reviewing.
+ */
+const DEEP_MODE_PREFIX = `## Deep Review Mode
+
+Before starting the review, identify the technologies used in this project:
+1. Read \`package.json\` (if present) to detect frontend/backend JS dependencies
+2. Read \`pom.xml\` or \`build.gradle\` (if present) to detect Java/Spring dependencies
+3. Read \`requirements.txt\` or \`pyproject.toml\` (if present) to detect Python dependencies
+
+Then use the \`fetch_docs\` tool from the documentation MCP server to load knowledge for each relevant technology you found (e.g. \`react\`, \`spring-boot\`, \`postgresql\`, \`prisma\`, \`typescript\`, etc.).
+
+This context will make your review significantly more precise and actionable.
+
+---
+
+`;
+
+/**
  * Build a review job for the orchestrator
  */
 export function buildReviewJob(options: {
@@ -24,8 +43,9 @@ export function buildReviewJob(options: {
   selectedAgents: string[];
   paths?: string[];
   repo?: string;
+  depth?: ReviewDepth;
 }): ReviewJob {
-  const { scope, selectedAgents, paths } = options;
+  const { scope, selectedAgents, paths, depth = 'quick' } = options;
   const validOptions = validateReviewOptions(selectedAgents);
 
   let context = '## Review Instructions\n\n';
@@ -74,6 +94,8 @@ export function buildReviewJob(options: {
     pathRestriction = '\n\n**IMPORTANT:** Only analyze files shown in `git diff HEAD`. Do not analyze unchanged files.';
   }
 
+  const taskPrefix = depth === 'deep' ? DEEP_MODE_PREFIX : '';
+
   const subTasks: SubTask[] = validOptions.map((optionKey) => {
     const option = REVIEW_OPTIONS[optionKey];
     if (!option) {
@@ -81,7 +103,7 @@ export function buildReviewJob(options: {
     }
     return {
       agentId: option.agentId,
-      task: option.taskPrompt + pathRestriction,
+      task: taskPrefix + option.taskPrompt + pathRestriction,
       dependencies: [] as string[],
     };
   });

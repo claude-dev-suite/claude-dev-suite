@@ -26,6 +26,9 @@ const CodeGenPanel = lazy(() =>
 const UsagePanel = lazy(() =>
   import('./components/usage/UsagePanel').then(module => ({ default: module.UsagePanel }))
 );
+const LivePerformancePanel = lazy(() =>
+  import('./components/live-performance/LivePerformancePanel').then(module => ({ default: module.LivePerformancePanel }))
+);
 
 export function App() {
   const logger = getLogger('App');
@@ -115,7 +118,7 @@ export function App() {
 
   // Redirect to wizard if not installed and on a panel that requires installation
   useEffect(() => {
-    if (!isInstalled && (currentPanel === 'orchestrator' || currentPanel === 'code-review' || currentPanel === 'codegen' || currentPanel === 'usage')) {
+    if (!isInstalled && (currentPanel === 'orchestrator' || currentPanel === 'code-review' || currentPanel === 'codegen' || currentPanel === 'usage' || currentPanel === 'live-performance')) {
       setCurrentPanel('wizard');
       setWizardStep(1);
     }
@@ -245,6 +248,24 @@ export function App() {
             >
               <Suspense fallback={<LoadingPanel message="Loading Usage Monitor..." />}>
                 <UsagePanel projectPath={projectPath} />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        )}
+
+        {/* Live Performance panel */}
+        {currentPanel === 'live-performance' && projectPath && isInstalled && (
+          <div className="p-6 h-full">
+            <ErrorBoundary
+              fallback={
+                <ErrorFallback
+                  showHomeButton={true}
+                  onHome={() => setCurrentPanel('orchestrator')}
+                />
+              }
+            >
+              <Suspense fallback={<LoadingPanel message="Loading Live Performance..." />}>
+                <LivePerformancePanel projectPath={projectPath} />
               </Suspense>
             </ErrorBoundary>
           </div>

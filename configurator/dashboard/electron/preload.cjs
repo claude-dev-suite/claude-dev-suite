@@ -8,6 +8,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Server port (set via process.env.PORT, defaults to 3456)
+  serverPort: parseInt(process.env.PORT || '3456', 10),
+
   // Get app version
   getVersion: () => ipcRenderer.invoke('get-app-version'),
 
