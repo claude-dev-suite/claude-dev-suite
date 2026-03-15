@@ -42,9 +42,9 @@
 
 Dev-Suite transforms Claude Code into a full-stack development powerhouse by providing:
 
+- **47 Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, data engineering, industrial automation (DCS/PLC), testing (Jest/Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter), messaging, and more
 - **10 MCP Servers** - Extend Claude with 79 tools for documentation, databases, Docker, API testing, logs, performance profiling, security scanning, and more
-- **41 Specialized Agents** - Domain experts for React, Angular, Spring Boot, ASP.NET, Python, testing, security, DevOps, and infrastructure
-- **320+ Skills** - Framework-specific knowledge bases with quick-reference guides
+- **337+ Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI integration, and more
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
 - **10 Project Templates** - Scaffolding for React, Next.js, Spring Boot, FastAPI, NestJS, and more
 - **Task Orchestrator** - Submit complex multi-agent tasks from the GUI with real-time streaming updates
@@ -53,7 +53,7 @@ Dev-Suite transforms Claude Code into a full-stack development powerhouse by pro
 - **Hooks Management** - Configure Git hooks and Claude Code hooks from the dashboard
 - **Upgrade System** - Update dev-suite components with intelligent conflict detection
 - **Analytics Dashboard** - Track knowledge base usage and correlate with executed jobs
-- **137 Technologies** - On-demand documentation via Git-based knowledge base
+- **130 Technologies** - On-demand documentation via Git-based knowledge base
 
 **Key Principle**: Dev-Suite is a **source repository** that initializes your projects. It lives alongside your projects and provides centralized resources that multiple projects can reference.
 
@@ -193,7 +193,7 @@ Dashboard → Upload Spec → Deterministic Generation → AI Refinement → Acc
 
 | Server | Tools | Description |
 |--------|-------|-------------|
-| **documentation** | 4 | Fetch docs for 137 technologies via Git-based KB |
+| **documentation** | 4 | Fetch docs for 130 technologies via Git-based KB |
 | **database-query** | 9 | SQL queries, schema inspection, migrations |
 | **docker-manager** | 8 | Containers, images, Compose services |
 | **api-tester** | 6 | HTTP requests, collection import, mock servers |
@@ -212,16 +212,19 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 
 ### Specialized Agents
 
-41 domain experts with deep knowledge in specific technologies:
+Domain experts with deep knowledge in specific technologies:
+
+**47 agents** organized by domain:
 
 #### Core Agents
 - **architect** - System design, architecture decisions, trade-offs
 - **code-reviewer** - Code quality, best practices, refactoring
-- **python-expert** - Python 3.10-3.14, async patterns, package management
+- **python-expert** - Python 3.10-3.14, async patterns, package management, ruff, pydantic
 - **typescript-expert** - TypeScript 5, advanced types, strict configuration
 - **nodejs-expert** - Event loop, async patterns, streams, worker threads
 - **dashboard-refactor-expert** - Dashboard React/TypeScript refactoring
 - **claude-code-extension-expert** - Claude Code extensions, skills, hooks, MCP plugins
+- **documentation-expert** - JSDoc, TSDoc, API documentation generation
 
 #### Frontend Agents
 - **react-expert** - React 19, hooks, performance optimization
@@ -234,10 +237,19 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 - **spring-boot-expert** - Spring Boot 3, JPA, Security, REST APIs
 - **nestjs-expert** - Modules, guards, pipes, Prisma integration
 - **fastapi-expert** - Python async, Pydantic, SQLAlchemy
+- **streamlit-expert** - Streamlit Python web apps, session state, caching, multipage
 - **rust-expert** - Actix-web, Axum, Rocket, Warp
 - **go-expert** - Gin, Fiber, Echo, Chi
 - **deno-expert** - Fresh, Oak, TypeScript-first runtime
 - **dotnet-expert** - ASP.NET Core 8+, Entity Framework Core, Blazor, SignalR
+
+#### Data Agents
+- **data-engineering-expert** - pandas, openpyxl, lxml, bulk data pipelines, Excel/XML/CSV, UTF-16 file formats
+
+#### Industrial Automation Agents
+- **dcs-analyst** - ABB Freelance PRT/DMF/CSV file analysis, tag extraction, DCS reverse engineering
+- **freelance-engineer** - ABB Freelance engineering file generation, PRT/DMF bulk templating
+- **automation-architect** - DCS/PLC automation pipeline design, cross-platform strategies (ABB, Siemens, Emerson, Honeywell)
 
 #### Database Agents
 - **prisma-expert** - Schema design, queries, migrations
@@ -248,6 +260,7 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 - **vitest-expert** - Unit testing, mocking, coverage
 - **playwright-expert** - E2E testing, locators, assertions
 - **spring-boot-integration-test-expert** - @SpringBootTest, Testcontainers
+- **python-integration-test-expert** - pytest, testcontainers-python, pytest-django, FastAPI TestClient, factory_boy, Celery, Pact
 - **smoke-test-expert** - Post-implementation verification, live HTTP testing, fix orchestration
 - **qa-expert** - Test strategy, quality assurance
 
@@ -275,13 +288,13 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 
 ### Skills & Knowledge Base
 
-**320+ Skills** organized by category:
+**337+ Skills** organized by category:
 
 - **Frontend**: React, Vue, Angular, Svelte, Next.js, Nuxt, TailwindCSS, shadcn/ui
 - **Backend**: Spring Boot, NestJS, Express, FastAPI, ASP.NET Core, Rust, Go, Deno frameworks
 - **Databases**: PostgreSQL, MySQL, MongoDB, Redis
 - **ORM/ODM**: Prisma, Drizzle, TypeORM, SQLAlchemy, Spring Data JPA
-- **Testing**: Vitest, Jest, Playwright, Cypress, Testcontainers, Messaging Testing (Kafka, RabbitMQ, multi-broker)
+- **Testing**: Vitest, Jest, Playwright, Cypress, Testcontainers (Java), testcontainers-python, pytest, pytest-django, FastAPI testing, factory_boy, Celery testing, Pact (contract testing), Messaging Testing (Kafka, RabbitMQ, multi-broker)
 - **State Management**: TanStack Query/Router, Redux Toolkit, Zustand, Pinia
 - **API Design**: REST, GraphQL, tRPC, OpenAPI
 - **Infrastructure**: Docker, Kubernetes, GitHub Actions
@@ -290,7 +303,7 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 
 #### Knowledge Base Architecture
 
-The knowledge base provides **on-demand documentation for 137 technologies** via a separate Git repository: [github.com/claude-dev-suite/knowledge_base](https://github.com/claude-dev-suite/knowledge_base)
+The knowledge base provides **on-demand documentation for 130 technologies** via a separate Git repository: [github.com/claude-dev-suite/knowledge_base](https://github.com/claude-dev-suite/knowledge_base)
 
 **How it works**:
 
@@ -315,7 +328,7 @@ Agent needs docs → documentation MCP → Git sparse checkout → Cache (2h TTL
 │  Each references KB docs for deep dives     │  Loaded on demand by agent
 ├─────────────────────────────────────────────┤
 │  Layer 3: Knowledge Base (Git repo)         │  Full documentation
-│  137 technologies, fetched via MCP server   │  On-demand, cached 2 hours
+│  130 technologies, fetched via MCP server   │  On-demand, cached 2 hours
 └─────────────────────────────────────────────┘
 ```
 
@@ -636,7 +649,7 @@ KB_CACHE_TTL=7200
 
 ### Documentation Server
 
-Fetch on-demand documentation for 137 technologies via Git-based knowledge base.
+Fetch on-demand documentation for 130 technologies via Git-based knowledge base.
 
 **Tools**:
 - `fetch_docs({ technology, topic, source?, refresh? })` - Get documentation for a topic
@@ -865,7 +878,9 @@ Control the dashboard and orchestrator from Claude Code.
 | **vitest-expert** | Vitest, Jest, unit tests, describe | vitest | documentation, code-quality |
 | **playwright-expert** | Playwright, E2E, page.goto, locator | playwright | documentation |
 | **spring-boot-integration-test-expert** | @SpringBootTest, @DataJpaTest, Testcontainers | spring-boot-test, testcontainers | documentation, database-query, docker-manager |
+| **python-integration-test-expert** | pytest integration, testcontainers python, pytest-django, FastAPI test, factory_boy, celery test, pact python | python-integration, testcontainers-python, pytest-django, fastapi-testing, factory-boy | documentation, database-query |
 | **smoke-test-expert** | smoke test, verify implementation, test endpoints, end-to-end verification | smoke-test, rest-assured, testcontainers | api-tester, database-query, docker-manager, log-analyzer, documentation |
+| **qa-expert** | QA, test strategy, quality assurance, test plan | testing-strategy | documentation |
 
 ### Infrastructure & DevOps
 
