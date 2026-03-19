@@ -133,7 +133,7 @@ Tech stack: React 19, Express 5, Electron 40, Vite 7, Zustand, Zod 4, TypeScript
    git clone https://github.com/claude-dev-suite/knowledge_base.git /tmp/kb
    ```
 2. Add markdown files under `knowledge/{technology}/{topic}.md` inside the cloned repo
-3. Update `mcp-servers/documentation/src/docs-index.ts` in **this** repo with new entries
+3. Update the relevant category file in `mcp-servers/documentation/src/docs-index/` in **this** repo (e.g., `testing.ts`, `backend.ts`, `ai.ts`) — `docs-index.ts` is a re-export aggregator; add entries to the appropriate category file
 4. Commit and push to the KB repository:
    ```bash
    cd /tmp/kb && git add . && git commit -m "add {technology} docs" && git push

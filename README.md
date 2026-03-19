@@ -53,7 +53,7 @@ Dev-Suite transforms Claude Code into a full-stack development powerhouse by pro
 - **Hooks Management** - Configure Git hooks and Claude Code hooks from the dashboard
 - **Upgrade System** - Update dev-suite components with intelligent conflict detection
 - **Analytics Dashboard** - Track knowledge base usage and correlate with executed jobs
-- **130 Technologies** - On-demand documentation via Git-based knowledge base
+- **121+ Technologies** - On-demand documentation via Git-based knowledge base
 
 **Key Principle**: Dev-Suite is a **source repository** that initializes your projects. It lives alongside your projects and provides centralized resources that multiple projects can reference.
 
@@ -193,7 +193,7 @@ Dashboard → Upload Spec → Deterministic Generation → AI Refinement → Acc
 
 | Server | Tools | Description |
 |--------|-------|-------------|
-| **documentation** | 4 | Fetch docs for 130 technologies via Git-based KB |
+| **documentation** | 4 | Fetch docs for 121+ technologies via Git-based KB |
 | **database-query** | 9 | SQL queries, schema inspection, migrations |
 | **docker-manager** | 8 | Containers, images, Compose services |
 | **api-tester** | 6 | HTTP requests, collection import, mock servers |
@@ -303,7 +303,7 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 
 #### Knowledge Base Architecture
 
-The knowledge base provides **on-demand documentation for 130 technologies** via a separate Git repository: [github.com/claude-dev-suite/knowledge_base](https://github.com/claude-dev-suite/knowledge_base)
+The knowledge base provides **on-demand documentation for 121+ technologies** via a separate Git repository: [github.com/claude-dev-suite/knowledge_base](https://github.com/claude-dev-suite/knowledge_base)
 
 **How it works**:
 
@@ -328,7 +328,7 @@ Agent needs docs → documentation MCP → Git sparse checkout → Cache (2h TTL
 │  Each references KB docs for deep dives     │  Loaded on demand by agent
 ├─────────────────────────────────────────────┤
 │  Layer 3: Knowledge Base (Git repo)         │  Full documentation
-│  130 technologies, fetched via MCP server   │  On-demand, cached 2 hours
+│  121+ technologies, fetched via MCP server  │  On-demand, cached 2 hours
 └─────────────────────────────────────────────┘
 ```
 
@@ -350,7 +350,7 @@ KB_CACHE_TTL=7200
 
 1. Clone the KB repository: `git clone https://github.com/claude-dev-suite/knowledge_base.git`
 2. Add markdown files under `knowledge/{technology}/{topic}.md`
-3. Update `mcp-servers/documentation/src/docs-index.ts` to register the new technology
+3. Update the relevant category file in `mcp-servers/documentation/src/docs-index/` (e.g., `testing.ts`, `backend.ts`) to register the new technology — `docs-index.ts` is a re-export aggregator, do not edit it directly
 4. Commit and push - the documentation MCP server will fetch new docs automatically on next request
 
 ---
@@ -649,7 +649,7 @@ KB_CACHE_TTL=7200
 
 ### Documentation Server
 
-Fetch on-demand documentation for 130 technologies via Git-based knowledge base.
+Fetch on-demand documentation for 121+ technologies via Git-based knowledge base.
 
 **Tools**:
 - `fetch_docs({ technology, topic, source?, refresh? })` - Get documentation for a topic
@@ -855,9 +855,9 @@ Control the dashboard and orchestrator from Claude Code.
 
 | Agent | Triggers | Skills | MCP Servers |
 |-------|----------|--------|-------------|
-| **spring-boot-expert** | Spring Boot, @Entity, @Controller, @Service | spring-boot, spring-data-jpa, spring-security | documentation, database-query |
-| **nestjs-expert** | NestJS, modules, guards, pipes | nestjs, prisma | documentation, database-query |
-| **fastapi-expert** | FastAPI, Pydantic, async Python | fastapi, sqlalchemy | documentation, database-query |
+| **spring-boot-expert** | Spring Boot, @Entity, @Controller, @Service | spring-boot, spring-data-jpa, spring-security | documentation, api-tester |
+| **nestjs-expert** | NestJS, modules, guards, pipes | nestjs, prisma | documentation, api-tester |
+| **fastapi-expert** | FastAPI, Pydantic, async Python | fastapi, sqlalchemy | documentation, api-tester |
 | **rust-expert** | Rust, Actix-web, Axum, Rocket, Warp | rust, actix-web, axum | documentation |
 | **go-expert** | Go, Gin, Fiber, Echo, Chi | go, gin, fiber | documentation |
 | **deno-expert** | Deno, Fresh, Oak | deno, fresh | documentation |
@@ -867,9 +867,9 @@ Control the dashboard and orchestrator from Claude Code.
 
 | Agent | Triggers | Skills | MCP Servers |
 |-------|----------|--------|-------------|
-| **prisma-expert** | Prisma, schema, migrations | prisma | documentation, database-query |
-| **sql-expert** | SQL, PostgreSQL, MySQL, queries | postgresql, mysql | database-query |
-| **mongodb-expert** | MongoDB, aggregations, Spring Data MongoDB | mongodb, spring-data-mongodb | documentation, database-query |
+| **prisma-expert** | Prisma, schema, migrations | prisma | documentation |
+| **sql-expert** | SQL, PostgreSQL, MySQL, queries | postgresql, mysql | documentation, database-query |
+| **mongodb-expert** | MongoDB, aggregations, Spring Data MongoDB | mongodb, spring-data-mongodb | documentation |
 
 ### Testing Agents
 
@@ -877,10 +877,9 @@ Control the dashboard and orchestrator from Claude Code.
 |-------|----------|--------|-------------|
 | **vitest-expert** | Vitest, Jest, unit tests, describe | vitest | documentation, code-quality |
 | **playwright-expert** | Playwright, E2E, page.goto, locator | playwright | documentation |
-| **spring-boot-integration-test-expert** | @SpringBootTest, @DataJpaTest, Testcontainers | spring-boot-test, testcontainers | documentation, database-query, docker-manager |
-| **python-integration-test-expert** | pytest integration, testcontainers python, pytest-django, FastAPI test, factory_boy, celery test, pact python | python-integration, testcontainers-python, pytest-django, fastapi-testing, factory-boy | documentation, database-query |
+| **spring-boot-integration-test-expert** | @SpringBootTest, @DataJpaTest, Testcontainers | spring-boot-test, testcontainers | documentation |
+| **python-integration-test-expert** | pytest integration, testcontainers python, pytest-django, FastAPI test, factory_boy, celery test, pact python | python-integration, testcontainers-python, pytest-django, fastapi-testing, factory-boy | documentation |
 | **smoke-test-expert** | smoke test, verify implementation, test endpoints, end-to-end verification | smoke-test, rest-assured, testcontainers | api-tester, database-query, docker-manager, log-analyzer, documentation |
-| **qa-expert** | QA, test strategy, quality assurance, test plan | testing-strategy | documentation |
 
 ### Infrastructure & DevOps
 
@@ -900,7 +899,7 @@ Control the dashboard and orchestrator from Claude Code.
 | Agent | Triggers | Skills | MCP Servers |
 |-------|----------|--------|-------------|
 | **qa-expert** | QA, test strategy, quality assurance | testing-strategy | documentation |
-| **integration-validator-expert** | API contracts, frontend-backend alignment | integration-validation | code-quality |
+| **integration-validator-expert** | API contracts, frontend-backend alignment | integration-validation | documentation, api-explorer |
 | **open-source-expert** | OSS, licensing, community health, compliance | open-source | documentation, code-quality |
 
 ### Security Agent
@@ -922,54 +921,44 @@ Slash commands available in Claude Code after initialization:
 | `/generate <type>` | Generate code scaffolding (components, APIs, tests) |
 | `/show-config` | Display current dev-suite configuration |
 | `/reconfigure` | Modify existing configuration (add/remove agents, MCP servers) |
+| `/health-check` | Validate installation and diagnose issues |
 | `/sync-dev-suite` | Update dev-suite components to latest version |
 | `/ui-wizard` | Launch configuration dashboard |
-| `/uninstall-dev-suite` | Remove dev-suite components (preserves user content) |
+| `/uninstall` | Remove dev-suite components (interactive, preserves user content) |
+| `/uninstall-dev-suite` | Full dev-suite removal with complete cleanup |
 
 ---
 
 ## Upgrading
 
-### From v2.6 to v2.7
+### Via Dashboard (Recommended)
 
-**What's New**:
-- Orchestrator GUI with WebSocket streaming
-- Analytics dashboard
-- Fully dynamic metadata-driven initialization
+The easiest way to upgrade is through the **Updates** tab in the dashboard:
 
-**Upgrade Steps**:
+1. Open the dashboard: `./init-project.sh .`
+2. Navigate to the **Updates** tab
+3. Review available updates and select components to upgrade
+4. Click **Apply Updates** — dev-suite handles conflict detection automatically
 
-1. **Update dev-suite repository**:
-   ```bash
-   cd dev-suite
-   git pull origin main
-   ```
-
-2. **Rebuild dashboard-bridge MCP** (if using orchestrator):
-   ```bash
-   cd dev-suite/mcp-servers/dashboard-bridge
-   npm install
-   npm run build
-   ```
-
-3. **Reinstall in projects** (optional, to get orchestrator):
-   ```bash
-   cd /path/to/your-project
-   /path/to/dev-suite/init-project.sh .
-   # Select "dashboard-bridge" MCP server when prompted
-   ```
-
-4. **Restart Claude Code** to reload MCP servers.
-
-### From v2.0 to v2.7
-
-Run the migration script to update `.dev-suite.json` to v1.0.0 format:
+### Manual Upgrade
 
 ```bash
-bash dev-suite/scripts/migrate-config.sh
+# 1. Pull the latest dev-suite
+cd dev-suite
+git pull origin main
+
+# 2. Rebuild all MCP servers
+cd mcp-servers && npm install && npm run build
+
+# 3. Sync installed projects (run in each project)
+/path/to/dev-suite/init-project.sh /path/to/your-project
 ```
 
-This will backup existing config and migrate to the latest schema.
+Then restart Claude Code to reload the updated MCP servers.
+
+### From v1.0.x to v1.1.x
+
+No breaking changes. Run the manual upgrade steps above. New components (agents, skills, MCP servers) added since your installation are surfaced automatically in the dashboard **Manage** tab with a one-click install option.
 
 ---
 

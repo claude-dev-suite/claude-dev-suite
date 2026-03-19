@@ -24,9 +24,9 @@ This document maps each agent to its required MCP servers and skills.
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
-| **spring-boot-expert** | documentation, database-query | spring-boot, spring-data-jpa, spring-security, spring-web, flyway, lombok, mapstruct |
-| **nestjs-expert** | documentation, database-query | nestjs, typescript, prisma, postgresql |
-| **fastapi-expert** | documentation, database-query | fastapi, python, sqlalchemy, pydantic, pytest |
+| **spring-boot-expert** | documentation, api-tester | spring-boot, spring-data-jpa, spring-security, spring-web, flyway, lombok, mapstruct |
+| **nestjs-expert** | documentation, api-tester | nestjs, typescript, prisma, postgresql |
+| **fastapi-expert** | documentation, api-tester | fastapi, python, sqlalchemy, pydantic, pytest |
 | **rust-expert** | documentation | rust, actix-web, axum, rocket, warp |
 | **go-expert** | documentation | go, gin, fiber, echo, chi |
 | **deno-expert** | documentation | deno, fresh, oak, typescript |
@@ -49,17 +49,18 @@ This document maps each agent to its required MCP servers and skills.
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
-| **prisma-expert** | documentation, database-query | prisma, postgresql, mysql, typescript |
+| **prisma-expert** | documentation | prisma, postgresql, mysql, typescript |
 | **sql-expert** | documentation, database-query | postgresql, mysql, sql-optimization |
-| **mongodb-expert** | documentation, database-query | mongodb, aggregations, spring-data-mongodb |
+| **mongodb-expert** | documentation | mongodb, aggregations, spring-data-mongodb |
 
-### Testing Agents (4)
+### Testing Agents (5)
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
 | **vitest-expert** | documentation, code-quality | vitest, testing-library, mocking, coverage |
 | **playwright-expert** | documentation | playwright, e2e-testing, page-objects |
-| **spring-boot-integration-test-expert** | documentation, database-query, docker-manager | spring-boot-test, testcontainers, junit |
+| **spring-boot-integration-test-expert** | documentation | spring-boot-test, testcontainers, junit |
+| **python-integration-test-expert** | documentation | python-integration, testcontainers-python, pytest-django, fastapi-testing, factory-boy |
 | **smoke-test-expert** | api-tester, database-query, docker-manager, log-analyzer, documentation | smoke-test, rest-assured, testcontainers |
 
 ### Infrastructure Agents (2)
@@ -117,17 +118,17 @@ This document maps each agent to its required MCP servers and skills.
 
 ## MCP Server Requirements
 
-| MCP Server | Required By Agents |
-|------------|-------------------|
+| MCP Server | Used By Agents |
+|------------|----------------|
 | **documentation** | All agents |
-| **database-query** | sql-expert, prisma-expert, mongodb-expert, spring-boot-expert, nestjs-expert, fastapi-expert, spring-boot-integration-test-expert, smoke-test-expert |
-| **docker-manager** | docker-expert, devops-expert, spring-boot-integration-test-expert, smoke-test-expert |
+| **database-query** | sql-expert, smoke-test-expert |
+| **docker-manager** | docker-expert, devops-expert, smoke-test-expert |
 | **code-quality** | code-reviewer, react-expert, vitest-expert, qa-expert, open-source-expert |
-| **log-analyzer** | log-analyst |
+| **log-analyzer** | log-analyst, smoke-test-expert |
 | **performance-profiler** | performance-expert |
 | **security-scanner** | security-expert |
 | **api-explorer** | integration-validator-expert |
-| **api-tester** | smoke-test-expert, dotnet-expert |
+| **api-tester** | spring-boot-expert, nestjs-expert, fastapi-expert, dotnet-expert, smoke-test-expert |
 | **dashboard-bridge** | (optional, for orchestrator integration) |
 
 ## Recommended Configurations

@@ -6,13 +6,22 @@ Claude Code slash commands for project initialization and management.
 
 ## Available Commands
 
+| Command | File | Description |
+|---------|------|-------------|
+| `/init-project` | `init-project.md` | Initialize dev-suite for a project (interactive wizard) |
+| `/ui-wizard` | `ui-wizard.md` | Launch the graphical dashboard wizard |
+| `/docs` | `docs.md` | Access documentation for a technology |
+| `/generate` | `generate.md` | Generate code scaffolding (components, APIs, tests) |
+| `/show-config` | `show-config.md` | Display current dev-suite configuration |
+| `/reconfigure` | `reconfigure.md` | Modify existing configuration (add/remove agents, MCP servers) |
+| `/health-check` | `health-check.md` | Validate installation and diagnose issues |
+| `/sync-dev-suite` | `sync-dev-suite.md` | Update dev-suite components to latest version |
+| `/uninstall` | `uninstall.md` | Remove dev-suite components (interactive, preserves user content) |
+| `/uninstall-dev-suite` | `uninstall-dev-suite.md` | Full dev-suite removal with complete cleanup |
+
+---
+
 ### `/init-project` - Project Initialization Wizard
-
-Two versions available:
-
-#### **v1: init-project.md** (Current Stable)
-
-Original implementation, feature-complete and stable.
 
 **Usage:**
 ```
@@ -20,68 +29,24 @@ Original implementation, feature-complete and stable.
 ```
 
 **Features:**
-- 15+ interactive questions
-- Manual technology selection
-- Stable and well-tested
-- No external dependencies
+- Interactive multi-step wizard
+- Auto-detects 66+ technologies from `package.json`, `pom.xml`, `Cargo.toml`, etc.
+- Pre-selects agents and MCP servers based on detected stack
+- Generates `.mcp.json`, `.dev-suite.json`, `CLAUDE.md`
+- Creates `.dev-suite-backup/` before overwriting any user files
 
-**Lines:** 221
-
-**Best for:**
-- Production use until v2 is fully tested
-- Users who prefer explicit control
-- Projects with non-standard configurations
-
----
-
-#### **v2: init-project-v2.md** (NEW - Modular with Quick Mode)
-
-Modern implementation using modular libraries from Sprint 1-5.
-
-**Usage:**
-```
-/init-project-v2 [project-path]
-```
-
-**Features:**
-- Auto-detects 66+ technologies
-- Quick Mode (1 confirmation vs 15 questions)
-- Smart defaults based on detection
-- API Explorer auto-configuration
-- Built-in validation
-- Modular library architecture
-
-**Lines:** ~150 effective (32% reduction)
-
-**Quick Mode Workflow:**
-1. Auto-detects stack (React, Spring Boot, PostgreSQL, etc.)
-2. Shows formatted summary
-3. Single confirmation: "Use Quick Mode?"
-4. Auto-selects MCP servers
-5. Installs everything
-6. Done in <30 seconds!
-
-**Manual Mode Fallback:**
-- User can reject Quick Mode
-- Full wizard with smart defaults
-- Same interactivity as v1
-
-**Best for:**
-- New projects
-- High-confidence detections
-- Speed-focused workflows
-- Leveraging modular architecture
+All questions use Claude Code's `AskUserQuestion` tool for interactivity.
 
 ---
 
 ### `/ui-wizard` - Dashboard UI Wizard
 
-Launch the graphical dashboard wizard instead of the CLI-based wizard.
-
 **Usage:**
 ```
 /ui-wizard
 ```
+
+Launches the graphical web dashboard wizard instead of the CLI-based wizard.
 
 **Features:**
 - No arguments required - uses current directory
@@ -90,212 +55,90 @@ Launch the graphical dashboard wizard instead of the CLI-based wizard.
 - Interactive agent and MCP server selection
 - Preview configuration before installation
 
-**How it works:**
-1. Starts the Next.js dashboard (if not running)
-2. Opens browser to wizard page
-3. Pre-fills with current directory path
-4. Visual walkthrough of all configuration options
-
-**Best for:**
-- Users who prefer graphical interfaces
-- Complex configurations requiring visual overview
-- First-time dev-suite setup
-
 ---
 
-## Comparison
+### `/docs` - Documentation Access
 
-| Feature | v1 (init-project) | v2 (init-project-v2) |
-|---------|-------------------|----------------------|
-| Detection | Manual grep | Modular library (detect-stack.sh) |
-| Questions | 15+ always | 1 (quick) or 5-7 (manual) |
-| Smart defaults | ❌ | ✓ |
-| Quick Mode | ❌ | ✓ (when confidence=high) |
-| API Explorer config | Manual | Auto-detected |
-| Validation | External script | Built-in (validator.sh) |
-| Code size | 221 lines | ~150 lines (-32%) |
-| Dependencies | None | 5 modular libraries |
-| Status | Stable | Testing phase |
-
----
-
-## Libraries Used (v2 Only)
-
-**v2** leverages 5 modular libraries from `lib/`:
-
-1. **detect-stack.sh** (~785 lines)
-   - Auto-detects 66+ technologies
-   - Confidence scoring
-   - API endpoint detection
-
-2. **wizard-ui.sh** (~475 lines)
-   - Quick Mode UI
-   - Interactive prompts
-   - Progress indicators
-
-3. **config-generator.sh** (~600 lines)
-   - .dev-suite.json generation
-   - .mcp.json with auto-config
-   - CLAUDE.md and .env.example
-
-4. **mcp-installer.sh** (~400 lines)
-   - Install MCP servers
-   - Copy to project
-   - Dependency management
-
-5. **validator.sh** (~500 lines)
-   - Installation validation
-   - Health checks
-   - Next steps suggestions
-
-**Total library code:** 2700+ lines of reusable functions
-
----
-
-## Migration Path
-
-### For Users
-
-**Phase 1: Testing (Current)**
-```bash
-# Use v1 for production
-/init-project
-
-# Test v2 on new projects
-/init-project-v2
+**Usage:**
+```
+/docs <technology> [topic]
 ```
 
-**Phase 2: Gradual Adoption**
-After sufficient testing and feedback, v2 will become the default.
-
-**No Breaking Changes:**
-- Both versions produce identical output files
-- Same .dev-suite.json, .mcp.json, CLAUDE.md
-- Same MCP servers installed
-- Same directory structure
+Fetches documentation for a technology from the knowledge base via the `documentation` MCP server.
 
 ---
 
-## Quick Mode Example
+### `/generate` - Code Scaffolding
 
-**Traditional v1 Workflow:**
+**Usage:**
 ```
-/init-project
-→ Which project type? [frontend/backend/fullstack/monorepo]
-→ Which frontend framework? [react/vue/angular/...]
-→ Which state management? [zustand/redux/...]
-→ Which testing framework? [vitest/jest/...]
-→ Which backend framework? [spring-boot/nestjs/...]
-→ Which database? [postgresql/mysql/mongodb/...]
-→ Which ORM? [jpa/prisma/...]
-→ Git service? [github/gitlab/...]
-... (15+ questions total)
+/generate <type>
 ```
 
-**v2 Quick Mode Workflow:**
-```
-/init-project-v2
-
-Auto-detected stack:
-  Frontend: react + zustand + vitest
-  Backend: spring-boot + postgresql + jpa
-  Git: github
-  Confidence: HIGH
-
-MCP servers auto-selected:
-  • documentation
-  • database-query
-  • docker-manager
-  • api-tester
-  • api-explorer (http://localhost:8080/v3/api-docs)
-
-Use Quick Mode? [Y/n] █
-
-→ Done! (<30 seconds)
-```
+Generates code scaffolding for components, APIs, tests, and more.
 
 ---
 
-## Technical Details
+### `/show-config` - Configuration Display
 
-### Command Execution Flow (v2)
-
+**Usage:**
 ```
-1. Source all 5 libraries
-   ↓
-2. detect_all_stack()
-   ↓
-3. print_detection_summary()
-   ↓
-4. IF confidence=high:
-     show_quick_mode_summary()
-     auto_select_mcp_servers()
-     AskUserQuestion: Use Quick Mode?
-   ↓
-5. IF yes → Install
-   IF no → Manual wizard (Steps 4-7)
-   ↓
-6. install_all_mcp_servers()
-   generate_dev_suite_json()
-   generate_mcp_json()
-   copy_all_mcp_to_project()
-   ↓
-7. validate_installation()
-   ↓
-8. suggest_next_steps()
+/show-config
 ```
 
-### AskUserQuestion Integration
-
-Both versions use Claude Code's `AskUserQuestion` tool for interactivity:
-
-**v1:** All questions via AskUserQuestion (15+ total)
-
-**v2:**
-- Quick Mode: 1-2 questions
-- Manual Mode: 5-7 questions with smart defaults
+Displays the current dev-suite configuration (`.dev-suite.json`, installed agents, MCP servers).
 
 ---
 
-## Testing Status
+### `/reconfigure` - Modify Configuration
 
-### v1 (init-project.md)
-- ✓ Tested on 100+ projects
-- ✓ Stable and production-ready
-- ✓ No known issues
+**Usage:**
+```
+/reconfigure
+```
 
-### v2 (init-project-v2.md)
-- ✓ Library functions tested individually
-- ✓ Quick Mode tested on mock projects
-- ✓ API detection tested on castellino/backend
-- ⏳ Integration testing in progress
-- ⏳ User feedback collection phase
+Opens an interactive wizard to add or remove agents, MCP servers, hooks, and other components from an existing installation.
 
 ---
 
-## Feedback & Issues
+### `/health-check` - Installation Validation
 
-**For v1 issues:**
-Report to dev-suite maintainers (stable version).
+**Usage:**
+```
+/health-check
+```
 
-**For v2 feedback:**
-Sprint 6 will address:
-- Atomic operations with rollback
-- Comprehensive error handling
-- Integration test suite
-- CI pipeline
-
-See: `docs/sprint6-production-checklist.md`
+Validates the dev-suite installation: checks MCP server builds, config file syntax, absolute paths in `.mcp.json`, and agent file integrity.
 
 ---
 
-## References
+### `/sync-dev-suite` - Sync Components
 
-- **Sprint 1-5 Summary:** All modular libraries completed
-- **examples/init-project-v2.sh:** Reference bash script implementation
-- **lib/README.md:** Complete library function reference
-- **docs/sprint6-production-checklist.md:** Production readiness roadmap
+**Usage:**
+```
+/sync-dev-suite
+```
+
+Syncs the installed dev-suite components with the latest version from the dev-suite source repository. Equivalent to the **Updates** tab in the dashboard.
 
 ---
 
-*Updated: Sprint 5 completion - Quick Mode and modular command available*
+### `/uninstall` - Interactive Removal
+
+**Usage:**
+```
+/uninstall
+```
+
+Interactively removes dev-suite components. Preserves user-created content and offers selective removal.
+
+---
+
+### `/uninstall-dev-suite` - Full Removal
+
+**Usage:**
+```
+/uninstall-dev-suite
+```
+
+Performs a complete dev-suite removal including MCP servers, agents, skills, commands, and generated config files. Backs up user content before removal.

@@ -131,7 +131,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Initial Public Release
 
-- **11 MCP Servers**: Documentation, Database Query, Docker Manager, API Tester, API Explorer, Log Analyzer, Performance Profiler, Code Quality, Security Scanner, Dashboard Bridge
+- **10 MCP Servers**: Documentation, Database Query, Docker Manager, API Tester, API Explorer, Log Analyzer, Performance Profiler, Code Quality, Security Scanner, Dashboard Bridge
 - **34 Agents**: Core, Frontend, Backend, Testing, Database, Infrastructure, Messaging, Security experts (at release)
 - **240+ Skills**: Framework-specific knowledge files with quick-reference guides (at release)
 - **Web Dashboard**: React + TypeScript + Vite + TailwindCSS + Zustand frontend with Express TypeScript backend
@@ -158,5 +158,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 | Version | MCP Servers | Agents | Skills | KB Files | Tools |
 |---------|-------------|--------|--------|----------|-------|
-| 1.1.0   | 10          | 38     | 321    | 61       | 95+   |
-| 1.0.0   | 11          | 34     | 240+   | —        | 95+   |
+| 1.1.1   | 10          | 47     | 337+   | 76+      | 79    |
+| 1.1.0   | 10          | 41     | 321    | 61       | 79    |
+| 1.0.0   | 10          | 34     | 240+   | —        | 79    |

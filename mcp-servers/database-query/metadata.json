@@ -23,7 +23,6 @@
     }
   ],
   "recommendedFor": [
-    "prisma-expert",
     "sql-expert",
     "smoke-test-expert"
   ],
