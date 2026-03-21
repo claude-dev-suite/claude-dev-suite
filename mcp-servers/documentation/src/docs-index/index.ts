@@ -26,6 +26,7 @@ import { OBSERVABILITY_TECHNOLOGIES, observabilityDocs } from "./observability.j
 import { ARCHITECTURE_TECHNOLOGIES, architectureDocs } from "./architecture.js";
 import { AI_TECHNOLOGIES, aiDocs } from "./ai.js";
 import { SECURITY_TECHNOLOGIES, securityDocs } from "./security.js";
+import { UX_TECHNOLOGIES, uxDocs } from "./ux.js";
 
 // Re-export individual category modules
 export { FRONTEND_TECHNOLOGIES, frontendDocs } from "./frontend.js";
@@ -44,6 +45,7 @@ export { OBSERVABILITY_TECHNOLOGIES, observabilityDocs } from "./observability.j
 export { ARCHITECTURE_TECHNOLOGIES, architectureDocs } from "./architecture.js";
 export { AI_TECHNOLOGIES, aiDocs } from "./ai.js";
 export { SECURITY_TECHNOLOGIES, securityDocs } from "./security.js";
+export { UX_TECHNOLOGIES, uxDocs } from "./ux.js";
 
 /**
  * Combined list of all supported technologies
@@ -66,6 +68,7 @@ export const SUPPORTED_TECHNOLOGIES = [
   ...ARCHITECTURE_TECHNOLOGIES,
   ...AI_TECHNOLOGIES,
   ...SECURITY_TECHNOLOGIES,
+  ...UX_TECHNOLOGIES,
 ] as const;
 
 export type Technology = (typeof SUPPORTED_TECHNOLOGIES)[number];
@@ -91,4 +94,5 @@ export const docsIndex: Record<string, Record<string, { local: string; url: stri
   ...architectureDocs,
   ...aiDocs,
   ...securityDocs,
+  ...uxDocs,
 };

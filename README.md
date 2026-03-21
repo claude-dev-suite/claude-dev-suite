@@ -232,6 +232,7 @@ Domain experts with deep knowledge in specific technologies:
 - **vue-expert** - Vue 3, Composition API, Pinia
 - **svelte-expert** - Svelte 5, SvelteKit, stores
 - **angular-expert** - Angular 17+, signals, standalone components, SSR
+- **ux-expert** - UX/UI design, visual hierarchy, design systems, interaction design, mobile UX, dark mode
 
 #### Backend Agents
 - **spring-boot-expert** - Spring Boot 3, JPA, Security, REST APIs
@@ -291,6 +292,7 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 **337+ Skills** organized by category:
 
 - **Frontend**: React, Vue, Angular, Svelte, Next.js, Nuxt, TailwindCSS, shadcn/ui
+- **UX/Design**: Visual hierarchy, design tokens (W3C spec), interaction design, motion, loading states, mobile UX, color systems, ethical design
 - **Backend**: Spring Boot, NestJS, Express, FastAPI, ASP.NET Core, Rust, Go, Deno frameworks
 - **Databases**: PostgreSQL, MySQL, MongoDB, Redis
 - **ORM/ODM**: Prisma, Drizzle, TypeORM, SQLAlchemy, Spring Data JPA
@@ -850,6 +852,7 @@ Control the dashboard and orchestrator from Claude Code.
 | **electron-expert** | Electron, desktop apps | electron | documentation |
 | **tauri-expert** | Tauri, Rust desktop apps | tauri | documentation |
 | **angular-expert** | Angular, signals, standalone, SSR, NgRx | angular, angular-routing, angular-forms, angular-http, angular-testing, angular-material, angular-ssr, ngrx, typescript | documentation |
+| **ux-expert** | UX/UI design, visual hierarchy, typography, color systems, design tokens, dark mode, interaction design, mobile UX, form UX, loading states, ethical design | ux-visual-hierarchy, ux-design-systems, ux-interaction-design, tailwindcss, shadcn-ui, wcag | documentation |
 
 ### Backend Agents
 
