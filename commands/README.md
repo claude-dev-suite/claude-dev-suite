@@ -18,6 +18,9 @@ Claude Code slash commands for project initialization and management.
 | `/sync-dev-suite` | `sync-dev-suite.md` | Update dev-suite components to latest version |
 | `/uninstall` | `uninstall.md` | Remove dev-suite components (interactive, preserves user content) |
 | `/uninstall-dev-suite` | `uninstall-dev-suite.md` | Full dev-suite removal with complete cleanup |
+| `/release-promote` | `release-promote.md` | Generate all promotional content for a release (HN, Twitter, LinkedIn, Reddit, dev.to) |
+| `/awesome-list-pr` | `awesome-list-pr.md` | Generate a PR for adding dev-suite to an awesome list |
+| `/community-draft` | `community-draft.md` | Draft an authentic community reply for GitHub, Reddit, HN, or dev.to |
 
 ---
 
@@ -142,3 +145,44 @@ Interactively removes dev-suite components. Preserves user-created content and o
 ```
 
 Performs a complete dev-suite removal including MCP servers, agents, skills, commands, and generated config files. Backs up user content before removal.
+
+---
+
+### `/release-promote` - Release Promotion Pipeline
+
+**Usage:**
+```
+/release-promote [version]
+```
+
+Generates copy-paste-ready promotional content for a release across all channels. If no version is provided, uses the latest git tag.
+
+**Output** (saved to `docs/release-promo/{VERSION}/`):
+- `hacker-news.md` — Show HN post (technical, direct, ready to post)
+- `twitter-thread.md` — X thread with hook, highlights, and CTA
+- `linkedin.md` — LinkedIn post in storytelling format
+- `reddit.md` — Separate posts for r/ClaudeAI and r/devtools
+- `devto-outline.md` — dev.to article outline with sections
+- `awesome-list-entry.md` — One-liner for awesome list submissions
+
+---
+
+### `/awesome-list-pr` - Awesome List PR Generator
+
+**Usage:**
+```
+/awesome-list-pr [target-repo]
+```
+
+Generates a complete, guidelines-compliant pull request for adding dev-suite to an awesome list. Includes PR title, body, checklist, and the correctly formatted entry line.
+
+---
+
+### `/community-draft` - Community Reply Drafter
+
+**Usage:**
+```
+/community-draft [url-or-pasted-text]
+```
+
+Drafts an authentic, helpful reply for a community discussion (GitHub, Reddit, HN, dev.to). Generates two variants: one without self-promotion, one with a natural mention of dev-suite where genuinely relevant. Claude recommends which to use.

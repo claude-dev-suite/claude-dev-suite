@@ -1,0 +1,42 @@
+# GitHub Labeler configuration
+# Maps labels to file path patterns — auto-applied on new issues/PRs
+
+agent:
+  - changed-files:
+    - any-glob-to-any-file: 'agents/**'
+
+skill:
+  - changed-files:
+    - any-glob-to-any-file: 'skills/**'
+
+mcp-server:
+  - changed-files:
+    - any-glob-to-any-file: 'mcp-servers/**'
+
+dashboard:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'configurator/dashboard/src/**'
+      - 'configurator/dashboard/electron/**'
+
+backend:
+  - changed-files:
+    - any-glob-to-any-file: 'configurator/dashboard/server/**'
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CONTRIBUTING.md'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/package.json'
+      - '**/package-lock.json'

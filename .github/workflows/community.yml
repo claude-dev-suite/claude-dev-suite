@@ -1,0 +1,80 @@
+name: Community
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+  schedule:
+    # Run stale check daily at 06:00 UTC
+    - cron: '0 6 * * *'
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  # Welcome first-time contributors with a helpful message
+  welcome:
+    if: github.event_name == 'issues' || github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Hi @${{ github.actor }}, thanks for opening your first issue! 👋
+
+            To help us address it faster:
+            - **Bug report**: include your OS, Node.js version, and Claude Code version
+            - **Feature request**: describe the use case and what you'd expect dev-suite to do
+            - **Question**: check the [docs](https://github.com/claude-dev-suite/claude-dev-suite/tree/main/docs) and [commands reference](https://github.com/claude-dev-suite/claude-dev-suite/tree/main/commands) first
+
+            We typically respond within a few days.
+          pr-message: |
+            Hi @${{ github.actor }}, thanks for your first pull request! 🎉
+
+            Before we review:
+            - Make sure tests pass: `cd configurator/dashboard/server && npm test`
+            - If you added an agent or skill, verify the README table still matches the filesystem
+            - Check [CONTRIBUTING.md](https://github.com/claude-dev-suite/claude-dev-suite/blob/main/CONTRIBUTING.md) for guidelines
+
+            We appreciate the contribution!
+
+  # Auto-label issues and PRs based on content
+  label:
+    if: github.event_name == 'issues' || github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Mark stale issues and PRs, then close them after a grace period
+  stale:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          stale-issue-message: |
+            This issue has been inactive for 60 days. It will be closed in 14 days unless there is further activity.
+
+            If this is still relevant, please leave a comment — we're happy to continue the discussion.
+          stale-pr-message: |
+            This PR has been inactive for 30 days. It will be closed in 14 days unless there is further activity.
+
+            If you'd like to continue, please rebase and leave a comment.
+          close-issue-message: |
+            Closing due to inactivity. Feel free to re-open if this becomes relevant again.
+          close-pr-message: |
+            Closing due to inactivity. The branch can be restored if you'd like to continue.
+          days-before-issue-stale: 60
+          days-before-pr-stale: 30
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: 'pinned,security,roadmap,good first issue'
+          exempt-pr-labels: 'pinned,security,do-not-close'
+          exempt-all-milestones: true

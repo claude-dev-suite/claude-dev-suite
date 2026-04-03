@@ -1,0 +1,43 @@
+# Automatic release notes configuration
+# GitHub uses this to categorize PRs into sections when generating release notes
+# Applies to: Releases tab > "Generate release notes"
+
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - dependencies
+
+  categories:
+    - title: "New Agents & Skills"
+      labels:
+        - agent
+        - skill
+
+    - title: "MCP Servers"
+      labels:
+        - mcp-server
+
+    - title: "Dashboard & Orchestrator"
+      labels:
+        - dashboard
+        - backend
+
+    - title: "Bug Fixes"
+      labels:
+        - bug
+        - fix
+
+    - title: "Documentation"
+      labels:
+        - documentation
+        - docs
+
+    - title: "CI & Infrastructure"
+      labels:
+        - ci
+        - infrastructure
+
+    - title: "Other Changes"
+      labels:
+        - "*"
