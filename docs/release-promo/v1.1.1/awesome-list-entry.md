@@ -14,10 +14,10 @@
 
 | Priority | Repo | Category to add to | Status |
 |----------|------|---------------------|--------|
-| 1 | `mcpso/awesome-mcp-servers` | Developer Tools | [ ] Not submitted |
-| 2 | `punkpeye/awesome-mcp-servers` | Developer Tools | [ ] Not submitted |
-| 3 | search GitHub for `awesome-claude-code` | Extensions | [ ] Not submitted |
-| 4 | `awesome-ai-tools` (any) | Developer Tools | [ ] Not submitted |
-| 5 | `awesome-anthropic` (any) | Open Source | [ ] Not submitted |
+| 1 | `hesreallyhim/awesome-claude-code` | Tooling → General | [x] Fork pronta — apri PR dal browser: github.com/claude-dev-suite/awesome-claude-code |
+| 2 | `punkpeye/awesome-mcp-servers` | Developer Tools | [ ] Non sottomessa |
+| 3 | `appcypher/awesome-mcp-servers` | Development Tools | [ ] Non sottomessa |
+| 4 | `VoltAgent/awesome-claude-code-subagents` | Meta & Orchestration | [ ] Non sottomessa |
+| 5 | `awesome-anthropic` (any) | Open Source | [ ] Non sottomessa |
 
 ## Run `/awesome-list-pr <repo>` to generate the full PR body for each target.
