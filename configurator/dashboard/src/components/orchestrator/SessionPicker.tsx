@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../stores/project.store';
 
 interface SessionInfo {
@@ -23,13 +23,7 @@ export function SessionPicker({ isOpen, onClose, onSelect, currentSessionId }: S
   const [error, setError] = useState<string | null>(null);
   const projectPath = useProjectStore(s => s.projectPath);
 
-  useEffect(() => {
-    if (isOpen && projectPath) {
-      loadSessions();
-    }
-  }, [isOpen, projectPath]);
-
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     if (!projectPath) return;
 
     setLoading(true);
@@ -51,7 +45,13 @@ export function SessionPicker({ isOpen, onClose, onSelect, currentSessionId }: S
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectPath]);
+
+  useEffect(() => {
+    if (isOpen && projectPath) {
+      loadSessions();
+    }
+  }, [isOpen, projectPath, loadSessions]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);

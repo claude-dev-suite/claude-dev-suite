@@ -38,7 +38,7 @@ export function HooksConfig({ projectPath }: HooksConfigProps) {
     if (hooksData.gitHooksStatus) {
       gitHooksForm.initializeFromStatus(hooksData.gitHooksStatus);
     }
-  }, [hooksData.gitHooksStatus]);
+  }, [hooksData.gitHooksStatus, gitHooksForm]);
 
   // Handlers
   const handleSaveGitHooks = async () => {

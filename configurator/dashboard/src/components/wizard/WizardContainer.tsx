@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { DetectionResponse, WizardMode, ScaffoldResult } from '@/types';
 import { ModeSelection } from './ModeSelection';
 import { Step0TemplateSelect } from './Step0TemplateSelect';
@@ -73,11 +73,15 @@ export function WizardContainer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track previous initialPath to detect external updates (e.g., from Electron API)
+  const prevInitialPathRef = useRef(initialPath);
+
   // Sync projectPath when initialPath changes (e.g., from Electron API)
   useEffect(() => {
-    if (initialPath && initialPath !== state.projectPath) {
+    if (initialPath && initialPath !== prevInitialPathRef.current) {
+      prevInitialPathRef.current = initialPath;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState((prev) => ({ ...prev, projectPath: initialPath }));
-      // If initialPath is provided externally, skip mode selection
       setWizardMode('configure');
     }
   }, [initialPath]);

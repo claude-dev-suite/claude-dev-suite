@@ -19,7 +19,7 @@
  * ```
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useApi, invalidateCache } from './useApi';
 import { useMutation } from './useMutation';
 import type {
@@ -73,7 +73,7 @@ export function useTemplates(options: UseTemplatesOptions = {}): UseTemplatesRes
     refetch,
   } = useApi<TemplatesListResponse>('/api/templates', { skip });
 
-  const templates = data?.templates || [];
+  const templates = useMemo(() => data?.templates ?? [], [data?.templates]);
 
   const filterByCategory = useCallback(
     (category: TemplateCategory | 'all'): TemplateListItem[] => {

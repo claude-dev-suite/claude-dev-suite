@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { InstalledComponentsResponse, NewComponentsResponse } from '@/types';
 import { AgentsList } from './AgentsList';
 import { McpServersList } from './McpServersList';
@@ -29,7 +29,7 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
   const [errorObj, setErrorObj] = useState<ApiError | null>(null);
 
   // Fetch new components available since install
-  const fetchNewComponents = async () => {
+  const fetchNewComponents = useCallback(async () => {
     try {
       const res = await apiGet<{ success: boolean; data: NewComponentsResponse }>(
         `/api/management/new-components?path=${encodeURIComponent(projectPath)}`
@@ -40,10 +40,10 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
     } catch {
       // Non-critical — silently ignore
     }
-  };
+  }, [projectPath]);
 
   // Fetch installed components
-  const fetchInstalled = async () => {
+  const fetchInstalled = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -59,12 +59,12 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectPath]);
 
   useEffect(() => {
     fetchInstalled();
     fetchNewComponents();
-  }, [projectPath]);
+  }, [fetchInstalled, fetchNewComponents]);
 
   const handleUninstall = async () => {
     if (!confirm('Are you sure you want to uninstall Dev-Suite from this project?')) {

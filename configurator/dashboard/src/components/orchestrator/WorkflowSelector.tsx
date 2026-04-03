@@ -7,7 +7,7 @@ export interface Workflow {
   description?: string;
   compatible?: boolean;
   missingAgents?: string[];
-  subTasks?: any[];
+  subTasks?: unknown[];
   mcpServers?: string[];
 }
 

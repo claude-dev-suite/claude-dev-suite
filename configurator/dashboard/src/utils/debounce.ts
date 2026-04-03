@@ -18,7 +18,7 @@
  * debouncedSearch('abc'); // Only this will execute after 300ms
  * ```
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
   fn: T,
   delay: number
 ): (...args: Parameters<T>) => void {

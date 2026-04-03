@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import type { Job, WsMessage, QueueStatusPayload, JobContextSummary } from '@/types';
 import { API_BASE } from '@/utils/api';
 import { useComponentLogger } from '@/hooks/useComponentLogger';
@@ -8,7 +8,7 @@ import { config } from '@/config';
 export interface UseOrchestratorWebSocketOptions {
   projectPath: string;
   onJobStarted?: (job: Job) => void;
-  onJobComplete?: (sessionId: string | null, recap: any, jobContext?: JobContextSummary) => void;
+  onJobComplete?: (sessionId: string | null, recap: unknown, jobContext?: JobContextSummary) => void;
   onJobError?: (error: string) => void;
   onJobCancelled?: () => void;
   onAgentStarted?: (agentId: string) => void;
@@ -22,7 +22,7 @@ export interface UseOrchestratorWebSocketOptions {
   onToolUse?: (toolName: string, toolInput?: string) => void;
   onWarning?: (message: string) => void;
   onError?: (message: string) => void;
-  onBatchComplete?: (summary: any) => void;
+  onBatchComplete?: (summary: unknown) => void;
   onQueueStatus?: (status: QueueStatusPayload) => void;
   onQueueCleared?: (clearedCount: number) => void;
   onJobRemoved?: (jobId: string) => void;
@@ -82,10 +82,15 @@ export function useOrchestratorWebSocket(
   const wsPortRef = useRef<number>(config.websocket.port);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientIdRef = useRef<string>(crypto.randomUUID());
+  // Ref to hold connect callback to avoid forward-reference issue in useCallback
+  const connectRef = useRef<() => Promise<void>>();
 
   // Store options in ref to avoid re-renders causing reconnection loops
   const optionsRef = useRef(options);
-  optionsRef.current = options;
+  // Keep optionsRef in sync using useLayoutEffect to avoid render-time ref mutation
+  useLayoutEffect(() => {
+    optionsRef.current = options;
+  });
 
   // Handle incoming WebSocket messages
   const handleMessage = useCallback((message: WsMessage) => {
@@ -113,7 +118,7 @@ export function useOrchestratorWebSocket(
             prompt: payload.prompt as string || '',
             status: 'running',
             createdAt: new Date().toISOString(),
-            projectPath: options.projectPath,
+            projectPath: opts.projectPath,
           };
           opts.onJobStarted(job);
         }
@@ -260,7 +265,7 @@ export function useOrchestratorWebSocket(
       }
 
       case 'batch_complete': {
-        const batchSummary = payload.summary as any;
+        const batchSummary = payload.summary;
         if (batchSummary) {
           opts.onBatchComplete?.(batchSummary);
         }
@@ -297,7 +302,7 @@ export function useOrchestratorWebSocket(
       default:
         break;
     }
-  }, []); // Empty deps - we use optionsRef to avoid reconnection loops
+  }, [logger]); // Use optionsRef to avoid reconnection loops; logger is stable (memoized by componentName)
 
   // Connect to WebSocket
   const connect = useCallback(async () => {
@@ -361,7 +366,7 @@ export function useOrchestratorWebSocket(
         }
 
         setWsStatusText('Disconnected - Reconnecting in 5s...');
-        reconnectTimeoutRef.current = setTimeout(connect, config.websocket.reconnectBaseDelay * 5);
+        reconnectTimeoutRef.current = setTimeout(() => connectRef.current?.(), config.websocket.reconnectBaseDelay * 5);
       };
 
       ws.onerror = (error) => {
@@ -373,13 +378,19 @@ export function useOrchestratorWebSocket(
     } catch (err) {
       logger.error('Failed to connect to orchestrator', err);
       setWsStatusText('Failed to connect');
-      reconnectTimeoutRef.current = setTimeout(connect, config.websocket.reconnectBaseDelay * 5);
+      reconnectTimeoutRef.current = setTimeout(() => connectRef.current?.(), config.websocket.reconnectBaseDelay * 5);
     }
   }, [handleMessage, logger]);
+
+  // Keep connectRef in sync so the self-referential reconnect setTimeout can call it
+  useLayoutEffect(() => {
+    connectRef.current = connect;
+  });
 
   // Connect on mount
   useEffect(() => {
     shouldReconnectRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     connect();
 
     return () => {

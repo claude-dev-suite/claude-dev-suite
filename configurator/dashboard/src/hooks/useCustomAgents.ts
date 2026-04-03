@@ -413,9 +413,10 @@ export function useCustomAgents(projectPath: string): UseCustomAgentsResult {
     return { success: false, error: result.error };
   }, [projectPath, refetchSkills]);
 
-  // Initial fetch
+  // Initial fetch when projectPath changes - refetch triggers data loading (setState internally)
   useEffect(() => {
     if (projectPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       refetch();
       refetchSkills();
     }

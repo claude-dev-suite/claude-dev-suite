@@ -34,39 +34,7 @@ const VariableField = memo(function VariableField({
   onChange,
   allValues,
 }: VariableFieldProps) {
-  // Check conditional visibility
-  if (variable.showWhen) {
-    const dependentValue = allValues[variable.showWhen.field];
-    if (dependentValue !== variable.showWhen.equals) {
-      return null;
-    }
-  }
-
-  // Skip auto-generated and derived fields in the form (they're computed)
-  if (variable.autoGenerate) {
-    return null;
-  }
-
-  // Show derived fields as read-only
-  if (variable.derivedFrom) {
-    const sourceValue = allValues[variable.derivedFrom] || '';
-    const derivedValue = applyTransform(sourceValue, variable.derivedTransform);
-
-    return (
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-300">
-          {variable.label}
-          {variable.description && (
-            <span className="ml-2 text-xs text-gray-500">({variable.description})</span>
-          )}
-        </label>
-        <div className="px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-gray-400">
-          {derivedValue || <span className="italic">Will be derived from {variable.derivedFrom}</span>}
-        </div>
-      </div>
-    );
-  }
-
+  // All hooks must be called unconditionally before any early returns
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       onChange(variable.name, e.target.value);
@@ -99,6 +67,39 @@ const VariableField = memo(function VariableField({
     },
     [onChange, variable.name]
   );
+
+  // Check conditional visibility
+  if (variable.showWhen) {
+    const dependentValue = allValues[variable.showWhen.field];
+    if (dependentValue !== variable.showWhen.equals) {
+      return null;
+    }
+  }
+
+  // Skip auto-generated and derived fields in the form (they're computed)
+  if (variable.autoGenerate) {
+    return null;
+  }
+
+  // Show derived fields as read-only
+  if (variable.derivedFrom) {
+    const sourceValue = allValues[variable.derivedFrom] || '';
+    const derivedValue = applyTransform(sourceValue, variable.derivedTransform);
+
+    return (
+      <div className="space-y-1">
+        <label className="block text-sm font-medium text-gray-300">
+          {variable.label}
+          {variable.description && (
+            <span className="ml-2 text-xs text-gray-500">({variable.description})</span>
+          )}
+        </label>
+        <div className="px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-gray-400">
+          {derivedValue || <span className="italic">Will be derived from {variable.derivedFrom}</span>}
+        </div>
+      </div>
+    );
+  }
 
   // Render based on type
   if (variable.type === 'select' && variable.options) {

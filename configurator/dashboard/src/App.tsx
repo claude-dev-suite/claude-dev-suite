@@ -72,7 +72,7 @@ export function App() {
     // Periodic health check
     const interval = setInterval(checkHealth, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [setServerConnected]);
 
   // Get project path from URL or electron
   useEffect(() => {
@@ -151,7 +151,7 @@ export function App() {
   const handleStartReview = useCallback((job: unknown) => {
     setPendingJob(job);
     setCurrentPanel('orchestrator');
-  }, []);
+  }, [setCurrentPanel]);
 
   // Render current panel content with granular error boundaries
   // OrchestratorPanel is always mounted to preserve console output state

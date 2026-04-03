@@ -40,7 +40,7 @@ export function AgentsList({ projectPath, installedAgents, newAgents = [], onRef
       }
     };
     fetchAgents();
-  }, []);
+  }, [logger]);
 
   const handleRemove = async (agentId: string) => {
     if (!confirm(`Remove agent "${agentId}"?`)) return;

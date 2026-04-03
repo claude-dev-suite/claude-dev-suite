@@ -108,7 +108,7 @@ export function Console({ output, size = 'md', onSizeChange, className, minimal 
     if (containerRef.current && autoScrollRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [output]);
+  }, [output, containerRef]);
 
   // Handle scroll to detect if user scrolled up
   const handleScroll = () => {

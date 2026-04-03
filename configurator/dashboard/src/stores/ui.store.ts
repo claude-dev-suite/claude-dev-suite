@@ -23,7 +23,7 @@ type Panel = 'wizard' | 'orchestrator' | 'code-review' | 'codegen' | 'usage' | '
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 // Tool Window types - Right side (full height panels)
-export type ToolWindowId = 'git' | 'manage' | 'analytics';
+export type ToolWindowId = 'git' | 'manage' | 'analytics' | 'files';
 
 // Bottom Tool Window types - Bottom bar (quarter height panels)
 export type BottomToolWindowId = 'terminal' | 'logs';
@@ -179,6 +179,7 @@ const initialToolWindows: Record<ToolWindowId, ToolWindowState> = {
   git: { isOpen: false, width: DEFAULT_TOOL_WINDOW_WIDTH },
   manage: { isOpen: false, width: 400 },
   analytics: { isOpen: false, width: 400 },
+  files: { isOpen: false, width: 480 },
 };
 
 const initialBottomToolWindows: Record<BottomToolWindowId, BottomToolWindowState> = {

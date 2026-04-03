@@ -43,7 +43,7 @@ export function AddAgentModal({
       };
       fetchAgents();
     }
-  }, [isOpen]);
+  }, [isOpen, logger]);
 
   // Reset selection when modal closes
   useEffect(() => {

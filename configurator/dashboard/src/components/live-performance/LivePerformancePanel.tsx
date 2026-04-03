@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button, Badge, Card } from '../common';
 import { API_BASE } from '@/utils/api';
 import clsx from 'clsx';
@@ -69,7 +69,7 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
   // Load environments on mount
   useEffect(() => {
     fetchEnvironments();
-  }, [projectPath]);
+  }, [projectPath, fetchEnvironments]);
 
   // Auto-refresh logic
   useEffect(() => {
@@ -81,9 +81,9 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
     return () => {
       if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
     };
-  }, [autoRefresh, environments]);
+  }, [autoRefresh, environments, checkAllStatuses]);
 
-  const fetchEnvironments = async () => {
+  const fetchEnvironments = useCallback(async () => {
     try {
       const res = await fetch(
         `${API_BASE}/api/live-performance/environments?path=${encodeURIComponent(projectPath)}`
@@ -96,7 +96,7 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
     } catch {
       // non-critical on load
     }
-  };
+  }, [projectPath]);
 
   const saveEnvironments = async (envs: AppEnvironment[]) => {
     setSaving(true);
@@ -147,7 +147,7 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
     }
   };
 
-  const checkStatus = async (env: AppEnvironment): Promise<EnvStatus> => {
+  const checkStatus = useCallback(async (env: AppEnvironment): Promise<EnvStatus> => {
     const base: EnvStatus = {
       envId: env.id,
       appReachable: false,
@@ -183,9 +183,9 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
     }
 
     return base;
-  };
+  }, [projectPath]);
 
-  const checkAllStatuses = async (envs: AppEnvironment[]) => {
+  const checkAllStatuses = useCallback(async (envs: AppEnvironment[]) => {
     setChecking(true);
     const results = await Promise.all(envs.map(checkStatus));
     setStatuses((prev) => {
@@ -194,7 +194,7 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
       return next;
     });
     setChecking(false);
-  };
+  }, [checkStatus]);
 
   const openAddForm = () => {
     setEditingId(null);

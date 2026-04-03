@@ -43,7 +43,7 @@ export function Step4Environment({
       }
     };
     fetchEnvironments();
-  }, [projectPath]);
+  }, [projectPath, selectedEnv]);
 
   // Fetch required env vars for selected MCP servers
   useEffect(() => {
@@ -82,7 +82,7 @@ export function Step4Environment({
       }
     };
     fetchEnvVars();
-  }, [selectedMcpServers, projectPath, selectedEnv]);
+  }, [selectedMcpServers, projectPath, selectedEnv, envVars, onEnvVarChange]);
 
   // Environment options for select
   const envOptions = useMemo(() => {

@@ -50,7 +50,7 @@ export function SkillGenerationChat({
 
   // Auto-validation feedback loop refs (stable closures via refs)
   const onValidateRef = useRef(onValidate);
-  onValidateRef.current = onValidate;
+  useEffect(() => { onValidateRef.current = onValidate; }, [onValidate]);
   const pendingContentRef = useRef<string | null>(null);
   const autoFixCountRef = useRef(0);
   const autoFixSendRef = useRef<((msg: string) => void) | null>(null);
@@ -167,14 +167,16 @@ export function SkillGenerationChat({
   });
 
   // Keep auto-fix send ref current (reads latest sendChatMessage + chatSessionId)
-  autoFixSendRef.current = (msg: string) => {
-    const readOnlyTools = ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch'];
-    if (chatSessionId) {
-      sendChatMessage(msg, chatSessionId, true, undefined, readOnlyTools);
-    } else {
-      sendChatMessage(msg, undefined, undefined, undefined, readOnlyTools);
-    }
-  };
+  useEffect(() => {
+    autoFixSendRef.current = (msg: string) => {
+      const readOnlyTools = ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch'];
+      if (chatSessionId) {
+        sendChatMessage(msg, chatSessionId, true, undefined, readOnlyTools);
+      } else {
+        sendChatMessage(msg, undefined, undefined, undefined, readOnlyTools);
+      }
+    };
+  }, [chatSessionId, sendChatMessage]);
 
   // Start a fresh chat session on mount
   const hasInitializedRef = useRef(false);

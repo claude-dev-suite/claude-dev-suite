@@ -43,7 +43,7 @@ export function AddMcpModal({
       };
       fetchServers();
     }
-  }, [isOpen]);
+  }, [isOpen, logger]);
 
   // Reset state when modal closes
   useEffect(() => {

@@ -34,6 +34,7 @@ export function JobQueuePanel({
   // Auto-refresh when expanded (reduced to 30s fallback since server pushes updates automatically)
   useEffect(() => {
     if (isExpanded && connected) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       refreshStatus(); // Initial fetch when expanded
       // Polling reduced to 30s as fallback - server now pushes queue_status on every change
       const interval = setInterval(refreshStatus, 30000);
@@ -44,6 +45,7 @@ export function JobQueuePanel({
   // Update lastUpdated when queueStatus changes
   useEffect(() => {
     if (queueStatus) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLastUpdated(new Date());
     }
   }, [queueStatus]);

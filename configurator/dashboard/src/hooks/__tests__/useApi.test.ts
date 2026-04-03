@@ -25,8 +25,7 @@ const createMockResponse = (data: unknown, ok = true, status = 200) =>
   });
 
 describe('useApi', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let fetchSpy: any;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();

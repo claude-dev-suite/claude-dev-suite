@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+/* eslint-disable react-refresh/only-export-components -- buildFileTree utility and FileTreeNode type are co-located with the component that uses them */
 /**
  * FileTree component for displaying git changes in a tree structure
  */

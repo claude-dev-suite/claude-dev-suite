@@ -49,6 +49,7 @@ export function RecipeEditorModal({
     for (const opt of recipe.options) {
       initial[opt.id] = currentOptions?.[opt.id] ?? opt.defaultValue;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOptions(initial);
   }, [recipe, currentOptions, isOpen]);
 

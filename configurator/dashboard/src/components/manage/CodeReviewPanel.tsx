@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button, Badge, Card, Select } from '../common';
 import { FileTreePicker, type FileTreeNode } from './FileTreePicker';
 import { API_BASE } from '@/utils/api';
@@ -60,7 +60,7 @@ export function CodeReviewPanel({ projectPath, onStartReview, onOpenMcpSettings 
   const [selectedRepo, setSelectedRepo] = useState<string>('');
 
   // Fetch repositories for multi-repo support
-  const fetchRepositories = async () => {
+  const fetchRepositories = useCallback(async () => {
     try {
       log.info('Fetching repositories...', { projectPath });
       const res = await fetch(`${API_BASE}/api/hooks/repositories?path=${encodeURIComponent(projectPath)}`);
@@ -82,10 +82,10 @@ export function CodeReviewPanel({ projectPath, onStartReview, onOpenMcpSettings 
       log.error('Failed to fetch repositories:', err);
       // Non-critical error, don't show to user
     }
-  };
+  }, [projectPath, selectedRepo]);
 
   // Fetch review options
-  const fetchOptions = async () => {
+  const fetchOptions = useCallback(async () => {
     try {
       setLoading(true);
       log.info('Fetching code review options...');
@@ -108,10 +108,10 @@ export function CodeReviewPanel({ projectPath, onStartReview, onOpenMcpSettings 
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Fetch file tree for full project scope
-  const fetchFileTree = async () => {
+  const fetchFileTree = useCallback(async () => {
     try {
       // Build path - combine project path with repo if multi-repo
       const targetPath = selectedRepo && repositories.length > 1
@@ -146,13 +146,13 @@ export function CodeReviewPanel({ projectPath, onStartReview, onOpenMcpSettings 
       log.error('Failed to fetch file tree:', err);
       setError('Failed to load file tree');
     }
-  };
+  }, [projectPath, selectedRepo, repositories.length]);
 
   // Initialize
   useEffect(() => {
     fetchOptions();
     fetchRepositories();
-  }, [projectPath]);
+  }, [projectPath, fetchOptions, fetchRepositories]);
 
   // Fetch file tree when scope changes to full-project or repo changes
   useEffect(() => {
@@ -162,7 +162,7 @@ export function CodeReviewPanel({ projectPath, onStartReview, onOpenMcpSettings 
       setFileTree([]);
       setSelectedPaths([]);
     }
-  }, [scope, projectPath, selectedRepo]);
+  }, [scope, projectPath, selectedRepo, fetchFileTree]);
 
   // Toggle agent selection
   const toggleAgent = (agentId: string) => {

@@ -76,44 +76,39 @@ function waitForScrollSettle(el: Element): Promise<void> {
  * scroll far enough, falls back to scrollIntoView('nearest') to
  * at least get the element on-screen.
  */
-function scrollElementToCenter(el: Element): Promise<void> {
-  return new Promise(async (resolve) => {
-    // If already visible with margin, skip scroll
-    if (isElementVisible(el)) {
-      resolve();
-      return;
-    }
+async function scrollElementToCenter(el: Element): Promise<void> {
+  // If already visible with margin, skip scroll
+  if (isElementVisible(el)) {
+    return;
+  }
 
-    const scrollParent = findScrollParent(el);
+  const scrollParent = findScrollParent(el);
 
-    if (scrollParent) {
-      // Scroll within the overflow container to center the element
-      const parentRect = scrollParent.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
+  if (scrollParent) {
+    // Scroll within the overflow container to center the element
+    const parentRect = scrollParent.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
 
-      const elCenter = elRect.top + elRect.height / 2;
-      const parentCenter = parentRect.top + parentRect.height / 2;
-      const scrollDelta = elCenter - parentCenter;
+    const elCenter = elRect.top + elRect.height / 2;
+    const parentCenter = parentRect.top + parentRect.height / 2;
+    const scrollDelta = elCenter - parentCenter;
 
-      scrollParent.scrollBy({ top: scrollDelta, behavior: 'smooth' });
-    } else {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    scrollParent.scrollBy({ top: scrollDelta, behavior: 'smooth' });
+  } else {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
+  await waitForScrollSettle(el);
+
+  // After first scroll attempt, check if element is at least on-screen.
+  // If not (e.g. element at very bottom of content), try scrollIntoView.
+  const rect = el.getBoundingClientRect();
+  const onScreen = rect.top >= 0 && rect.bottom <= window.innerHeight;
+
+  if (!onScreen) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     await waitForScrollSettle(el);
-
-    // After first scroll attempt, check if element is at least on-screen.
-    // If not (e.g. element at very bottom of content), try scrollIntoView.
-    const rect = el.getBoundingClientRect();
-    const onScreen = rect.top >= 0 && rect.bottom <= window.innerHeight;
-
-    if (!onScreen) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      await waitForScrollSettle(el);
-    }
-
-    resolve();
-  });
+  }
 }
 
 function useSpotlightPosition(target: string | undefined, isActive: boolean) {
@@ -139,11 +134,14 @@ function useSpotlightPosition(target: string | undefined, isActive: boolean) {
   // Main effect: when target changes, find element, scroll into view, then track
   useEffect(() => {
     if (!target || !isActive) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRect(null);
       return;
     }
 
     let cancelled = false;
+    // Capture ref value so the cleanup function uses the same timeout id
+    const currentRetryRef = retryRef;
 
     const setup = async () => {
       // Try to find the element (with retries for preAction rendering)
@@ -186,7 +184,7 @@ function useSpotlightPosition(target: string | undefined, isActive: boolean) {
 
     return () => {
       cancelled = true;
-      clearTimeout(retryRef.current);
+      clearTimeout(currentRetryRef.current);
       observerRef.current?.disconnect();
       window.removeEventListener('resize', updateRect);
       window.removeEventListener('scroll', updateRect, true);
