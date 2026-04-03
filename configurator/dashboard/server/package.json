@@ -20,7 +20,7 @@
     "express-rate-limit": "^7.4.1",
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
-    "helmet": "^7.1.0",
+    "helmet": "^8.1.0",
     "multer": "^2.0.2",
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
