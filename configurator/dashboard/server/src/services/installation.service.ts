@@ -544,12 +544,29 @@ export class InstallationService {
           // Strip NODE_OPTIONS to avoid tsx loader conflicts in child process
           const cleanEnv = { ...process.env };
           delete cleanEnv.NODE_OPTIONS;
-          execSync('npm install --omit=dev', {
-            cwd: serverDest,
-            stdio: 'pipe',
-            timeout: TIMEOUTS.NPM_INSTALL,
-            env: cleanEnv,
-          });
+
+          // Prefer calling npm-cli.js directly via the current node executable to avoid
+          // npm.cmd path resolution issues in Electron (bundled node may lack node_modules/npm).
+          const nodeExe = process.execPath;
+          const nodeDir = path.dirname(nodeExe);
+          const npmCli = path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js');
+
+          if (fs.existsSync(npmCli)) {
+            execFileSync(nodeExe, [npmCli, 'install', '--omit=dev'], {
+              cwd: serverDest,
+              stdio: 'pipe',
+              timeout: TIMEOUTS.NPM_INSTALL,
+              env: cleanEnv,
+            });
+          } else {
+            // Fall back to system npm (dev mode or system node)
+            execSync('npm install --omit=dev', {
+              cwd: serverDest,
+              stdio: 'pipe',
+              timeout: TIMEOUTS.NPM_INSTALL,
+              env: cleanEnv,
+            });
+          }
         } catch (npmError: unknown) {
           const msg = npmError instanceof Error ? npmError.message : String(npmError);
           const stderr = (npmError as { stderr?: Buffer })?.stderr?.toString() || '';

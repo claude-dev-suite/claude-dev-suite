@@ -72,6 +72,20 @@ jobs:
           mv "node-v${NODE_VERSION}-win-x64" node
           rm node.zip
 
+      - name: Ensure npm is available in bundled Node
+        working-directory: configurator/dashboard
+        shell: bash
+        run: |
+          NPM_CLI="node/node_modules/npm/bin/npm-cli.js"
+          if [ ! -f "$NPM_CLI" ]; then
+            echo "npm-cli.js not found in bundled node — copying from system npm..."
+            SYSTEM_NPM=$(npm root -g)/npm
+            mkdir -p node/node_modules
+            cp -r "$SYSTEM_NPM" node/node_modules/npm
+          fi
+          ls "$NPM_CLI"
+          echo "npm-cli.js OK"
+
       - name: Build frontend
         working-directory: configurator/dashboard
         run: npm run build
