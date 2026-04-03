@@ -98,7 +98,7 @@ export class JobQueueService {
         systemPrompt: { type: 'preset', preset: 'claude_code' },
         settingSources: ['project'],
         allowedTools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
-        permissionMode: this.config.job.permissionMode,
+        permissionMode: (this.config.job.permissionMode === 'interactive' ? 'default' : this.config.job.permissionMode) as 'default' | 'acceptEdits' | 'bypassPermissions',
         abortController: this.state.abortController || undefined,
         ...(this.config.job.maxTurns !== undefined && { maxTurns: this.config.job.maxTurns }),
         ...(this.config.job.maxBudgetUsd > 0 && { maxBudgetUsd: this.config.job.maxBudgetUsd }),

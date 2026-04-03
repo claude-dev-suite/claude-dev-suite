@@ -267,7 +267,7 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
           systemPrompt: { type: 'preset', preset: 'claude_code' },
           settingSources: ['project'],
           allowedTools: clientAllowedTools || ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
-          permissionMode: hasJobContext ? 'acceptEdits' : this.config.chat.permissionMode,
+          permissionMode: (hasJobContext ? 'acceptEdits' : (this.config.chat.permissionMode === 'interactive' ? 'default' : this.config.chat.permissionMode)) as 'default' | 'acceptEdits' | 'bypassPermissions',
           abortController: this.state.abortController,
           ...(this.config.chat.maxTurns !== undefined && { maxTurns: this.config.chat.maxTurns }),
           ...(this.config.chat.maxBudgetUsd > 0 && { maxBudgetUsd: this.config.chat.maxBudgetUsd }),
