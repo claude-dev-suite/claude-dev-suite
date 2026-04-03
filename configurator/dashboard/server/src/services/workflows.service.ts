@@ -14,7 +14,7 @@ import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 const AGENT_ROLES: Record<string, string[]> = {
   'backend': ['spring-boot-expert', 'nestjs-expert', 'fastapi-expert', 'go-expert', 'rust-expert', 'deno-expert'],
   'frontend': ['react-expert', 'vue-expert', 'svelte-expert', 'nextjs-expert'],
-  'testing': ['vitest-expert', 'playwright-expert', 'qa-expert'],
+  'testing': ['vitest-expert', 'playwright-expert', 'qa-expert', 'spring-boot-integration-test-expert', 'python-integration-test-expert'],
   'testing-backend': ['spring-boot-integration-test-expert', 'qa-expert'],
   'testing-frontend': ['vitest-expert', 'playwright-expert'],
   'database': ['prisma-expert', 'sql-expert', 'mongodb-expert'],
@@ -25,7 +25,7 @@ const AGENT_ROLES: Record<string, string[]> = {
 const BACKEND_TESTING_MAP: Record<string, string> = {
   'spring-boot-expert': 'spring-boot-integration-test-expert',
   'nestjs-expert': 'vitest-expert',
-  'fastapi-expert': 'qa-expert',
+  'fastapi-expert': 'python-integration-test-expert',
   'go-expert': 'qa-expert',
   'rust-expert': 'qa-expert',
   'deno-expert': 'vitest-expert'
@@ -336,8 +336,9 @@ export class WorkflowsService {
           resolvedSubTasks.push({ ...task, agentId: resolved, dependencies: resolvedDeps });
         } else {
           // Could not resolve - add to missing
-          const roleName = task.agentId.match(/^\{(\w+)\}$/)
-            ? task.agentId.replace(/[{}]/g, '') + ' expert'
+          const roleMatch2 = task.agentId.match(/^\{(\w+)\}$/);
+          const roleName = roleMatch2
+            ? `${roleMatch2[1]} agent (install: ${(AGENT_ROLES[roleMatch2[1]] ?? []).slice(0, 3).join(', ')})`
             : task.agentId;
           if (!missingAgents.includes(roleName)) {
             missingAgents.push(roleName);

@@ -42,7 +42,7 @@ export function WorkflowSelector({
       .filter((w) => w.compatible === false)
       .map((w) => ({
         value: `builtin:${w.id}`,
-        label: `${w.name} (missing: ${w.missingAgents?.join(', ')})`,
+        label: `${w.name} ⚠ ${w.missingAgents?.join('; ')}`,
         description: w.description,
         disabled: true,
       })),
