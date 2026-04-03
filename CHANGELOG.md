@@ -10,6 +10,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.1.2] - 2026-04-03
+
+### Added
+
+- **creative-frontend-expert** agent — advanced animation (Framer Motion, GSAP), Three.js/R3F, SVG animation, Canvas/WebGL, advanced CSS effects
+- **6 New Skills** — `animation/framer-motion`, `animation/gsap`, `graphics/three-js`, `graphics/svg-animation`, `graphics/canvas-webgl`, `styling/advanced-css-effects`
+- **Files viewer API** — new `files.routes.ts` with read-only project file browsing endpoints
+
+### Fixed
+
+- **MCP server preparation** (`/prepare-servers`): route was ignoring the `failed[]` return value and always responding `success: true` even when individual servers failed to build
+- **Install error message**: `Step5Install` was swallowing the real backend error and showing a generic message; now surfaces the actual error from the response body
+- **Electron packaged app**: `prepareServers()` was attempting `npm install` on the pre-built `resources/dev-suite/mcp-servers/` directory (no `node_modules`, potentially read-only), throwing "Failed to install MCP dependencies" before installation even started; now skips npm install when all requested server `dist/index.js` files already exist
+- **MCP server `npm install`**: `installMcpServer()` invoked npm via `npm.cmd` which looks for `npm-cli.js` relative to itself — unreliable in Electron where the bundled node's `node_modules/npm/` may be stripped; now calls `npm-cli.js` directly via `process.execPath`, falling back to system npm
+- **Orchestrator path validation**: projects outside the home directory or on a different drive (e.g. `D:\projects\...`) were rejected with "Path must be within allowed workspace directories"; fixed by adding `PROJECT_PATH` (set by Electron at launch) to allowed roots and making comparisons case-insensitive on Windows
+- **TypeScript build errors** (pre-existing, blocked CI): `useEffect` TDZ in `LivePerformancePanel`, `useRef` React 19 regression in `useOrchestratorWebSocket`, `unknown`-typed `summary`/`st` in `OrchestratorPanel`
+
+---
+
 ## [1.1.1] - 2026-03-15
 
 ### Added

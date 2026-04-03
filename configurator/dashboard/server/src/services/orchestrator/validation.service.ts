@@ -71,6 +71,11 @@ export class ValidationService {
       roots.push(path.normalize(process.env.WORKSPACE_ROOT));
     }
 
+    // Project path set by Electron launcher — covers projects on any drive (e.g. D:\)
+    if (process.env.PROJECT_PATH) {
+      roots.push(path.normalize(process.env.PROJECT_PATH));
+    }
+
     return roots;
   }
 
@@ -78,12 +83,16 @@ export class ValidationService {
    * Check if a path escapes allowed workspace boundaries
    */
   private isPathWithinAllowedRoots(resolvedPath: string, allowedRoots: string[]): boolean {
-    const normalizedPath = path.normalize(resolvedPath);
+    // On Windows paths are case-insensitive
+    const isWindows = process.platform === 'win32';
+    const normalizedPath = isWindows
+      ? path.normalize(resolvedPath).toLowerCase()
+      : path.normalize(resolvedPath);
 
-    // Path must start with at least one allowed root
     return allowedRoots.some(root => {
-      // Ensure root and path use same separator format for comparison
-      const normalizedRoot = path.normalize(root);
+      const normalizedRoot = isWindows
+        ? path.normalize(root).toLowerCase()
+        : path.normalize(root);
       return normalizedPath.startsWith(normalizedRoot);
     });
   }
