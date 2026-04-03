@@ -42,9 +42,9 @@
 
 Dev-Suite transforms Claude Code into a full-stack development powerhouse by providing:
 
-- **47 Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, data engineering, industrial automation (DCS/PLC), testing (Jest/Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter), messaging, and more
+- **49 Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, data engineering, industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
 - **10 MCP Servers** - Extend Claude with 79 tools for documentation, databases, Docker, API testing, logs, performance profiling, security scanning, and more
-- **337+ Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI integration, and more
+- **345+ Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI integration, animation, 3D graphics, and more
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
 - **10 Project Templates** - Scaffolding for React, Next.js, Spring Boot, FastAPI, NestJS, and more
 - **Task Orchestrator** - Submit complex multi-agent tasks from the GUI with real-time streaming updates
@@ -185,6 +185,17 @@ Dashboard → Upload Spec → Deterministic Generation → AI Refinement → Acc
 4. Choose target language, framework, and output directory
 5. Preview → Generate → Optionally refine with Claude
 
+#### **File Viewer**
+
+Browse and inspect your project files directly from the dashboard:
+
+- **File tree navigation** - Collapsible directory tree with smart filtering (skips `node_modules`, `dist`, `.git`, etc.)
+- **Syntax highlighting** - VS Code-quality highlighting via [shiki](https://shiki.style/) for TypeScript, Python, Rust, Go, Java, JSON, YAML, Markdown, and 50+ languages
+- **Read-only safety** - View any file up to 500 KB without risk of accidental edits
+- **Path breadcrumb** - Always shows the full path of the open file
+
+Access from the **Files** tab in the right tool window bar.
+
 ---
 
 ### MCP Servers
@@ -214,7 +225,7 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 
 Domain experts with deep knowledge in specific technologies:
 
-**47 agents** organized by domain:
+**49 agents** organized by domain:
 
 #### Core Agents
 - **architect** - System design, architecture decisions, trade-offs
@@ -222,6 +233,7 @@ Domain experts with deep knowledge in specific technologies:
 - **python-expert** - Python 3.10-3.14, async patterns, package management, ruff, pydantic
 - **typescript-expert** - TypeScript 5, advanced types, strict configuration
 - **nodejs-expert** - Event loop, async patterns, streams, worker threads
+- **accessibility-expert** - WCAG 2.2 compliance, ARIA patterns, screen reader compatibility, accessibility testing
 - **dashboard-refactor-expert** - Dashboard React/TypeScript refactoring
 - **claude-code-extension-expert** - Claude Code extensions, skills, hooks, MCP plugins
 - **documentation-expert** - JSDoc, TSDoc, API documentation generation
@@ -232,7 +244,10 @@ Domain experts with deep knowledge in specific technologies:
 - **vue-expert** - Vue 3, Composition API, Pinia
 - **svelte-expert** - Svelte 5, SvelteKit, stores
 - **angular-expert** - Angular 17+, signals, standalone components, SSR
+- **electron-expert** - Cross-platform desktop apps, main/renderer process, IPC, auto-updates
+- **tauri-expert** - Tauri desktop apps with Rust backend, IPC, plugins, code signing
 - **ux-expert** - UX/UI design, visual hierarchy, design systems, interaction design, mobile UX, dark mode
+- **creative-frontend-expert** - Advanced animation (Framer Motion, GSAP), Three.js/R3F, SVG animation, Canvas/WebGL, advanced CSS effects
 
 #### Backend Agents
 - **spring-boot-expert** - Spring Boot 3, JPA, Security, REST APIs
@@ -289,10 +304,12 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 
 ### Skills & Knowledge Base
 
-**337+ Skills** organized by category:
+**345+ Skills** organized by category:
 
 - **Frontend**: React, Vue, Angular, Svelte, Next.js, Nuxt, TailwindCSS, shadcn/ui
 - **UX/Design**: Visual hierarchy, design tokens (W3C spec), interaction design, motion, loading states, mobile UX, color systems, ethical design
+- **Animation**: Framer Motion, GSAP (scroll-driven, timelines, morphing), CSS advanced effects (clip-path, masks, CSS Houdini, scroll-driven animations)
+- **Graphics & 3D**: Three.js/React Three Fiber, SVG animation, Canvas/WebGL, generative art, particle systems
 - **Backend**: Spring Boot, NestJS, Express, FastAPI, ASP.NET Core, Rust, Go, Deno frameworks
 - **Databases**: PostgreSQL, MySQL, MongoDB, Redis
 - **ORM/ODM**: Prisma, Drizzle, TypeORM, SQLAlchemy, Spring Data JPA
@@ -853,6 +870,7 @@ Control the dashboard and orchestrator from Claude Code.
 | **tauri-expert** | Tauri, Rust desktop apps | tauri | documentation |
 | **angular-expert** | Angular, signals, standalone, SSR, NgRx | angular, angular-routing, angular-forms, angular-http, angular-testing, angular-material, angular-ssr, ngrx, typescript | documentation |
 | **ux-expert** | UX/UI design, visual hierarchy, typography, color systems, design tokens, dark mode, interaction design, mobile UX, form UX, loading states, ethical design | ux-visual-hierarchy, ux-design-systems, ux-interaction-design, tailwindcss, shadcn-ui, wcag | documentation |
+| **creative-frontend-expert** | Advanced animation, Framer Motion, GSAP + ScrollTrigger, Three.js, React Three Fiber, SVG animation, Canvas 2D, WebGL, CSS clip-path/masks/scroll-driven/Houdini | framer-motion, gsap, three-js, svg-animation, canvas-webgl, advanced-css-effects | documentation |
 
 ### Backend Agents
 

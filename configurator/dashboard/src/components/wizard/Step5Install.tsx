@@ -64,7 +64,8 @@ export function Step5Install({
         body: JSON.stringify({ serverNames: selectedMcpServers }),
       });
       if (!prepareRes.ok) {
-        throw new Error('Failed to prepare MCP servers');
+        const errBody = await prepareRes.json().catch(() => ({})) as { error?: string };
+        throw new Error(errBody.error || 'Failed to prepare MCP servers');
       }
       updateStep('prepare', 'completed');
 

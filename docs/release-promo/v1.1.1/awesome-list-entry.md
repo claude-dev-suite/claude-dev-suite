@@ -14,7 +14,7 @@
 
 | Priority | Repo | Category to add to | Status |
 |----------|------|---------------------|--------|
-| 1 | `hesreallyhim/awesome-claude-code` | Tooling → General | [x] Fork pronta — apri PR dal browser: github.com/claude-dev-suite/awesome-claude-code |
+| 1 | `hesreallyhim/awesome-claude-code` | Tooling → General | ⏳ Riprova il 10 aprile con il web form ufficiale: github.com/hesreallyhim/awesome-claude-code/issues/new?template=recommend-resource.yml |
 | 2 | `punkpeye/awesome-mcp-servers` | Developer Tools | [ ] Non sottomessa |
 | 3 | `appcypher/awesome-mcp-servers` | Development Tools | [ ] Non sottomessa |
 | 4 | `VoltAgent/awesome-claude-code-subagents` | Meta & Orchestration | [ ] Non sottomessa |

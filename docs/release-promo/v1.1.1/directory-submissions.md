@@ -100,7 +100,9 @@ MIT licensed, self-hosted, works with your existing Anthropic account.
 
 | Piattaforma | Submitted | URL |
 |-------------|-----------|-----|
-| DevHunt | [ ] | — |
-| OpenSourceAlternative.to | [ ] | — |
-| daily.dev | [ ] | — |
-| AlternativeTo | [ ] | — |
+| DevHunt | [x] | https://devhunt.org/account/tools |
+| OpenSourceAlternative.to | [x] | submitted |
+| daily.dev | [ ] | indicizzazione automatica da dev.to entro 48h |
+| Reddit r/ClaudeAI | [x] | https://www.reddit.com/r/ClaudeAI/comments/1sbg81n/devsuite_specialized_agents_mcp_servers_and_a/ |
+| AlternativeTo | [ ] | ⏳ riprova il 10 aprile |
+| dev.to | [x] | https://dev.to/claudedevsuite/i-built-a-toolkit-that-turns-claude-code-into-a-full-ai-dev-suite-4k7m |

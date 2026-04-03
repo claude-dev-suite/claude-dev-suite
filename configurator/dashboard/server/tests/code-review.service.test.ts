@@ -52,7 +52,10 @@ describe('CodeReviewService', () => {
     });
 
     it('should return false for non-existing path', () => {
-      expect(codeReviewService.isValidPath('/nonexistent/path')).toBe(false);
+      // Use a path inside the temp dir that definitely does not exist
+      // (avoids cross-platform issues where '/nonexistent/path' can resolve on Windows)
+      const missingPath = path.join(projectDir, 'definitely-does-not-exist-xyz');
+      expect(codeReviewService.isValidPath(missingPath)).toBe(false);
     });
 
     it('should return false for file path', () => {

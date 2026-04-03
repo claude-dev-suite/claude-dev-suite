@@ -83,7 +83,7 @@ export function useOrchestratorWebSocket(
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientIdRef = useRef<string>(crypto.randomUUID());
   // Ref to hold connect callback to avoid forward-reference issue in useCallback
-  const connectRef = useRef<() => Promise<void>>();
+  const connectRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   // Store options in ref to avoid re-renders causing reconnection loops
   const optionsRef = useRef(options);

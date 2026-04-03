@@ -147,8 +147,9 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
       state.addOutput(`\x1b[31m✗ ${message}\x1b[0m`);
     },
     onBatchComplete: (summary) => {
+      const s = summary as { successCount: number; totalJobs: number };
       state.addOutput(
-        `\x1b[32m✓ Batch complete: ${summary.successCount}/${summary.totalJobs} succeeded\x1b[0m`
+        `\x1b[32m✓ Batch complete: ${s.successCount}/${s.totalJobs} succeeded\x1b[0m`
       );
     },
     onQueueStatus: (status) => {
@@ -406,13 +407,14 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
       const workflow = workflowList.find((w) => w.id === id);
 
       if (workflow) {
-        const tasks: SubTask[] = (workflow.subTasks || []).map((st) => ({
+        type RawSubTask = { agentId: string; title?: string; taskTemplate?: string; task?: string; priority?: string; dependencies?: string[] };
+        const tasks = ((workflow.subTasks || []) as RawSubTask[]).map((st) => ({
           agentId: st.agentId,
           title: st.title || st.agentId,
           description: st.taskTemplate || st.task || '',
-          priority: st.priority || 'normal',
+          priority: (st.priority as 'high' | 'normal') || 'normal',
           dependsOn: st.dependencies || [],
-        }));
+        })) as unknown as SubTask[];
         state.setAgentTasks(tasks);
         state.setMcpSuggestions(workflow.mcpServers || []);
       }

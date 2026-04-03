@@ -33,7 +33,7 @@ This document maps each agent to its required MCP servers and skills.
 | **dotnet-expert** | documentation, api-tester | aspnet-core, aspnet-minimal-api, aspnet-middleware, aspnet-signalr, aspnet-blazor, aspnet-identity, aspnet-validation, entity-framework-core, csharp, xunit, nunit, dotnet-quality, dotnet-security, postgresql, sql-server, swagger-dotnet, resilience-patterns, caching-strategies, webhooks, pagination, error-handling, cors-security-headers, error-tracking, health-checks, ddd |
 | **streamlit-expert** | documentation | streamlit, python, pandas, pydantic, pytest, ruff |
 
-### Frontend Agents (7)
+### Frontend Agents (9)
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
@@ -44,6 +44,8 @@ This document maps each agent to its required MCP servers and skills.
 | **electron-expert** | documentation | electron, react, typescript, nodejs, ipc |
 | **tauri-expert** | documentation | tauri, rust, typescript, svelte, vite |
 | **angular-expert** | documentation | angular, angular-routing, angular-forms, angular-http, angular-testing, angular-material, angular-ssr, typescript, ngrx, vitest, i18n |
+| **ux-expert** | documentation | ux-design, visual-hierarchy, design-tokens, interaction-design, motion-design, mobile-ux, color-systems, ethical-design |
+| **creative-frontend-expert** | documentation | animation/framer-motion, animation/gsap, graphics/three-js, graphics/svg-animation, graphics/canvas-webgl, styling/advanced-css-effects |
 
 ### Database Agents (3)
 
@@ -185,6 +187,14 @@ This document maps each agent to its required MCP servers and skills.
 ```json
 {
   "agents": ["dcs-analyst", "freelance-engineer", "automation-architect", "data-engineering-expert", "python-expert"],
+  "mcpServers": ["documentation"]
+}
+```
+
+### Creative Frontend (Landing Pages, 3D, Animation)
+```json
+{
+  "agents": ["creative-frontend-expert", "ux-expert", "react-expert"],
   "mcpServers": ["documentation"]
 }
 ```

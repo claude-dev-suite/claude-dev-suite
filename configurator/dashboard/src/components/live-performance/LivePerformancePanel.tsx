@@ -66,23 +66,6 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
   const [error, setError] = useState<string | null>(null);
   const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load environments on mount
-  useEffect(() => {
-    fetchEnvironments();
-  }, [projectPath, fetchEnvironments]);
-
-  // Auto-refresh logic
-  useEffect(() => {
-    if (autoRefresh && environments.length > 0) {
-      autoRefreshRef.current = setInterval(() => {
-        checkAllStatuses(environments);
-      }, 30000);
-    }
-    return () => {
-      if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
-    };
-  }, [autoRefresh, environments, checkAllStatuses]);
-
   const fetchEnvironments = useCallback(async () => {
     try {
       const res = await fetch(
@@ -195,6 +178,23 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
     });
     setChecking(false);
   }, [checkStatus]);
+
+  // Load environments on mount
+  useEffect(() => {
+    fetchEnvironments();
+  }, [projectPath, fetchEnvironments]);
+
+  // Auto-refresh logic
+  useEffect(() => {
+    if (autoRefresh && environments.length > 0) {
+      autoRefreshRef.current = setInterval(() => {
+        checkAllStatuses(environments);
+      }, 30000);
+    }
+    return () => {
+      if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
+    };
+  }, [autoRefresh, environments, checkAllStatuses]);
 
   const openAddForm = () => {
     setEditingId(null);

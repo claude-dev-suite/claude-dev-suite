@@ -30,12 +30,20 @@ installationRoutes.post('/prepare-servers', validateBody(PrepareServersRequestSc
     const { servers, serverNames } = req.body as { servers?: string[]; serverNames?: string[] };
     const serverList = serverNames || servers || [];
 
-    await installationService.prepareServers(serverList);
+    const result = await installationService.prepareServers(serverList);
 
-    // Return format expected by frontend
+    if (result.failed.length > 0) {
+      return res.status(500).json({
+        success: false,
+        error: `Failed to build MCP server(s): ${result.failed.join(', ')}`,
+        prepared: result.prepared,
+        failed: result.failed,
+      });
+    }
+
     return res.json({
       success: true,
-      prepared: serverList,
+      prepared: result.prepared,
     });
   } catch (err) {
     return res.status(500).json({
