@@ -6,14 +6,10 @@ on:
     paths:
       - 'configurator/dashboard/**'
       - '.github/workflows/e2e.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'configurator/dashboard/**'
-      - '.github/workflows/e2e.yml'
 
 jobs:
   e2e:
+    if: github.actor != 'dependabot[bot]'
     runs-on: windows-latest
     timeout-minutes: 45
     strategy:
