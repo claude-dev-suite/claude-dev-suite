@@ -50,8 +50,12 @@ export class InstallationService {
     const prepared: string[] = [];
     const failed: string[] = [];
 
-    // Install dependencies if needed
-    if (!fs.existsSync(path.join(mcpRoot, 'node_modules'))) {
+    // Skip npm install if all requested servers are already built (e.g. Electron packaged app)
+    const allBuilt = servers.length === 0 || servers.every(name =>
+      fs.existsSync(path.join(mcpRoot, name, 'dist', 'index.js'))
+    );
+
+    if (!allBuilt && !fs.existsSync(path.join(mcpRoot, 'node_modules'))) {
       try {
         execSync('npm ci', { cwd: mcpRoot, stdio: 'pipe', timeout: TIMEOUTS.NPM_INSTALL });
       } catch (error: unknown) {
