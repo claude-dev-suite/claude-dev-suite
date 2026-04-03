@@ -12,13 +12,24 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import express, { type Express } from 'express';
+import request from 'supertest';
 import { createTempDir, cleanupTempDir, createMockProject } from './test-utils.js';
 import { CodeGenService } from '../src/services/codegen.service.js';
 import { UsageService } from '../src/services/usage.service.js';
 import { ManagementService } from '../src/services/management.service.js';
 import { PackageInstallerService } from '../src/services/upgrade/package-installer.service.js';
+import { CustomAgentsService } from '../src/services/custom-agents.service.js';
+import { livePerformanceRoutes } from '../src/routes/live-performance.routes.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function buildLiveApp(): Express {
+  const app = express();
+  app.use(express.json());
+  app.use('/api', livePerformanceRoutes);
+  return app;
+}
 
 /** Run a function and assert it completes within a time limit (ms). */
 async function assertCompletesBefore(fn: () => unknown, limitMs: number, label: string): Promise<void> {
@@ -416,5 +427,116 @@ describe('Functional Regression — spec parsing still works', () => {
     const result = codegen.validateSpec(spec, 'process.bpmn', 'bpmn');
     expect(result.valid).toBe(true);
     expect(result.technology).toBe('bpmn');
+  });
+});
+
+// ─── SSRF Tests ───────────────────────────────────────────────────────────────
+
+describe('SSRF — live-performance /status endpoint', () => {
+  const app = buildLiveApp();
+
+  it('rejects AWS metadata endpoint (169.254.169.254)', async () => {
+    const res = await request(app)
+      .get('/api/live-performance/status')
+      .query({ url: 'http://169.254.169.254/latest/meta-data/' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/not allowed/i);
+  });
+
+  it('rejects 0.0.0.0', async () => {
+    const res = await request(app)
+      .get('/api/live-performance/status')
+      .query({ url: 'http://0.0.0.0/' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects RFC1918 private range (10.x)', async () => {
+    const res = await request(app)
+      .get('/api/live-performance/status')
+      .query({ url: 'http://10.0.0.1/admin' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects RFC1918 private range (192.168.x)', async () => {
+    const res = await request(app)
+      .get('/api/live-performance/status')
+      .query({ url: 'http://192.168.1.1/config' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects file:// and ftp:// protocols', async () => {
+    const fileRes = await request(app)
+      .get('/api/live-performance/status')
+      .query({ url: 'file:///etc/passwd' });
+    expect(fileRes.status).toBe(400);
+  });
+
+  it('allows localhost (developers run apps there)', async () => {
+    // This will attempt a real connection and fail (no server), but the validation should pass
+    const res = await request(app)
+      .get('/api/live-performance/status')
+      .query({ url: 'http://localhost:9999/' });
+    // 200 with reachable:false is fine (connection refused), 400 would be wrong
+    expect(res.status).toBe(200);
+    expect(res.body.data.reachable).toBe(false);
+  });
+
+  it('allows 127.0.0.1 (loopback)', async () => {
+    const res = await request(app)
+      .get('/api/live-performance/status')
+      .query({ url: 'http://127.0.0.1:9999/' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.reachable).toBe(false);
+  });
+});
+
+// ─── Custom Agent/Skill Name Validation ──────────────────────────────────────
+
+describe('Path Injection — CustomAgentsService name validation', () => {
+  const service = new CustomAgentsService();
+  let tempDir: string;
+
+  beforeAll(() => {
+    tempDir = createTempDir('codeql-custom-agents-');
+    createMockProject(tempDir, { packageJson: { name: 'test' }, hasGit: true });
+  });
+
+  afterAll(() => cleanupTempDir(tempDir));
+
+  const VALID_SKILL_CONTENT = `# My Skill\n\nA custom skill for testing.\n`;
+
+  it('rejects skill name with path traversal (../../etc)', async () => {
+    const result = await service.createCustomSkill(tempDir, '../../etc', VALID_SKILL_CONTENT, true);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Invalid skill name/);
+  });
+
+  it('rejects skill name with forward slash', async () => {
+    const result = await service.createCustomSkill(tempDir, 'a/b', VALID_SKILL_CONTENT, true);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Invalid skill name/);
+  });
+
+  it('rejects skill name starting with dot', async () => {
+    const result = await service.createCustomSkill(tempDir, '.hidden', VALID_SKILL_CONTENT, true);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Invalid skill name/);
+  });
+
+  it('accepts valid skill name (letters, numbers, hyphens, underscores)', async () => {
+    const result = await service.createCustomSkill(tempDir, 'my-skill-01', VALID_SKILL_CONTENT, true);
+    // A valid name must not produce an "Invalid skill name" error
+    expect(result.error ?? '').not.toMatch(/Invalid skill name/);
+  });
+
+  const VALID_AGENT_CONTENT = `---\nname: test-agent\ndescription: A test agent\n---\n\nAgent body.\n`;
+
+  it('rejects agent name with path traversal from frontmatter', async () => {
+    // Name with slashes/dots — either the schema validator or our VALID_COMPONENT_NAME check must reject it
+    const maliciousContent = `---\nname: ../../etc/evil\ndescription: A sufficiently long description to pass length check\n---\n\nBody.\n`;
+    const result = await service.createCustomAgent(tempDir, maliciousContent, true);
+    expect(result.success).toBe(false);
+    // Either caught by schema validation or by our path-traversal guard
+    expect(result.error).toBeTruthy();
   });
 });

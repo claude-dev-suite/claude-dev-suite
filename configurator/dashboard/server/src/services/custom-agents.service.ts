@@ -332,6 +332,12 @@ export class CustomAgentsService {
     const frontmatter = validation.parsedFrontmatter!;
     const agentId = frontmatter.name;
 
+    // Validate agent ID to prevent path traversal
+    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
+    if (!VALID_COMPONENT_NAME.test(agentId)) {
+      return { success: false, error: 'Invalid agent name: use letters, numbers, hyphens, underscores (max 64 chars)' };
+    }
+
     // Check if agent already exists
     const existingAgent = await this.getCustomAgent(projectPath, agentId);
     if (existingAgent) {
@@ -419,6 +425,12 @@ export class CustomAgentsService {
 
     const frontmatter = validation.parsedFrontmatter!;
     const newAgentId = frontmatter.name;
+
+    // Validate new agent ID to prevent path traversal
+    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
+    if (!VALID_COMPONENT_NAME.test(newAgentId)) {
+      return { success: false, error: 'Invalid agent name: use letters, numbers, hyphens, underscores (max 64 chars)' };
+    }
 
     // Handle rename if name changed
     const oldFilePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
@@ -618,6 +630,12 @@ export class CustomAgentsService {
         validation,
         error: 'Content has best practice warnings. Set bypassWarnings=true to ignore.',
       };
+    }
+
+    // Validate skill name to prevent path traversal
+    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
+    if (!VALID_COMPONENT_NAME.test(name)) {
+      return { success: false, error: 'Invalid skill name: use letters, numbers, hyphens, underscores (max 64 chars)' };
     }
 
     this.ensureCustomSkillsDir(projectPath);

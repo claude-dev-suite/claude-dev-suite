@@ -216,6 +216,19 @@ livePerformanceRoutes.get('/live-performance/status', async (req: Request, res: 
       return res.status(400).json({ success: false, error: 'Only http/https URLs allowed' });
     }
 
+    // SSRF protection: block link-local (AWS metadata, APIPA) and private RFC1918 ranges.
+    // localhost / 127.0.0.1 are intentionally allowed — devs run their apps there.
+    const hostname = parsedUrl.hostname;
+    if (!hostname) {
+      return res.status(400).json({ success: false, error: 'Invalid URL: missing hostname' });
+    }
+    const isLinkLocal = /^169\.254\.|^0\.0\.0\.0$|^::$/.test(hostname);
+    const isPrivate = /^10\.|^172\.(1[6-9]|2\d|3[01])\.|^192\.168\./.test(hostname);
+    const isLoopback = hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
+    if (isLinkLocal || (isPrivate && !isLoopback)) {
+      return res.status(400).json({ success: false, error: 'URL host not allowed' });
+    }
+
     const result = await checkUrl(rawUrl);
     const response: ApiResponse = { success: true, data: result };
     return res.json(response);

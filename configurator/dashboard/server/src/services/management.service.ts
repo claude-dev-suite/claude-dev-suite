@@ -670,10 +670,10 @@ export class ManagementService {
       .replace(/~{3,}/g, '')
       // Remove remaining backtick sequences
       .replace(/`+/g, '')
-      // Remove HTML comment markers
-      .replace(/<!--[\s\S]*?-->/g, '')
+      // Remove HTML comment markers (handle both --> and --!> endings)
+      .replace(/<!--[\s\S]*?(?:-->|--!>)/g, '')
       .replace(/<!--/g, '')
-      .replace(/-->/g, '')
+      .replace(/(?:-->|--!>)/g, '')
       // Strip leading Markdown heading markers
       .replace(/^#+\s*/g, '')
       // Trim leading/trailing whitespace
