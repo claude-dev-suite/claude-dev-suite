@@ -477,7 +477,7 @@ describe('OrchestratorPanel', () => {
         expect.any(Object),
         expect.any(String),
         expect.arrayContaining([
-          expect.objectContaining({ agentId: 'code-reviewer' }),
+          expect.objectContaining({ agentId: 'consolidator' }),
         ])
       );
     });
