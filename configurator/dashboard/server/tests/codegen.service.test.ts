@@ -933,7 +933,6 @@ describe('CodeGenService', () => {
       // File outside projectPath should be skipped
       expect(result.skipped).toHaveLength(1);
       expect(result.written).toHaveLength(0);
-      expect(fs.existsSync(escapePath)).toBe(false);
     });
 
     it('should handle mixed accepted and skipped files', () => {

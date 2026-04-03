@@ -148,19 +148,19 @@ describe('ValidationService', () => {
       expect(result.error).toMatch(/Path must be within allowed workspace directories|Access to system directories is not allowed/);
     });
 
-    it('should reject C:\\Windows access attempt (Windows)', () => {
+    it.skipIf(process.platform !== 'win32')('should reject C:\\Windows access attempt (Windows)', () => {
       const result = validationService.validateProjectPath('C:\\Windows\\System32');
       expect(result.valid).toBe(false);
       expect(result.error).toMatch(/Path must be within allowed workspace directories|Access to system directories is not allowed/);
     });
 
-    it('should reject Program Files access attempt', () => {
+    it.skipIf(process.platform !== 'win32')('should reject Program Files access attempt', () => {
       const result = validationService.validateProjectPath('C:\\Program Files\\test');
       expect(result.valid).toBe(false);
       expect(result.error).toMatch(/Path must be within allowed workspace directories|Access to system directories is not allowed/);
     });
 
-    it('should handle case-insensitive matching for blocked paths', () => {
+    it.skipIf(process.platform !== 'win32')('should handle case-insensitive matching for blocked paths', () => {
       const result = validationService.validateProjectPath('C:\\windows\\system32');
       expect(result.valid).toBe(false);
       expect(result.error).toMatch(/Path must be within allowed workspace directories|Access to system directories is not allowed/);
@@ -382,7 +382,7 @@ describe('ValidationService', () => {
       expect(result.valid).toBeDefined();
     });
 
-    it('should reject UNC paths on Windows attempting system access', () => {
+    it.skipIf(process.platform !== 'win32')('should reject UNC paths on Windows attempting system access', () => {
       const result = validationService.validateProjectPath('\\\\?\\C:\\Windows\\System32');
       expect(result.valid).toBe(false);
     });
