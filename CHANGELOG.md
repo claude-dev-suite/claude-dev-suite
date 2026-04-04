@@ -8,8 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [1.2.2] - 2026-04-04
+
 ### Fixed
 
+- **Project selector — WSL Linux paths**: `validateProjectPath` in the Electron main process now correctly handles Windows UNC paths (`\\wsl$\Ubuntu\...`, `\\wsl.localhost\Ubuntu\...`) — backslashes are no longer corrupted by the forward-slash normalization, and traversal checks skip the server+share prefix as required by the UNC spec.
+- **Project selector — manual path input**: the path field in the splash screen is now editable; users can type or paste any path (including WSL UNC paths) directly without having to use the Browse dialog. A WSL example hint is shown below the field.
+- **Project selector — window too small**: splash window enlarged from 400×340 to 520×400.
+- **Agent selection — checkbox click doesn't toggle**: clicking the checkbox element inside an agent card was calling `onToggleAgent` twice (once from `Checkbox.onChange` and once from the bubbled `Card.onClick`), causing the selection to double-toggle and appear broken. Fixed by making the Checkbox `pointer-events-none` so the Card's single `onClick` handler is the only toggle trigger.
 - **Workflow template dropdown**: secondary subtasks (`{testing}`, `qa-expert`) are now marked `optional: true` — workflows like *Frontend Feature*, *Backend Feature*, *Full Stack Feature*, *Bug Fix*, and *Code Review* are no longer grayed out when a testing/QA agent isn't installed. Compatible workflows with skipped optional agents show a hint in the dropdown (e.g. `"Frontend Feature (no testing)"`). Adds `skippedAgents` tracking to `ResolvedWorkflow`.
 - **Files viewer — "cannot load file" on Markdown and other files**: Shiki syntax highlighter now has a top-level `try/catch`; if the dynamic import or highlighting fails (e.g. inside Electron's asar bundle), the file content is rendered as escaped plain text instead of showing an error.
 
