@@ -232,6 +232,13 @@
       display: block;
     }
 
+    .path-hint {
+      font-size: 10px;
+      color: #4b5563;
+      margin: 2px 0 4px 0;
+      text-align: left;
+    }
+
     .version {
       margin-top: 24px;
       font-size: 10px;
@@ -252,9 +259,10 @@
 
       <div class="path-selector" id="pathSelector">
         <div class="path-input-row">
-          <input type="text" class="path-input" id="pathInput" readonly>
+          <input type="text" class="path-input" id="pathInput" placeholder="Paste or type a project path…" spellcheck="false" autocomplete="off">
           <button class="btn-browse" id="btnBrowse" title="Browse...">&#128193;</button>
         </div>
+        <p class="path-hint">WSL example: \\wsl$\Ubuntu\home\user\project</p>
         <button class="btn-start" id="btnStart">Start</button>
         <div class="path-error" id="pathError">Invalid folder path</div>
       </div>

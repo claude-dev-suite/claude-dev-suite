@@ -205,7 +205,10 @@ export function Step2Agents({
                 className="relative"
               >
                 <div className="flex items-start gap-3">
-                  <Checkbox checked={isSelected} onChange={() => onToggleAgent(agent.id)} />
+                  {/* pointer-events-none: Card.onClick is the single toggle handler.
+                      Without this, clicking the checkbox fires both Checkbox.onChange
+                      and Card.onClick (via bubbling), double-toggling and appearing broken. */}
+                  <Checkbox checked={isSelected} onChange={() => {}} className="pointer-events-none" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-white text-sm">{agent.name}</span>

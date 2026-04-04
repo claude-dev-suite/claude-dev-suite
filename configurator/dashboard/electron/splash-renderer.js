@@ -58,6 +58,12 @@ function setPath(p) {
   hideError();
 }
 
+// Allow manual path entry — keep currentPath in sync as the user types
+pathInput.addEventListener('input', () => {
+  currentPath = pathInput.value.trim();
+  hideError();
+});
+
 // Button handlers
 btnBrowse.addEventListener('click', async () => {
   if (window.splashAPI && window.splashAPI.browseFolder) {

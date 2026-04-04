@@ -60,17 +60,26 @@ function validateProjectPath(rawPath) {
   if (typeof rawPath !== 'string' || rawPath.trim() === '') {
     throw new Error('Invalid project path: must be a non-empty string');
   }
-  const resolved = path.resolve(rawPath);
-  // Ensure the resolved path is absolute (path.resolve always produces one,
-  // but guard against platform edge-cases)
-  if (!path.isAbsolute(resolved)) {
-    throw new Error('Invalid project path: must be absolute');
-  }
-  // Reject any raw path that still contains traversal sequences
-  // (prevents sneaking past a later resolve via encoded or mixed separators)
-  const normalised = rawPath.replace(/\\/g, '/');
-  if (normalised.split('/').some((seg) => seg === '..')) {
+  const trimmed = rawPath.trim();
+
+  // Detect Windows UNC paths — covers \\wsl$\..., \\wsl.localhost\..., and //server/share
+  const isUNC = /^(\\\\|\/\/)/.test(trimmed);
+
+  // Traversal check: for UNC paths, skip the server+share prefix (first two segments)
+  const segments = trimmed.replace(/\\/g, '/').split('/').filter(Boolean);
+  const bodySegments = isUNC ? segments.slice(2) : segments;
+  if (bodySegments.some((seg) => seg === '..')) {
     throw new Error('Invalid project path: traversal components not allowed');
+  }
+
+  // For UNC paths normalise to backslashes (Windows expects \\server\share);
+  // for regular paths use path.resolve() which handles drive letters and cwd.
+  const resolved = isUNC
+    ? trimmed.replace(/\//g, '\\')
+    : path.resolve(trimmed);
+
+  if (!isUNC && !path.isAbsolute(resolved)) {
+    throw new Error('Invalid project path: must be absolute');
   }
   if (!fs.existsSync(resolved)) {
     throw new Error('Invalid project path: path does not exist');
@@ -257,8 +266,8 @@ function findFrontendPath() {
 function createSplashWindow() {
   // Create window immediately with dark background (visible before HTML loads)
   splashWindow = new BrowserWindow({
-    width: 400,
-    height: 340,
+    width: 520,
+    height: 400,
     frame: false,
     transparent: false,
     resizable: false,

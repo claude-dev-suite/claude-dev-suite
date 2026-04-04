@@ -540,3 +540,73 @@ describe('Path Injection — CustomAgentsService name validation', () => {
     expect(result.error).toBeTruthy();
   });
 });
+
+// ─── UNC / WSL path validation logic ─────────────────────────────────────────
+// Tests for the UNC-path detection + traversal logic used by validateProjectPath
+// in electron/main.cjs. main.cjs is CommonJS and cannot be imported by Vitest,
+// so we test the same pure logic inline.
+
+describe('UNC/WSL path validation logic (mirrors electron/main.cjs)', () => {
+  function parseUNCPath(rawPath: string) {
+    const isUNC = /^(\\\\|\/\/)/.test(rawPath);
+    const segments = rawPath.replace(/\\/g, '/').split('/').filter(Boolean);
+    const bodySegments = isUNC ? segments.slice(2) : segments;
+    const normalised = isUNC
+      ? rawPath.replace(/\//g, '\\')
+      : rawPath.replace(/\\/g, '/');
+    return { isUNC, bodySegments, normalised };
+  }
+
+  it('detects \\\\wsl$\\ paths as UNC', () => {
+    expect(parseUNCPath('\\\\wsl$\\Ubuntu\\home\\user').isUNC).toBe(true);
+  });
+
+  it('detects \\\\wsl.localhost\\ paths as UNC', () => {
+    expect(parseUNCPath('\\\\wsl.localhost\\Ubuntu\\home\\user').isUNC).toBe(true);
+  });
+
+  it('detects //wsl.localhost/ paths as UNC', () => {
+    expect(parseUNCPath('//wsl.localhost/Ubuntu/home/user').isUNC).toBe(true);
+  });
+
+  it('does not treat regular Windows drive paths as UNC', () => {
+    expect(parseUNCPath('C:\\Users\\mario\\project').isUNC).toBe(false);
+  });
+
+  it('does not treat absolute Unix-style paths as UNC', () => {
+    expect(parseUNCPath('/home/user/project').isUNC).toBe(false);
+  });
+
+  it('strips server+share prefix before traversal check', () => {
+    const { bodySegments } = parseUNCPath('\\\\wsl$\\Ubuntu\\home\\user\\project');
+    expect(bodySegments).toEqual(['home', 'user', 'project']);
+    expect(bodySegments.some(s => s === '..')).toBe(false);
+  });
+
+  it('detects .. traversal inside UNC path body', () => {
+    const { bodySegments } = parseUNCPath('\\\\wsl$\\Ubuntu\\home\\..\\etc\\passwd');
+    expect(bodySegments.some(s => s === '..')).toBe(true);
+  });
+
+  it('does not flag the server+share segments as traversal even if they look odd', () => {
+    // server=wsl$, share=Ubuntu — neither is '..'
+    const { bodySegments } = parseUNCPath('\\\\wsl$\\Ubuntu\\safe\\path');
+    expect(bodySegments.some(s => s === '..')).toBe(false);
+  });
+
+  it('normalises backslash UNC path to backslashes', () => {
+    const { normalised } = parseUNCPath('\\\\wsl$\\Ubuntu\\home\\user');
+    expect(normalised.startsWith('\\\\')).toBe(true);
+    expect(normalised).not.toContain('/');
+  });
+
+  it('normalises forward-slash UNC path to backslashes', () => {
+    const { normalised } = parseUNCPath('//wsl$/Ubuntu/home/user');
+    expect(normalised.startsWith('\\\\')).toBe(true);
+  });
+
+  it('normalises regular path to forward slashes', () => {
+    const { normalised } = parseUNCPath('C:\\Users\\mario\\project');
+    expect(normalised).toBe('C:/Users/mario/project');
+  });
+});
