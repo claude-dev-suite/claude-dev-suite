@@ -340,8 +340,9 @@ export class WorkflowsService {
         } else {
           // Could not resolve - add to missing
           const roleMatch2 = task.agentId.match(/^\{(\w+)\}$/);
-          const roleName = roleMatch2
-            ? `${roleMatch2[1]} agent (install: ${(AGENT_ROLES[roleMatch2[1]] ?? []).slice(0, 3).join(', ')})`
+          const roleKey = roleMatch2?.[1];
+          const roleName = roleKey
+            ? `${roleKey} agent (install: ${(AGENT_ROLES[roleKey] ?? []).slice(0, 3).join(', ')})`
             : task.agentId;
           if (task.optional) {
             if (!skippedAgents.includes(roleName)) skippedAgents.push(roleName);
