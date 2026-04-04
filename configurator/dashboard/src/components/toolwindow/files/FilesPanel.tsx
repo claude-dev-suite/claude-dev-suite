@@ -175,35 +175,44 @@ export function FilesPanel() {
   }, [projectPath]);
 
   // ---- Highlight helper ----
-  const highlight = useCallback(async (filePath: string, content: string) => {
+  const highlight = useCallback(async (filePath: string, content: string): Promise<string> => {
     const lang = detectLang(filePath);
 
-    // Lazy-create the highlighter on first use
-    if (!highlighterRef.current) {
-      const { getSingletonHighlighter } = await import('shiki');
-      highlighterRef.current = await getSingletonHighlighter({
-        themes: ['github-dark'],
-        langs: lang !== 'text' ? [lang] : [],
-      });
-      if (lang !== 'text') loadedLangs.current.add(lang);
-    }
-
-    // Load language on demand if not yet available
-    if (lang !== 'text' && !loadedLangs.current.has(lang)) {
-      try {
-        await highlighterRef.current.loadLanguage(lang);
-        loadedLangs.current.add(lang);
-      } catch {
-        // Language not bundled — fall back to plain text
+    try {
+      // Lazy-create the highlighter on first use
+      if (!highlighterRef.current) {
+        const { getSingletonHighlighter } = await import('shiki');
+        highlighterRef.current = await getSingletonHighlighter({
+          themes: ['github-dark'],
+          langs: lang !== 'text' ? [lang] : [],
+        });
+        if (lang !== 'text') loadedLangs.current.add(lang);
       }
+
+      // Load language on demand if not yet available
+      if (lang !== 'text' && !loadedLangs.current.has(lang)) {
+        try {
+          await highlighterRef.current.loadLanguage(lang);
+          loadedLangs.current.add(lang);
+        } catch {
+          // Language not bundled — fall back to plain text
+        }
+      }
+
+      const effectiveLang = loadedLangs.current.has(lang) ? lang : 'text';
+
+      return highlighterRef.current.codeToHtml(content, {
+        lang: effectiveLang,
+        theme: 'github-dark',
+      });
+    } catch {
+      // Shiki unavailable (e.g. Electron asar context) — render as escaped plain text
+      const escaped = content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return `<pre class="shiki" style="background-color:#24292e;color:#e1e4e8"><code>${escaped}</code></pre>`;
     }
-
-    const effectiveLang = loadedLangs.current.has(lang) ? lang : 'text';
-
-    return highlighterRef.current.codeToHtml(content, {
-      lang: effectiveLang,
-      theme: 'github-dark',
-    });
   }, []);
 
   // ---- Open file ----
