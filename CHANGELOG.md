@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Project Rules wizard step**: a new step 4 in the installation wizard lets users select behavioral rules for Claude Code agents. Rules are copied to `.claude/rules/` in the target project and tracked in `.dev-suite.json`. Five templates are bundled: Conventional Commits ⭐, Semantic Versioning ⭐, Branch Protection, Changelog Maintenance ⭐, README Accuracy ⭐ (starred = pre-selected as recommended).
+
 ---
 
 ## [1.2.2] - 2026-04-04

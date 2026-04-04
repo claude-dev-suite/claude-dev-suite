@@ -10,6 +10,7 @@ export interface Step5InstallProps {
   projectPath: string;
   selectedAgents: string[];
   selectedMcpServers: string[];
+  selectedRules: string[];
   envVars: Record<string, string>;
   detection: DetectionResponse | null;
   onComplete: () => void;
@@ -26,6 +27,7 @@ export function Step5Install({
   projectPath,
   selectedAgents,
   selectedMcpServers,
+  selectedRules,
   envVars,
   detection,
   onComplete,
@@ -78,6 +80,7 @@ export function Step5Install({
           projectPath,
           agents: selectedAgents,
           mcpServers: selectedMcpServers,
+          rules: selectedRules,
           envVars,
           detectedStack: detection ? {
             projectType: detection.project_type,
@@ -122,7 +125,7 @@ export function Step5Install({
     } finally {
       setInstalling(false);
     }
-  }, [projectPath, selectedAgents, selectedMcpServers, envVars, detection, updateStep]);
+  }, [projectPath, selectedAgents, selectedMcpServers, selectedRules, envVars, detection, updateStep]);
 
   return (
     <div className="space-y-6">
@@ -138,14 +141,12 @@ export function Step5Install({
             <div className="text-sm text-surface-400">MCP Servers</div>
           </div>
           <div className="p-4 bg-surface-700/30 rounded-lg">
-            <div className="text-2xl font-bold text-white">{Object.keys(envVars).length}</div>
-            <div className="text-sm text-surface-400">Env Variables</div>
+            <div className="text-2xl font-bold text-white">{selectedRules.length}</div>
+            <div className="text-sm text-surface-400">Rules</div>
           </div>
           <div className="p-4 bg-surface-700/30 rounded-lg">
-            <div className="text-lg font-medium text-white truncate" title={projectPath}>
-              {projectPath.split(/[/\\]/).pop()}
-            </div>
-            <div className="text-sm text-surface-400">Target Project</div>
+            <div className="text-2xl font-bold text-white">{Object.keys(envVars).length}</div>
+            <div className="text-sm text-surface-400">Env Variables</div>
           </div>
         </div>
 

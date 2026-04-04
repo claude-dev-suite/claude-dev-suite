@@ -22,6 +22,7 @@ import { codegenRoutes } from './codegen.routes.js';
 import { usageRoutes } from './usage.routes.js';
 import { livePerformanceRoutes } from './live-performance.routes.js';
 import { filesRoutes } from './files.routes.js';
+import { rulesRoutes } from './rules.routes.js';
 
 export function registerRoutes(app: Express): void {
   // Detection routes
@@ -77,6 +78,9 @@ export function registerRoutes(app: Express): void {
 
   // Files viewer routes (read-only)
   app.use('/api/files', filesRoutes);
+
+  // Rules routes
+  app.use('/api/rules', rulesRoutes);
 
   // 404 handler for API routes
   app.use('/api/{*path}', (_req, res) => {

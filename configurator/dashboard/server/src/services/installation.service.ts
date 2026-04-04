@@ -126,7 +126,7 @@ export class InstallationService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    const { agents, mcpServers, envVars, detectedStack } = config;
+    const { agents, mcpServers, envVars, rules = [], detectedStack } = config;
     const devSuiteDir = getDevSuiteDir();
 
     // Create extended manifest with hash tracking for upgrade system
@@ -149,6 +149,7 @@ export class InstallationService {
       projectPath,
       agents: [],
       mcpServers: [],
+      rules: [],
       files: [],
     };
 
@@ -187,6 +188,23 @@ export class InstallationService {
       }
     }
 
+    // Install rules → copy to [projectPath]/.claude/rules/
+    if (rules.length > 0) {
+      const rulesDestDir = path.join(claudeDir, 'rules');
+      fs.mkdirSync(rulesDestDir, { recursive: true });
+      const { RulesService } = await import('./rules.service.js');
+      const rulesService = new RulesService();
+      for (const ruleId of rules) {
+        const src = rulesService.findRuleFile(ruleId);
+        if (src) {
+          const dest = path.join(rulesDestDir, `${ruleId}.md`);
+          fs.copyFileSync(src, dest);
+          manifest.rules.push(ruleId);
+          manifest.files.push({ path: `.claude/rules/${ruleId}.md`, type: 'config', source: src });
+        }
+      }
+    }
+
     // Write .mcp.json
     const mcpJsonPath = path.join(projectPath, '.mcp.json');
     fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: mcpConfig }, null, 2));
@@ -199,6 +217,7 @@ export class InstallationService {
       installedAt: manifest.installedAt,
       agents: { enabled: manifest.agents },
       mcpServers: { enabled: manifest.mcpServers },
+      rules: { enabled: manifest.rules },
     };
     const devSuiteJsonPath = path.join(projectPath, '.dev-suite.json');
     fs.writeFileSync(devSuiteJsonPath, JSON.stringify(devSuiteConfig, null, 2));

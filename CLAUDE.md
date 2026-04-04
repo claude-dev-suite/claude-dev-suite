@@ -98,6 +98,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `upgrade.service.ts` | Upgrade installed dev-suite components to latest versions |
 | `workflows.service.ts` | Multi-step workflow orchestration |
 | `codegen.service.ts` | Spec-driven code generation pipeline with validation and AI refinement |
+| `rules.service.ts` | List available project rule templates from the `rules/` directory |
 
 Subdirectories with additional logic: `code-review/`, `detection/`, `git/`, `hooks/`, `installation/`, `orchestrator/`, `upgrade/`
 

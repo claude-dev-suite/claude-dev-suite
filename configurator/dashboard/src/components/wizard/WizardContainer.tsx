@@ -9,6 +9,7 @@ import { Step2Agents } from './Step2Agents';
 import { Step3McpServers } from './Step3McpServers';
 import { Step4Environment } from './Step4Environment';
 import { Step5Install } from './Step5Install';
+import { StepRules } from './StepRules';
 import { Button } from '../common';
 
 export interface WizardState {
@@ -16,6 +17,7 @@ export interface WizardState {
   detection: DetectionResponse | null;
   selectedAgents: string[];
   selectedMcpServers: string[];
+  selectedRules: string[];
   envVars: Record<string, string>;
   recommendedAgents: string[];
   recommendedMcpServers: string[];
@@ -65,6 +67,7 @@ export function WizardContainer({
     detection: null,
     selectedAgents: [],
     selectedMcpServers: [],
+    selectedRules: [],
     envVars: {},
     recommendedAgents: [],
     recommendedMcpServers: [],
@@ -98,7 +101,7 @@ export function WizardContainer({
   );
 
   const nextStep = useCallback(() => {
-    if (currentStep < 5) {
+    if (currentStep < 6) {
       goToStep(currentStep + 1);
     }
   }, [currentStep, goToStep]);
@@ -143,6 +146,19 @@ export function WizardContainer({
       ...prev,
       envVars: { ...prev.envVars, [name]: value },
     }));
+  }, []);
+
+  const toggleRule = useCallback((ruleId: string) => {
+    setState((prev) => ({
+      ...prev,
+      selectedRules: prev.selectedRules.includes(ruleId)
+        ? prev.selectedRules.filter((id) => id !== ruleId)
+        : [...prev.selectedRules, ruleId],
+    }));
+  }, []);
+
+  const initRules = useCallback((recommendedIds: string[]) => {
+    setState((prev) => ({ ...prev, selectedRules: recommendedIds }));
   }, []);
 
   // Mode selection handler
@@ -201,8 +217,10 @@ export function WizardContainer({
       case 3:
         return true; // MCP servers are optional
       case 4:
-        return true; // Env vars can be skipped
+        return true; // Rules are optional
       case 5:
+        return true; // Env vars can be skipped
+      case 6:
         return true;
       default:
         return false;
@@ -224,10 +242,10 @@ export function WizardContainer({
         return { currentIndex: 2, totalSteps: 7, label: 'Configure Project' };
       }
       // After scaffold, we're in regular steps (currentStep + 2)
-      return { currentIndex: currentStep + 2, totalSteps: 7, label: `Step ${currentStep}` };
+      return { currentIndex: currentStep + 2, totalSteps: 8, label: `Step ${currentStep}` };
     }
-    // Configure mode: steps 1-5
-    return { currentIndex: currentStep, totalSteps: 5, label: `Step ${currentStep}` };
+    // Configure mode: steps 1-6
+    return { currentIndex: currentStep, totalSteps: 6, label: `Step ${currentStep}` };
   }, [wizardMode, createSubStep, currentStep]);
   void _getProgressInfo; // Suppress unused warning - available for future progress display
 
@@ -305,6 +323,14 @@ export function WizardContainer({
         );
       case 4:
         return (
+          <StepRules
+            selectedRules={state.selectedRules}
+            onToggleRule={toggleRule}
+            onInitRules={initRules}
+          />
+        );
+      case 5:
+        return (
           <Step4Environment
             projectPath={state.projectPath}
             selectedMcpServers={state.selectedMcpServers}
@@ -312,12 +338,13 @@ export function WizardContainer({
             onEnvVarChange={setEnvVar}
           />
         );
-      case 5:
+      case 6:
         return (
           <Step5Install
             projectPath={state.projectPath}
             selectedAgents={state.selectedAgents}
             selectedMcpServers={state.selectedMcpServers}
+            selectedRules={state.selectedRules}
             envVars={state.envVars}
             detection={state.detection}
             onComplete={onComplete}
@@ -370,7 +397,7 @@ export function WizardContainer({
     if (wizardMode === 'create' && createSubStep === 'config') return false;
 
     // Hide navigation for install step (Step5Install has its own buttons)
-    if (currentStep === 5) return false;
+    if (currentStep === 6) return false;
 
     return true;
   };
@@ -378,12 +405,12 @@ export function WizardContainer({
   // Get step indicators
   const getStepIndicators = () => {
     if (wizardMode === 'configure' || (wizardMode === 'create' && currentStep > 1)) {
-      // Show steps 1-5
-      return [1, 2, 3, 4, 5];
+      // Show steps 1-6
+      return [1, 2, 3, 4, 5, 6];
     }
     if (wizardMode === 'create') {
       // Show template steps + regular steps
-      return ['T1', 'T2', 1, 2, 3, 4, 5];
+      return ['T1', 'T2', 1, 2, 3, 4, 5, 6];
     }
     return [];
   };
@@ -429,7 +456,7 @@ export function WizardContainer({
             ))}
           </div>
 
-          {currentStep < 5 ? (
+          {currentStep < 6 ? (
             <Button onClick={handleNext} disabled={!canProceed()}>
               Continue
             </Button>

@@ -97,6 +97,7 @@ export interface InstallConfig {
   agents: string[];
   mcpServers: string[];
   envVars: Record<string, string>;
+  rules?: string[];
   detectedStack?: DetectionResult;
 }
 
@@ -106,6 +107,7 @@ export interface InstallManifest {
   projectPath: string;
   agents: string[];
   mcpServers: string[];
+  rules: string[];
   files: InstalledFile[];
 }
 
