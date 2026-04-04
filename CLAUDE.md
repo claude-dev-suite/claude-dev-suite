@@ -192,6 +192,33 @@ ls agents/*/*.md
 ls mcp-servers/*/dist/index.js
 ```
 
+## Versioning (Semantic Versioning)
+
+Version format: `MAJOR.MINOR.PATCH` — applied to `configurator/dashboard/package.json` and `configurator/dashboard/server/package.json`.
+
+| Bump | When | Example trigger |
+|------|------|-----------------|
+| `PATCH` (x.x.**+1**) | Bug fixes only, no new user-facing features | Fix a crash, correct wrong behaviour, TS/type error |
+| `MINOR` (x.**+1**.0) | New backwards-compatible feature or capability | New agent, new API endpoint, new UI panel, new skill |
+| `MAJOR` (**+1**.0.0) | Breaking change — existing config/API no longer works as before | Config format change, removed endpoint, renamed CLI flag |
+
+**Rules:**
+- A MINOR bump always resets PATCH to 0 (e.g. `1.1.2` → `1.2.0`, never `1.1.2` → `1.2.2`)
+- A MAJOR bump always resets MINOR and PATCH to 0 (e.g. `1.2.3` → `2.0.0`)
+- When in doubt between PATCH and MINOR, prefer MINOR if any new capability is exposed to the user
+- Current published versions as of 2026-04-04: `1.1.0`, `1.1.1`, `1.1.2`, `1.2.2` (note: 1.2.2 was incorrectly named — should have been 1.2.0; apply correct semver from the next release onward)
+
+**Release checklist** (run in order, never skip steps):
+1. Decide bump type (PATCH / MINOR / MAJOR) based on the table above
+2. Update `configurator/dashboard/package.json` and `configurator/dashboard/server/package.json` to the new version
+3. Move `## [Unreleased]` content in `CHANGELOG.md` to `## [x.y.z] - YYYY-MM-DD`, leave a blank `## [Unreleased]` above it
+4. Rebuild the Electron app: `cd configurator/dashboard && npm run electron:build`
+5. Commit: `release(vX.Y.Z): <one-line summary>`
+6. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z — <summary>"`
+7. Push commit + tag: `git push origin main --tags`
+8. Create GitHub release: `gh release create vX.Y.Z <installer.exe> <installer.exe.blockmap> --title "vX.Y.Z — ..." --notes "..."`
+9. Verify the CI `Release` workflow passes — if it fails, fix the issue, move the tag (`git tag -d vX.Y.Z && git tag -a vX.Y.Z HEAD ...`), and force-push the tag (`git push origin vX.Y.Z --force`)
+
 ## Anti-Staleness Rule
 
 Never write exact counts of agents, MCP servers, skills, or supported technologies in `CLAUDE.md` or `README.md`. These numbers change frequently and go stale. When a count is needed, derive it dynamically from the filesystem (e.g., `find agents -name '*-expert.md'`). This applies to all component lists and technology enumerations.
