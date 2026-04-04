@@ -75,6 +75,7 @@ interface SubTask {
   agentId: string;
   taskTemplate: string;
   dependencies: string[];
+  optional?: boolean;
 }
 
 interface Workflow {
@@ -89,6 +90,7 @@ interface Workflow {
 interface ResolvedWorkflow extends Workflow {
   compatible: boolean;
   missingAgents: string[];
+  skippedAgents: string[];
   missingMcp: string[];
 }
 
@@ -109,7 +111,7 @@ const BUILTIN_WORKFLOWS: Workflow[] = [
     category: 'builtin',
     subTasks: [
       { agentId: '{frontend}', taskTemplate: 'Implement the UI component for: {feature}', dependencies: [] },
-      { agentId: '{testing}', taskTemplate: 'Write unit tests for: {feature}', dependencies: ['{frontend}'] }
+      { agentId: '{testing}', taskTemplate: 'Write unit tests for: {feature}', dependencies: ['{frontend}'], optional: true }
     ],
     mcpServers: ['documentation']
   },
@@ -121,7 +123,7 @@ const BUILTIN_WORKFLOWS: Workflow[] = [
     subTasks: [
       { agentId: 'architect', taskTemplate: 'Design the API structure for: {feature}', dependencies: [] },
       { agentId: '{backend}', taskTemplate: 'Implement backend logic for: {feature}', dependencies: ['architect'] },
-      { agentId: '{testing}', taskTemplate: 'Write integration tests for: {feature}', dependencies: ['{backend}'] }
+      { agentId: '{testing}', taskTemplate: 'Write integration tests for: {feature}', dependencies: ['{backend}'], optional: true }
     ],
     mcpServers: ['documentation', 'api-tester']
   },
@@ -134,7 +136,7 @@ const BUILTIN_WORKFLOWS: Workflow[] = [
       { agentId: 'architect', taskTemplate: 'Design the architecture for: {feature}', dependencies: [] },
       { agentId: '{backend}', taskTemplate: 'Implement backend API for: {feature}', dependencies: ['architect'] },
       { agentId: '{frontend}', taskTemplate: 'Implement frontend UI for: {feature}', dependencies: ['architect'] },
-      { agentId: '{testing}', taskTemplate: 'Write unit tests for: {feature}', dependencies: ['{backend}', '{frontend}'] }
+      { agentId: '{testing}', taskTemplate: 'Write unit tests for: {feature}', dependencies: ['{backend}', '{frontend}'], optional: true }
     ],
     mcpServers: ['documentation', 'api-tester']
   },
@@ -155,7 +157,7 @@ const BUILTIN_WORKFLOWS: Workflow[] = [
     category: 'builtin',
     subTasks: [
       { agentId: 'code-reviewer', taskTemplate: 'Review code quality and patterns in: {scope}', dependencies: [] },
-      { agentId: 'qa-expert', taskTemplate: 'Quality analysis for: {scope}', dependencies: [] }
+      { agentId: 'qa-expert', taskTemplate: 'Quality analysis for: {scope}', dependencies: [], optional: true }
     ],
     mcpServers: ['code-quality', 'documentation']
   },
@@ -166,7 +168,7 @@ const BUILTIN_WORKFLOWS: Workflow[] = [
     category: 'builtin',
     subTasks: [
       { agentId: 'code-reviewer', taskTemplate: 'Analyze and identify the bug: {bug}', dependencies: [] },
-      { agentId: '{testing}', taskTemplate: 'Write regression test for: {bug}', dependencies: ['code-reviewer'] }
+      { agentId: '{testing}', taskTemplate: 'Write regression test for: {bug}', dependencies: ['code-reviewer'], optional: true }
     ],
     mcpServers: ['documentation', 'code-quality']
   },
@@ -309,6 +311,7 @@ export class WorkflowsService {
     // Filter builtin workflows - resolve role placeholders
     const compatibleBuiltin: ResolvedWorkflow[] = BUILTIN_WORKFLOWS.map(workflow => {
       const missingAgents: string[] = [];
+      const skippedAgents: string[] = [];
       const resolvedSubTasks: SubTask[] = [];
 
       // First pass: resolve backend and frontend to build context
@@ -340,8 +343,10 @@ export class WorkflowsService {
           const roleName = roleMatch2
             ? `${roleMatch2[1]} agent (install: ${(AGENT_ROLES[roleMatch2[1]] ?? []).slice(0, 3).join(', ')})`
             : task.agentId;
-          if (!missingAgents.includes(roleName)) {
-            missingAgents.push(roleName);
+          if (task.optional) {
+            if (!skippedAgents.includes(roleName)) skippedAgents.push(roleName);
+          } else {
+            if (!missingAgents.includes(roleName)) missingAgents.push(roleName);
           }
         }
       }
@@ -353,6 +358,7 @@ export class WorkflowsService {
         subTasks: resolvedSubTasks.length > 0 ? resolvedSubTasks : workflow.subTasks,
         compatible: missingAgents.length === 0,
         missingAgents,
+        skippedAgents,
         missingMcp
       };
     });

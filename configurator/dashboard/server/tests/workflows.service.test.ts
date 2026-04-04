@@ -297,7 +297,7 @@ describe('WorkflowsService', () => {
       expect(frontendFeature?.missingAgents).toEqual([]);
     });
 
-    it('should mark incompatible workflows and list missing agents', async () => {
+    it('should mark incompatible workflows when required agents are missing', async () => {
       mockGetInstalledComponents.mockResolvedValue({
         agents: ['architect'],
         mcpServers: []
@@ -305,9 +305,53 @@ describe('WorkflowsService', () => {
 
       const result = await workflowsService.getAllWorkflows(projectDir);
 
+      // frontend-feature requires {frontend} (not optional) — still incompatible without it
       const frontendFeature = result.builtin.find(w => w.id === 'frontend-feature');
       expect(frontendFeature?.compatible).toBe(false);
       expect(frontendFeature?.missingAgents.length).toBeGreaterThan(0);
+    });
+
+    it('should be compatible with only the primary agent (optional testing skipped)', async () => {
+      mockGetInstalledComponents.mockResolvedValue({
+        agents: ['react-expert'],
+        mcpServers: []
+      });
+
+      const result = await workflowsService.getAllWorkflows(projectDir);
+
+      const frontendFeature = result.builtin.find(w => w.id === 'frontend-feature');
+      expect(frontendFeature?.compatible).toBe(true);
+      expect(frontendFeature?.missingAgents).toEqual([]);
+      expect(frontendFeature?.skippedAgents?.length).toBeGreaterThan(0);
+      // Only the frontend subtask should be present (testing was skipped)
+      expect(frontendFeature?.subTasks).toHaveLength(1);
+      expect(frontendFeature?.subTasks[0]?.agentId).toBe('react-expert');
+    });
+
+    it('code-review is compatible without qa-expert (qa step optional)', async () => {
+      mockGetInstalledComponents.mockResolvedValue({
+        agents: ['code-reviewer'],
+        mcpServers: ['code-quality', 'documentation']
+      });
+
+      const result = await workflowsService.getAllWorkflows(projectDir);
+
+      const codeReview = result.builtin.find(w => w.id === 'code-review');
+      expect(codeReview?.compatible).toBe(true);
+      expect(codeReview?.missingAgents).toEqual([]);
+      expect(codeReview?.skippedAgents?.length).toBeGreaterThan(0);
+    });
+
+    it('testing-suite remains incompatible without testing agents', async () => {
+      mockGetInstalledComponents.mockResolvedValue({
+        agents: ['react-expert'],
+        mcpServers: []
+      });
+
+      const result = await workflowsService.getAllWorkflows(projectDir);
+
+      const testingSuite = result.builtin.find(w => w.id === 'testing-suite');
+      expect(testingSuite?.compatible).toBe(false);
     });
 
     it('should resolve role placeholders to installed agents', async () => {

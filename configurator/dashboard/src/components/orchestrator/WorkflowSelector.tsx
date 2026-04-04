@@ -7,6 +7,7 @@ export interface Workflow {
   description?: string;
   compatible?: boolean;
   missingAgents?: string[];
+  skippedAgents?: string[];
   subTasks?: unknown[];
   mcpServers?: string[];
 }
@@ -34,7 +35,9 @@ export function WorkflowSelector({
       .filter((w) => w.compatible !== false)
       .map((w) => ({
         value: `builtin:${w.id}`,
-        label: w.name,
+        label: w.skippedAgents?.length
+          ? `${w.name} (no ${w.skippedAgents.map((s) => s.split(' ')[0]).join(', ')})`
+          : w.name,
         description: w.description,
       })),
     // Incompatible builtin workflows (disabled)
