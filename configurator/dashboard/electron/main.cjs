@@ -98,6 +98,41 @@ function sanitizeError(error) {
   return String(error);
 }
 
+// ============================================
+// PERSISTENT PREFERENCES
+// ============================================
+
+const PREFS_FILE = path.join(app.getPath('userData'), 'dev-suite-prefs.json');
+
+function loadPrefs() {
+  try {
+    return JSON.parse(fs.readFileSync(PREFS_FILE, 'utf-8'));
+  } catch {
+    return {};
+  }
+}
+
+function savePrefs(prefs) {
+  try {
+    fs.writeFileSync(PREFS_FILE, JSON.stringify(prefs, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[Electron] Could not save preferences:', err.message);
+  }
+}
+
+function loadLastPath() {
+  const prefs = loadPrefs();
+  const saved = prefs.lastProjectPath;
+  if (saved && fs.existsSync(saved)) return saved;
+  return null;
+}
+
+function saveLastPath(projectPath) {
+  const prefs = loadPrefs();
+  prefs.lastProjectPath = projectPath;
+  savePrefs(prefs);
+}
+
 /**
  * Install Content Security Policy headers on the given session.
  * Called once per BrowserWindow session.
@@ -302,7 +337,7 @@ function createSplashWindow() {
   });
 
   splashWindow.webContents.on('did-finish-load', () => {
-    const defaultPath = process.cwd();
+    const defaultPath = loadLastPath() || process.cwd();
     console.log('[Electron] Sending default path:', defaultPath);
     splashWindow.webContents.send('set-default-path', defaultPath);
   });
@@ -656,6 +691,7 @@ ipcMain.handle('confirm-path', (event, projectPath) => {
     return { success: false, error: sanitizeError(err) };
   }
   selectedProjectPath = validatedPath;
+  saveLastPath(validatedPath);
   if (pathConfirmResolver) {
     pathConfirmResolver(validatedPath);
   }
