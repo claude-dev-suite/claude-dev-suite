@@ -18,7 +18,7 @@ describe('UIStore', () => {
     expect(useUIStore.getState().currentStep).toBe(1);
 
     setStep(10); // Above max
-    expect(useUIStore.getState().currentStep).toBe(5);
+    expect(useUIStore.getState().currentStep).toBe(6);
   });
 
   it('should navigate steps', () => {
@@ -37,10 +37,10 @@ describe('UIStore', () => {
     prevStep();
     expect(useUIStore.getState().currentStep).toBe(1);
 
-    // Can't go above 5
-    setStep(5);
+    // Can't go above 6
+    setStep(6);
     nextStep();
-    expect(useUIStore.getState().currentStep).toBe(5);
+    expect(useUIStore.getState().currentStep).toBe(6);
   });
 
   it('should switch panels', () => {

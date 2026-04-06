@@ -219,12 +219,12 @@ const storeCreator: StateCreator<UIState, [['zustand/devtools', never]], []> = (
   // ============================================
 
       setStep: (step: number) =>
-        set({ currentStep: Math.max(1, Math.min(5, step)) }, false, 'setStep'),
+        set({ currentStep: Math.max(1, Math.min(6, step)) }, false, 'setStep'),
 
       nextStep: () =>
         set(
           (state) => ({
-            currentStep: Math.min(5, state.currentStep + 1),
+            currentStep: Math.min(6, state.currentStep + 1),
           }),
           false,
           'nextStep'
