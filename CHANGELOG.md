@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Project Rules wizard step**: a new step 4 in the installation wizard lets users select behavioral rules for Claude Code agents. Rules are copied to `.claude/rules/` in the target project and tracked in `.dev-suite.json`. Five templates are bundled: Conventional Commits ⭐, Semantic Versioning ⭐, Branch Protection, Changelog Maintenance ⭐, README Accuracy ⭐ (starred = pre-selected as recommended).
 - **Remember last project folder**: the splash screen now pre-fills the last successfully opened project path on startup. The path is persisted in `dev-suite-prefs.json` inside the Electron user-data directory and validated (existence check) before use.
+- **sysadmin-expert agent**: new agent for production server configuration covering Nginx, Caddy, Traefik, SSL/TLS (Let's Encrypt), DNS, UFW/fail2ban, systemd, WireGuard VPN, Prometheus/Grafana monitoring, backup strategies, server hardening, email infrastructure (SPF/DKIM/DMARC), zero-downtime deployments, load balancing, and WAF. Ships with 17 new skill files under `skills/infrastructure/`.
 
 ---
 

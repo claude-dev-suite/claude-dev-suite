@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 /**
  * Infrastructure and DevOps documentation
- * Includes: Docker, Docker Compose, Kubernetes, GitHub Actions, Messaging systems
+ * Includes: Docker, Docker Compose, Kubernetes, GitHub Actions, Messaging systems,
+ * Nginx, SSL/TLS, Linux server administration, Firewall, DNS, systemd,
+ * Caddy, Traefik, WireGuard, Monitoring, Backup, Performance, Hardening,
+ * Email infrastructure, Zero-downtime deployment, Load balancing, WAF
  */
 
 import type { DocsRecord } from "./types.js";
@@ -25,6 +28,24 @@ export const INFRASTRUCTURE_TECHNOLOGIES = [
   // Infrastructure patterns
   "terraform",
   "service-mesh",
+  // Server administration & production ops
+  "nginx",
+  "caddy",
+  "traefik",
+  "ssl-tls",
+  "linux-server",
+  "firewall",
+  "dns",
+  "systemd",
+  "wireguard",
+  "server-monitoring",
+  "backup-recovery",
+  "server-performance",
+  "server-hardening",
+  "email-infrastructure",
+  "zero-downtime-deploy",
+  "load-balancer",
+  "waf",
 ] as const;
 
 export const infrastructureDocs: DocsRecord = {
@@ -205,6 +226,159 @@ export const infrastructureDocs: DocsRecord = {
     "best-practices": {
       local: "terraform/best-practices.md",
       url: "https://developer.hashicorp.com/terraform/cloud-docs/recommended-practices",
+    },
+  },
+
+  // ─── Server Administration & Production Ops ───────────────────────────────
+
+  nginx: {
+    "complete-production-config": {
+      local: "nginx/complete-production-config.md",
+      url: "https://nginx.org/en/docs/",
+    },
+    "reverse-proxy-patterns": {
+      local: "nginx/reverse-proxy-patterns.md",
+      url: "https://nginx.org/en/docs/http/ngx_http_proxy_module.html",
+    },
+  },
+
+  caddy: {
+    caddyfile: {
+      local: "caddy/caddyfile.md",
+      url: "https://caddyserver.com/docs/caddyfile",
+    },
+    "automatic-https": {
+      local: "caddy/automatic-https.md",
+      url: "https://caddyserver.com/docs/automatic-https",
+    },
+  },
+
+  traefik: {
+    "docker-provider": {
+      local: "traefik/docker-provider.md",
+      url: "https://doc.traefik.io/traefik/providers/docker/",
+    },
+    middlewares: {
+      local: "traefik/middlewares.md",
+      url: "https://doc.traefik.io/traefik/middlewares/overview/",
+    },
+  },
+
+  "ssl-tls": {
+    "letsencrypt-complete-guide": {
+      local: "ssl-tls/letsencrypt-complete-guide.md",
+      url: "https://certbot.eff.org/docs/",
+    },
+    "tls-hardening": {
+      local: "ssl-tls/tls-hardening.md",
+      url: "https://ssl-config.mozilla.org/",
+    },
+  },
+
+  "linux-server": {
+    "initial-server-setup": {
+      local: "linux/initial-server-setup.md",
+      url: "https://ubuntu.com/server/docs",
+    },
+    "ssh-hardening": {
+      local: "linux/ssh-hardening.md",
+      url: "https://www.ssh.com/academy/ssh/sshd_config",
+    },
+    "systemd-complete-guide": {
+      local: "linux/systemd-complete-guide.md",
+      url: "https://systemd.io/",
+    },
+  },
+
+  firewall: {
+    "ufw-fail2ban-guide": {
+      local: "firewall/ufw-fail2ban-guide.md",
+      url: "https://help.ubuntu.com/community/UFW",
+    },
+  },
+
+  dns: {
+    "complete-dns-guide": {
+      local: "dns/complete-dns-guide.md",
+      url: "https://developers.cloudflare.com/dns/",
+    },
+  },
+
+  systemd: {
+    "unit-files": {
+      local: "linux/systemd-complete-guide.md",
+      url: "https://www.freedesktop.org/software/systemd/man/systemd.unit.html",
+    },
+  },
+
+  wireguard: {
+    "server-setup": {
+      local: "wireguard/server-setup.md",
+      url: "https://www.wireguard.com/quickstart/",
+    },
+  },
+
+  "server-monitoring": {
+    "prometheus-grafana-setup": {
+      local: "monitoring/prometheus-grafana-setup.md",
+      url: "https://prometheus.io/docs/",
+    },
+  },
+
+  "backup-recovery": {
+    "production-backup-strategy": {
+      local: "backup/production-backup-strategy.md",
+      url: "https://rclone.org/docs/",
+    },
+  },
+
+  "server-performance": {
+    "linux-performance-tuning": {
+      local: "linux/performance-tuning.md",
+      url: "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
+    },
+  },
+
+  "server-hardening": {
+    "cis-benchmark": {
+      local: "linux/server-hardening.md",
+      url: "https://www.cisecurity.org/cis-benchmarks/",
+    },
+  },
+
+  "email-infrastructure": {
+    "dns-email-auth": {
+      local: "email/email-infrastructure.md",
+      url: "https://www.dmarcanalyzer.com/",
+    },
+  },
+
+  "zero-downtime-deploy": {
+    patterns: {
+      local: "deployment/zero-downtime-patterns.md",
+      url: "https://martinfowler.com/bliki/BlueGreenDeployment.html",
+    },
+  },
+
+  "load-balancer": {
+    nginx: {
+      local: "nginx/reverse-proxy-patterns.md",
+      url: "https://nginx.org/en/docs/http/ngx_http_upstream_module.html",
+    },
+    haproxy: {
+      local: "load-balancer/haproxy.md",
+      url: "https://www.haproxy.org/download/2.8/doc/configuration.txt",
+    },
+  },
+
+  waf: {
+    "modsecurity-crs": {
+      local: "waf/modsecurity.md",
+      url: "https://coreruleset.org/docs/",
+    },
+    "cloudflare-waf": {
+      local: "waf/cloudflare-waf.md",
+      url: "https://developers.cloudflare.com/waf/",
     },
   },
 
