@@ -1,18 +1,23 @@
 ---
-name: anthropic-python
+name: ai-python-sdk
 description: |
-  Anthropic Python SDK for Claude API integration. Covers messages API,
-  streaming, tool use, vision, error handling, and best practices.
-  Use when building Python applications that call the Claude API.
+  Integrates Python applications with the Claude Messages API via the official SDK —
+  synchronous and async client setup, model selection (Opus/Sonnet/Haiku), system
+  prompts, multi-turn conversations, streaming with text_stream, tool use (function
+  calling) with input_schema, vision with base64 image input, structured error
+  handling (RateLimitError, APIConnectionError, APIStatusError), async batch
+  processing with AsyncAnthropic, usage/token tracking, and Streamlit integration.
 
-  USE WHEN: user mentions "anthropic", "claude api", "anthropic sdk",
-  "anthropic.Anthropic()", "client.messages.create", "claude-opus",
-  "claude-sonnet", "tool_use", "streaming claude", "claude python"
+  USE WHEN: user mentions "claude api python", "messages.create", "claude sdk",
+  "anthropic.Anthropic()", "client.messages.create", "claude-opus", "claude-sonnet",
+  "tool_use python", "streaming claude python", "AsyncAnthropic", "claude vision python",
+  "ANTHROPIC_API_KEY", "claude haiku python"
 
-  DO NOT USE FOR: OpenAI API, other LLM providers, JavaScript/TypeScript Anthropic SDK
+  DO NOT USE FOR: OpenAI API, other LLM providers, JavaScript/TypeScript SDK (use
+  separate skill), LangChain integration (use langchain skill)
 allowed-tools: Read, Grep, Glob, Write, Edit
 ---
-# Anthropic Python SDK
+# Claude Python SDK (Anthropic)
 
 ## Installation
 

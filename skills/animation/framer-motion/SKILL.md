@@ -1,6 +1,24 @@
-# Framer Motion Skill
+---
+name: framer-motion
+description: |
+  Implements declarative React animations with Framer Motion — mount/unmount
+  transitions via AnimatePresence, spring physics, gesture handlers (hover, tap,
+  drag), scroll-linked motion values, shared layout animations (FLIP), variant
+  orchestration with stagger, and reduced-motion accessibility.
 
-Animation library for React. Declarative, physics-based, gesture-aware.
+  USE WHEN: user mentions "framer-motion", "motion.div", "AnimatePresence",
+  "layout animation", "React animation", "exit animation", "useScroll",
+  "whileHover", "whileTap", "drag gesture", "spring animation", "variants",
+  "staggerChildren", "layoutId", "shared element transition"
+
+  DO NOT USE FOR: GSAP animations, CSS-only animations, Lottie/Rive, React Native
+  animations (use react-native-reanimated), non-React projects
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
+
+# Framer Motion
+
+Declarative React animation library with spring physics, gesture support, layout animations, and scroll-linked motion values.
 
 ## Install
 

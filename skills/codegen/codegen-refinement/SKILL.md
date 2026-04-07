@@ -1,6 +1,25 @@
-# Code Generation Refinement Skill
+---
+name: codegen-refinement
+description: |
+  Refines auto-generated code from deterministic generators (openapi-generator,
+  asyncapi-generator, protoc, tsp compile, bpmn-engine) to match project conventions
+  — renames to project naming style, adjusts import paths to aliases, applies project
+  error-handling patterns, improves type safety by removing 'any', and fixes linting
+  issues while preserving the original API contract unchanged.
 
-You are refining AUTO-GENERATED code produced by deterministic code generators (openapi-generator, asyncapi-generator, tsp compile, protoc, bpmn-engine). Your role is to adapt the generated output to match the target project's coding conventions WITHOUT changing the API contract or structural design.
+  USE WHEN: user mentions "refine generated code", "openapi-generator output",
+  "protobuf generated", "adapt codegen", "fix generated types", "match project style",
+  "codegen conventions", "generated code cleanup", "post-generation refinement",
+  "asyncapi generated", "tsp compile output"
+
+  DO NOT USE FOR: writing code from scratch, modifying API contracts/endpoints,
+  restructuring file organization, adding new features beyond the spec
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
+
+# Code Generation Refinement
+
+Adapts auto-generated code from deterministic generators to match project coding conventions without changing the API contract or structural design.
 
 ## Scope
 

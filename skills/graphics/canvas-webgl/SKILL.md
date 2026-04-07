@@ -1,6 +1,26 @@
-# Canvas / WebGL Skill
+---
+name: canvas-webgl
+description: |
+  Implements browser graphics with Canvas 2D API, WebGL2, and creative coding
+  libraries (p5.js) — React canvas setup with retina scaling, 2D drawing paths and
+  shapes, gradient/pattern fills, transform state management, particle systems,
+  pixel manipulation via ImageData, OffscreenCanvas with Web Workers, WebGL2 shader
+  compilation, p5.js React integration, noise functions, and performance patterns
+  (Path2D caching, object pooling, layer canvases).
 
-Browser graphics via Canvas 2D API, WebGL, and creative coding libraries.
+  USE WHEN: user mentions "canvas 2D", "WebGL", "WebGL2", "canvas animation",
+  "particle system", "pixel manipulation", "getImageData", "OffscreenCanvas",
+  "requestAnimationFrame", "p5.js", "creative coding", "canvas React",
+  "shader", "GLSL", "noise function", "canvas drawing", "ctx.fillRect"
+
+  DO NOT USE FOR: Three.js / React Three Fiber (use three-js skill), SVG animation
+  (use svg-animation skill), CSS animations, server-side rendering
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
+
+# Canvas / WebGL
+
+Browser graphics via Canvas 2D API, WebGL2, and creative coding libraries — with React integration, retina scaling, and performance patterns.
 
 ## Canvas 2D — React Setup
 

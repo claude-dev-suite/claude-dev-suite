@@ -1,6 +1,24 @@
-# GSAP Skill
+---
+name: gsap
+description: |
+  Builds high-performance JavaScript animations with GSAP — tweens (to/from/fromTo),
+  timeline sequencing with position parameters, ScrollTrigger (pin, scrub, snap),
+  Flip plugin for layout transitions, stagger grids, matchMedia responsive animations,
+  React integration via useGSAP hook with automatic cleanup, and SVG path drawing.
 
-GreenSock Animation Platform — high-performance JS animation engine with plugin ecosystem.
+  USE WHEN: user mentions "gsap", "GreenSock", "ScrollTrigger", "gsap.to",
+  "gsap.timeline", "gsap.from", "useGSAP", "scrub animation", "pin scroll",
+  "GSAP context", "gsap.matchMedia", "Flip plugin", "GSAP stagger",
+  "tween animation", "gsap.registerPlugin"
+
+  DO NOT USE FOR: Framer Motion (React-specific declarative), CSS-only animations,
+  Lottie/Rive, Web Animations API without GSAP
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
+
+# GSAP (GreenSock Animation Platform)
+
+High-performance JavaScript animation engine with timeline sequencing, ScrollTrigger, Flip plugin, and React integration.
 
 ## Install
 
