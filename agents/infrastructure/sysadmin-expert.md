@@ -30,10 +30,22 @@ skills:
   - infrastructure/waf
   - infrastructure/docker
   - infrastructure/docker-compose
+  - infrastructure/kubernetes
+  - infrastructure/terraform
   - infrastructure/deployment-strategies
+  - infrastructure/health-checks
+  - infrastructure/api-gateway
+  - infrastructure/service-mesh
+  - infrastructure/cron-scheduling
+  - infrastructure/job-queues
+  - ci-cd/github-actions
   - cloud/aws
   - cloud/gcp
   - cloud/azure
+  - cloud/serverless
+  - file-storage/cloud-storage
+  - observability/opentelemetry
+  - observability/error-tracking
   - security/secrets-management
   - security/cors-security-headers
   - security/api-security
@@ -42,8 +54,18 @@ skills:
   - security/audit-logging
   - security/iac-security
   - security/container-security
+  - security/supply-chain
+  - security/cryptography
   - databases/postgresql
+  - databases/mysql
+  - databases/mongodb
+  - databases/elasticsearch
   - databases/redis
+  - databases/migrations
+  - databases/flyway
+  - best-practices/caching-strategies
+  - best-practices/resilience-patterns
+  - best-practices/feature-flags
 ---
 
 # Sysadmin Expert Agent
