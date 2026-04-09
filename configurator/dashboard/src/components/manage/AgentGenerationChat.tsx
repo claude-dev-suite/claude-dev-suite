@@ -12,7 +12,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Console } from '../orchestrator/Console';
 import { Button } from '../common';
 import { useOrchestratorWebSocket } from '../orchestrator/hooks/useOrchestratorWebSocket';
-import { buildAgentGenerationContext } from './agent-generation-prompt';
+import { buildAgentGenerationContext, type RefDoc } from './agent-generation-prompt';
 import type { CustomSkill, GeneratedSkill, CustomAgentValidationResult } from '@/types/custom-agents';
 
 const MAX_AUTO_FIX = 2;
@@ -24,6 +24,8 @@ export interface AgentGenerationChatProps {
   onAgentGenerated: (content: string, skills: GeneratedSkill[]) => void;
   /** Validate generated content; if errors/warnings found, auto-sends fix requests to Claude */
   onValidate?: (content: string) => Promise<CustomAgentValidationResult | null>;
+  /** Reference documents uploaded by the user — injected as context on first message */
+  referenceDocs?: RefDoc[];
 }
 
 /**
@@ -118,6 +120,7 @@ export function AgentGenerationChat({
   availableMcpServers,
   onAgentGenerated,
   onValidate,
+  referenceDocs,
 }: AgentGenerationChatProps) {
   const [output, setOutput] = useState<string[]>([
     '\x1b[36m--- AI Agent Generation Chat ---\x1b[0m',
@@ -320,6 +323,7 @@ export function AgentGenerationChat({
       const context = buildAgentGenerationContext(
         availableSkills.map((s) => s.id),
         availableMcpServers,
+        referenceDocs,
       );
       message = context + trimmed;
       isFirstMessageRef.current = false;
@@ -344,7 +348,7 @@ export function AgentGenerationChat({
       sendChatMessage(message, undefined, undefined, undefined, readOnlyTools);
     }
     setInputValue('');
-  }, [inputValue, connected, availableSkills, availableMcpServers, sendChatMessage, chatSessionId]);
+  }, [inputValue, connected, availableSkills, availableMcpServers, sendChatMessage, chatSessionId, referenceDocs]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

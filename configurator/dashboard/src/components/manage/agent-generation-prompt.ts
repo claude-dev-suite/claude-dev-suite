@@ -42,12 +42,21 @@ mcp_servers:
 - Never [thing to avoid]
 - Do not [another thing to avoid]`;
 
+export interface RefDoc {
+  name: string;
+  content: string;
+  size: number;
+}
+
+const DOC_CONTENT_CAP = 8000;
+
 /**
  * Build the context prompt that gets prepended to the user's first message.
  */
 export function buildAgentGenerationContext(
   availableSkills: string[],
   availableMcpServers: string[],
+  referenceDocs?: RefDoc[],
 ): string {
   const skillsList = availableSkills.length > 0
     ? availableSkills.map((s) => `  - ${s}`).join('\n')
@@ -88,7 +97,18 @@ ${skillsList}
 
 ## Available MCP Servers
 
-${mcpList}
+${mcpList}${referenceDocs && referenceDocs.length > 0 ? `
+
+## Reference Documentation
+
+The user has uploaded the following reference documents. Use them as primary context when generating the agent — study the APIs, patterns, and terminology they describe:
+
+${referenceDocs.map((doc) => {
+  const body = doc.content.length > DOC_CONTENT_CAP
+    ? doc.content.slice(0, DOC_CONTENT_CAP) + '\n[... truncated]'
+    : doc.content;
+  return `### ${doc.name}\n${body}\n---`;
+}).join('\n\n')}` : ''}
 
 ## Validation Checklist (content is auto-validated — ALL rules MUST pass)
 

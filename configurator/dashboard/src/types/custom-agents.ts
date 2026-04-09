@@ -314,6 +314,23 @@ export interface CustomSkillValidationResponse {
 }
 
 // ============================================
+// REFERENCE DOCS TYPES
+// ============================================
+
+/**
+ * A reference document uploaded by the user for AI-assisted generation.
+ * The backend extracts text content (including from PDFs) and returns it here.
+ */
+export interface RefDoc {
+  /** Original filename */
+  name: string;
+  /** Extracted text content */
+  content: string;
+  /** Original file size in bytes */
+  size: number;
+}
+
+// ============================================
 // UI STATE TYPES
 // ============================================
 

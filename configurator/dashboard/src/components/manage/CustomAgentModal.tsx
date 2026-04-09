@@ -16,6 +16,7 @@ import type {
   CustomAgentOperationResponse,
   CustomSkill,
   GeneratedSkill,
+  RefDoc,
 } from '@/types/custom-agents';
 
 export interface CustomAgentModalProps {
@@ -51,6 +52,11 @@ export function CustomAgentModal({
   const [validation, setValidation] = useState<CustomAgentValidationResult | null>(null);
   const [showWarningsDialog, setShowWarningsDialog] = useState(false);
 
+  // Reference docs for AI Chat mode
+  const [referenceDocs, setReferenceDocs] = useState<RefDoc[]>([]);
+  const [docsUploading, setDocsUploading] = useState(false);
+  const docsInputRef = useRef<HTMLInputElement>(null);
+
   // AI Chat inline review state
   const [aiReviewContent, setAiReviewContent] = useState<string | null>(null);
   const [aiReviewSkills, setAiReviewSkills] = useState<GeneratedSkill[]>([]);
@@ -60,6 +66,28 @@ export function CustomAgentModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const validateTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Upload reference docs for AI Chat mode
+  const handleDocsUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remaining = 5 - referenceDocs.length;
+    if (remaining <= 0) return;
+    setDocsUploading(true);
+    try {
+      const formData = new FormData();
+      Array.from(files).slice(0, remaining).forEach((f) => formData.append('files', f));
+      const res = await fetch('/api/custom-agents/upload-docs', { method: 'POST', body: formData });
+      const data = await res.json() as { success: boolean; files?: RefDoc[]; error?: string };
+      if (data.success && data.files) {
+        setReferenceDocs((prev) => [...prev, ...data.files!].slice(0, 5));
+      }
+    } catch {
+      // silently ignore upload errors — user can retry
+    } finally {
+      setDocsUploading(false);
+      if (docsInputRef.current) docsInputRef.current.value = '';
+    }
+  };
 
   // Reset state when modal closes
   const handleClose = () => {
@@ -71,6 +99,7 @@ export function CustomAgentModal({
     setAiReviewContent(null);
     setAiReviewSkills([]);
     setIncludedSkills(new Set());
+    setReferenceDocs([]);
     onClose();
   };
 
@@ -491,6 +520,58 @@ mcp_servers:
           {/* AI Chat Mode */}
           {mode === 'ai-chat' && (
             <>
+              {/* Reference docs upload — shown only before review */}
+              {!isInAiReview && (
+                <div className="shrink-0">
+                  <input
+                    ref={docsInputRef}
+                    type="file"
+                    multiple
+                    accept=".md,.txt,.html,.htm,.pdf"
+                    className="hidden"
+                    onChange={(e) => handleDocsUpload(e.target.files)}
+                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-surface-400">
+                      Reference docs{referenceDocs.length > 0 ? ` (${referenceDocs.length}/5)` : ''} — optional
+                    </span>
+                    {referenceDocs.length < 5 && (
+                      <button
+                        type="button"
+                        onClick={() => docsInputRef.current?.click()}
+                        disabled={docsUploading}
+                        className="text-xs px-2.5 py-1 rounded bg-surface-700 text-surface-300 hover:bg-surface-600 hover:text-white transition-colors disabled:opacity-50"
+                      >
+                        {docsUploading ? 'Uploading…' : '+ Upload PDF / MD / TXT'}
+                      </button>
+                    )}
+                  </div>
+                  {referenceDocs.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {referenceDocs.map((doc, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-700 text-surface-300 text-xs"
+                        >
+                          <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          {doc.name}
+                          <button
+                            type="button"
+                            onClick={() => setReferenceDocs((prev) => prev.filter((_, j) => j !== i))}
+                            className="ml-0.5 text-surface-500 hover:text-white transition-colors"
+                            aria-label={`Remove ${doc.name}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Chat — hidden during review to preserve WebSocket session */}
               <div className={clsx('flex-1 min-h-0', isInAiReview && 'hidden')}>
                 <AgentGenerationChat
@@ -499,6 +580,7 @@ mcp_servers:
                   availableMcpServers={availableMcpServers}
                   onAgentGenerated={handleAiAgentGenerated}
                   onValidate={onValidate}
+                  referenceDocs={referenceDocs}
                 />
               </div>
 

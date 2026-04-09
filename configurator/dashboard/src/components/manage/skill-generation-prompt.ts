@@ -33,11 +33,20 @@ DO NOT USE FOR:
 - [ ] [Key item to verify]
 - [ ] [Another item to verify]`;
 
+export interface RefDoc {
+  name: string;
+  content: string;
+  size: number;
+}
+
+const DOC_CONTENT_CAP = 8000;
+
 /**
  * Build the context prompt that gets prepended to the user's first message.
  */
 export function buildSkillGenerationContext(
   existingSkills: string[],
+  referenceDocs?: RefDoc[],
 ): string {
   const skillsList = existingSkills.length > 0
     ? existingSkills.map((s) => `  - ${s}`).join('\n')
@@ -77,7 +86,18 @@ ${SKILL_TEMPLATE}
 
 ## Existing Custom Skills in This Project
 
-${skillsList}
+${skillsList}${referenceDocs && referenceDocs.length > 0 ? `
+
+## Reference Documentation
+
+The user has uploaded the following reference documents. Use them as primary context when generating the skill — study the APIs, patterns, and terminology they describe:
+
+${referenceDocs.map((doc) => {
+  const body = doc.content.length > DOC_CONTENT_CAP
+    ? doc.content.slice(0, DOC_CONTENT_CAP) + '\n[... truncated]'
+    : doc.content;
+  return `### ${doc.name}\n${body}\n---`;
+}).join('\n\n')}` : ''}
 
 ## Validation Checklist (content is auto-validated — ALL rules MUST pass)
 

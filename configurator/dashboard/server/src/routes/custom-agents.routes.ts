@@ -1,4 +1,3 @@
-import path from 'node:path';
 // SPDX-License-Identifier: MIT
 /**
  * Custom Agents API Routes
@@ -11,6 +10,7 @@ import path from 'node:path';
  * - Rate limiting on upload endpoints (10 uploads/minute)
  */
 
+import path from 'node:path';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import multer, { type FileFilterCallback, MulterError } from 'multer';
 import rateLimit from 'express-rate-limit';
@@ -117,6 +117,28 @@ function handleMulterError(
 
   next(err);
 }
+
+// Configure multer for reference document uploads (PDF, MD, TXT, HTML)
+const ALLOWED_DOC_EXTENSIONS = ['.md', '.txt', '.html', '.htm', '.pdf'];
+const uploadDocs = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20 MB total budget; per-file enforcement below
+    files: 5,
+  },
+  fileFilter: (
+    _req: Express.Request,
+    file: Express.Multer.File,
+    cb: FileFilterCallback
+  ) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ALLOWED_DOC_EXTENSIONS.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type. Allowed: ${ALLOWED_DOC_EXTENSIONS.join(', ')}`));
+    }
+  },
+});
 
 // ============================================
 // CUSTOM AGENTS ENDPOINTS
@@ -759,5 +781,59 @@ router.delete('/custom-skills/:id', async (req: Request, res: Response) => {
     });
   }
 });
+
+// ============================================
+// REFERENCE DOCS UPLOAD ENDPOINT
+// ============================================
+
+/**
+ * POST /api/custom-agents/upload-docs
+ * Upload reference documents for AI-assisted agent/skill generation.
+ * Extracts text content (including from PDFs) and returns it to the client.
+ * SECURITY: Rate limited, memory storage only, 5 files max, allowed extensions only.
+ */
+router.post(
+  '/custom-agents/upload-docs',
+  uploadRateLimiter,
+  uploadDocs.array('files', 5),
+  async (req: Request, res: Response) => {
+    try {
+      const files = (req.files as Express.Multer.File[] | undefined);
+      if (!files || files.length === 0) {
+        res.status(400).json({ success: false, error: 'No files uploaded' });
+        return;
+      }
+
+      const results: Array<{ name: string; content: string; size: number }> = [];
+
+      for (const file of files) {
+        const ext = path.extname(file.originalname).toLowerCase();
+        let content: string;
+
+        if (ext === '.pdf') {
+          // pdf-parse is a CommonJS module — use createRequire for ESM compatibility
+          const { createRequire } = await import('node:module');
+          const require = createRequire(import.meta.url);
+          const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>;
+          const parsed = await pdfParse(file.buffer);
+          content = parsed.text;
+        } else {
+          content = file.buffer.toString('utf-8');
+        }
+
+        results.push({
+          name: file.originalname,
+          content,
+          size: file.size,
+        });
+      }
+
+      res.json({ success: true, files: results });
+    } catch (error) {
+      logger.error('Failed to process uploaded docs', { error });
+      res.status(500).json({ success: false, error: 'Failed to process uploaded files' });
+    }
+  }
+);
 
 export { router as customAgentsRoutes };

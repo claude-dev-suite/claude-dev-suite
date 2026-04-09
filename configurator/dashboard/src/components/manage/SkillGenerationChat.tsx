@@ -12,7 +12,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Console } from '../orchestrator/Console';
 import { Button } from '../common';
 import { useOrchestratorWebSocket } from '../orchestrator/hooks/useOrchestratorWebSocket';
-import { buildSkillGenerationContext, extractSkillContent } from './skill-generation-prompt';
+import { buildSkillGenerationContext, extractSkillContent, type RefDoc } from './skill-generation-prompt';
 import type { CustomSkillValidationResult } from '@/types/custom-agents';
 
 const MAX_AUTO_FIX = 2;
@@ -23,6 +23,8 @@ export interface SkillGenerationChatProps {
   onSkillGenerated: (content: string) => void;
   /** Validate generated content; if warnings found, auto-sends fix requests to Claude */
   onValidate?: (content: string) => Promise<CustomSkillValidationResult | null>;
+  /** Reference documents uploaded by the user — injected as context on first message */
+  referenceDocs?: RefDoc[];
 }
 
 export function SkillGenerationChat({
@@ -30,6 +32,7 @@ export function SkillGenerationChat({
   existingSkills,
   onSkillGenerated,
   onValidate,
+  referenceDocs,
 }: SkillGenerationChatProps) {
   const [output, setOutput] = useState<string[]>([
     '\x1b[36m--- AI Skill Generation Chat ---\x1b[0m',
@@ -200,7 +203,7 @@ export function SkillGenerationChat({
 
     // Prepend context prompt on first message
     if (isFirstMessageRef.current) {
-      const context = buildSkillGenerationContext(existingSkills);
+      const context = buildSkillGenerationContext(existingSkills, referenceDocs);
       message = context + trimmed;
       isFirstMessageRef.current = false;
     }
@@ -221,7 +224,7 @@ export function SkillGenerationChat({
       sendChatMessage(message, undefined, undefined, undefined, readOnlyTools);
     }
     setInputValue('');
-  }, [inputValue, connected, existingSkills, sendChatMessage, chatSessionId]);
+  }, [inputValue, connected, existingSkills, sendChatMessage, chatSessionId, referenceDocs]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
