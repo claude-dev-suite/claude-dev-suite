@@ -787,6 +787,33 @@ router.delete('/custom-skills/:id', async (req: Request, res: Response) => {
 // ============================================
 
 /**
+ * Multer error handler for the docs upload endpoint.
+ */
+function handleDocsMulterError(err: Error, _req: Request, res: Response, next: NextFunction): void {
+  if (err instanceof MulterError) {
+    switch (err.code) {
+      case 'LIMIT_FILE_SIZE':
+        res.status(413).json({ success: false, error: 'File too large. Maximum size is 20 MB.' });
+        return;
+      case 'LIMIT_FILE_COUNT':
+        res.status(400).json({ success: false, error: 'Too many files. Maximum 5 files allowed.' });
+        return;
+      case 'LIMIT_UNEXPECTED_FILE':
+        res.status(400).json({ success: false, error: 'Unexpected file field.' });
+        return;
+      default:
+        res.status(400).json({ success: false, error: 'File upload error.' });
+        return;
+    }
+  }
+  if (err.message.startsWith('Unsupported file type')) {
+    res.status(400).json({ success: false, error: err.message });
+    return;
+  }
+  next(err);
+}
+
+/**
  * POST /api/custom-agents/upload-docs
  * Upload reference documents for AI-assisted agent/skill generation.
  * Extracts text content (including from PDFs) and returns it to the client.
@@ -796,6 +823,7 @@ router.post(
   '/custom-agents/upload-docs',
   uploadRateLimiter,
   uploadDocs.array('files', 5),
+  handleDocsMulterError,
   async (req: Request, res: Response) => {
     try {
       const files = (req.files as Express.Multer.File[] | undefined);
