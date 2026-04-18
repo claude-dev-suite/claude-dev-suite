@@ -42,9 +42,9 @@
 
 Dev-Suite transforms Claude Code into a full-stack development powerhouse by providing:
 
-- **49 Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, data engineering, industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
-- **10 MCP Servers** - Extend Claude with 79 tools for documentation, databases, Docker, API testing, logs, performance profiling, security scanning, and more
-- **345+ Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI integration, animation, 3D graphics, and more
+- **Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, data engineering, RAG (retrieval-augmented generation), industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter/Android Kotlin), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
+- **MCP Servers** - Extend Claude with tools for documentation (with KB discovery via `list_docs`), databases, Docker, API testing, logs, performance profiling, security scanning, and more
+- **Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI/RAG integration, embeddings, vector stores, document processing, animation, 3D graphics, and more
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
 - **10 Project Templates** - Scaffolding for React, Next.js, Spring Boot, FastAPI, NestJS, and more
 - **Task Orchestrator** - Submit complex multi-agent tasks from the GUI with real-time streaming updates
@@ -122,8 +122,8 @@ After restarting Claude Code, everything works automatically:
 The **Web Dashboard** (launched via `init-project.sh`) provides:
 
 #### **Visual Configuration Wizard**
-- **Auto-Detection**: Scans `package.json`, `pom.xml`, `Cargo.toml`, `docker-compose.yml`, etc.
-- **Stack Detection**: Identifies React, Spring Boot, PostgreSQL, Git provider, and more
+- **Auto-Detection**: Scans `package.json`, `pom.xml`, `build.gradle.kts`, `Cargo.toml`, `docker-compose.yml`, `AndroidManifest.xml`, `libs.versions.toml`, etc.
+- **Stack Detection**: Identifies React, Spring Boot, Android/Kotlin (Room, Compose), PostgreSQL, Git provider, and more
 - **Agent Selection**: Pre-selects agents based on detected technologies
 - **MCP Selection**: Pre-selects MCP servers with environment variable configuration
 - **One-Click Install**: Generates all config files (`.mcp.json`, `.dev-suite.json`, `CLAUDE.md`)
