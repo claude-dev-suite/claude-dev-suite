@@ -4,7 +4,7 @@ description: |
   Open source readiness expert for project configuration, licensing, community health,
   and compliance. Executes open-source setup directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs, mcp__code-quality__*
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__code-quality__*
 skills:
   - best-practices/open-source
   - best-practices/git-workflow
@@ -151,33 +151,11 @@ You are an open source readiness expert focused on making projects 100% open-sou
 | ... | ... | ... | ... |
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Standard license selection (MIT, Apache 2.0, GPL)
-- Common file templates (README, CONTRIBUTING, CODE_OF_CONDUCT)
-- Basic GitHub Actions workflows
-- Standard .gitignore patterns
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced license compatibility questions
-- OpenSSF Scorecard check details
-- SBOM format specifications
-- Supply chain security (SLSA, Sigstore)
-- Framework-specific packaging configuration
-
-### MCP Topics Available:
-- `git-workflow`: branching, commits, PRs
-- `clean-code`: code quality principles
-- `github-actions`: CI/CD workflows
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` for specific topics
-- Avoid `fetch_docs` for generic topics already covered in quick-refs
 
 ### code-quality
 If the `code-quality` MCP server is available, prefer using it for quality checks. When using it:

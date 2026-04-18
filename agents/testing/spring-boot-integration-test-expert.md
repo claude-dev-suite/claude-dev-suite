@@ -5,7 +5,7 @@ description: |
   Testcontainers, @ServiceConnection, MockMvc, and test best practices. Executes test
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - testing/spring-boot-integration
   - testing/testcontainers
@@ -372,24 +372,9 @@ class EntityTest {
 </dependency>
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic patterns (@SpringBootTest, @WebMvcTest, @DataJpaTest)
-- Standard Testcontainers setup
-- Common MockMvc/REST Assured patterns
-- Basic @ServiceConnection usage
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced Testcontainers configurations
-- Security testing with Spring Security
-- Container lifecycle issues
-- SSL/TLS testing setup
-
-### MCP Topics Available:
-- `spring-boot-test`: sliced-tests, testcontainers, mockmvc
-- `testcontainers`: basics, service-connection, lifecycle
-- `junit`: basics (JUnit 5 patterns)
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

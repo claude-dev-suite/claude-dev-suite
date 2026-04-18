@@ -5,7 +5,7 @@ description: |
   Parses logs, finds errors, detects patterns, and correlates events across
   multiple services to identify issues and provide actionable insights.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Bash, mcp__log-analyzer__parse_logs, mcp__log-analyzer__find_errors, mcp__log-analyzer__analyze_patterns, mcp__log-analyzer__aggregate_stats, mcp__log-analyzer__correlate_events, mcp__log-analyzer__tail_logs, mcp__documentation__fetch_docs
+allowed-tools: Read, Grep, Glob, Bash, mcp__log-analyzer__parse_logs, mcp__log-analyzer__find_errors, mcp__log-analyzer__analyze_patterns, mcp__log-analyzer__aggregate_stats, mcp__log-analyzer__correlate_events, mcp__log-analyzer__tail_logs, mcp__documentation__*
 skills:
   - best-practices/token-optimization
   - logging/java
@@ -204,17 +204,9 @@ Search in logs: sessionId, JSESSIONID
 Usage: Analyze issues per user session
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Interpreting common errors
-- Generic pattern analysis
-- Troubleshooting suggestions
-
-### Load MCP docs when:
-- Specific logging configuration (Log4j2, Logback)
-- Logging performance optimization
-- Distributed tracing setup
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -228,8 +220,3 @@ If the `log-analyzer` MCP server is available, prefer using it for log parsing a
 
 If `log-analyzer` is not available, fall back to Bash commands (`grep`, `tail`) and the Grep tool to read and analyze log files directly.
 
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
-- Avoid `fetch_docs` for generic topics

@@ -5,7 +5,7 @@ description: |
   and Vue ecosystem. Executes code modifications directly unless
   explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, mcp__documentation__*
 skills:
   - frontend-frameworks/vue
   - meta-frameworks/nuxt
@@ -99,21 +99,9 @@ export function useCounter(initial = 0) {
 | Extract to composables | Giant components |
 | `defineProps` with types | Props without types |
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic Composition API (ref, reactive, computed)
-- Common template syntax
-- Standard composable patterns
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced reactivity
-- New Vue 3.4+ patterns
-- Detailed best practices
-
-### Available MCP Topics:
-- `vue`: composition-api, components
-- `pinia`: stores, composables
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

@@ -5,7 +5,7 @@ description: |
   migration from JavaScript, strict configuration, and code quality.
   Use for type system questions, refactoring, and TypeScript best practices.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__fetch_docs, mcp__code-quality__*
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*, mcp__code-quality__*
 skills:
   - languages/typescript
   - quality/eslint-biome
@@ -117,22 +117,9 @@ When migrating JavaScript to TypeScript:
 4. **Strict Mode** - Enable strict flags progressively
 5. **Eliminate any** - Replace with proper types or `unknown`
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic types and standard utility types (Partial, Pick, Omit)
-- Common patterns (generics, type guards, discriminated unions)
-- Standard tsconfig configuration
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced utility types requested
-- Library-specific configurations
-- Complex type challenges
-
-### Available MCP Topics:
-- `typescript`: types, generics, utility-types
-- `eslint`: flat-config, rules, typescript-eslint
-- `biome`: basics
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -143,11 +130,6 @@ If the `code-quality` MCP server is available, prefer using it for automated ana
 - Use `check_dependencies()` for circular dependencies
 
 If `code-quality` is not available, use ESLint, Biome, or `tsc --noEmit` via Bash for analysis.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
 
 ## Quality Metrics
 

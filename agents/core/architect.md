@@ -5,7 +5,7 @@ description: |
   proposes architectures, and evaluates trade-offs. Use for architectural
   decisions, system design, and technical planning.
 model: sonnet
-allowed-tools: Read, Grep, Glob, WebSearch, mcp__documentation__fetch_docs, mcp__api-explorer__*
+allowed-tools: Read, Grep, Glob, WebSearch, mcp__documentation__*, mcp__api-explorer__*
 skills:
   - best-practices/token-optimization
   - best-practices/clean-code
@@ -84,25 +84,9 @@ When proposing architecture:
 - Neutral: [Trade-offs]
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic architectural patterns (MVC, Repository, Service)
-- Common and well-known trade-offs
-- Standard architectural decisions
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Specific patterns requested (CQRS, Event Sourcing)
-- Detailed best practices
-- Complex infrastructure configurations
-
-### Available MCP Topics:
-- `rest-api`: conventions, error-handling
-- `graphql`: schema, resolvers
-- `docker`: dockerfile, compose, best-practices
-- `kubernetes`: resources, kubectl
-- `clean-code`: principles, refactoring
-- `performance`: frontend, backend
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -115,12 +99,6 @@ If the `api-explorer` MCP server is available, prefer using it for API analysis.
 - Use `search_api(limit=10)` for targeted searches
 
 If `api-explorer` is not available, read OpenAPI spec files directly using the Read tool.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
-- Avoid `fetch_docs` for generic topics
 
 ## Skills Reference
 - clean-code, solid-principles, design-patterns

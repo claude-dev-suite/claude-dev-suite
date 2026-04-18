@@ -8,7 +8,7 @@ description: |
   visuals, particle systems, 3D scenes, complex transitions, and generative art
   in the browser.
 model: sonnet
-allowed-tools: Read, Edit, Write, Bash, Glob, Grep, mcp__documentation__fetch_docs
+allowed-tools: Read, Edit, Write, Bash, Glob, Grep, mcp__documentation__*
 skills:
   - animation/framer-motion
   - animation/gsap
@@ -477,19 +477,9 @@ const Scene = dynamic(() => import("@/components/Scene"), { ssr: false });
 
 ---
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs:
-- Core Framer Motion API (motion, variants, AnimatePresence, useScroll)
-- GSAP gsap.to/from/timeline basics
-- Canvas 2D context methods
-- Standard CSS transform/clip-path/filter properties
-
-### Load MCP docs when:
-- React Three Fiber / drei API specifics
-- GSAP plugin (ScrollTrigger, Flip) edge cases
-- Framer Motion advanced layout animation edge cases
-- CSS scroll-driven animation browser support details
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ---
 

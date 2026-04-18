@@ -80,7 +80,7 @@ const handlerContext: HandlerContext = {
 const server = new Server(
   {
     name: "documentation-server",
-    version: "2.3.0", // Bump for handler refactoring
+    version: "2.4.0", // list_docs tool + CATEGORY_MAP
   },
   {
     capabilities: {
@@ -195,6 +195,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         required: ["technology"],
       },
     },
+    {
+      name: "list_docs",
+      description:
+        "List all available KB articles as a compact catalog. Returns { technology: [topics...] } mapping. Use to discover what documentation is available, then fetch specific articles with fetch_docs.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: [
+              "frontend", "meta-frameworks", "backend", "databases", "testing",
+              "infrastructure", "languages", "api", "auth", "desktop", "tooling",
+              "standards", "observability", "architecture", "ai", "security", "ux",
+              "rag", "retrieval", "embeddings", "vector-stores",
+              "document-processing", "rag-frameworks", "rag-ops",
+            ],
+            description: "Filter by category. Omit for full catalog.",
+          },
+        },
+      },
+    },
   ];
 
   return { tools };
@@ -215,7 +236,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const result = await handler(args, handlerContext);
 
     // Log analytics for fetch_docs and search_docs
-    if (name === "fetch_docs" || name === "search_docs" || name === "list_topics" || name === "list_versions") {
+    if (name === "fetch_docs" || name === "search_docs" || name === "list_topics" || name === "list_versions" || name === "list_docs") {
       const durationMs = Date.now() - startTime;
       const input = (args || {}) as Record<string, unknown>;
 
@@ -242,7 +263,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } catch {}
 
       analyticsLogger.log({
-        tool: name as "fetch_docs" | "search_docs" | "list_topics" | "list_versions",
+        tool: name as "fetch_docs" | "search_docs" | "list_topics" | "list_versions" | "list_docs",
         technology: (input.technology as string) || "unknown",
         topic: input.topic as string | undefined,
         query: input.query as string | undefined,
@@ -258,12 +279,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     return result;
   } catch (error) {
     // Log error for analytics
-    if (name === "fetch_docs" || name === "search_docs" || name === "list_topics" || name === "list_versions") {
+    if (name === "fetch_docs" || name === "search_docs" || name === "list_topics" || name === "list_versions" || name === "list_docs") {
       const durationMs = Date.now() - startTime;
       const input = (args || {}) as Record<string, unknown>;
 
       analyticsLogger.log({
-        tool: name as "fetch_docs" | "search_docs" | "list_topics" | "list_versions",
+        tool: name as "fetch_docs" | "search_docs" | "list_topics" | "list_versions" | "list_docs",
         technology: (input.technology as string) || "unknown",
         topic: input.topic as string | undefined,
         query: input.query as string | undefined,

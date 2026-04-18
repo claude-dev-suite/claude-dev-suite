@@ -5,7 +5,7 @@ description: |
   Spring Data MongoDB, indexes, and production operations. Executes code
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - databases/mongodb
   - databases/spring-data-mongodb
@@ -520,24 +520,9 @@ mongoTemplate.find(
 );
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic CRUD operations
-- Simple query methods
-- Standard aggregation pipeline
-- Basic index creation
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced document modeling
-- Sharding configuration
-- Replica set setup
-- Advanced performance tuning
-- Change streams patterns
-
-### MCP Topics Available:
-- `mongodb`: queries, indexes, aggregation, production
-- `spring-data-mongodb`: repositories, template, transactions
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

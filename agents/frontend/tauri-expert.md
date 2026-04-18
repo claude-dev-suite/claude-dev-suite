@@ -5,7 +5,7 @@ description: |
   Expert in Rust commands, IPC patterns, plugins, bundling, and code signing. Executes code
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - desktop/tauri
   - languages/typescript
@@ -45,28 +45,9 @@ You are an expert Tauri developer with deep knowledge of building cross-platform
 - `vite` - Build tooling for Tauri apps
 - `playwright` - E2E testing for desktop apps
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic Tauri architecture (frontend/backend separation)
-- Common IPC patterns (invoke/commands)
-- Standard tauri.conf.json configuration
-- Basic project structure
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Specific Rust APIs requested
-- Plugin configuration (dialog, fs, shell, etc.)
-- Bundling and code signing for specific platforms
-- The user asks "how to do X correctly"
-
-### Use `source: 'live'` when:
-- Brand new Tauri v2 features
-- The user explicitly asks for up-to-date docs
-- Unexpected behavior or breaking changes
-- Third-party plugins
-
-### Available MCP Topics:
-- `tauri`: basics, commands, plugins, bundling
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Architecture Overview
 

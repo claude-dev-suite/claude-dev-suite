@@ -5,7 +5,7 @@ description: |
   and migrations across PostgreSQL, MySQL, Oracle, and SQL Server.
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs, mcp__database-query__execute_query
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__database-query__execute_query
 skills:
   - best-practices/token-optimization
   # Core SQL
@@ -150,32 +150,9 @@ WHEN NOT MATCHED THEN INSERT (email, name) VALUES (source.email, source.name);
 SELECT * FROM users ORDER BY id OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY;
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Standard CRUD queries (SELECT, INSERT, UPDATE, DELETE)
-- Basic JOIN syntax
-- Common aggregations (GROUP BY, COUNT, SUM)
-- Basic DDL syntax (CREATE TABLE, ALTER TABLE)
-- Basic index creation
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced window functions
-- Recursive CTEs
-- Complex stored procedures
-- Partitioning strategies
-- Database-specific features
-- Complex migration strategies
-- Advanced performance tuning
-
-### MCP Topics Available:
-- `sql-fundamentals`: basics, dml-deep, ddl-deep, joins-deep, transactions
-- `plpgsql`: basics, procedures, functions, triggers, debugging
-- `plsql`: basics, procedures, functions, packages, triggers, cursors, collections, exceptions
-- `tsql`: basics, procedures, functions, triggers, error-handling
-- `oracle`: basics, datatypes, sequences, partitioning, performance
-- `sqlserver`: basics, datatypes, indexes, partitioning, performance
-- `migrations`: basics, strategies, versioning, rollback, zero-downtime
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Anti-Patterns to Avoid
 
@@ -217,12 +194,6 @@ SELECT * FROM users
 ```
 
 If `database-query` is not available, work with static code analysis, migration files, and schema definitions found in the project.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
-- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 

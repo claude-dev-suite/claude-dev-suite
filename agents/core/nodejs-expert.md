@@ -5,7 +5,7 @@ description: |
   worker threads, memory management, and production optimization.
   Use for performance issues, async patterns, and Node.js best practices.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__fetch_docs, mcp__performance-profiler__*, mcp__log-analyzer__*
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*, mcp__performance-profiler__*, mcp__log-analyzer__*
 skills:
   - languages/nodejs
   - languages/typescript
@@ -158,20 +158,9 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Event loop basics and phases
-- Common async/await patterns
-- Basic stream usage
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Specific Node.js module APIs
-- Advanced cluster/worker configurations
-- Specific performance troubleshooting
-
-### Available MCP Topics:
-- `nodejs`: event-loop, streams, worker-threads, cluster, performance
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 

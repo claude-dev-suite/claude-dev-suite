@@ -5,7 +5,7 @@ description: |
   screen reader compatibility, and accessibility testing with axe-core.
   Use for accessibility audits, remediation, and inclusive design.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*
 skills:
   - accessibility/wcag
   - accessibility/axe-core
@@ -154,20 +154,9 @@ test('page is accessible', async ({ page }) => {
 - [ ] Focus indicators visible
 - [ ] Content readable at 200% zoom
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Common ARIA patterns (dialog, menu, tabs)
-- Basic WCAG guidelines
-- Form accessibility best practices
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Complex ARIA patterns (tree, grid, combobox)
-- Specific WCAG criteria
-- Advanced axe-core configuration
-
-### Available MCP Topics:
-- `wcag`: overview, quick-reference, aria-patterns, axe-core
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Audit Output Format
 

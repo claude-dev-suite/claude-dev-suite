@@ -5,7 +5,7 @@ description: |
   and secure coding practices. Executes security fixes directly unless
   explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Bash, mcp__documentation__fetch_docs, mcp__security-scanner__*
+allowed-tools: Read, Grep, Glob, Bash, mcp__documentation__*, mcp__security-scanner__*
 skills:
   - best-practices/token-optimization
   # Core OWASP skills
@@ -289,23 +289,9 @@ docker scan myimage:latest
 trivy image myimage:latest
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Common OWASP vulnerabilities (SQLi, XSS, CSRF)
-- Standard authentication best practices
-- Well-known security patterns
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced JWT/OAuth2 configurations
-- Detailed security best practices
-- Specific vulnerability investigation
-- Framework-specific security (Spring Security, etc.)
-
-### MCP Topics Available:
-- `jwt`: implementation, security, best-practices
-- `oauth2`: flows, providers, security
-- `spring-security`: basics, configuration
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -317,12 +303,6 @@ If the `security-scanner` MCP server is available, prefer using it for automated
 - Specify specific paths instead of full root scans
 
 If `security-scanner` is not available, use Bash tools (`npm audit`, `pip-audit`, `gitleaks`, `semgrep`) to perform equivalent scans.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
-- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 

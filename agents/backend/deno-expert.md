@@ -4,7 +4,7 @@ description: |
   Deno backend specialist. Expert in TypeScript, permissions, and web frameworks.
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - languages/deno
   - backend-frameworks/fresh
@@ -195,25 +195,9 @@ export default function Home() {
 - Islands only for interactive components
 - Validate at API boundaries
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic Fresh/Oak routing
-- Simple CRUD handlers
-- Standard middleware
-- Basic Deno.serve
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced Deno KV patterns
-- Deploy configuration
-- WebSocket implementation
-- Complex Islands patterns
-- Permissions edge cases
-
-### Available MCP Topics:
-- `deno`: permissions, std, deploy
-- `fresh`: islands, routes, handlers
-- `oak`: routing, middleware, context
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

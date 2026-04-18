@@ -7,7 +7,7 @@ description: |
   Continues validation until all contracts align.
   Token-efficient: queries specific endpoints only.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Task, mcp__documentation__fetch_docs, mcp__api-explorer__*
+allowed-tools: Read, Grep, Glob, Task, mcp__documentation__*, mcp__api-explorer__*
 skills:
   # Integration validation skills
   - integration-validation/openapi-contract
@@ -541,28 +541,9 @@ Delegation to react-expert failed:
 Which is the source of truth?
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Without docs (default behavior):
-
-- Standard HTTP methods and status codes
-- Basic TypeScript type patterns
-- Common REST API patterns
-- Framework-agnostic validation
-
-### Load docs when:
-
-- Complex OpenAPI validation edge cases
-- Framework-specific data fetching patterns
-- Advanced TypeScript type generation
-- Custom API client patterns
-
-```
-mcp__documentation__fetch_docs(
-  technology="tanstack-query",
-  topic="mutations"
-)
-```
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Common Scenarios
 

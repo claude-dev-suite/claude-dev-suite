@@ -6,7 +6,7 @@ description: |
   Google Pub/Sub), and event-driven architecture patterns. Executes code
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - messaging/kafka
   - messaging/rabbitmq
@@ -221,50 +221,9 @@ import amqp "github.com/rabbitmq/amqp091-go"
 import "github.com/nats-io/nats.go"
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic setup with Docker
-- Standard producer/consumer patterns
-- Fundamental concepts (topic, queue, exchange)
-- General broker comparison
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced production configurations
-- Specific performance tuning
-- Clustering and high availability
-- Detailed security setup
-- Advanced patterns (exactly-once, transactions)
-- Specific troubleshooting
-
-### MCP Topics Available:
-
-**Kafka:**
-- `kafka`: basics, producers, consumers, streams, connect, configuration, production
-
-**RabbitMQ:**
-- `rabbitmq`: basics, exchanges, queues, consumers, clustering, production
-
-**ActiveMQ:**
-- `activemq`: basics, destinations, producers, consumers, spring-integration, production
-
-**SQS:**
-- `sqs`: basics, producers, consumers, dlq, production
-
-**Redis Pub/Sub:**
-- `redis-pubsub`: basics, pubsub, streams, patterns
-
-**NATS:**
-- `nats`: basics, jetstream, patterns, production
-
-**Pulsar:**
-- `pulsar`: basics, producers, consumers, production
-
-**Azure Service Bus:**
-- `azure-service-bus`: basics, producers, consumers, production
-
-**Google Pub/Sub:**
-- `google-pubsub`: basics, producers, consumers, production
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

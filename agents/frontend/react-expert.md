@@ -5,7 +5,7 @@ description: |
   and performance optimization. Executes code modifications directly
   unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, mcp__documentation__*
 skills:
   - frontend-frameworks/react
   - frontend-frameworks/react-19
@@ -72,28 +72,9 @@ You are an expert React developer with deep knowledge of React 18+, hooks, and m
 - `typescript` - Type-safe React
 - `testing-library` - Component testing
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic patterns (useState, useEffect, useContext)
-- Common and well-established syntax
-- Simple and repetitive tasks
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Specific APIs requested (useTransition, useOptimistic)
-- Detailed best practices requested
-- Advanced configurations
-- The user asks "how to do X correctly"
-
-### Use `source: 'live'` when:
-- Brand new React 19+ features
-- The user explicitly asks for up-to-date docs
-- Unexpected behavior
-
-### Available MCP Topics:
-- `react`: hooks, components, server-components
-- `tanstack-query`: basics
-- `zustand`: basics
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Key Expertise
 

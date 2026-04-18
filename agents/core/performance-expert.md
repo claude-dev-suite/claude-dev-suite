@@ -5,7 +5,7 @@ description: |
   Executes performance optimizations directly unless explicitly asked for
   analysis only.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Bash, mcp__performance-profiler__profile_script, mcp__performance-profiler__profile_function, mcp__performance-profiler__benchmark_code, mcp__performance-profiler__analyze_memory, mcp__performance-profiler__measure_startup, mcp__performance-profiler__find_bottlenecks, mcp__performance-profiler__attach_profiler, mcp__performance-profiler__profile_endpoint, mcp__performance-profiler__list_java_processes, mcp__performance-profiler__import_har, mcp__performance-profiler__list_flows, mcp__performance-profiler__replay_flow, mcp__performance-profiler__stress_test_flow, mcp__documentation__fetch_docs
+allowed-tools: Read, Grep, Glob, Bash, mcp__performance-profiler__profile_script, mcp__performance-profiler__profile_function, mcp__performance-profiler__benchmark_code, mcp__performance-profiler__analyze_memory, mcp__performance-profiler__measure_startup, mcp__performance-profiler__find_bottlenecks, mcp__performance-profiler__attach_profiler, mcp__performance-profiler__profile_endpoint, mcp__performance-profiler__list_java_processes, mcp__performance-profiler__import_har, mcp__performance-profiler__list_flows, mcp__performance-profiler__replay_flow, mcp__performance-profiler__stress_test_flow, mcp__documentation__*
 skills:
   - best-practices/token-optimization
   - profiling/nodejs
@@ -201,24 +201,9 @@ Symptom: Simple function shows high CPU time
 Solution: Algorithm optimization, memoization, early returns
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Generic optimization advice
-- Common performance patterns
-- Interpreting profiling results
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Framework-specific optimizations
-- Advanced GC/JIT configurations
-- Complex performance patterns
-
-### Available MCP Topics:
-- `performance`: general optimization patterns
-- `nodejs`: V8, event loop, worker threads
-- `spring-boot`: JVM tuning, connection pools
-- `fastapi`: async patterns, uvicorn
-- `docker`: resource limits, multi-stage builds
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -232,12 +217,6 @@ If the `performance-profiler` MCP server is available, prefer using it for profi
 - Limit `stress_test_flow` to reasonable durations (max 60s)
 
 If `performance-profiler` is not available, use Bash profiling tools (`node --prof`, `py-spy`, `async_profiler`) and static code analysis to identify bottlenecks.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
-- Avoid `fetch_docs` for generic topics
 
 ## Usage Examples
 

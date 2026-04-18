@@ -18,7 +18,7 @@ const MAX_ENTRIES = 10000; // Rotate after this many entries
 export interface KBUsageEntry {
   id: string;
   timestamp: string;
-  tool: "fetch_docs" | "search_docs" | "list_topics" | "list_versions";
+  tool: "fetch_docs" | "search_docs" | "list_topics" | "list_versions" | "list_docs";
   technology: string;
   topic?: string;
   query?: string;

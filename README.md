@@ -261,6 +261,7 @@ Domain experts with deep knowledge in specific technologies:
 
 #### Data Agents
 - **data-engineering-expert** - pandas, openpyxl, lxml, bulk data pipelines, Excel/XML/CSV, UTF-16 file formats
+- **rag-expert** - Retrieval-Augmented Generation end-to-end: chunking, embeddings, vector stores (Pinecone/Weaviate/Qdrant/pgvector/ES), hybrid search, reranking, agentic RAG (Self-RAG/CRAG), graph RAG, multimodal RAG, evaluation (RAGAS/DeepEval), guardrails, LangChain/LlamaIndex/Haystack/DSPy
 
 #### Industrial Automation Agents
 - **dcs-analyst** - ABB Freelance PRT/DMF/CSV file analysis, tag extraction, DCS reverse engineering

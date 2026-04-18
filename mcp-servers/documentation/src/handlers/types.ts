@@ -73,6 +73,20 @@ export const ListTopicsSchema = z.object({
   technology: z.enum([...SUPPORTED_TECHNOLOGIES] as [string, ...string[]]),
 });
 
+export const CATEGORIES = [
+  "frontend", "meta-frameworks", "backend", "databases", "testing",
+  "infrastructure", "languages", "api", "auth", "desktop", "tooling",
+  "standards", "observability", "architecture", "ai", "security", "ux",
+  "rag", "retrieval", "embeddings", "vector-stores",
+  "document-processing", "rag-frameworks", "rag-ops",
+] as const;
+
+export const ListDocsSchema = z.object({
+  category: z.enum([...CATEGORIES] as [string, ...string[]])
+    .optional()
+    .describe("Filter by category (e.g., 'rag', 'frontend'). Omit for full catalog."),
+});
+
 // ============ Helper Functions ============
 
 /**

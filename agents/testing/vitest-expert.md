@@ -5,7 +5,7 @@ description: |
   and coverage. Executes test modifications directly unless explicitly
   asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - testing/vitest
   - testing/testing-library
@@ -116,21 +116,9 @@ npx vitest run       # Single run
 npx vitest --coverage # With coverage
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic patterns (describe, it, expect, vi.fn)
-- Simple mocking
-- Common assertions
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced mocking (vi.mock module)
-- Coverage configuration
-- Detailed best practices
-
-### MCP Topics Available:
-- `vitest`: api, mocking, coverage
-- `testing-library`: queries, user-events
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

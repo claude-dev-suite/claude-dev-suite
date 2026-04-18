@@ -5,7 +5,7 @@ description: |
   README creation, and documentation generation with TypeDoc.
   Use for documenting code, APIs, and creating project documentation.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*
 skills:
   - documentation/jsdoc-tsdoc
   - documentation/jsdoc
@@ -237,21 +237,9 @@ export default [
 ];
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic TSDoc/JSDoc syntax
-- Common tags (@param, @returns, @example)
-- Standard README templates
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced TypeDoc configuration
-- API Extractor setup
-- Advanced TSDoc tags
-
-### Available MCP Topics:
-- `tsdoc`: syntax, tags, api-extractor
-- `jsdoc`: reference, typescript-support
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Best Practices
 

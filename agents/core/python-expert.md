@@ -6,7 +6,7 @@ description: |
   and best practices. Executes code modifications directly unless
   explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - best-practices/token-optimization
   - languages/python
@@ -187,23 +187,9 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic type hints and PEP 695 syntax
-- Standard asyncio patterns
-- Common uv/poetry commands
-- Basic ruff/mypy configuration
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced async patterns (anyio, trio)
-- Complex type checking configurations
-- Advanced Hypothesis strategies
-- Detailed best practices
-
-### Available MCP Topics:
-- `python`: typing, async, packaging, cli, quality
-- `pytest`: basics, fixtures, hypothesis
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

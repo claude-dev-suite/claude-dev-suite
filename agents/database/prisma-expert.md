@@ -5,7 +5,7 @@ description: |
   and performance optimization. Executes code modifications directly
   unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - orm-odm/prisma
   - databases/postgresql
@@ -143,20 +143,9 @@ npx prisma studio
 npx prisma db seed
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic schema (models, relations, index)
-- Standard CRUD queries
-- Common CLI commands
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Complex relation patterns
-- Advanced query optimizations
-- Edge case configurations
-
-### MCP Topics Available:
-- `prisma`: schema, queries, relations, migrations
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

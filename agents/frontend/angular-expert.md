@@ -5,7 +5,7 @@ description: |
   routing, forms, and performance optimization. Executes code modifications directly
   unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - best-practices/token-optimization
   - frontend-frameworks/angular
@@ -224,35 +224,9 @@ export const appConfig: ApplicationConfig = {
 | Use `takeUntilDestroyed()` | Manual subscription cleanup |
 | Use typed reactive forms | Use template-driven forms for complex cases |
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Answer WITHOUT loading docs when:
-- Basic patterns (components, services, DI)
-- Common syntax and well-established patterns
-- Simple CRUD operations
-- Standard signals usage (signal, computed, effect)
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced Angular configurations (SSR, hydration)
-- Specific API details (Router events, Form validators)
-- Best practices the user explicitly asks about
-- Migration guides (NgModules to standalone)
-
-### Use `source: 'live'` when:
-- Angular 19+ newest features
-- User explicitly asks for updated docs
-- Unexpected behavior
-
-### MCP Topics Available:
-- `angular`: components, signals, routing, forms, http, di, testing, ssr
-
-## MCP Server Usage Guidelines
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` for specific info
-- Avoid `fetch_docs` for generic topics
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

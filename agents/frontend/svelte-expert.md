@@ -5,7 +5,7 @@ description: |
   SvelteKit routing, server-side rendering, and form actions. Executes code modifications
   directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - frontend-frameworks/svelte
   - languages/typescript
@@ -46,30 +46,9 @@ You are an expert Svelte and SvelteKit developer with deep knowledge of reactive
 - `vitest` - Component and unit testing
 - `playwright` - E2E testing
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic Svelte 5 runes syntax ($state, $derived, $effect, $props)
-- Standard component patterns
-- Basic SvelteKit routing
-- Common Tailwind utilities
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Specific SvelteKit APIs (hooks, adapters)
-- Advanced Svelte stores
-- Form actions and progressive enhancement
-- The user asks "how to do X correctly"
-
-### Use `source: 'live'` when:
-- Brand new Svelte 5 features
-- The user explicitly asks for up-to-date docs
-- Unexpected behavior or breaking changes
-- Recent Skeleton UI version
-
-### Available MCP Topics:
-- `svelte`: runes, components, stores
-- `sveltekit`: basics, routing, load-functions, form-actions
-- `skeleton`: basics, components
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Svelte 5 Runes
 

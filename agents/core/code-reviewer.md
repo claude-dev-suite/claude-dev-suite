@@ -5,7 +5,7 @@ description: |
   Analyzes code for issues, suggests improvements, and ensures
   adherence to standards. Use for code reviews and quality checks.
 model: sonnet
-allowed-tools: Read, Grep, Glob, mcp__documentation__fetch_docs, mcp__code-quality__*
+allowed-tools: Read, Grep, Glob, mcp__documentation__*, mcp__code-quality__*
 skills:
   - best-practices/token-optimization
   - best-practices/clean-code
@@ -88,22 +88,9 @@ You are an expert code reviewer focused on code quality, security, and maintaina
 | 🟢 Suggestion | Improvement opportunity | Consider |
 | ℹ️ Info | Style, minor preference | Optional |
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Common and well-known code smells
-- Standard best practices
-- Typical review patterns
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Specific vulnerabilities (OWASP)
-- Detailed best practices for a stack
-- Advanced patterns requested
-
-### Available MCP Topics:
-- `clean-code`: principles, refactoring
-- `performance`: frontend, backend
-- Stack-specific topics based on the project
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -115,12 +102,6 @@ If the `code-quality` MCP server is available, prefer using it for automated ana
 - Use `code_metrics` for compact overview output
 
 If `code-quality` is not available, use ESLint, Biome, or equivalent linting tools via Bash, and perform manual code review.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
-- Avoid `fetch_docs` for generic topics
 
 ## Skills Reference
 - clean-code, solid-principles

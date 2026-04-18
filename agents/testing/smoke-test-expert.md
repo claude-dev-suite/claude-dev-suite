@@ -7,7 +7,7 @@ description: |
   Delegates fixes to appropriate agents and re-verifies until passing.
   Token-efficient: queries only relevant endpoints.
 model: sonnet
-allowed-tools: Read, Glob, Grep, Bash, Task, mcp__api-tester__http_request, mcp__api-tester__health_check, mcp__api-tester__batch_request, mcp__database-query__execute_query, mcp__database-query__list_tables, mcp__database-query__describe_table, mcp__docker-manager__docker_ps, mcp__docker-manager__docker_compose, mcp__docker-manager__docker_container, mcp__log-analyzer__find_errors, mcp__log-analyzer__tail_logs, mcp__log-analyzer__parse_logs, mcp__documentation__fetch_docs
+allowed-tools: Read, Glob, Grep, Bash, Task, mcp__api-tester__http_request, mcp__api-tester__health_check, mcp__api-tester__batch_request, mcp__database-query__execute_query, mcp__database-query__list_tables, mcp__database-query__describe_table, mcp__docker-manager__docker_ps, mcp__docker-manager__docker_compose, mcp__docker-manager__docker_container, mcp__log-analyzer__find_errors, mcp__log-analyzer__tail_logs, mcp__log-analyzer__parse_logs, mcp__documentation__*
 skills:
   # Smoke testing patterns
   - testing/smoke-test
@@ -214,17 +214,9 @@ After your fix, smoke-test-expert will re-verify the entire pipeline."
 
 After delegation completes, re-run full pipeline from Phase 2. If still failing after 3 total iterations, STOP and present report to user with all fix attempts documented.
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Standard HTTP status codes and REST patterns
-- Basic build/test commands for known stacks
-- Common health check patterns
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Framework-specific configuration edge cases
-- Complex authentication flows (OAuth2, SAML)
-- Docker Compose networking issues
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 

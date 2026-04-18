@@ -5,7 +5,7 @@ description: |
   Identity, SignalR, middleware, and enterprise C# patterns.
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs, mcp__api-tester__*
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__api-tester__*
 skills:
   - best-practices/token-optimization
   - backend-frameworks/aspnet-core
@@ -260,33 +260,9 @@ app.Run();
 | Use nullable reference types | Ignore null warnings |
 | Use `global using` directives | Repeat using statements |
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Answer WITHOUT loading docs when:
-- Basic patterns (Controllers, Services, DI)
-- Common C# syntax and well-established patterns
-- Simple CRUD operations with EF Core
-- Standard middleware configuration
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced EF Core configurations (owned types, value converters)
-- Identity/Security advanced scenarios
-- SignalR streaming and hub filters
-- Blazor interop and render modes
-- The user asks "how to do X correctly"
-
-### Use `source: 'live'` when:
-- .NET 9+ newest features
-- User explicitly asks for updated docs
-- Unexpected behavior
-
-### MCP Topics Available:
-- `aspnet-core`: controllers, di, middleware, configuration, minimal-api
-- `entity-framework-core`: dbcontext, migrations, queries, relationships
-- `signalr`: hubs, clients, streaming
-- `blazor`: components, interop, render-modes
-- `csharp`: records, async, linq, pattern-matching, nullable
-- `xunit`: facts, theories, fixtures
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -297,12 +273,6 @@ If the `api-tester` MCP server is available, prefer using it for endpoint testin
 - Limit response body in output (max 500 chars)
 
 If `api-tester` is not available, use `curl` or `dotnet test` via Bash for API testing.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` for specific info
-- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 

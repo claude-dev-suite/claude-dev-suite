@@ -5,7 +5,7 @@ description: |
   data fetching, caching, and deployment. Executes code modifications
   directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - meta-frameworks/nextjs
   - frontend-frameworks/react
@@ -58,27 +58,9 @@ You are an expert Next.js developer specializing in App Router (Next.js 14+).
 - `typescript` - Type-safe Next.js
 - `tailwindcss` - Styling (if configured)
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- File conventions (page.tsx, layout.tsx)
-- Basic Server vs Client Component decisions
-- Standard data fetching patterns
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Complex caching configurations
-- Advanced routing patterns
-- The user asks "how to do X correctly"
-
-### Use `source: 'live'` when:
-- Brand new Next.js 15+ features
-- Turbopack specifics
-- Unexpected behavior
-
-### Available MCP Topics:
-- `nextjs`: app-router, caching, server-components, data-fetching, server-actions, routing
-- `react`: hooks, components
-- `prisma`: schema, queries, relations
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Key Decision Points
 

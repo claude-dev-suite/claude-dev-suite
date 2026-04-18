@@ -4,7 +4,7 @@ description: |
   Rust backend specialist. Expert in ownership, async, and web frameworks.
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - languages/rust
   - backend-frameworks/actix-web
@@ -164,27 +164,9 @@ async fn get_user(pool: &PgPool, id: i32) -> Result<User, sqlx::Error> {
 - Async all I/O operations
 - Validate at API boundaries
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic routing patterns
-- Standard error handling
-- Simple structs/enums
-- Basic CRUD endpoints
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced async patterns (tokio)
-- Complex lifetimes
-- Custom middleware
-- WebSocket implementation
-- Database connection pooling
-
-### Available MCP Topics:
-- `rust`: ownership, async, error-handling
-- `actix-web`: routing, middleware, extractors
-- `axum`: routing, handlers, state
-- `rocket`: routing, guards, fairings
-- `warp`: filters, rejections
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

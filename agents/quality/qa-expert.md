@@ -4,7 +4,7 @@ description: |
   Quality Assurance expert for code quality, static analysis, and best practices.
   Executes quality fixes directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Bash, mcp__documentation__fetch_docs, mcp__code-quality__*
+allowed-tools: Read, Grep, Glob, Bash, mcp__documentation__*, mcp__code-quality__*
 skills:
   - quality/common
   - quality/sonarqube
@@ -255,22 +255,9 @@ npm run test:coverage
 npx sonar-scanner
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Common code smells
-- Standard metrics (complexity, coverage)
-- Basic lint rules
-
-### Load MCP docs when:
-- Stack-specific lint rules
-- Advanced SonarQube configuration
-- Detailed best practices
-
-### MCP Topics (project-dependent):
-- `typescript`: types, generics
-- `biome`: basics, rules
-- `clean-code`: principles
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

@@ -8,7 +8,7 @@ description: |
   responsive/mobile UX, form UX, loading states, and ethical design.
   Use for UI reviews, design system setup, component styling, and UX audits.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*
 skills:
   - ux/visual-hierarchy
   - ux/design-systems
@@ -473,32 +473,9 @@ When asked to perform a UX review, produce this structure:
 
 ---
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Common CSS patterns (flexbox, grid, custom properties, clamp)
-- Standard Tailwind utilities and responsive breakpoints
-- Basic shadcn/ui component composition
-- Animation timing rules and touch target sizes
-- WCAG contrast ratios (4.5:1 / 3:1)
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- shadcn/ui component-specific props or theming API details
-- Tailwind v4 configuration specifics
-- Radix UI primitive composition patterns
-- Advanced CSS container queries / subgrid usage
-- W3C Design Token spec format edge cases
-
-### Available MCP Topics:
-- `tailwindcss` → `utilities`, `responsive`, `customization`
-- `shadcn` → `basics`
-- `ux-visual-hierarchy` → `basics`
-- `ux-design-systems` → `basics`
-- `ux-interaction-design` → `basics`
-- `ux-color-systems` → `basics`
-- `ux-mobile` → `basics`
-- `ux-forms` → `basics`
-- `ux-ethical-design` → `basics`
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ---
 

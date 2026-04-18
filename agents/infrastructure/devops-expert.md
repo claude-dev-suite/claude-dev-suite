@@ -5,7 +5,7 @@ description: |
   cloud infrastructure, and deployment automation. Executes code modifications directly
   unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs, mcp__docker-manager__*
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__docker-manager__*
 skills:
   - best-practices/token-optimization
   - infrastructure/docker
@@ -391,22 +391,9 @@ kubectl rollout status deployment/myapp
 - [ ] Dependency vulnerabilities scanned
 - [ ] Container images scanned
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic Docker/Compose commands
-- Standard CI/CD patterns
-- Common Kubernetes resources
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced Kubernetes configurations
-- Cloud-specific deployments (AWS, GCP, Azure)
-- Complex networking setups
-
-### MCP Topics Available:
-- `docker`: dockerfile, compose, best-practices
-- `kubernetes`: resources, kubectl, helm
-- `github-actions`: workflows, actions
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -418,12 +405,6 @@ If the `docker-manager` MCP server is available, prefer using it for Docker oper
 - Avoid `build_image` with verbose output - use `--quiet`
 
 If `docker-manager` is not available, use Bash `docker` and `docker-compose` CLI commands directly.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
-- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 

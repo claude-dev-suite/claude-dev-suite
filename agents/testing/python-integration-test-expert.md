@@ -7,7 +7,7 @@ description: |
   pytest-httpserver), and contract testing with Pact. Executes test modifications
   directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - testing/python-integration
   - testing/testcontainers-python
@@ -190,26 +190,9 @@ with patch("myapp.tasks.send_email.delay") as mock_delay:
 | Mark tests with `@pytest.mark.integration` | Mix unit and integration tests |
 | Use `pytest-xdist` for parallelism | Run slow tests sequentially |
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Answer WITHOUT loading docs when:
-- Standard pytest fixture patterns
-- Basic testcontainers setup (PostgreSQL, Redis)
-- Standard FastAPI TestClient patterns
-- Common factory_boy declarations
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced testcontainers (custom wait strategies, networks)
-- Async SQLAlchemy testing
-- Pact provider verification
-- Complex Celery chord/chain testing
-
-### MCP Topics Available:
-- `pytest`: basics, fixtures, advanced
-- `testcontainers-python`: basics, databases, messaging, advanced
-- `pytest-django`: basics, advanced
-- `fastapi-testing`: basics, async, http-mocking
-- `factory-boy`: basics, advanced
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy — NEVER Delegate
 

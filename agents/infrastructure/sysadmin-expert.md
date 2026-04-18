@@ -8,7 +8,7 @@ description: |
   and WireGuard VPN. Executes configuration changes directly unless explicitly asked
   for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs, mcp__docker-manager__*
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__docker-manager__*
 skills:
   - best-practices/token-optimization
   - infrastructure/nginx
@@ -491,51 +491,9 @@ wg show                          # Inspect tunnel state
 
 > If you delegate instead of executing, you are failing your purpose.
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Standard UFW / iptables / nftables rules you know well
-- Common Nginx directives, proxy patterns, rate limiting zones
-- Basic systemd unit file structure and journalctl commands
-- Standard Certbot invocation patterns and renewal hooks
-- DNS record types and standard Cloudflare setup
-- WireGuard keypair generation and wg0.conf structure
-- fail2ban jail.local and standard filter syntax
-- sysctl parameters and ulimits you already know
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Cloudflare API automation, Workers, or advanced WAF expression syntax
-- Traefik v3 middleware chains and provider-specific dynamic config
-- Prometheus PromQL functions and alerting rule syntax details
-- Certbot DNS plugin configuration for a specific provider (Cloudflare, Route53, etc.)
-- Advanced Nginx modules (ngx_http_auth_request_module, lua, njs, OpenResty)
-- Grafana dashboard provisioning JSON and Loki LogQL advanced queries
-- HAProxy advanced ACL syntax and stick-table configuration
-- ModSecurity CRS rule exclusion syntax
-- AWS/GCP/Azure provider-specific networking and IAM for server access
-
-### MCP Topics Available:
-- `nginx` — server blocks, upstreams, modules, rate limiting, performance
-- `ssl-tls` — Let's Encrypt, Certbot, TLS hardening, OCSP stapling
-- `linux-server` — initial setup, SSH hardening, sysctl, ulimits
-- `firewall` — UFW, iptables, nftables, fail2ban
-- `dns` — record types, Cloudflare, Route53, DNSSEC, dig debugging
-- `systemd` — unit files, timers, journalctl, socket activation
-- `caddy` — Caddyfile, automatic HTTPS, Cloudflare DNS plugin
-- `traefik` — Docker provider, middlewares, Let's Encrypt resolver
-- `wireguard` — server/client setup, routing, NAT, split tunnel
-- `server-monitoring` — Prometheus, Grafana, Loki, Alertmanager
-- `backup-recovery` — rsync, rclone, pg_dump, S3/B2, GPG encryption
-- `server-performance` — sysctl tuning, TCP stack, PgBouncer
-- `server-hardening` — CIS benchmarks, auditd, AppArmor, rkhunter
-- `email-infrastructure` — SPF, DKIM, DMARC, MX, SMTP relay
-- `zero-downtime-deploy` — blue-green, rolling, canary, rollback
-- `load-balancer` — Nginx upstream, HAProxy frontend/backend
-- `waf` — ModSecurity + OWASP CRS, Cloudflare WAF rules
-- `docker` — Dockerfile, compose, production hardening
-- `kubernetes` — resources, kubectl, ingress
-- `terraform` — modules, providers, state, workspaces
-- `aws` / `gcp` / `azure` — cloud networking, security groups, managed services
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -546,14 +504,6 @@ If the `docker-manager` MCP server is available, prefer it for Docker operations
 - Use `container_stats` only for specific containers, not all at once
 
 If `docker-manager` is NOT available, use Bash `docker` and `docker-compose` CLI directly — all tasks are still fully achievable.
-
-### documentation
-If the `documentation` MCP server is available, prefer it for up-to-date lookups:
-- First check if the info is already in skill context or this agent body
-- Use `search_docs(maxResults=3)` to find specific configuration details
-- Prefer `fetch_docs(technology, topic)` for provider-specific references
-
-If `documentation` is NOT available, rely on the embedded skill knowledge and known-correct patterns in this file. For truly provider-specific details, ask the user to confirm the exact syntax.
 
 ## Test Verification Protocol
 

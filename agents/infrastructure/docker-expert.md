@@ -5,7 +5,7 @@ description: |
   multi-stage builds, and Docker Compose. Executes code modifications directly
   unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - infrastructure/docker
   - infrastructure/docker-compose
@@ -128,22 +128,9 @@ docker-compose exec app sh
 docker system prune -a
 ```
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic and multi-stage Dockerfiles
-- Simple docker-compose.yml files
-- Common Docker commands
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced best practices (security, caching)
-- Complex orchestration configurations
-- The user asks for specific optimizations
-
-### MCP Topics Available:
-- `docker`: dockerfile, compose, best-practices
-- `docker-compose`: services, commands
-- `kubernetes`: resources, kubectl
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## Execution Policy - NEVER Delegate
 

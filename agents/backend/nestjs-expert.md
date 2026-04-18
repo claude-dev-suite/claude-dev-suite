@@ -5,7 +5,7 @@ description: |
   guards, and dependency injection. Executes code modifications directly
   unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__fetch_docs, mcp__api-tester__*
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__api-tester__*
 skills:
   - best-practices/token-optimization
   - backend-frameworks/nestjs
@@ -135,22 +135,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
 - Guards for authentication/authorization
 - Interceptors for transformation/logging
 
-## Documentation Loading Protocol
+## Knowledge Base Protocol
 
-### Respond WITHOUT loading docs when:
-- Basic decorators (@Controller, @Injectable, @Get)
-- Standard DI patterns
-- Typical module structure
-
-### Load MCP docs (`mcp__documentation__fetch_docs`) when:
-- Advanced patterns (guards, interceptors, pipes)
-- Microservices/WebSockets
-- Detailed best practices
-
-### Available MCP Topics:
-- `nestjs`: modules, controllers, providers, guards, pipes, interceptors
-- `prisma`: schema, queries
-- `jwt`: implementation
+When tackling complex work, call `list_docs()` (or `list_docs(category)`) to discover available deep-dive articles in the knowledge base, then `fetch_docs(technology, topic)` to retrieve the ones relevant to the task. Prefer KB content over general knowledge when documentation exists for the technology at hand.
 
 ## MCP Server Usage Guidelines
 
@@ -162,12 +149,6 @@ If the `api-tester` MCP server is available, prefer using it for endpoint testin
 - Limit response bodies in output (max 500 characters)
 
 If `api-tester` is not available, use `curl` or Jest/Supertest via Bash for API testing.
-
-### documentation
-If the `documentation` MCP server is available, prefer using it for lookups. When using it:
-- First check if the info is in the skill or context
-- Use `search_docs(maxResults=3)` to search for specific info
-- Avoid `fetch_docs` for generic topics
 
 ## Execution Policy - NEVER Delegate
 
