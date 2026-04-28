@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Internal
+
+- **Commit pre-existing test files**: 25 server-side test files that had been authored in earlier sessions but never committed are now tracked in git. Files cover route handlers (`tests/routes/*.test.ts`), service-level units (`recipes.service.test.ts`, `templates.service.test.ts`, `custom-agents.service.test.ts`, `upgrade.service.test.ts`, `git.service.test.ts`, `git-helpers.test.ts`, `git-security.test.ts`), and the upgrade sub-suite (`tests/upgrade/{conflict-detector, feature-applier, package-installer, stack-compatibility, upgrade-utils}.test.ts`). All are already referenced in the CLAUDE.md test-coverage list and pass under `npm run test` (1722 tests across 50 files).
+
 ---
 
 ## [1.4.0] - 2026-04-28
