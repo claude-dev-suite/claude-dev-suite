@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/claude-dev-suite-claude-dev-suite-badge.png)](https://mseep.ai/app/claude-dev-suite-claude-dev-suite)
+
 # Dev-Suite
 
 [![Version](https://img.shields.io/badge/version-1.1.2-blue.svg)](https://github.com/claude-dev-suite/claude-dev-suite)
