@@ -1,6 +1,6 @@
 {
   "name": "@dev-suite/dashboard-server",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Dev-Suite Dashboard Backend Server",
   "type": "module",
   "main": "dist/index.js",

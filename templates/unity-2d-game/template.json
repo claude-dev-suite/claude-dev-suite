@@ -1,0 +1,68 @@
+{
+  "name": "Unity 2D Game",
+  "description": "Unity 6 project scaffold for 2D games — URP 2D Renderer, Cinemachine, Input System, sample PlayerController2D with coyote time + jump buffer, recommended folder layout, .gitignore + LFS",
+  "version": "1.0.0",
+  "tags": ["gamedev", "unity", "2d", "csharp"],
+  "technologies": ["unity", "unity-2d", "csharp", "unity-urp", "unity-input-system", "unity-cinemachine"],
+  "structure": {
+    "game": {
+      "path": ".",
+      "framework": "unity",
+      "features": ["urp-2d", "input-system", "cinemachine", "pixel-perfect"]
+    }
+  },
+  "features": [
+    "Unity 6 project skeleton",
+    "URP 2D Renderer recommended package set",
+    "Sample PlayerController2D with coyote time + jump buffer + variable jump",
+    "Sample CameraFollow2D wrapper for Cinemachine",
+    "_Project folder layout (Art / Audio / Prefabs / Scenes / Scripts / Settings / ScriptableObjects)",
+    "Asmdef-ready Scripts root with Runtime / Editor / Tests structure",
+    ".gitignore tuned for Unity",
+    ".gitattributes with LFS for common binary asset types",
+    ".editorconfig for C# style consistency"
+  ],
+  "scripts": {
+    "open": "Open the project in the Unity Hub",
+    "build": "Build via Unity -batchmode -executeMethod CIBuild.Build (custom)",
+    "test": "Unity -batchmode -runTests -testPlatform EditMode"
+  },
+  "variables": [
+    {
+      "name": "productName",
+      "label": "Product Name",
+      "type": "string",
+      "required": true,
+      "default": "MyUnity2DGame",
+      "description": "Product name shown to players (used in Unity Player Settings)"
+    },
+    {
+      "name": "companyName",
+      "label": "Company Name",
+      "type": "string",
+      "required": true,
+      "default": "MyStudio",
+      "description": "Used by Unity for PlayerPrefs path and bundle/package identifiers"
+    },
+    {
+      "name": "pixelsPerUnit",
+      "label": "Pixels Per Unit",
+      "type": "select",
+      "required": true,
+      "default": "32",
+      "description": "Project-wide PPU — pick ONE and stick to it",
+      "options": [
+        { "label": "16 (chunky pixel art)", "value": "16" },
+        { "label": "32 (classic pixel art)", "value": "32" },
+        { "label": "64 (HD pixel art / hi-res sprites)", "value": "64" },
+        { "label": "100 (Unity default — vector / hi-res art)", "value": "100" }
+      ]
+    }
+  ],
+  "postInstall": [
+    "Open Unity Hub and add this folder as an existing project (Unity 6 LTS recommended).",
+    "Install recommended packages via Package Manager: com.unity.render-pipelines.universal, com.unity.inputsystem, com.unity.cinemachine, com.unity.2d.sprite, com.unity.2d.tilemap, com.unity.2d.animation, com.unity.2d.pixel-perfect, com.unity.test-framework.",
+    "Project Settings > Editor > Asset Serialization Mode = Force Text.",
+    "Create a Renderer2DData asset and assign it to the URP renderer list."
+  ]
+}

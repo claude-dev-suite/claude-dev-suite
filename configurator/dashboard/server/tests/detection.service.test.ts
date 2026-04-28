@@ -163,6 +163,207 @@ describe('DetectionService', () => {
       expect(result.isMonorepo).toBe(true);
     });
 
+    it('should detect a native Android project (Kotlin + Room) and not flag it as Java backend', async () => {
+      createMockProject(tempDir, {
+        files: {
+          'av-app/build.gradle.kts': `
+            plugins {
+              alias(libs.plugins.android.application) apply false
+              alias(libs.plugins.kotlin.jvm) apply false
+            }
+          `,
+          'av-app/settings.gradle.kts': 'rootProject.name = "AV Wallet"\ninclude(":app")',
+          'av-app/gradle/libs.versions.toml': `
+            [versions]
+            kotlin = "2.3.0"
+            androidGradlePlugin = "9.0.1"
+            androidxRoom = "2.8.4"
+            androidxComposeBom = "2026.02.00"
+
+            [libraries]
+            androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "androidxRoom" }
+            androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "androidxRoom" }
+            androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidxComposeBom" }
+            junit = { group = "junit", name = "junit", version = "4.13.2" }
+
+            [plugins]
+            android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+            kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+          `,
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.frontend?.framework).toBe('android-native');
+      expect(result.frontend?.runtime).toBe('kotlin');
+      expect(result.backend?.runtime).not.toBe('java');
+      expect(result.database?.orm).toBe('room');
+      expect(result.database?.dbType).toBe('sqlite');
+      expect(result.additionalTechnologies).toContain('kotlin');
+      expect(result.additionalTechnologies).toContain('jetpack-compose');
+      expect(result.projectType).toBe('mobile');
+      expect(result.isMonorepo).toBe(true);
+    });
+
+    it('should detect a Groovy-based Android project (build.gradle, not .kts)', async () => {
+      createMockProject(tempDir, {
+        files: {
+          'build.gradle': `
+            plugins {
+              id 'com.android.application' version '8.5.0' apply false
+            }
+          `,
+          'settings.gradle': "rootProject.name = 'GroovyAndroid'\ninclude ':app'",
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.frontend?.framework).toBe('android-native');
+      expect(result.projectType).toBe('mobile');
+    });
+
+    it('should still detect a Gradle Spring Boot project as Java backend (not Android)', async () => {
+      createMockProject(tempDir, {
+        files: {
+          'build.gradle.kts': `
+            plugins {
+              id("org.springframework.boot") version "3.2.0"
+              id("io.spring.dependency-management") version "1.1.4"
+              kotlin("jvm") version "1.9.22"
+            }
+            dependencies {
+              implementation("org.springframework.boot:spring-boot-starter-web")
+              implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+              runtimeOnly("org.postgresql:postgresql")
+            }
+          `,
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.backend?.runtime).toBe('java');
+      expect(result.backend?.framework).toBe('spring-boot');
+      expect(result.frontend?.framework).not.toBe('android-native');
+      expect(result.projectType).not.toBe('mobile');
+    });
+
+    it('should detect a Unity project from ProjectVersion.txt + Assets/ + Packages/manifest.json', async () => {
+      createMockProject(tempDir, {
+        files: {
+          'ProjectSettings/ProjectVersion.txt': 'm_EditorVersion: 6000.0.23f1\nm_EditorVersionWithRevision: 6000.0.23f1 (abc123)\n',
+          'Assets/Scripts/PlayerController.cs': 'using UnityEngine;\npublic class PlayerController : MonoBehaviour {}',
+          'Packages/manifest.json': JSON.stringify({
+            dependencies: {
+              'com.unity.render-pipelines.universal': '17.0.3',
+              'com.unity.inputsystem': '1.7.0',
+              'com.unity.cinemachine': '3.0.0',
+              'com.unity.test-framework': '1.4.5',
+            },
+          }),
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.frontend?.framework).toBe('unity');
+      expect(result.frontend?.runtime).toBe('csharp');
+      expect(result.projectType).toBe('game');
+      expect(result.additionalTechnologies).toContain('unity-urp');
+      expect(result.additionalTechnologies).toContain('unity-input-system');
+      expect(result.additionalTechnologies).toContain('unity-cinemachine');
+      expect(result.additionalTechnologies).toContain('csharp');
+      expect(result.testing?.unit).toBe('unity-test-framework');
+    });
+
+    it('should flag a Unity 2D project when 2D packages are present', async () => {
+      createMockProject(tempDir, {
+        files: {
+          'ProjectSettings/ProjectVersion.txt': 'm_EditorVersion: 6000.0.23f1\n',
+          'Assets/.gitkeep': '',
+          'Packages/manifest.json': JSON.stringify({
+            dependencies: {
+              'com.unity.2d.sprite': '1.0.0',
+              'com.unity.2d.tilemap': '1.0.0',
+              'com.unity.2d.animation': '11.0.0',
+              'com.unity.2d.pixel-perfect': '6.0.0',
+            },
+          }),
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.frontend?.framework).toBe('unity');
+      expect(result.projectType).toBe('game');
+      expect(result.additionalTechnologies).toContain('unity-2d');
+    });
+
+    it('should NOT misclassify a Unity project as .NET even with auto-generated .csproj/.sln', async () => {
+      createMockProject(tempDir, {
+        files: {
+          'ProjectSettings/ProjectVersion.txt': 'm_EditorVersion: 6000.0.23f1\n',
+          'Assets/.gitkeep': '',
+          // Unity auto-generates these for IDE integration — must not trigger .NET detection
+          'Assembly-CSharp.csproj': '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.1</TargetFramework></PropertyGroup></Project>',
+          'MyUnityGame.sln': 'Microsoft Visual Studio Solution File, Format Version 12.00',
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.frontend?.framework).toBe('unity');
+      expect(result.backend?.framework).not.toBe('dotnet');
+      expect(result.backend?.runtime).not.toBe('dotnet');
+      expect(result.projectType).toBe('game');
+    });
+
+    it('should detect Unity DOTS / Netcode / XR / Addressables packages', async () => {
+      createMockProject(tempDir, {
+        files: {
+          'ProjectSettings/ProjectVersion.txt': 'm_EditorVersion: 6000.0.23f1\n',
+          'Assets/.gitkeep': '',
+          'Packages/manifest.json': JSON.stringify({
+            dependencies: {
+              'com.unity.entities': '1.3.0',
+              'com.unity.burst': '1.8.0',
+              'com.unity.netcode.gameobjects': '2.0.0',
+              'com.unity.xr.interactiontoolkit': '3.0.0',
+              'com.unity.addressables': '2.2.0',
+              'com.unity.timeline': '1.8.0',
+              'com.unity.localization': '1.5.0',
+            },
+          }),
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.frontend?.framework).toBe('unity');
+      expect(result.additionalTechnologies).toContain('unity-dots');
+      expect(result.additionalTechnologies).toContain('unity-netcode');
+      expect(result.additionalTechnologies).toContain('unity-xr');
+      expect(result.additionalTechnologies).toContain('unity-addressables');
+      expect(result.additionalTechnologies).toContain('unity-timeline');
+      expect(result.additionalTechnologies).toContain('unity-localization');
+    });
+
+    it('should still detect a real ASP.NET Core project as .NET (not Unity)', async () => {
+      createMockProject(tempDir, {
+        files: {
+          'WebApi.csproj': '<Project Sdk="Microsoft.NET.Sdk.Web"><ItemGroup><PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" /></ItemGroup></Project>',
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.backend?.framework).toBe('dotnet');
+      expect(result.frontend?.framework).not.toBe('unity');
+      expect(result.projectType).not.toBe('game');
+    });
+
     it('should return unknown for empty directory', async () => {
       const result = await detectionService.detectProject(tempDir);
 

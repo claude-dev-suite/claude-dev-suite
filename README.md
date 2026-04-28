@@ -42,11 +42,11 @@
 
 Dev-Suite transforms Claude Code into a full-stack development powerhouse by providing:
 
-- **Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, data engineering, RAG (retrieval-augmented generation), industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter/Android Kotlin), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
+- **Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, data engineering, RAG (retrieval-augmented generation), industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter/Android Kotlin), game development (Unity 2D/3D, URP, Cinemachine, DOTS, Netcode, XR), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
 - **MCP Servers** - Extend Claude with tools for documentation (with KB discovery via `list_docs`), databases, Docker, API testing, logs, performance profiling, security scanning, and more
 - **Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI/RAG integration, embeddings, vector stores, document processing, animation, 3D graphics, and more
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
-- **10 Project Templates** - Scaffolding for React, Next.js, Spring Boot, FastAPI, NestJS, and more
+- **Project Templates** - Scaffolding for React, Next.js, Spring Boot, FastAPI, NestJS, Unity 2D, and more
 - **Task Orchestrator** - Submit complex multi-agent tasks from the GUI with real-time streaming updates
 - **Custom Agents Builder** - Create and edit custom agents directly from the dashboard
 - **Recipes & Automations** - Pre-built automation workflows for common development tasks
@@ -122,8 +122,8 @@ After restarting Claude Code, everything works automatically:
 The **Web Dashboard** (launched via `init-project.sh`) provides:
 
 #### **Visual Configuration Wizard**
-- **Auto-Detection**: Scans `package.json`, `pom.xml`, `build.gradle.kts`, `Cargo.toml`, `docker-compose.yml`, `AndroidManifest.xml`, `libs.versions.toml`, etc.
-- **Stack Detection**: Identifies React, Spring Boot, Android/Kotlin (Room, Compose), PostgreSQL, Git provider, and more
+- **Auto-Detection**: Scans `package.json`, `pom.xml`, `build.gradle.kts`, `Cargo.toml`, `docker-compose.yml`, `AndroidManifest.xml`, `libs.versions.toml`, `ProjectSettings/ProjectVersion.txt`, `Packages/manifest.json`, etc.
+- **Stack Detection**: Identifies React, Spring Boot, Android/Kotlin (Room, Compose), Unity (2D, URP, HDRP, DOTS, Netcode, XR, Addressables, Cinemachine, Input System), PostgreSQL, Git provider, and more
 - **Agent Selection**: Pre-selects agents based on detected technologies
 - **MCP Selection**: Pre-selects MCP servers with environment variable configuration
 - **One-Click Install**: Generates all config files (`.mcp.json`, `.dev-suite.json`, `CLAUDE.md`)
@@ -293,6 +293,9 @@ Domain experts with deep knowledge in specific technologies:
 #### Cloud & Mobile Agents
 - **cloud-expert** - AWS, Azure, GCP, Terraform, serverless, API gateway, service mesh
 - **mobile-expert** - React Native, Flutter, Expo, push notifications, payments
+
+#### Game Development Agents
+- **unity-expert** - Unity 6 (2D and 3D), C#, MonoBehaviour lifecycle, ScriptableObjects, URP/HDRP, Shader Graph, Input System, UI Toolkit, Cinemachine, Addressables, DOTS/ECS, Netcode for GameObjects, AR Foundation, XR Interaction Toolkit, Sprite Atlas v2, Tilemap, 2D Animation, 2D Lights, Pixel Perfect Camera, platformer character controllers (coyote time, jump buffer)
 
 #### Messaging & Performance
 - **messaging-expert** - Kafka, RabbitMQ, NATS, SQS, event-driven architecture
@@ -929,6 +932,14 @@ Control the dashboard and orchestrator from Claude Code.
 | Agent | Triggers | Skills | MCP Servers |
 |-------|----------|--------|-------------|
 | **security-expert** | security, authentication, authorization, JWT | jwt, oauth2, owasp, secrets-management | security-scanner, documentation |
+
+### Game Development Agents
+
+| Agent | Triggers | Skills | MCP Servers |
+|-------|----------|--------|-------------|
+| **unity-expert** | Unity, MonoBehaviour, ScriptableObject, prefab, URP, HDRP, Shader Graph, Tilemap, Sprite Atlas, Cinemachine, Addressables, DOTS, ECS, Netcode for GameObjects, AR Foundation, XR Interaction Toolkit, Pixel Perfect Camera | csharp, unity-core, unity-rendering, unity-input-ui, unity-physics-anim, unity-addressables, unity-performance, unity-dots, unity-netcode, unity-xr, unity-editor-tooling, unity-testing, unity-build-platforms, unity-best-practices, unity-2d-core, unity-2d-tilemap, unity-2d-physics, unity-2d-animation, unity-2d-lighting, unity-2d-cameras, unity-2d-gameplay | documentation |
+
+> Optional external integrations (not bundled): **CoplayDev/unity-mcp** (MIT) or **IvanMurzak/Unity-MCP** (Apache-2.0) — open-source MCP servers that expose the Unity Editor (scenes, scripts, assets, profiler, builds) to Claude Code. Install separately if you want the AI to drive the Editor directly.
 
 ---
 

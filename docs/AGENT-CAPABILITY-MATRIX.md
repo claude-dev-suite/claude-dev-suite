@@ -104,6 +104,14 @@ This document maps each agent to its required MCP servers and skills.
 |-------|-------------|--------|
 | **mobile-expert** | documentation | react-native, flutter, expo, push-notifications, i18n, webauthn, stripe, file-upload |
 
+### Game Development Agents
+
+| Agent | MCP Servers | Skills |
+|-------|-------------|--------|
+| **unity-expert** | documentation | csharp, unity-core, unity-rendering, unity-input-ui, unity-physics-anim, unity-addressables, unity-performance, unity-dots, unity-netcode, unity-xr, unity-editor-tooling, unity-testing, unity-build-platforms, unity-best-practices, unity-2d-core, unity-2d-tilemap, unity-2d-physics, unity-2d-animation, unity-2d-lighting, unity-2d-cameras, unity-2d-gameplay |
+
+> Optional external MCPs (not bundled): `CoplayDev/unity-mcp` (MIT) or `IvanMurzak/Unity-MCP` (Apache-2.0) for direct Unity Editor control (scenes, scripts, assets, profiler, builds). Install separately.
+
 ### Data Agents
 
 | Agent | MCP Servers | Skills |

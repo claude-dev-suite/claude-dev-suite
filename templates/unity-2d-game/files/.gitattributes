@@ -1,0 +1,42 @@
+# Default behaviour: text files use LF
+* text=auto eol=lf
+
+# Unity scenes / prefabs / assets — text serialised, custom mergetool
+*.unity   merge=unityyamlmerge -text
+*.prefab  merge=unityyamlmerge -text
+*.asset   merge=unityyamlmerge -text
+*.mat     merge=unityyamlmerge -text
+*.anim    merge=unityyamlmerge -text
+*.controller merge=unityyamlmerge -text
+*.physicMaterial merge=unityyamlmerge -text
+*.physicsMaterial2D merge=unityyamlmerge -text
+*.playable merge=unityyamlmerge -text
+
+# Binary asset types — Git LFS
+*.psd      filter=lfs diff=lfs merge=lfs -text
+*.psb      filter=lfs diff=lfs merge=lfs -text
+*.fbx      filter=lfs diff=lfs merge=lfs -text
+*.obj      filter=lfs diff=lfs merge=lfs -text
+*.blend    filter=lfs diff=lfs merge=lfs -text
+*.png      filter=lfs diff=lfs merge=lfs -text
+*.jpg      filter=lfs diff=lfs merge=lfs -text
+*.jpeg     filter=lfs diff=lfs merge=lfs -text
+*.tga      filter=lfs diff=lfs merge=lfs -text
+*.tiff     filter=lfs diff=lfs merge=lfs -text
+*.exr      filter=lfs diff=lfs merge=lfs -text
+*.wav      filter=lfs diff=lfs merge=lfs -text
+*.mp3      filter=lfs diff=lfs merge=lfs -text
+*.ogg      filter=lfs diff=lfs merge=lfs -text
+*.aif      filter=lfs diff=lfs merge=lfs -text
+*.flac     filter=lfs diff=lfs merge=lfs -text
+*.mp4      filter=lfs diff=lfs merge=lfs -text
+*.mov      filter=lfs diff=lfs merge=lfs -text
+*.dll      filter=lfs diff=lfs merge=lfs -text
+*.so       filter=lfs diff=lfs merge=lfs -text
+*.dylib    filter=lfs diff=lfs merge=lfs -text
+*.aif      filter=lfs diff=lfs merge=lfs -text
+*.spm      filter=lfs diff=lfs merge=lfs -text
+
+# Aseprite source files
+*.ase      filter=lfs diff=lfs merge=lfs -text
+*.aseprite filter=lfs diff=lfs merge=lfs -text

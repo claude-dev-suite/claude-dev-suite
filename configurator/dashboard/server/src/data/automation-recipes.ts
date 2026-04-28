@@ -545,6 +545,85 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       command: '[[ "$CLAUDE_FILE_PATHS" =~ (schema\\.prisma|drizzle\\.config|migrations) ]] && (npx prisma validate 2>/dev/null || npx drizzle-kit check 2>/dev/null) || true',
     },
   },
+
+  // ========================================
+  // UNITY GAMEDEV (3)
+  // ========================================
+  {
+    id: 'unity-csharp-format',
+    name: 'Unity C# Auto-format',
+    description: 'Run dotnet format (or csharpier) on .cs files after Claude edits Unity scripts. Skips Unity auto-generated .csproj/.sln.',
+    icon: 'format',
+    category: 'code-quality',
+    recommendedFor: {
+      frameworks: ['unity'],
+      hasFiles: ['ProjectSettings/ProjectVersion.txt'],
+    },
+    options: [
+      {
+        id: 'tool',
+        label: 'Formatter',
+        type: 'select',
+        defaultValue: 'auto',
+        choices: [
+          { value: 'auto', label: 'Auto-detect (dotnet format → csharpier)' },
+          { value: 'dotnet-format', label: 'dotnet format' },
+          { value: 'csharpier', label: 'CSharpier' },
+        ],
+      },
+    ],
+    implementation: {
+      type: 'claude-hook',
+      event: 'PostToolUse',
+      matcher: 'Write|Edit',
+      command: '[[ "$CLAUDE_FILE_PATHS" =~ Assets/.*\\.cs$ ]] && (dotnet csharpier "$CLAUDE_FILE_PATHS" 2>/dev/null || dotnet format --include "$CLAUDE_FILE_PATHS" 2>/dev/null) || true',
+    },
+  },
+  {
+    id: 'unity-meta-check',
+    name: 'Unity .meta File Check',
+    description: 'Pre-commit guard that blocks commits with orphaned .meta files (a .meta without its asset, or an asset without its .meta) — a common cause of Unity merge headaches.',
+    icon: 'check',
+    category: 'git-workflow',
+    recommendedFor: {
+      frameworks: ['unity'],
+      hasFiles: ['ProjectSettings/ProjectVersion.txt'],
+    },
+    options: [
+      {
+        id: 'blockMode',
+        label: 'On orphan detected',
+        type: 'select',
+        defaultValue: 'block',
+        choices: [
+          { value: 'block', label: 'Block commit' },
+          { value: 'warn', label: 'Warn but allow' },
+        ],
+      },
+    ],
+    implementation: {
+      type: 'git-hook',
+      hookType: 'pre-commit',
+      command: 'git diff --cached --name-only --diff-filter=ACMRT | awk \'/^Assets\\// {print $0; if ($0 ~ /\\.meta$/) {sub(/\\.meta$/, ""); print $0}}\' | sort -u | while read f; do [ -e "$f" ] || [ -e "$f.meta" ] || { echo "Unity orphan: $f"; exit 1; }; done',
+    },
+  },
+  {
+    id: 'unity-no-binary-text',
+    name: 'Unity Force Text Serialization Check',
+    description: 'Pre-commit guard that warns when a .unity / .prefab / .asset file is committed in binary mode (Unity must be set to Force Text serialization for clean diffs and merges).',
+    icon: 'check',
+    category: 'validation',
+    recommendedFor: {
+      frameworks: ['unity'],
+      hasFiles: ['ProjectSettings/ProjectVersion.txt', 'ProjectSettings/EditorSettings.asset'],
+    },
+    options: [],
+    implementation: {
+      type: 'git-hook',
+      hookType: 'pre-commit',
+      command: 'git diff --cached --name-only | grep -E "\\.(unity|prefab|asset|mat|anim|controller)$" | while read f; do head -c 5 "$f" 2>/dev/null | grep -q "^%YAML" || { echo "Unity binary asset detected (set Force Text serialization): $f"; exit 1; }; done',
+    },
+  },
 ];
 
 /**

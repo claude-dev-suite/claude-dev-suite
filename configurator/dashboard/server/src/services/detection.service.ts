@@ -104,12 +104,23 @@ export class DetectionService {
       }
 
       // Language-specific detectors
-      this.detectJava(checkPath, result, isSubdir);
+      // Android must run before Java: a Gradle file with `com.android.application`
+      // is an Android module, not a JVM backend. When detected, we skip detectJava
+      // for this path so runtime isn't clobbered to 'java'.
+      const isAndroidModule = this.detectAndroid(checkPath, result, isSubdir);
+      if (!isAndroidModule) {
+        this.detectJava(checkPath, result, isSubdir);
+      }
       this.detectPython(checkPath, result, isSubdir);
       this.detectGo(checkPath, result, isSubdir);
       this.detectRust(checkPath, result, isSubdir);
       this.detectDeno(checkPath, result, isSubdir);
-      this.detectDotnet(checkPath, result, isSubdir);
+      // Unity must run before .NET: Unity auto-generates .csproj/.sln files
+      // for IDE integration. Without this guard they'd be misclassified as ASP.NET.
+      const isUnityProject = this.detectUnity(checkPath, result, isSubdir);
+      if (!isUnityProject) {
+        this.detectDotnet(checkPath, result, isSubdir);
+      }
     }
 
     // Database detection via sub-service
@@ -485,6 +496,113 @@ export class DetectionService {
     }
   }
 
+  private detectAndroid(checkPath: string, result: DetectionResult, isSubdir: boolean): boolean {
+    // Use fs.existsSync directly for nested paths that may not exist — fileExists()
+    // throws PathValidationError when the parent directory is missing.
+    const safeDirHas = (dir: string, file: string): boolean => {
+      try {
+        return fs.existsSync(dir) && fs.statSync(dir).isDirectory() && fs.existsSync(path.join(dir, file));
+      } catch {
+        return false;
+      }
+    };
+    const safeFileContains = (dir: string, file: string, pattern: string): boolean => {
+      try {
+        const fp = path.join(dir, file);
+        if (!fs.existsSync(fp)) return false;
+        return fs.readFileSync(fp, 'utf-8').includes(pattern);
+      } catch {
+        return false;
+      }
+    };
+
+    const hasGradle = safeDirHas(checkPath, 'build.gradle') || safeDirHas(checkPath, 'build.gradle.kts');
+    const gradleDir = path.join(checkPath, 'gradle');
+    const hasLibsVersions = safeDirHas(gradleDir, 'libs.versions.toml');
+    const manifestCandidates = [
+      { dir: checkPath, file: 'AndroidManifest.xml' },
+      { dir: path.join(checkPath, 'src', 'main'), file: 'AndroidManifest.xml' },
+      { dir: path.join(checkPath, 'app', 'src', 'main'), file: 'AndroidManifest.xml' },
+    ];
+    const hasManifest = manifestCandidates.some(c => safeDirHas(c.dir, c.file));
+
+    if (!hasGradle && !hasManifest && !hasLibsVersions) return false;
+
+    const buildFiles: string[] = [];
+    if (safeDirHas(checkPath, 'build.gradle')) buildFiles.push('build.gradle');
+    if (safeDirHas(checkPath, 'build.gradle.kts')) buildFiles.push('build.gradle.kts');
+    if (safeDirHas(checkPath, 'settings.gradle')) buildFiles.push('settings.gradle');
+    if (safeDirHas(checkPath, 'settings.gradle.kts')) buildFiles.push('settings.gradle.kts');
+
+    // Scan both the build files in checkPath and libs.versions.toml under gradle/
+    const sources: Array<[string, string]> = buildFiles.map(f => [checkPath, f]);
+    if (hasLibsVersions) sources.push([gradleDir, 'libs.versions.toml']);
+
+    const androidPluginPatterns = [
+      'com.android.application',
+      'com.android.library',
+      'com.android.test',
+      'libs.plugins.android.application',
+      'libs.plugins.android.library',
+      'libs.plugins.android.test',
+    ];
+
+    let isAndroid = hasManifest;
+    if (!isAndroid) {
+      for (const [dir, f] of sources) {
+        if (androidPluginPatterns.some(p => safeFileContains(dir, f, p))) {
+          isAndroid = true;
+          break;
+        }
+      }
+    }
+
+    if (!isAndroid) return false;
+
+    if (isSubdir) result.isMonorepo = true;
+
+    if (!result.frontend?.framework) {
+      result.frontend = { ...result.frontend, framework: 'android-native', runtime: 'kotlin' };
+      result.confidence += 25;
+    }
+
+    this.addTechnology(result, 'kotlin');
+
+    // Jetpack Compose
+    const composePatterns = ['androidx.compose', 'compose-bom', 'compose.compiler', 'composeBom', 'androidxCompose'];
+    for (const [dir, f] of sources) {
+      if (composePatterns.some(p => safeFileContains(dir, f, p))) {
+        this.addTechnology(result, 'jetpack-compose');
+        break;
+      }
+    }
+
+    // Room ORM → SQLite
+    if (!result.database?.orm) {
+      const roomPatterns = ['androidx.room', 'room-runtime', 'room-ktx', 'androidxRoom'];
+      for (const [dir, f] of sources) {
+        if (roomPatterns.some(p => safeFileContains(dir, f, p))) {
+          result.database = { ...result.database, dbType: 'sqlite', orm: 'room' };
+          result.confidence += 15;
+          break;
+        }
+      }
+    }
+
+    // JUnit / Kotest on Android
+    if (!result.testing?.unit) {
+      for (const [dir, f] of sources) {
+        if (safeFileContains(dir, f, 'junit') || safeFileContains(dir, f, 'kotest')) {
+          result.testing = { ...result.testing, unit: 'junit' };
+          result.confidence += 5;
+          break;
+        }
+      }
+    }
+
+    return true;
+  }
+
   private detectJava(checkPath: string, result: DetectionResult, isSubdir: boolean): void {
     const hasPom = fileExists(checkPath, 'pom.xml');
     const hasGradle = fileExists(checkPath, 'build.gradle') || fileExists(checkPath, 'build.gradle.kts');
@@ -729,6 +847,96 @@ export class DetectionService {
     }
   }
 
+  private detectUnity(checkPath: string, result: DetectionResult, isSubdir: boolean): boolean {
+    // Use fs directly for nested paths — fileExists() throws if parent dir is missing.
+    const safeExists = (...segments: string[]): boolean => {
+      try {
+        return fs.existsSync(path.join(checkPath, ...segments));
+      } catch {
+        return false;
+      }
+    };
+    const safeIsDir = (...segments: string[]): boolean => {
+      try {
+        const p = path.join(checkPath, ...segments);
+        return fs.existsSync(p) && fs.statSync(p).isDirectory();
+      } catch {
+        return false;
+      }
+    };
+    const safeReadFile = (...segments: string[]): string | null => {
+      try {
+        const p = path.join(checkPath, ...segments);
+        if (!fs.existsSync(p)) return null;
+        return fs.readFileSync(p, 'utf-8');
+      } catch {
+        return null;
+      }
+    };
+
+    // Definitive signal: ProjectSettings/ProjectVersion.txt
+    const hasProjectVersion = safeExists('ProjectSettings', 'ProjectVersion.txt');
+    // Strong signals: Assets/ + ProjectSettings/ co-existing
+    const hasAssetsDir = safeIsDir('Assets');
+    const hasProjectSettings = safeIsDir('ProjectSettings');
+    const hasPackagesManifest = safeExists('Packages', 'manifest.json');
+
+    const isUnity =
+      hasProjectVersion ||
+      (hasAssetsDir && hasProjectSettings) ||
+      (hasAssetsDir && hasPackagesManifest);
+
+    if (!isUnity) return false;
+
+    if (isSubdir) result.isMonorepo = true;
+
+    if (!result.frontend?.framework) {
+      result.frontend = { ...result.frontend, framework: 'unity', runtime: 'csharp' };
+      result.confidence += 25;
+    }
+
+    // Inspect Packages/manifest.json for installed Unity packages → map to additionalTechnologies
+    const manifest = safeReadFile('Packages', 'manifest.json');
+    if (manifest) {
+      const pkgChecks: Array<[string, string]> = [
+        ['com.unity.render-pipelines.universal', 'unity-urp'],
+        ['com.unity.render-pipelines.high-definition', 'unity-hdrp'],
+        ['com.unity.netcode.gameobjects', 'unity-netcode'],
+        ['com.unity.entities', 'unity-dots'],
+        ['com.unity.burst', 'unity-dots'],
+        ['com.unity.jobs', 'unity-dots'],
+        ['com.unity.xr.arfoundation', 'unity-ar'],
+        ['com.unity.xr.interactiontoolkit', 'unity-xr'],
+        ['com.unity.addressables', 'unity-addressables'],
+        ['com.unity.inputsystem', 'unity-input-system'],
+        ['com.unity.cinemachine', 'unity-cinemachine'],
+        ['com.unity.timeline', 'unity-timeline'],
+        ['com.unity.localization', 'unity-localization'],
+        // 2D packages — any of these flips on the unity-2d marker
+        ['com.unity.2d.sprite', 'unity-2d'],
+        ['com.unity.2d.tilemap', 'unity-2d'],
+        ['com.unity.2d.animation', 'unity-2d'],
+        ['com.unity.2d.psdimporter', 'unity-2d'],
+        ['com.unity.2d.aseprite', 'unity-2d'],
+        ['com.unity.2d.pixel-perfect', 'unity-2d'],
+      ];
+      for (const [pkg, tech] of pkgChecks) {
+        if (manifest.includes(pkg)) this.addTechnology(result, tech);
+      }
+    }
+
+    // Surface C# as a language tech regardless (Unity scripting is C#)
+    this.addTechnology(result, 'csharp');
+
+    // Test framework hint from Packages/manifest.json
+    if (!result.testing?.unit && manifest && manifest.includes('com.unity.test-framework')) {
+      result.testing = { ...result.testing, unit: 'unity-test-framework' };
+      result.confidence += 5;
+    }
+
+    return true;
+  }
+
   private detectDotnet(checkPath: string, result: DetectionResult, isSubdir: boolean): void {
     // Check for .csproj, .fsproj, or .sln files
     const hasCsproj = this.hasFileWithExtension(checkPath, '.csproj');
@@ -849,9 +1057,13 @@ export class DetectionService {
     const isMCP = result.backend?.framework === 'mcp';
     const isCLI = result.backend?.framework === 'cli';
     const isElectron = result.frontend?.framework === 'electron';
+    const isAndroid = result.frontend?.framework === 'android-native';
+    const isUnity = result.frontend?.framework === 'unity';
 
     if (isMCP) return 'mcp-server';
     if (isCLI) return 'cli-tool';
+    if (isUnity) return 'game';
+    if (isAndroid) return 'mobile';
     if (isElectron) return 'desktop';
     if (hasFrontend && hasBackend) return 'fullstack';
     if (hasFrontend) return 'frontend';

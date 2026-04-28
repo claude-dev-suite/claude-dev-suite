@@ -1,0 +1,61 @@
+# {{productName}}
+
+A Unity 6 2D game project scaffolded with dev-suite.
+
+**Studio**: {{companyName}}
+**Pixels Per Unit**: {{pixelsPerUnit}}
+
+## Getting started
+
+1. Install **Unity 6 LTS** via Unity Hub.
+2. Open Unity Hub → **Add** → select this folder.
+3. Open Package Manager and install the following (most are dependencies of URP 2D):
+   - `com.unity.render-pipelines.universal`
+   - `com.unity.inputsystem`
+   - `com.unity.cinemachine`
+   - `com.unity.2d.sprite`
+   - `com.unity.2d.tilemap`
+   - `com.unity.2d.tilemap.extras`
+   - `com.unity.2d.animation`
+   - `com.unity.2d.pixel-perfect`
+   - `com.unity.test-framework`
+4. Project Settings → Editor → **Asset Serialization Mode = Force Text**.
+5. Create a Renderer2DData asset (Assets/_Project/Settings) and assign it to the URP renderer list.
+
+## Folder layout
+
+```
+Assets/
+  _Project/
+    Art/                     Sprites, materials, shaders, animations
+    Audio/                   Music, SFX
+    Prefabs/                 Characters, enemies, UI, VFX
+    ScriptableObjects/       WeaponData, EnemyConfig, EventChannels
+    Scenes/                  Boot.unity, Main.unity
+    Scripts/
+      Runtime.asmdef         Game logic
+      Editor.asmdef          Editor tools
+      Tests.asmdef           Test assemblies
+    Settings/                URP asset, Renderer2DData, Volume profiles, Input Actions
+```
+
+## Sample scripts included
+
+- `Assets/_Project/Scripts/Player/PlayerController2D.cs` — kinematic-style 2D controller with coyote time, jump buffer, and variable jump height.
+- `Assets/_Project/Scripts/Camera/CameraFollow2D.cs` — minimal Cinemachine setup helper.
+
+## Source control
+
+`.gitignore` and `.gitattributes` (Git LFS) are pre-configured. Run once before your first commit:
+
+```bash
+git lfs install
+git lfs track          # confirms LFS rules from .gitattributes
+```
+
+## Resources
+
+- Dev-suite skill `gamedev/unity-2d-core` — Sprite Atlas v2, Sorting Layers, PPU, Pixel Perfect Camera.
+- Dev-suite skill `gamedev/unity-2d-gameplay` — coyote time, jump buffer, dash, wall jump.
+- Dev-suite skill `gamedev/unity-2d-cameras` — Cinemachine + Confiner 2D + parallax.
+- Unity Manual: https://docs.unity3d.com/Manual/Unity2D.html

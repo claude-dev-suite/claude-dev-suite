@@ -196,6 +196,25 @@ export const STACK_TO_AGENTS: Record<string, string[]> = {
   // Desktop frameworks
   electron: ['electron-expert'],
   tauri: ['tauri-expert'],
+  // Mobile - native
+  'android-native': ['mobile-expert'],
+  kotlin: ['mobile-expert'],
+  'jetpack-compose': ['mobile-expert'],
+  room: ['mobile-expert'],
+  // Game development - Unity
+  unity: ['unity-expert'],
+  'unity-2d': ['unity-expert'],
+  'unity-urp': ['unity-expert'],
+  'unity-hdrp': ['unity-expert'],
+  'unity-netcode': ['unity-expert'],
+  'unity-dots': ['unity-expert'],
+  'unity-ar': ['unity-expert'],
+  'unity-xr': ['unity-expert'],
+  'unity-addressables': ['unity-expert'],
+  'unity-input-system': ['unity-expert'],
+  'unity-cinemachine': ['unity-expert'],
+  'unity-timeline': ['unity-expert'],
+  'unity-localization': ['unity-expert'],
   // Node.js backend frameworks
   express: ['nodejs-expert'],
   fastify: ['nodejs-expert'],

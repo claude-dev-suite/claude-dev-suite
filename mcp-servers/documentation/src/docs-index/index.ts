@@ -35,6 +35,8 @@ import { VECTOR_STORES_TECHNOLOGIES, vectorStoresDocs } from "./vector-stores.js
 import { DOCUMENT_PROCESSING_TECHNOLOGIES, documentProcessingDocs } from "./document-processing.js";
 import { RAG_FRAMEWORKS_TECHNOLOGIES, ragFrameworksDocs } from "./rag-frameworks.js";
 import { RAG_OPS_TECHNOLOGIES, ragOpsDocs } from "./rag-ops.js";
+// Game development categories
+import { GAMEDEV_TECHNOLOGIES, gamedevDocs } from "./gamedev.js";
 
 // Re-export individual category modules
 export { FRONTEND_TECHNOLOGIES, frontendDocs } from "./frontend.js";
@@ -62,6 +64,8 @@ export { VECTOR_STORES_TECHNOLOGIES, vectorStoresDocs } from "./vector-stores.js
 export { DOCUMENT_PROCESSING_TECHNOLOGIES, documentProcessingDocs } from "./document-processing.js";
 export { RAG_FRAMEWORKS_TECHNOLOGIES, ragFrameworksDocs } from "./rag-frameworks.js";
 export { RAG_OPS_TECHNOLOGIES, ragOpsDocs } from "./rag-ops.js";
+// Game development categories
+export { GAMEDEV_TECHNOLOGIES, gamedevDocs } from "./gamedev.js";
 
 /**
  * Combined list of all supported technologies
@@ -93,6 +97,8 @@ export const SUPPORTED_TECHNOLOGIES = [
   ...DOCUMENT_PROCESSING_TECHNOLOGIES,
   ...RAG_FRAMEWORKS_TECHNOLOGIES,
   ...RAG_OPS_TECHNOLOGIES,
+  // Game development
+  ...GAMEDEV_TECHNOLOGIES,
 ] as const;
 
 export type Technology = (typeof SUPPORTED_TECHNOLOGIES)[number];
@@ -127,6 +133,8 @@ export const docsIndex: Record<string, Record<string, { local: string; url: stri
   ...documentProcessingDocs,
   ...ragFrameworksDocs,
   ...ragOpsDocs,
+  // Game development
+  ...gamedevDocs,
 };
 
 /**
@@ -157,4 +165,5 @@ export const CATEGORY_MAP: Record<string, readonly string[]> = {
   "document-processing": DOCUMENT_PROCESSING_TECHNOLOGIES,
   "rag-frameworks": RAG_FRAMEWORKS_TECHNOLOGIES,
   "rag-ops": RAG_OPS_TECHNOLOGIES,
+  gamedev: GAMEDEV_TECHNOLOGIES,
 };

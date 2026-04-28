@@ -32,7 +32,7 @@ function parseFrontmatter(content: string): Record<string, string | boolean> {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return {};
   const result: Record<string, string | boolean> = {};
-  for (const line of match[1].split('\n')) {
+  for (const line of (match[1] ?? '').split('\n')) {
     const colon = line.indexOf(':');
     if (colon === -1) continue;
     const key = line.slice(0, colon).trim();
