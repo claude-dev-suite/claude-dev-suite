@@ -200,7 +200,7 @@ Access from the **Files** tab in the right tool window bar.
 
 ### MCP Servers
 
-10 specialized MCP servers extend Claude Code with powerful tools:
+Specialized MCP servers extend Claude Code with powerful tools:
 
 | Server | Tools | Description |
 |--------|-------|-------------|
@@ -225,7 +225,7 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 
 Domain experts with deep knowledge in specific technologies:
 
-**49 agents** organized by domain:
+Specialized agents organized by domain:
 
 #### Core Agents
 - **architect** - System design, architecture decisions, trade-offs
@@ -308,7 +308,7 @@ See [Agents Reference](#agents-reference) for trigger keywords and skills.
 
 ### Skills & Knowledge Base
 
-**345+ Skills** organized by category:
+Skills organized by category:
 
 - **Frontend**: React, Vue, Angular, Svelte, Next.js, Nuxt, TailwindCSS, shadcn/ui
 - **UX/Design**: Visual hierarchy, design tokens (W3C spec), interaction design, motion, loading states, mobile UX, color systems, ethical design
@@ -380,7 +380,7 @@ KB_CACHE_TTL=7200
 
 ### Project Templates
 
-10 ready-to-use scaffolding templates for quick project setup:
+Ready-to-use scaffolding templates for quick project setup:
 
 | Template | Description |
 |----------|-------------|
@@ -394,6 +394,7 @@ KB_CACHE_TTL=7200
 | **springboot-react-fullstack** | Spring Boot + React fullstack |
 | **python-fastapi** | FastAPI Python backend |
 | **vue-nuxt** | Vue.js with Nuxt 3 |
+| **unity-2d-game** | Unity 6 2D game scaffold (URP 2D, Cinemachine, Input System, sample PlayerController2D with coyote time + jump buffer) |
 
 Templates are used during the initialization wizard (Step 0) and provide pre-configured project structure, dependencies, and dev-suite integration.
 
