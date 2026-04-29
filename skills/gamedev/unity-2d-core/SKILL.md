@@ -94,6 +94,55 @@ Upscale Render Texture  ON for clean integer scaling
 
 Without Pixel Perfect Camera you get sub-pixel jitter as the camera moves.
 
+## AI-assisted sprite pipeline (Aseprite-native tools)
+
+For static sprites (props, items, environments, tiles) AI generators are productive. **No AI tool today produces ship-ready output zero-touch** — every sprite needs an Aseprite cleanup pass before importing into Unity.
+
+### Tools that install as Aseprite extensions
+
+| Tool | Cost | Model | Output license | Offline |
+|---|---|---|---|---|
+| **Retro Diffusion Full** ([astropulse.itch.io/retrodiffusion](https://astropulse.itch.io/retrodiffusion)) | $65 one-time | Local pixel-art SD (Nvidia GTX 1050 Ti+ or Mac M1+) | Yours, commercial OK | Yes |
+| **PixelLab** ([pixellab.ai](https://www.pixellab.ai/)) | $10–50/mo | Cloud (zero hardware) | Yours, commercial OK (no model-training on outputs) | No |
+| **PixelAI** ([red335.itch.io/pixelai-local-ai-directly-in-aseprite](https://red335.itch.io/pixelai-local-ai-directly-in-aseprite)) | Free / pay-what-you-want | Local SD (auto-download, Windows + Nvidia recommended) | Yours, commercial OK | Yes |
+| **Retro Diffusion Lite** | $20+ one-time | Local pixel-art SD | Yours, commercial OK | Yes |
+
+All four install via `Edit > Preferences > Extensions > Add Extension` and expose AI panels inside the Aseprite UI.
+
+### License pitfalls (avoid for shipping)
+
+- **Leonardo.ai free tier** — Leonardo retains rights to your outputs. Paid only for full ownership.
+- **Recraft free tier** — outputs owned by Recraft, made public in gallery.
+- **Scenario.com free tier** — "personal/evaluation only", do not ship.
+- **Midjourney / DALL-E / Recraft** — produce *anti-aliased "pixel-styled"* output, not crisp pixels. Need 8× nearest-neighbour downscale + palette quantise to be usable as sprites.
+
+### Mandatory cleanup before Unity import
+
+1. **Spritefusion Pixel Snapper** ([spritefusion.com/pixel-snapper](https://www.spritefusion.com/pixel-snapper)) — free Rust CLI that snaps off-grid pixels back onto integer coordinates and quantises the palette. Run on every AI-generated sprite before opening in Aseprite.
+2. **Aseprite touch-up** — palette unification, edge cleanup, transparency. Even Retro Diffusion / PixelLab outputs benefit from a quick pass.
+3. **Unity import settings** (set on the asset, not in code):
+   ```
+   Texture Type        Sprite (2D and UI)
+   Pixels Per Unit     match project-wide PPU (see "PPU consistency" section)
+   Filter Mode         Point  (no filter)        — anti-aliasing ruins pixel art
+   Compression         None                       — JPEG-style compression destroys palette
+   Generate Mip Maps   OFF                        — 2D doesn't need mips
+   Wrap Mode           Clamp (or Repeat for tileable backgrounds)
+   ```
+
+### Decision tree (what to use when)
+
+| Need | Pick |
+|---|---|
+| One-off props / items / icons / environments | **Retro Diffusion Full** ($65 once) — best ROI, offline, IP-clean |
+| No budget / Windows + Nvidia | **PixelAI** (free) |
+| Tilesets (47-tile autotile, rule-tile-ready) | **PixelLab tileset gen** OR Retro Diffusion + Aseprite cleanup |
+| Hi-res concept / mood board (then trace by hand) | Midjourney / Flux / DALL-E (NOT for direct sprite output) |
+| Full-control free + self-hosted (no SaaS) | ComfyUI + Pixel Art XL LoRA + 8× nearest-neighbour downscale + Pixel Snapper |
+| Studio-grade "same character, every variant" consistency | Scenario.com Pro custom-trained character model ($30/mo) |
+
+For animation-specific AI tools (walk cycles, 4/8-directional sprites), see the `unity-2d-animation` skill — it's a different problem.
+
 ## Anti-patterns
 
 | Anti-pattern | Fix |

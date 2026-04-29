@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Documentation
+
+- **AI-assisted sprite pipeline sections** added to two Unity 2D skills:
+  - `skills/gamedev/unity-2d-core/SKILL.md` — covers static sprite generation (props, items, tiles, environments) via Aseprite-native AI extensions: **Retro Diffusion Full** (Astropulse, $65 one-time, local pixel-art SD model, offline, full IP ownership), **PixelLab** ($10–50/mo cloud, best-in-class animation suite), **PixelAI** (free / pay-what-you-want, local SD on Windows + Nvidia), and **Retro Diffusion Lite** ($20+ one-time). Documents license pitfalls (Leonardo / Recraft / Scenario free tiers retain rights to outputs), mandatory cleanup pass via **Spritefusion Pixel Snapper** before Unity import, Unity import settings (PPU, Filter Point, Compression None, no mips), and a decision tree mapping use case → tool.
+  - `skills/gamedev/unity-2d-animation/SKILL.md` — covers AI-driven animation (the hard part). PixelLab is currently the only tool producing directly-usable 4/8-directional walk / run / attack cycles end-to-end; everything else requires manual rigging in Spine or Unity 2D Animation. Documents the Retro Diffusion + manual-rig pipeline, the Scenario.com custom-character-model workflow, and a recommended hybrid (Retro Diffusion Full $65 once + one month of PixelLab $12 for animation sprints).
+- These additions make explicit the "AI sprite generation needs an Aseprite cleanup pass before shipping" caveat that was previously implicit.
+
 ### Internal
 
 - **Commit pre-existing test files**: 25 server-side test files that had been authored in earlier sessions but never committed are now tracked in git. Files cover route handlers (`tests/routes/*.test.ts`), service-level units (`recipes.service.test.ts`, `templates.service.test.ts`, `custom-agents.service.test.ts`, `upgrade.service.test.ts`, `git.service.test.ts`, `git-helpers.test.ts`, `git-security.test.ts`), and the upgrade sub-suite (`tests/upgrade/{conflict-detector, feature-applier, package-installer, stack-compatibility, upgrade-utils}.test.ts`). All are already referenced in the CLAUDE.md test-coverage list and pass under `npm run test` (1722 tests across 50 files).
