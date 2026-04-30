@@ -269,6 +269,45 @@ export const STACK_TO_AGENTS: Record<string, string[]> = {
   // Infrastructure
   docker: ['docker-expert'],
   'github-actions': ['devops-expert'],
+  // Bitcoin / Lightning / L2 / Metaprotocols
+  // The Bitcoin agents are domain-experts, not language-experts: language
+  // skills are loaded onto the existing rust/typescript/python/go/java agents
+  // via skill detection. Bitcoin domain agents handle protocol/Lightning/wallet/
+  // node-ops/testing reasoning across languages.
+  'bitcoin-rust': ['bitcoin-protocol-expert', 'bitcoin-wallet-expert', 'rust-expert'],
+  'bitcoin-bdk': ['bitcoin-wallet-expert', 'bitcoin-protocol-expert'],
+  'bitcoin-ldk': ['lightning-expert'],
+  'bitcoin-miniscript': ['bitcoin-wallet-expert', 'bitcoin-protocol-expert'],
+  'bitcoin-cryptography': ['bitcoin-protocol-expert'],
+  'bitcoin-dlc': ['bitcoin-protocol-expert', 'bitcoin-wallet-expert'],
+  'bitcoin-taproot-assets': ['lightning-expert', 'bitcoin-protocol-expert'],
+  'bitcoin-rgb': ['lightning-expert', 'bitcoin-protocol-expert'],
+  'bitcoin-ts': ['bitcoin-wallet-expert', 'bitcoin-protocol-expert', 'typescript-expert'],
+  'bitcoin-mempool-js': ['bitcoin-core-expert'],
+  'bitcoin-lightning-ts': ['lightning-expert', 'typescript-expert'],
+  'bitcoin-cashu': ['lightning-expert', 'bitcoin-wallet-expert'],
+  'bitcoin-nwc': ['lightning-expert'],
+  'bitcoin-webln': ['lightning-expert'],
+  'bitcoin-stacks': ['bitcoin-protocol-expert'],
+  'bitcoin-rsk': ['bitcoin-protocol-expert'],
+  'bitcoin-python': ['bitcoin-wallet-expert', 'bitcoin-protocol-expert'],
+  'bitcoin-embit': ['bitcoin-wallet-expert'],
+  'bitcoin-go': ['bitcoin-protocol-expert', 'go-expert'],
+  'bitcoin-lnd': ['lightning-expert'],
+  'bitcoin-cln': ['lightning-expert'],
+  'bitcoin-eclair': ['lightning-expert'],
+  'bitcoin-phoenixd': ['lightning-expert'],
+  bitcoinj: ['bitcoin-wallet-expert'],
+  'bitcoin-nbitcoin': ['bitcoin-wallet-expert'],
+  'bitcoin-btcpay': ['bitcoin-core-expert', 'lightning-expert'],
+  'bitcoin-core': ['bitcoin-core-expert'],
+  'bitcoin-electrs': ['bitcoin-core-expert'],
+  'bitcoin-fulcrum': ['bitcoin-core-expert'],
+  'bitcoin-esplora': ['bitcoin-core-expert'],
+  'bitcoin-mempool-space': ['bitcoin-core-expert'],
+  'bitcoin-fedimint': ['lightning-expert', 'bitcoin-wallet-expert'],
+  'bitcoin-ark': ['bitcoin-wallet-expert', 'bitcoin-protocol-expert'],
+  'bitcoin-metaprotocols': ['bitcoin-protocol-expert'],
 };
 
 export const STACK_TO_MCP: Record<string, string[]> = {

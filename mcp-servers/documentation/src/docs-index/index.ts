@@ -37,6 +37,8 @@ import { RAG_FRAMEWORKS_TECHNOLOGIES, ragFrameworksDocs } from "./rag-frameworks
 import { RAG_OPS_TECHNOLOGIES, ragOpsDocs } from "./rag-ops.js";
 // Game development categories
 import { GAMEDEV_TECHNOLOGIES, gamedevDocs } from "./gamedev.js";
+// Bitcoin / Lightning / L2 / metaprotocols categories
+import { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
 
 // Re-export individual category modules
 export { FRONTEND_TECHNOLOGIES, frontendDocs } from "./frontend.js";
@@ -66,6 +68,8 @@ export { RAG_FRAMEWORKS_TECHNOLOGIES, ragFrameworksDocs } from "./rag-frameworks
 export { RAG_OPS_TECHNOLOGIES, ragOpsDocs } from "./rag-ops.js";
 // Game development categories
 export { GAMEDEV_TECHNOLOGIES, gamedevDocs } from "./gamedev.js";
+// Bitcoin / Lightning / L2 / metaprotocols categories
+export { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
 
 /**
  * Combined list of all supported technologies
@@ -99,6 +103,8 @@ export const SUPPORTED_TECHNOLOGIES = [
   ...RAG_OPS_TECHNOLOGIES,
   // Game development
   ...GAMEDEV_TECHNOLOGIES,
+  // Bitcoin / Lightning / L2
+  ...BITCOIN_TECHNOLOGIES,
 ] as const;
 
 export type Technology = (typeof SUPPORTED_TECHNOLOGIES)[number];
@@ -135,6 +141,8 @@ export const docsIndex: Record<string, Record<string, { local: string; url: stri
   ...ragOpsDocs,
   // Game development
   ...gamedevDocs,
+  // Bitcoin / Lightning / L2
+  ...bitcoinDocs,
 };
 
 /**
@@ -166,4 +174,5 @@ export const CATEGORY_MAP: Record<string, readonly string[]> = {
   "rag-frameworks": RAG_FRAMEWORKS_TECHNOLOGIES,
   "rag-ops": RAG_OPS_TECHNOLOGIES,
   gamedev: GAMEDEV_TECHNOLOGIES,
+  bitcoin: BITCOIN_TECHNOLOGIES,
 };

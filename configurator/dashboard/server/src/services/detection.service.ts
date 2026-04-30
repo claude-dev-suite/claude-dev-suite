@@ -18,6 +18,7 @@ import { getLogger } from '../utils/logger.js';
 import { GitDetectionService } from './detection/git-detection.service.js';
 import { DatabaseDetectionService } from './detection/database-detection.service.js';
 import { EnvironmentDetectionService } from './detection/environment-detection.service.js';
+import { BitcoinDetectionService } from './detection/bitcoin-detection.service.js';
 
 // Import constants
 import {
@@ -44,11 +45,13 @@ export class DetectionService {
   private readonly gitService: GitDetectionService;
   private readonly databaseService: DatabaseDetectionService;
   private readonly environmentService: EnvironmentDetectionService;
+  private readonly bitcoinService: BitcoinDetectionService;
 
   constructor() {
     this.gitService = new GitDetectionService();
     this.databaseService = new DatabaseDetectionService();
     this.environmentService = new EnvironmentDetectionService();
+    this.bitcoinService = new BitcoinDetectionService();
   }
 
   /**
@@ -121,6 +124,13 @@ export class DetectionService {
       if (!isUnityProject) {
         this.detectDotnet(checkPath, result, isSubdir);
       }
+
+      // Bitcoin / Lightning / L2 detection runs alongside language detection.
+      // Adds tags like 'bitcoin-rust', 'bitcoin-lnd', 'bitcoin-mempool-space'
+      // to additionalTechnologies — language-specific work still routes via the
+      // language-experts (rust-expert, etc.); domain reasoning routes via
+      // bitcoin-protocol/lightning/wallet/core/testing-expert.
+      this.bitcoinService.detect(checkPath, result, (r, t) => this.addTechnology(r, t));
     }
 
     // Database detection via sub-service
