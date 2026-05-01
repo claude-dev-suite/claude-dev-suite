@@ -1,6 +1,6 @@
 # Dev-Suite
 
-[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](https://github.com/claude-dev-suite/claude-dev-suite)
+[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](https://github.com/claude-dev-suite/claude-dev-suite)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **A comprehensive AI-powered development toolkit that extends Claude Code with specialized agents, MCP servers, and visual orchestration.**
@@ -296,6 +296,8 @@ Specialized agents organized by domain:
 
 #### Game Development Agents
 - **unity-expert** - Unity 6 (2D and 3D), C#, MonoBehaviour lifecycle, ScriptableObjects, URP/HDRP, Shader Graph, Input System, UI Toolkit, Cinemachine, Addressables, DOTS/ECS, Netcode for GameObjects, AR Foundation, XR Interaction Toolkit, Sprite Atlas v2, Tilemap, 2D Animation, 2D Lights, Pixel Perfect Camera, platformer character controllers (coyote time, jump buffer)
+
+**Engine-agnostic 2D art skills** (cross-loaded onto unity-expert today, ready for future godot-expert / phaser-expert): tile design (autotiling Wang/blob, hex/iso grids, terrain blending, 9-slice), pixel art fundamentals (anti-aliasing rules, dithering patterns, outline philosophy, pixel hinting), palettes (color theory, restricted palettes from PICO-8 to AAP-64, hue shifting, palette swaps), seamless textures (offset-paint, normal map authoring, repetition reduction), animation frames (walk cycles, attack anticipation, frame counts, sub-pixel motion), tools (Aseprite, Tiled, LDtk, Tilesetter, Pixelorama, Spine, TexturePacker, Sprite Lamp), 2D lighting art (workflow for 2D Lights, normal maps, emissive layers, day/night), VFX (smoke/fire/water/electricity frame patterns, hitstop, screen shake, juice principles), environment design (parallax planning, atmospheric perspective, environmental storytelling), character design (silhouette-first, expressions in low-res, faction visual language).
 
 #### Bitcoin / Lightning / L2 Agents
 - **bitcoin-protocol-expert** - Consensus, transactions, scripts (P2PK→P2TR+Tapscript), SegWit, Taproot, PSBT, descriptors, Miniscript, P2P (BIP155/152/157/158/324), package relay (BIP331), TRUC v3 (BIP431), message signing (BIP137/322), proposals (CTV/APO/OP_VAULT/CAT/drivechains), cryptography (secp256k1, Schnorr BIP340, MuSig2 BIP327, FROST, adaptor sigs, DLCs), metaprotocols (Ordinals/Inscriptions/BRC-20/Runes/Atomicals)

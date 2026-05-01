@@ -10,6 +10,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.6.0] - 2026-05-01
+
+### Added
+
+- **10 engine-agnostic 2D game art skills** under `skills/gamedev/2d-art/`:
+  - **`tile-design`** - autotiling math (Wang 4-bit, 16-bit, 47-tile, 256-tile blob), grid types (square/hex flat-top/hex pointy-top/staggered iso/true iso), terrain blending, transitional pieces, 9-slice rendering. Quick-refs: `wang-bitmask-table.md`, `blob-256-template.md`, `hex-flat-vs-pointy.md`.
+  - **`pixel-art-fundamentals`** - resolution choice (160x144 GameBoy through 480x270 modern lo-fi), pixel-perfect display, anti-aliasing rules (selective AA on diagonals only), dithering (Bayer ordered, hand-placed checkerboard, when to dither vs not), outline philosophy (full / selective "selout" / inline / gradient), pixel hinting / sub-pixel rules, common mistakes (pillow shading, banding, jaggies, PSD-soft rendering). Quick-refs: `dithering-patterns.md`, `antialiasing-rules.md`.
+  - **`palettes`** - color theory practical (warm/cool, complementary, analogous, triadic), restricted palettes ready-made (PICO-8, GameBoy DMG, DB16, DB32, AAP-64, Resurrect 64, NES, C64, Endesga 32, Sweetie 16), hue shifting (warm-cool ramps), color ramps (foliage, stone, skin, water, fire), palette swap conventions (character variants, faction colors, status effects, day/night), `.gpl/.pal/.ase/.json` formats, indexed mode workflow. Quick-refs: `lospec-recommended-palettes.md`, `hue-shift-recipes.md`.
+  - **`seamless-textures`** - offset-and-paint trick, mirror techniques, repetition reduction (variant tiles + decoration overlays), transitional tiles (edge / corner / T-junction), normal map authoring (Sprite Lamp / Sprite DLight / Materialize / hand-paint), procedural + hand-pixel hybrid, specialized surfaces (roof / floor / wall / water / sky).
+  - **`animation-frames`** - frame counts (idle 2-4f / walk 6-8f / run 6-8f / attack 4-6f), squash/stretch limits in pixel art, looping cycles, anticipation/impact/recovery beats, sub-pixel motion problem, sprite sheet layouts (Aseprite tags + JSON sidecar / TexturePacker / manual grid), per-frame easing. Quick-refs: `walk-cycle-keyframes.md`, `attack-anticipation.md`.
+  - **`tools`** - Aseprite (de facto pixel art DCC), Tiled, LDtk, Tilesetter, Pixelorama, Spine / DragonBones (skeletal 2D), TexturePacker, Sprite Lamp / Sprite DLight (normal maps), PSD Importer / Aseprite Importer, Krita / Procreate / Photoshop. Quick-refs: `aseprite-shortcuts.md`, `ldtk-vs-tiled.md`, `aseprite-lua-scripting.md`.
+  - **`lighting-art`** - workflow for Unity 2D Lights / Godot CanvasLight, normal map painting, sprite layer separation (diffuse / normal / emissive / mask), self-shadowing in pixel art, day/night palette swap vs realtime light mixing, glow / emissive layers, bloom interaction with pixel art.
+  - **`vfx-2d`** - canonical frame patterns (smoke / fire / water / electricity / sparks / hit / explosion / heal), hitstop / hit pause durations, screen shake intensity curves and parameters, color flash, trail effects, procedural particles vs pre-baked frames, Vlambeer "Art of Screenshake" juice principles (squash / hitstop / flash / particles / shake / sound / trail / decal layering), decals.
+  - **`environment-design`** - parallax planning (layer count, scroll-speed ratios, atmospheric perspective via palette desaturation), foreground/background composition, silhouette readability vs busy backgrounds, tile density and rhythm, environmental storytelling via tiles (worn paths, broken architecture, scorch marks), light direction consistency, mood palette mapping.
+  - **`character-design`** - silhouette-first methodology with black-out test, character-to-tile size ratio, expressions in low resolution (eye / mouth pixel placement), anatomy shortcuts in pixel art, faction/role visual language (silhouette + palette identifying class), walk cycle conveying weight and attitude, player-vs-NPC distinction.
+
+- **Documentation MCP - `gamedev-2d-art` category**: new file `mcp-servers/documentation/src/docs-index/gamedev-2d-art.ts` registering all 10 skills with canonical upstream links (Lospec, Aseprite docs, Vlambeer talk, Boris-the-Brave Wang tiles, Saint11 art tutorials, Unity URP 2D Lighting docs).
+
+- **`unity-expert` agent updated**: cross-loads all 10 `gamedev/2d-art/*` skills in addition to the existing 20 Unity-specific gamedev skills. Skills are engine-agnostic - when future Godot/Phaser/etc. agents are added they will load the same 2D art skills.
+
+### Architectural decision
+
+The 10 new skills are engine-agnostic and live under `skills/gamedev/2d-art/`
+(parallel to the existing `skills/gamedev/unity-*` engine-specific skills).
+Cross-loading onto `unity-expert` today; ready to attach to a future
+`godot-expert` / `phaser-expert` without duplication. No new agent created
+because the knowledge is purely instructional (no behavioral steering or
+context-isolation justifying a dedicated agent).
+
+---
+
 ## [1.5.0] - 2026-04-30
 
 ### Added

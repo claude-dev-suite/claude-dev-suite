@@ -41,6 +41,17 @@ skills:
   - gamedev/unity-2d-lighting
   - gamedev/unity-2d-cameras
   - gamedev/unity-2d-gameplay
+  # Engine-agnostic 2D art skills (cross-loaded when project is unity-2d)
+  - gamedev/2d-art/tile-design
+  - gamedev/2d-art/pixel-art-fundamentals
+  - gamedev/2d-art/palettes
+  - gamedev/2d-art/seamless-textures
+  - gamedev/2d-art/animation-frames
+  - gamedev/2d-art/tools
+  - gamedev/2d-art/lighting-art
+  - gamedev/2d-art/vfx-2d
+  - gamedev/2d-art/environment-design
+  - gamedev/2d-art/character-design
 ---
 
 # Unity Expert Agent

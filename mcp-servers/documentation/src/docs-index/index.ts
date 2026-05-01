@@ -37,6 +37,8 @@ import { RAG_FRAMEWORKS_TECHNOLOGIES, ragFrameworksDocs } from "./rag-frameworks
 import { RAG_OPS_TECHNOLOGIES, ragOpsDocs } from "./rag-ops.js";
 // Game development categories
 import { GAMEDEV_TECHNOLOGIES, gamedevDocs } from "./gamedev.js";
+// 2D game art (engine-agnostic) categories
+import { GAMEDEV_2D_ART_TECHNOLOGIES, gamedev2dArtDocs } from "./gamedev-2d-art.js";
 // Bitcoin / Lightning / L2 / metaprotocols categories
 import { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
 
@@ -68,6 +70,8 @@ export { RAG_FRAMEWORKS_TECHNOLOGIES, ragFrameworksDocs } from "./rag-frameworks
 export { RAG_OPS_TECHNOLOGIES, ragOpsDocs } from "./rag-ops.js";
 // Game development categories
 export { GAMEDEV_TECHNOLOGIES, gamedevDocs } from "./gamedev.js";
+// 2D game art (engine-agnostic) categories
+export { GAMEDEV_2D_ART_TECHNOLOGIES, gamedev2dArtDocs } from "./gamedev-2d-art.js";
 // Bitcoin / Lightning / L2 / metaprotocols categories
 export { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
 
@@ -103,6 +107,8 @@ export const SUPPORTED_TECHNOLOGIES = [
   ...RAG_OPS_TECHNOLOGIES,
   // Game development
   ...GAMEDEV_TECHNOLOGIES,
+  // 2D game art (engine-agnostic)
+  ...GAMEDEV_2D_ART_TECHNOLOGIES,
   // Bitcoin / Lightning / L2
   ...BITCOIN_TECHNOLOGIES,
 ] as const;
@@ -141,6 +147,8 @@ export const docsIndex: Record<string, Record<string, { local: string; url: stri
   ...ragOpsDocs,
   // Game development
   ...gamedevDocs,
+  // 2D game art (engine-agnostic)
+  ...gamedev2dArtDocs,
   // Bitcoin / Lightning / L2
   ...bitcoinDocs,
 };
@@ -174,5 +182,6 @@ export const CATEGORY_MAP: Record<string, readonly string[]> = {
   "rag-frameworks": RAG_FRAMEWORKS_TECHNOLOGIES,
   "rag-ops": RAG_OPS_TECHNOLOGIES,
   gamedev: GAMEDEV_TECHNOLOGIES,
+  "gamedev-2d-art": GAMEDEV_2D_ART_TECHNOLOGIES,
   bitcoin: BITCOIN_TECHNOLOGIES,
 };
