@@ -1,15 +1,15 @@
 name: E2E Tests
 
 on:
-  pull_request:
+  push:
     branches: [main]
     paths:
       - 'configurator/dashboard/**'
       - '.github/workflows/e2e.yml'
+  workflow_dispatch:
 
 jobs:
   e2e:
-    if: github.actor != 'dependabot[bot]'
     runs-on: windows-latest
     timeout-minutes: 45
     strategy:
