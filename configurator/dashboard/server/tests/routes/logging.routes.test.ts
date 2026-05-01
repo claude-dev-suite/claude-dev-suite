@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vites
 import express, { type Express } from 'express';
 import request from 'supertest';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { createTempDir, cleanupTempDir } from '../test-utils.js';
 import type { LogEntry } from '../../src/routes/logging.routes.js';
@@ -266,7 +267,9 @@ describe('Logging Routes - HTTP Integration', () => {
     });
 
     it('should return empty logs when file does not exist', async () => {
-      vi.mocked(getLogDirectoryPath).mockReturnValue('/nonexistent-xyz-999');
+      vi.mocked(getLogDirectoryPath).mockReturnValue(
+        path.join(os.tmpdir(), `nonexistent-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      );
 
       const res = await request(app)
         .get('/api/logs')
@@ -316,7 +319,9 @@ describe('Logging Routes - HTTP Integration', () => {
   // -------------------------------------------------------------------------
   describe('GET /log (legacy)', () => {
     it('should return empty logs when file does not exist', async () => {
-      vi.mocked(getLogDirectoryPath).mockReturnValue('/nonexistent-xyz-999');
+      vi.mocked(getLogDirectoryPath).mockReturnValue(
+        path.join(os.tmpdir(), `nonexistent-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      );
 
       const res = await request(app).get('/api/log');
 
