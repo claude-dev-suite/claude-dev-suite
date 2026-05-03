@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [1.7.0] - 2026-05-03
+
 ### Added
 
 - **`cpp-expert` agent** under `agents/backend/` — modern C++ (C++17/20/23) generalist:
@@ -73,8 +77,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     (Microsoft Learn `windows-hardware/drivers/...` pages and
     `microsoft/Windows-driver-samples` samples). The new category is wired into
     `docs-index/index.ts` (`SUPPORTED_TECHNOLOGIES`, `docsIndex`,
-    `CATEGORY_MAP`). Phase B markdown content under `windows-drivers/<area>/<topic>.md`
-    in the external `claude-dev-suite/knowledge_base` repo to follow.
+    `CATEGORY_MAP`).
+
+- **Knowledge base content (Phase A)** — 97 markdown topic files committed to
+  the external `claude-dev-suite/knowledge_base` repo (commit `2a40afa`):
+  - `knowledge/cpp/` (8 files), `knowledge/cmake/` (9), `knowledge/googletest/` (9),
+    `knowledge/cpp-quality/` (7), `knowledge/cpp-security/` (10)
+  - `knowledge/windows-drivers/{wdf-kmdf,wdf-umdf,hid-input-filter,
+    indirect-display,driver-debugging,driver-signing}/` (54 files total)
+  - Each file is complementary depth (internals, edge cases, advanced patterns)
+    beyond the always-loaded `SKILL.md` quick references. Fetched on-demand by
+    `mcp__documentation__fetch_docs(technology, topic)` with 2h cache.
 
 ### Architectural decision
 
