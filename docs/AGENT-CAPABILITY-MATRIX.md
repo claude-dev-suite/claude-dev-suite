@@ -32,6 +32,8 @@ This document maps each agent to its required MCP servers and skills.
 | **deno-expert** | documentation | deno, fresh, oak, typescript |
 | **dotnet-expert** | documentation, api-tester | aspnet-core, aspnet-minimal-api, aspnet-middleware, aspnet-signalr, aspnet-blazor, aspnet-identity, aspnet-validation, entity-framework-core, csharp, xunit, nunit, dotnet-quality, dotnet-security, postgresql, sql-server, swagger-dotnet, resilience-patterns, caching-strategies, webhooks, pagination, error-handling, cors-security-headers, error-tracking, health-checks, ddd |
 | **streamlit-expert** | documentation | streamlit, python, pandas, pydantic, pytest, ruff |
+| **cpp-expert** | documentation, code-quality | cpp, cmake, googletest, cpp-quality, cpp-security |
+| **windows-driver-expert** | documentation | cpp, cmake, cpp-quality, cpp-security, wdf-kmdf, wdf-umdf, hid-input-filter, indirect-display, driver-debugging, driver-signing |
 
 ### Frontend Agents
 

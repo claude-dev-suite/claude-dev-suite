@@ -42,7 +42,7 @@
 
 Dev-Suite transforms Claude Code into a full-stack development powerhouse by providing:
 
-- **Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, data engineering, RAG (retrieval-augmented generation), industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter/Android Kotlin), game development (Unity 2D/3D, URP, Cinemachine, DOTS, Netcode, XR), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
+- **Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, modern C++ (C++17/20/23), Windows kernel & driver development (WDF/KMDF/UMDF, HID, IDD), data engineering, RAG (retrieval-augmented generation), industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter/Android Kotlin), game development (Unity 2D/3D, URP, Cinemachine, DOTS, Netcode, XR), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
 - **MCP Servers** - Extend Claude with tools for documentation (with KB discovery via `list_docs`), databases, Docker, API testing, logs, performance profiling, security scanning, and more
 - **Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI/RAG integration, embeddings, vector stores, document processing, animation, 3D graphics, and more
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
@@ -258,6 +258,8 @@ Specialized agents organized by domain:
 - **go-expert** - Gin, Fiber, Echo, Chi
 - **deno-expert** - Fresh, Oak, TypeScript-first runtime
 - **dotnet-expert** - ASP.NET Core 8+, Entity Framework Core, Blazor, SignalR
+- **cpp-expert** - Modern C++ (C++17/20/23), CMake, Google Test, clang-tidy, sanitizers
+- **windows-driver-expert** - Windows kernel & user-mode drivers (KMDF/UMDF), HID filters, Indirect Display Drivers, WinDbg, driver signing
 
 #### Data Agents
 - **data-engineering-expert** - pandas, openpyxl, lxml, bulk data pipelines, Excel/XML/CSV, UTF-16 file formats
@@ -899,6 +901,8 @@ Control the dashboard and orchestrator from Claude Code.
 | **go-expert** | Go, Gin, Fiber, Echo, Chi | go, gin, fiber | documentation |
 | **deno-expert** | Deno, Fresh, Oak | deno, fresh | documentation |
 | **dotnet-expert** | ASP.NET Core, EF Core, Blazor, SignalR, C# | aspnet-core, aspnet-minimal-api, aspnet-middleware, aspnet-signalr, aspnet-blazor, aspnet-identity, aspnet-validation, entity-framework-core, csharp, xunit | documentation, api-tester |
+| **cpp-expert** | C++17/20/23, RAII, smart pointers, templates, CMake, Google Test, clang-tidy | cpp, cmake, googletest, cpp-quality, cpp-security | documentation, code-quality |
+| **windows-driver-expert** | WDF, KMDF, UMDF, HID filter, IDD virtual display, IRP/IOCTL, WinDbg, driver signing | cpp, cmake, cpp-quality, cpp-security, wdf-kmdf, wdf-umdf, hid-input-filter, indirect-display, driver-debugging, driver-signing | documentation |
 
 ### Database Agents
 

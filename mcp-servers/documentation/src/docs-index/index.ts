@@ -41,6 +41,8 @@ import { GAMEDEV_TECHNOLOGIES, gamedevDocs } from "./gamedev.js";
 import { GAMEDEV_2D_ART_TECHNOLOGIES, gamedev2dArtDocs } from "./gamedev-2d-art.js";
 // Bitcoin / Lightning / L2 / metaprotocols categories
 import { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
+// Windows kernel & user-mode driver development
+import { WINDOWS_DRIVERS_TECHNOLOGIES, windowsDriversDocs } from "./windows-drivers.js";
 
 // Re-export individual category modules
 export { FRONTEND_TECHNOLOGIES, frontendDocs } from "./frontend.js";
@@ -74,6 +76,8 @@ export { GAMEDEV_TECHNOLOGIES, gamedevDocs } from "./gamedev.js";
 export { GAMEDEV_2D_ART_TECHNOLOGIES, gamedev2dArtDocs } from "./gamedev-2d-art.js";
 // Bitcoin / Lightning / L2 / metaprotocols categories
 export { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
+// Windows kernel & user-mode driver development
+export { WINDOWS_DRIVERS_TECHNOLOGIES, windowsDriversDocs } from "./windows-drivers.js";
 
 /**
  * Combined list of all supported technologies
@@ -111,6 +115,8 @@ export const SUPPORTED_TECHNOLOGIES = [
   ...GAMEDEV_2D_ART_TECHNOLOGIES,
   // Bitcoin / Lightning / L2
   ...BITCOIN_TECHNOLOGIES,
+  // Windows drivers
+  ...WINDOWS_DRIVERS_TECHNOLOGIES,
 ] as const;
 
 export type Technology = (typeof SUPPORTED_TECHNOLOGIES)[number];
@@ -151,6 +157,8 @@ export const docsIndex: Record<string, Record<string, { local: string; url: stri
   ...gamedev2dArtDocs,
   // Bitcoin / Lightning / L2
   ...bitcoinDocs,
+  // Windows drivers
+  ...windowsDriversDocs,
 };
 
 /**
@@ -184,4 +192,5 @@ export const CATEGORY_MAP: Record<string, readonly string[]> = {
   gamedev: GAMEDEV_TECHNOLOGIES,
   "gamedev-2d-art": GAMEDEV_2D_ART_TECHNOLOGIES,
   bitcoin: BITCOIN_TECHNOLOGIES,
+  "windows-drivers": WINDOWS_DRIVERS_TECHNOLOGIES,
 };

@@ -8,6 +8,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`cpp-expert` agent** under `agents/backend/` — modern C++ (C++17/20/23) generalist:
+  RAII, move semantics, smart pointers, concepts, ranges, `std::expected`, `std::span`,
+  coroutines, modules. CMake (presets, FetchContent, vcpkg/Conan), Google Test + Google Mock,
+  clang-tidy / clang-format, and the sanitizer suite (ASan/UBSan/TSan/MSan). Designed to
+  be useful as a standalone agent for any C++ work, and to be cross-loaded by other
+  systems agents (e.g. `windows-driver-expert`).
+
+- **5 supporting C++ skills**:
+  - `skills/languages/cpp/SKILL.md` — modern C++ language and STL quick reference
+  - `skills/build-tools/cmake/SKILL.md` — modern CMake (target-centric, presets, packaging)
+  - `skills/testing/googletest/SKILL.md` — GTest + GMock (fixtures, parameterized,
+    typed tests, mock interfaces, CMake `gtest_discover_tests`)
+  - `skills/quality/cpp-quality/SKILL.md` — clang-tidy, clang-format, cppcheck, IWYU,
+    CI integration
+  - `skills/security/cpp-security/SKILL.md` — sanitizers, MSVC `/sdl` and `/guard:cf`,
+    Linux/GCC hardening flags, CERT C++ patterns, fuzzing harness template
+
+- **`windows-driver-expert` agent** under `agents/backend/` — Windows kernel and
+  user-mode driver specialist (WDF / KMDF / UMDF). Covers HID stack and filter drivers
+  (mouse / keyboard / touch / pen), Indirect Display Drivers (IDD) for virtual
+  monitors with network streaming, IRP/IOCTL handling, IRQL discipline, the WDK
+  toolchain, WinDbg with KDNET, Driver Verifier, Static Driver Verifier (SDV), WDK
+  CodeQL queries, EV-cert + attestation signing, and HLK/WHQL submissions. Cross-loads
+  the C++ skills and the new `windows/*` skills below.
+
+- **6 new Windows driver skills** under `skills/windows/`:
+  - `wdf-kmdf` — KMDF: DriverEntry, EvtDeviceAdd, IRPs, IOCTLs, queues, IRQL,
+    pool allocation (`ExAllocatePool2`), WPP tracing, SAL annotations, PnP/Power
+    callbacks, synchronization primitives
+  - `wdf-umdf` — UMDF v2 in `WUDFHost.exe`: differences vs. KMDF, when to use it,
+    INF entries, reflector, debugging, companion-driver patterns
+  - `hid-input-filter` — HID stack architecture (Hidusb / HIDClass / Mouclass /
+    Kbdclass), filter placement (upper vs. lower), internal IOCTLs
+    (`IOCTL_HID_READ_REPORT` etc.), report-completion interception and
+    suppression, inverted-call delivery to user mode, Virtual HID Framework (VHF)
+    for input injection
+  - `indirect-display` — IDD framework (`IddCx`): adapter / monitor lifecycle,
+    EDID generation, swap-chain processing loop (`AcquireBuffer` →
+    `FinishedProcessingFrame`), GPU-staying frame pipelines, NVENC / Quick Sync /
+    AMF encoding, low-latency network transports (Rivermax, RIST/SRT, RDMA), HDR,
+    multi-monitor, hardware cursor
+  - `driver-debugging` — WinDbg / WinDbg-Preview, KDNET kernel debugging setup,
+    Driver Verifier, Application Verifier (UMDF), `!analyze -v` flow, common
+    bugcheck cheatsheet, `!irp` / `!devstack` / `!wdfkd.*` commands, kernel
+    dump configuration, WPP/ETW trace decoding (`tracefmt`, `wpr`, WPA)
+  - `driver-signing` — EV code-signing certificates, Microsoft Hardware Dev
+    Center attestation signing vs. WHQL/HLK certification, INF compliance with
+    `infverif`, test-signing for development, the build → catalog → sign →
+    submit flow, dual-signing notes, `signtool verify /kp` validation
+
+- **Documentation MCP — index entries for the new C++ and Windows-driver
+  technologies**:
+  - `cpp` registered under the `languages` category
+  - `cmake` and `cpp-quality` registered under the `tooling` category
+  - `googletest` registered under the `testing` category
+  - `cpp-security` registered under the `security` category
+  - New **`windows-drivers`** category file
+    `mcp-servers/documentation/src/docs-index/windows-drivers.ts` registering
+    `wdf-kmdf`, `wdf-umdf`, `hid-input-filter`, `indirect-display`,
+    `driver-debugging`, and `driver-signing` with canonical upstream URLs
+    (Microsoft Learn `windows-hardware/drivers/...` pages and
+    `microsoft/Windows-driver-samples` samples). The new category is wired into
+    `docs-index/index.ts` (`SUPPORTED_TECHNOLOGIES`, `docsIndex`,
+    `CATEGORY_MAP`). Phase B markdown content under `windows-drivers/<area>/<topic>.md`
+    in the external `claude-dev-suite/knowledge_base` repo to follow.
+
+### Architectural decision
+
+Two-agent split (cpp-expert + windows-driver-expert) instead of one combined agent:
+the C++ generalist is genuinely useful on its own (anyone writing modern C++
+benefits), and the Windows driver specialist legitimately needs domain-specific
+behavioral steering (IRQL discipline, DDI rules, signing flow, kernel
+constraints) that would dilute a generic C++ agent. They cross-reference each
+other through shared `cpp` / `cmake` / `cpp-quality` / `cpp-security` skills,
+keeping authoritative guidance in one place per topic.
+
 ---
 
 ## [1.6.0] - 2026-05-01

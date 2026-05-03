@@ -16,6 +16,7 @@ export const LANGUAGE_TECHNOLOGIES = [
   "go",
   "deno",
   "csharp",
+  "cpp",
 ] as const;
 
 export const languageDocs: DocsRecord = {
@@ -188,6 +189,41 @@ export const languageDocs: DocsRecord = {
     nullable: {
       local: "csharp/nullable.md",
       url: "https://learn.microsoft.com/dotnet/csharp/nullable-references",
+    },
+  },
+
+  cpp: {
+    "raii-smart-pointers": {
+      local: "cpp/raii-smart-pointers.md",
+      url: "https://en.cppreference.com/w/cpp/memory",
+    },
+    "move-semantics": {
+      local: "cpp/move-semantics.md",
+      url: "https://en.cppreference.com/w/cpp/language/move_constructor",
+    },
+    concepts: {
+      local: "cpp/concepts.md",
+      url: "https://en.cppreference.com/w/cpp/language/constraints",
+    },
+    ranges: {
+      local: "cpp/ranges.md",
+      url: "https://en.cppreference.com/w/cpp/ranges",
+    },
+    coroutines: {
+      local: "cpp/coroutines.md",
+      url: "https://en.cppreference.com/w/cpp/language/coroutines",
+    },
+    modules: {
+      local: "cpp/modules.md",
+      url: "https://en.cppreference.com/w/cpp/language/modules",
+    },
+    "expected-format": {
+      local: "cpp/expected-format.md",
+      url: "https://en.cppreference.com/w/cpp/utility/expected",
+    },
+    "core-guidelines": {
+      local: "cpp/core-guidelines.md",
+      url: "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines",
     },
   },
 };

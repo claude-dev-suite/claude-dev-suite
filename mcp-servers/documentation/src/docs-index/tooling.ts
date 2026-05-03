@@ -11,6 +11,7 @@ export const TOOLING_TECHNOLOGIES = [
   "webpack",
   "esbuild",
   "vite",
+  "cmake",
   // Monorepo tools
   "turborepo",
   "nx",
@@ -19,6 +20,7 @@ export const TOOLING_TECHNOLOGIES = [
   // Linting
   "biome",
   "eslint",
+  "cpp-quality",
   // Validation
   "zod",
   "yup",
@@ -94,6 +96,45 @@ export const toolingDocs: DocsRecord = {
     plugins: {
       local: "vite/plugins.md",
       url: "https://vite.dev/plugins/",
+    },
+  },
+
+  cmake: {
+    basics: {
+      local: "cmake/basics.md",
+      url: "https://cmake.org/cmake/help/latest/guide/tutorial/index.html",
+    },
+    "modern-targets": {
+      local: "cmake/modern-targets.md",
+      url: "https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html",
+    },
+    presets: {
+      local: "cmake/presets.md",
+      url: "https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html",
+    },
+    "find-package": {
+      local: "cmake/find-package.md",
+      url: "https://cmake.org/cmake/help/latest/command/find_package.html",
+    },
+    "fetch-content": {
+      local: "cmake/fetch-content.md",
+      url: "https://cmake.org/cmake/help/latest/module/FetchContent.html",
+    },
+    "generator-expressions": {
+      local: "cmake/generator-expressions.md",
+      url: "https://cmake.org/cmake/help/latest/manual/cmake-generator-expressions.7.html",
+    },
+    install: {
+      local: "cmake/install.md",
+      url: "https://cmake.org/cmake/help/latest/command/install.html",
+    },
+    vcpkg: {
+      local: "cmake/vcpkg.md",
+      url: "https://learn.microsoft.com/vcpkg/users/manifests",
+    },
+    conan: {
+      local: "cmake/conan.md",
+      url: "https://docs.conan.io/2/integrations/cmake.html",
     },
   },
 
@@ -230,6 +271,37 @@ export const toolingDocs: DocsRecord = {
     "typescript-eslint": {
       local: "eslint/typescript-eslint.md",
       url: "https://typescript-eslint.io/getting-started/",
+    },
+  },
+
+  "cpp-quality": {
+    "clang-tidy": {
+      local: "cpp-quality/clang-tidy.md",
+      url: "https://clang.llvm.org/extra/clang-tidy/",
+    },
+    "clang-tidy-checks": {
+      local: "cpp-quality/clang-tidy-checks.md",
+      url: "https://clang.llvm.org/extra/clang-tidy/checks/list.html",
+    },
+    "clang-format": {
+      local: "cpp-quality/clang-format.md",
+      url: "https://clang.llvm.org/docs/ClangFormat.html",
+    },
+    "clang-format-style": {
+      local: "cpp-quality/clang-format-style.md",
+      url: "https://clang.llvm.org/docs/ClangFormatStyleOptions.html",
+    },
+    cppcheck: {
+      local: "cpp-quality/cppcheck.md",
+      url: "https://cppcheck.sourceforge.io/manual.pdf",
+    },
+    iwyu: {
+      local: "cpp-quality/iwyu.md",
+      url: "https://include-what-you-use.org/",
+    },
+    "ci-integration": {
+      local: "cpp-quality/ci-integration.md",
+      url: "https://clang.llvm.org/extra/clang-tidy/Integrations.html",
     },
   },
 

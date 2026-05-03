@@ -18,6 +18,7 @@ export const TESTING_TECHNOLOGIES = [
   "spring-boot-test",
   "testcontainers",
   "xunit",
+  "googletest",
   // Python integration testing
   "testcontainers-python",
   "pytest-django",
@@ -156,6 +157,45 @@ export const testingDocs: DocsRecord = {
     fixtures: {
       local: "xunit/fixtures.md",
       url: "https://xunit.net/docs/shared-context",
+    },
+  },
+
+  googletest: {
+    basics: {
+      local: "googletest/basics.md",
+      url: "https://google.github.io/googletest/primer.html",
+    },
+    assertions: {
+      local: "googletest/assertions.md",
+      url: "https://google.github.io/googletest/reference/assertions.html",
+    },
+    fixtures: {
+      local: "googletest/fixtures.md",
+      url: "https://google.github.io/googletest/advanced.html#sharing-resources-between-tests-in-the-same-test-suite",
+    },
+    "parameterized-tests": {
+      local: "googletest/parameterized-tests.md",
+      url: "https://google.github.io/googletest/advanced.html#value-parameterized-tests",
+    },
+    "typed-tests": {
+      local: "googletest/typed-tests.md",
+      url: "https://google.github.io/googletest/advanced.html#typed-tests",
+    },
+    "death-tests": {
+      local: "googletest/death-tests.md",
+      url: "https://google.github.io/googletest/advanced.html#death-tests",
+    },
+    gmock: {
+      local: "googletest/gmock.md",
+      url: "https://google.github.io/googletest/gmock_for_dummies.html",
+    },
+    "gmock-matchers": {
+      local: "googletest/gmock-matchers.md",
+      url: "https://google.github.io/googletest/reference/matchers.html",
+    },
+    "cmake-integration": {
+      local: "googletest/cmake-integration.md",
+      url: "https://google.github.io/googletest/quickstart-cmake.html",
     },
   },
 
