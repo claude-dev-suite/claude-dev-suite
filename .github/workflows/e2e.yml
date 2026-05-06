@@ -1,11 +1,6 @@
 name: E2E Tests
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'configurator/dashboard/**'
-      - '.github/workflows/e2e.yml'
   workflow_dispatch:
 
 jobs:
