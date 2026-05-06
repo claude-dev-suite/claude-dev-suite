@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Job } from '@/types';
 import type { SubTask } from '../OrchestratorPanel';
+import { migrateLegacySessionKey, readStoredSessionId } from '../session-storage';
 
 export interface RecapData {
   success: boolean;
@@ -112,8 +113,11 @@ export interface UseOrchestratorStateReturn {
 
 /**
  * Custom hook for managing orchestrator state
+ *
+ * @param projectPath - Current project path (used to scope the chat session
+ *   localStorage key so resuming never crosses project boundaries).
  */
-export function useOrchestratorState(): UseOrchestratorStateReturn {
+export function useOrchestratorState(projectPath?: string): UseOrchestratorStateReturn {
   // Form state
   const [jobTitle, setJobTitle] = useState('');
   const [jobContext, setJobContext] = useState('');
@@ -145,13 +149,23 @@ export function useOrchestratorState(): UseOrchestratorStateReturn {
   // Agent statuses
   const [agentStatuses, setAgentStatuses] = useState<Record<string, 'pending' | 'running' | 'completed' | 'failed'>>({});
 
-  // Chat session
+  // Chat session — scoped per project so a session ID from project A is never
+  // resumed in project B (the SDK stores sessions per-CWD, so cross-project
+  // resume fails with "No conversation found with session ID: ...").
   const [chatSessionId, setChatSessionId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('orchestrator_session_id');
-    }
-    return null;
+    migrateLegacySessionKey();
+    return readStoredSessionId(projectPath);
   });
+
+  // Re-read the stored session ID when the user switches project. Without
+  // this, the in-memory chatSessionId from the previous project would still
+  // be sent on the first message in the new project.
+  const lastProjectPathRef = useRef<string | undefined>(projectPath);
+  useEffect(() => {
+    if (lastProjectPathRef.current === projectPath) return;
+    lastProjectPathRef.current = projectPath;
+    setChatSessionId(readStoredSessionId(projectPath));
+  }, [projectPath]);
 
   // MCP suggestions
   const [mcpSuggestions, setMcpSuggestions] = useState<string[]>([]);

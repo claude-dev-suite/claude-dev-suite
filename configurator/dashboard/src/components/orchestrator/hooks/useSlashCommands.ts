@@ -5,11 +5,13 @@
 
 import { useCallback } from 'react';
 import type { AutocompleteItem } from '../ChatInput';
+import { clearStoredSessionId } from '../session-storage';
 
 export interface SlashCommandsConfig {
   installedAgents: string[];
   installedMcpServers: string[];
   projectCommands: AutocompleteItem[];
+  projectPath: string;
   addOutput: (text: string) => void;
   clearOutput: () => void;
   setCurrentJob: (job: null) => void;
@@ -27,6 +29,7 @@ export function useSlashCommands(config: SlashCommandsConfig) {
     installedAgents,
     installedMcpServers,
     projectCommands,
+    projectPath,
     addOutput,
     clearOutput,
     setCurrentJob,
@@ -115,7 +118,7 @@ export function useSlashCommands(config: SlashCommandsConfig) {
           setProgressStatus('Ready - Configure agents and click Execute Job');
           setCurrentAgent('');
           setChatSessionId(null);
-          localStorage.removeItem('orchestrator_session_id');
+          clearStoredSessionId(projectPath);
           wsNewChat();
           wsClearJobContext();
         }
@@ -133,6 +136,7 @@ export function useSlashCommands(config: SlashCommandsConfig) {
       installedAgents,
       installedMcpServers,
       projectCommands,
+      projectPath,
       addOutput,
       clearOutput,
       setCurrentJob,

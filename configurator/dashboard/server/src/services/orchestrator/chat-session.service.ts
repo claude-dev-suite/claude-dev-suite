@@ -17,6 +17,7 @@ import type {
   ChatOutputPayload,
   ChatCompletePayload,
   ChatSessionPayload,
+  ChatSessionInvalidatedPayload,
   ChatAgentPayload,
   JobContextSummary,
 } from '../../types/orchestrator.js';
@@ -454,14 +455,46 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
                     )
                     .join(' | ')
                 : 'no error detail';
-            this.wsClientService.broadcast({
-              type: 'chat_output',
-              payload: {
-                text: `\x1b[31m✗ Claude SDK execution error (subtype: ${resultSubtype}): ${errSummary}\x1b[0m\n`,
-                raw: true,
-                contentType: 'text',
-              } as ChatOutputPayload,
-            });
+
+            // Detect stale-session resume failure ("No conversation found
+            // with session ID: ..."). Happens when a session ID from a
+            // different project (or an expired/deleted one) is resumed.
+            // Clear server-side state and tell the client to clear its
+            // localStorage; the user can simply resend the message.
+            const isStaleSession =
+              !!useResume && /no conversation found with session id/i.test(errSummary);
+            if (isStaleSession) {
+              const staleSessionId = useResume!;
+              wsLogger.warn('Stale session resume failed — invalidating', {
+                correlationId,
+                data: { sessionId: staleSessionId, reason: errSummary },
+              });
+              this.state.sessionId = null;
+              this.wsClientService.broadcast({
+                type: 'chat_session_invalidated',
+                payload: {
+                  sessionId: staleSessionId,
+                  reason: errSummary,
+                } as ChatSessionInvalidatedPayload,
+              });
+              this.wsClientService.broadcast({
+                type: 'chat_output',
+                payload: {
+                  text: `\x1b[33m⚠️  Previous chat session is no longer available (likely from another project or expired). Starting fresh — please resend your message.\x1b[0m\n`,
+                  raw: true,
+                  contentType: 'text',
+                } as ChatOutputPayload,
+              });
+            } else {
+              this.wsClientService.broadcast({
+                type: 'chat_output',
+                payload: {
+                  text: `\x1b[31m✗ Claude SDK execution error (subtype: ${resultSubtype}): ${errSummary}\x1b[0m\n`,
+                  raw: true,
+                  contentType: 'text',
+                } as ChatOutputPayload,
+              });
+            }
             hasEmittedAnyOutput = true;  // suppress the generic warning that follows
           }
 

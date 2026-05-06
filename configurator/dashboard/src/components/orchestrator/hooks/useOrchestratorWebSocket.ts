@@ -17,6 +17,7 @@ export interface UseOrchestratorWebSocketOptions {
   onInputRequired?: (prompt: string, jobId: string) => void;
   onPermissionRequired?: (type: string, target: string, jobId: string) => void;
   onChatSession?: (sessionId: string) => void;
+  onChatSessionInvalidated?: (sessionId: string, reason: string) => void;
   onHistoryCleared?: () => void;
   onProgress?: (percent?: number, status?: string) => void;
   onToolUse?: (toolName: string, toolInput?: string) => void;
@@ -206,6 +207,13 @@ export function useOrchestratorWebSocket(
         if (sessionId) {
           opts.onChatSession?.(sessionId);
         }
+        break;
+      }
+
+      case 'chat_session_invalidated': {
+        const sessionId = (payload.sessionId as string) || '';
+        const reason = (payload.reason as string) || '';
+        opts.onChatSessionInvalidated?.(sessionId, reason);
         break;
       }
 

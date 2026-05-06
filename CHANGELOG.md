@@ -8,6 +8,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-05-06
+
+Patch release — fixes a regression where the orchestrator chat would fail
+with `Claude SDK execution error (subtype: error_during_execution): No
+conversation found with session ID: ...` after switching projects in the
+dashboard.
+
+### Fixed
+
+- **Orchestrator chat: stale cross-project session resume** — the
+  dashboard persisted the chat session ID in `localStorage` under a
+  single global key (`orchestrator_session_id`), so opening the
+  dashboard for project B after using project A would re-send the
+  stored session ID with `resumeSession: true`. The Claude Agent SDK
+  stores sessions per-CWD under `~/.claude/projects/<encoded-cwd>/`,
+  so resume across projects always failed with "No conversation found".
+
+  The `localStorage` key is now scoped per project
+  (`orchestrator_session_id::<projectPath>`), and a one-shot migration
+  removes the legacy unscoped key on first launch. The state hook also
+  re-reads the stored ID when `projectPath` changes within the same
+  dashboard instance, so switching projects no longer leaks a session
+  ID across boundaries.
+
+  **Modified files**:
+  - `configurator/dashboard/src/components/orchestrator/session-storage.ts`
+    — new helper module (`getSessionStorageKey`, `readStoredSessionId`,
+    `writeStoredSessionId`, `clearStoredSessionId`,
+    `migrateLegacySessionKey`).
+  - `configurator/dashboard/src/components/orchestrator/hooks/useOrchestratorState.ts`
+    — accepts `projectPath`, uses the helper, and re-initializes
+    `chatSessionId` when `projectPath` changes.
+  - `configurator/dashboard/src/components/orchestrator/OrchestratorPanel.tsx`
+    and `hooks/useSlashCommands.ts` — every previous
+    `localStorage.{get,set,remove}Item('orchestrator_session_id')`
+    callsite now goes through the scoped helper.
+
+- **Defensive fallback for invalidated sessions** — when the SDK
+  returns the `No conversation found with session ID` error during a
+  resume attempt (e.g. session was manually deleted or expired), the
+  server now emits a dedicated `chat_session_invalidated` WebSocket
+  event and the client clears the scoped `localStorage` entry plus the
+  in-memory `chatSessionId`. The user gets a friendly "starting fresh
+  — please resend your message" notice instead of the raw SDK error.
+
+  **Modified files**:
+  - `configurator/dashboard/server/src/types/orchestrator.ts` and
+    `src/types/orchestrator.ts` — new `chat_session_invalidated`
+    message type and `ChatSessionInvalidatedPayload`.
+  - `configurator/dashboard/server/src/services/orchestrator/chat-session.service.ts`
+    — detects the SDK error string when `resume` was set, clears
+    `state.sessionId`, broadcasts `chat_session_invalidated`, and
+    surfaces a localized warning instead of the raw stack trace.
+  - `configurator/dashboard/src/components/orchestrator/hooks/useOrchestratorWebSocket.ts`
+    — handles the new event and exposes
+    `onChatSessionInvalidated(sessionId, reason)`.
+  - `configurator/dashboard/src/components/orchestrator/OrchestratorPanel.tsx`
+    — wires the callback to clear stored state in this project.
+
 ## [1.8.0] - 2026-05-06
 
 Sprint 5 release — token-cost optimization Phase 1 + lazy skill loading + 3

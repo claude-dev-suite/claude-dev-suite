@@ -21,6 +21,7 @@ import { JobQueuePanel } from './JobQueuePanel';
 import { ConsoleHeader } from './ConsoleHeader';
 import { TaskModal } from './TaskModal';
 import { buildJobSummary, buildExecutionSummary, buildConsolidationTask } from './orchestrator-helpers';
+import { writeStoredSessionId, clearStoredSessionId } from './session-storage';
 import { PermissionDialog, type PermissionRequest as PermissionDialogRequest } from './PermissionDialog';
 import { useOrchestratorStore } from '@/stores/orchestrator.store';
 
@@ -43,7 +44,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
 
   // Use custom hooks for data and state
   const data = useOrchestratorData(projectPath);
-  const state = useOrchestratorState();
+  const state = useOrchestratorState(projectPath);
   const taskModal = useTaskModal();
 
   // Permission dialog state from global store
@@ -70,7 +71,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
 
       if (sessionId) {
         state.setChatSessionId(sessionId);
-        localStorage.setItem('orchestrator_session_id', sessionId);
+        writeStoredSessionId(projectPath, sessionId);
       }
 
       if (recap) {
@@ -117,14 +118,22 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
     },
     onChatSession: (sessionId) => {
       state.setChatSessionId(sessionId);
-      localStorage.setItem('orchestrator_session_id', sessionId);
+      writeStoredSessionId(projectPath, sessionId);
       logger.debug('Session ID saved', { sessionId });
+    },
+    onChatSessionInvalidated: (sessionId, reason) => {
+      // Stale resume rejected by the SDK (cross-project or expired session).
+      // Drop the persisted ID so the next message starts fresh in this project.
+      logger.debug('Session invalidated, clearing stored ID', { sessionId, reason });
+      state.setChatSessionId(null);
+      clearStoredSessionId(projectPath);
+      state.setIsProcessing(false);
     },
     onHistoryCleared: () => {
       state.clearOutput();
       state.addOutput('\x1b[34mℹ Chat history cleared\x1b[0m');
       state.setChatSessionId(null);
-      localStorage.removeItem('orchestrator_session_id');
+      clearStoredSessionId(projectPath);
     },
     onProgress: (percent, status) => {
       if (status) state.setProgressStatus(status);
@@ -184,6 +193,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
     installedAgents: data.installedAgents,
     installedMcpServers: data.installedMcpServers,
     projectCommands: data.projectCommands,
+    projectPath,
     addOutput: state.addOutput,
     clearOutput: state.clearOutput,
     setCurrentJob: state.setCurrentJob,
@@ -385,7 +395,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
       }
 
       state.setChatSessionId(sessionId);
-      localStorage.setItem('orchestrator_session_id', sessionId);
+      writeStoredSessionId(projectPath, sessionId);
       state.addOutput(`\x1b[90mType your message to continue the conversation...\x1b[0m\n`);
     },
     [state, projectPath]
@@ -534,11 +544,11 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
     state.setProgressStatus('Ready - Configure agents and click Execute Job');
     state.setCurrentAgent('');
     state.setChatSessionId(null);
-    localStorage.removeItem('orchestrator_session_id');
+    clearStoredSessionId(projectPath);
 
     ws.newChat();
     ws.clearJobContext();
-  }, [ws, state]);
+  }, [ws, state, projectPath]);
 
   // Agent autocomplete items
   const agentAutocompleteItems: AutocompleteItem[] = data.installedAgents.map((a) => ({

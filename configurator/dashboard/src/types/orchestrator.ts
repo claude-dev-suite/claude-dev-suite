@@ -227,6 +227,7 @@ export type WsServerMessageType =
   | 'chat_error'        // Chat encountered error
   | 'chat_cancelled'    // Chat was cancelled
   | 'chat_session'      // Session ID update
+  | 'chat_session_invalidated' // Resume failed because the session no longer exists (cross-project or expired)
   | 'chat_agent'        // Agent detection notification
   | 'chat_cleared'      // Chat session cleared
   | 'chat_response_complete' // Legacy compatibility

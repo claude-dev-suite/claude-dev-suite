@@ -226,6 +226,7 @@ export type WsServerMessageType =
   | 'chat_error'        // Chat encountered error
   | 'chat_cancelled'    // Chat was cancelled
   | 'chat_session'      // Session ID update
+  | 'chat_session_invalidated' // Resume failed because the session no longer exists (cross-project or expired)
   | 'chat_agent'        // Agent detection notification
   | 'chat_cleared'      // Chat session cleared
   | 'chat_response_complete' // Legacy compatibility
@@ -433,6 +434,19 @@ export interface ChatCompletePayload {
 export interface ChatSessionPayload {
   /** Session ID */
   sessionId: string;
+}
+
+/**
+ * Sent when a resume attempt fails because the session ID no longer
+ * exists for the current project's CWD (cross-project resume, or the
+ * SDK session file was deleted/expired). The client should clear its
+ * stored session ID and retry on a fresh session.
+ */
+export interface ChatSessionInvalidatedPayload {
+  /** The session ID that failed to resume */
+  sessionId: string;
+  /** Human-readable reason from the SDK */
+  reason: string;
 }
 
 /**
