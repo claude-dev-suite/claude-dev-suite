@@ -1,386 +1,367 @@
-# Kotlin Code Quality Skill
+---
+name: kotlin-quality
+description: |
+  Kotlin code quality toolchain — detekt (static analysis with rule sets, baseline,
+  custom rules), ktlint (formatter + linter for the Kotlin style guide), and
+  Compose-specific lint rules. Covers Gradle integration (KMP-aware), pre-commit
+  hooks, CI integration, baseline files for legacy code, and config patterns for
+  production apps including Jetpack Compose specifics (detekt-compose-rules).
 
-> **USE WHEN:** Working with Kotlin codebases requiring code quality analysis, static analysis, or best practices enforcement.
-> **DO NOT USE FOR:** Security-specific issues (use kotlin-security), Android-specific concerns, or deployment.
+  USE WHEN: user mentions "detekt", "ktlint", "ktlint-gradle", "detekt-gradle",
+  "kotlin static analysis", "kotlin formatter", "kotlin lint",
+  "compose-rules detekt", "kotlin code style", "detekt baseline"
 
-## Tools & Configuration
+  DO NOT USE FOR: Java-only static analysis - use SpotBugs/Checkstyle skill
+  DO NOT USE FOR: Rust code quality - use `quality/rust-supply-chain`
+  DO NOT USE FOR: Security-specific Kotlin issues - use `security/kotlin-security`
+  DO NOT USE FOR: TypeScript linting - use eslint-specific skill
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
+# Kotlin Quality — detekt + ktlint
 
-### Detekt (Static Analysis)
-```bash
-# Gradle setup
+> **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology: `detekt` or `ktlint`.
+
+## Tool Comparison
+
+| Tool | Purpose |
+|---|---|
+| **ktlint** | Formatter + minimal linter — enforces Kotlin official style. Auto-fixes most issues. |
+| **detekt** | Comprehensive static analyzer — code smells, complexity, security, naming, magic numbers, performance, style. Highly configurable. |
+| **Compose Rules (Twitter/Slack/Mrtn)** | Compose-specific lint rules — composable naming, side-effects, parameter ordering. Plugs into both detekt and ktlint. |
+| **Android Lint** | Android-specific (resources, manifest, lifecycle). Run alongside, not replaced. |
+
+**Use both ktlint and detekt** — complementary. ktlint for formatting, detekt for everything else.
+
+## Setup — ktlint (Gradle Plugin)
+
+```kotlin
+// build.gradle.kts (root)
 plugins {
-    id("io.gitlab.arturbosch.detekt") version "1.23.4"
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.1" apply false
 }
 
-detekt {
-    buildUponDefaultConfig = true
-    allRules = false
-    config.setFrom("$projectDir/config/detekt.yml")
-}
+subprojects {
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
 
-# Run
-./gradlew detekt
+    configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+        version.set("1.4.1")
+        verbose.set(true)
+        outputToConsole.set(true)
+        coloredOutput.set(true)
+        ignoreFailures.set(false)
+        enableExperimentalRules.set(false)
+        filter {
+            exclude("**/generated/**")
+            exclude("**/build/**")
+            include("**/kotlin/**")
+        }
+    }
+}
 ```
 
+```bash
+./gradlew ktlintCheck                              # check all modules
+./gradlew ktlintFormat                              # auto-fix
+./gradlew :shared:ktlintCheck                       # one module
+```
+
+### ktlint Configuration via .editorconfig
+
+```editorconfig
+# .editorconfig
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 120
+ij_kotlin_imports_layout = *,java.**,javax.**,kotlin.**,^
+
+# ktlint-specific
+ktlint_standard = enabled
+ktlint_experimental = disabled
+ktlint_function_naming_ignore_when_annotated_with = Composable,Test
+ktlint_compose = enabled
+```
+
+## Setup — detekt
+
+```kotlin
+// build.gradle.kts (root)
+plugins {
+    id("io.gitlab.arturbosch.detekt") version "1.23.7" apply false
+}
+
+subprojects {
+    apply(plugin = "io.gitlab.arturbosch.detekt")
+
+    configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
+        config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+        baseline = file("$projectDir/detekt-baseline.xml")
+        buildUponDefaultConfig = true
+        autoCorrect = false                          // CI-safe
+        parallel = true
+    }
+
+    dependencies {
+        "detektPlugins"("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.7")
+        "detektPlugins"("io.nlopez.compose.rules:detekt:0.4.16")    // Compose rules
+    }
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+        sarif.required.set(true)
+    }
+}
+```
+
+```bash
+./gradlew detekt
+./gradlew detektBaseline                              # generate baseline
+./gradlew :shared:detekt
+```
+
+### detekt.yml — Production Config
+
 ```yaml
-# detekt.yml
+# config/detekt/detekt.yml
 build:
   maxIssues: 0
+  weights:
 
 complexity:
-  LongMethod:
-    threshold: 30
-  LongParameterList:
-    functionThreshold: 5
-    constructorThreshold: 8
-  ComplexCondition:
-    threshold: 4
   CyclomaticComplexMethod:
-    threshold: 10
-  NestedBlockDepth:
-    threshold: 4
+    threshold: 15
+  LongMethod:
+    threshold: 60
+  LongParameterList:
+    functionThreshold: 8
+  TooManyFunctions:
+    thresholdInClasses: 30
+    ignoreAnnotatedFunctions:
+      - 'Composable'
+
+empty-blocks:
+  active: true
+
+exceptions:
+  TooGenericExceptionCaught:
+    exceptionNames:
+      - 'Exception'
+      - 'RuntimeException'
+      - 'Throwable'
+    allowedExceptionNameRegex: '_|(ignore|expected).*'
 
 naming:
   FunctionNaming:
     functionPattern: '[a-z][a-zA-Z0-9]*'
-  VariableNaming:
-    variablePattern: '[a-z][a-zA-Z0-9]*'
+    excludes: ['**/test/**', '**/androidTest/**']
+    ignoreAnnotated:
+      - 'Composable'                                  # PascalCase composables OK
 
-style:
-  MaxLineLength:
-    maxLineLength: 120
-  WildcardImport:
-    active: true
-  UnusedImports:
-    active: true
-  UnusedPrivateMember:
-    active: true
+performance:
+  active: true
 
 potential-bugs:
-  UnsafeCast:
+  HasPlatformType:
+    active: true                                       # KMP-friendly: catch missing nullability
+
+style:
+  MagicNumber:
+    ignoreNumbers: ['-1', '0', '1', '2', '100', '1000']
+    ignoreEnums: true
+  MaxLineLength:
+    maxLineLength: 120
+  ReturnCount:
+    max: 4
+  WildcardImport:
     active: true
-  UselessPostfixExpression:
-    active: true
+
+formatting:                                            # ktlint-formatting plugin
+  active: true
+  android: false
+  autoCorrect: false
 ```
 
-### Ktlint (Code Formatting)
+### Baseline (For Legacy Code)
+
 ```bash
-# Gradle setup
-plugins {
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
-}
-
-ktlint {
-    version.set("1.1.1")
-    android.set(false)
-    outputColorName.set("RED")
-}
-
-# Run
-./gradlew ktlintCheck
-./gradlew ktlintFormat
+./gradlew detektBaseline    # generates detekt-baseline.xml — commit it
 ```
 
-```properties
-# .editorconfig
-[*.{kt,kts}]
-ktlint_code_style = ktlint_official
-max_line_length = 120
-indent_size = 4
-ktlint_function_naming_ignore_when_annotated_with = Composable
-```
+New issues fail CI; existing ones silently allowed. Reduce baseline over time.
 
-### Konsist (Architecture Tests)
+## Compose Rules
+
+Twitter/Slack/Mrtn maintain Compose-specific lint rules:
+
 ```kotlin
-// build.gradle.kts
-testImplementation("com.lemonappdev:konsist:0.13.0")
-
-// Architecture tests
-class ArchitectureTest {
-    @Test
-    fun `services should not depend on controllers`() {
-        Konsist.scopeFromProject()
-            .classes()
-            .withNameEndingWith("Service")
-            .assertFalse { it.hasImportWithName("..controller..") }
-    }
-
-    @Test
-    fun `use cases should have single public method`() {
-        Konsist.scopeFromProject()
-            .classes()
-            .withNameEndingWith("UseCase")
-            .assertTrue { it.countPublicMethods() == 1 }
-    }
+dependencies {
+    "detektPlugins"("io.nlopez.compose.rules:detekt:0.4.16")
+    // OR for ktlint
+    "ktlintRuleset"("io.nlopez.compose.rules:ktlint:0.4.16")
 }
 ```
 
-## Quality Metrics
+Catches:
+- `@Composable` not in PascalCase
+- Modifier parameter not first
+- `remember { mutableStateOf() }` instead of `by remember`
+- Side effects outside `LaunchedEffect`
+- Missing `key` in `LazyColumn.items`
+- Composable returning unit named like accessor
 
-| Metric | Target | Tool |
-|--------|--------|------|
-| Cyclomatic Complexity | < 10 | Detekt |
-| Method Length | < 30 lines | Detekt |
-| Code Coverage | > 80% | JaCoCo |
-| Code Smells | 0 blockers | Detekt |
-| Formatting | 100% compliant | Ktlint |
-
-## Kotlin Best Practices
-
-### Null Safety
-```kotlin
-// Bad: Platform types and unsafe casts
-fun processUser(user: User?) {
-    val name = user!!.name  // NullPointerException risk
-}
-
-// Good: Safe handling
-fun processUser(user: User?): String {
-    return user?.name ?: "Unknown"
-}
-
-// Good: Early return pattern
-fun processUser(user: User?): String {
-    val validUser = user ?: return "No user provided"
-    return validUser.name
-}
-
-// Good: Require for preconditions
-fun processUser(user: User?) {
-    requireNotNull(user) { "User cannot be null" }
-    require(user.age >= 0) { "Age must be positive" }
-}
-```
-
-### Data Classes
-```kotlin
-// Bad: Manual equals/hashCode
-class User(val id: Int, val name: String) {
-    override fun equals(other: Any?): Boolean { ... }
-    override fun hashCode(): Int { ... }
-}
-
-// Good: Data class
-data class User(
-    val id: Int,
-    val name: String,
-    val email: String,
-) {
-    // Add computed properties if needed
-    val displayName: String get() = "$name ($email)"
-}
-```
-
-### Sealed Classes for State
-```kotlin
-// Good: Exhaustive when
-sealed class Result<out T> {
-    data class Success<T>(val data: T) : Result<T>()
-    data class Error(val exception: Throwable) : Result<Nothing>()
-    data object Loading : Result<Nothing>()
-}
-
-fun handleResult(result: Result<User>) = when (result) {
-    is Result.Success -> showUser(result.data)
-    is Result.Error -> showError(result.exception)
-    Result.Loading -> showLoading()
-    // Compiler ensures all cases are handled
-}
-```
-
-### Extension Functions
-```kotlin
-// Good: Readable extensions
-fun String.isValidEmail(): Boolean =
-    matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))
-
-fun <T> List<T>.secondOrNull(): T? = getOrNull(1)
-
-// Use scope functions appropriately
-val user = User().apply {
-    name = "John"
-    email = "john@example.com"
-}.also {
-    logger.info("Created user: ${it.name}")
-}
-
-val result = data.let { transform(it) }
-    .takeIf { it.isValid }
-    ?: defaultValue
-```
-
-### Coroutines Best Practices
-```kotlin
-// Bad: Blocking in coroutine
-suspend fun fetchData(): Data {
-    return withContext(Dispatchers.IO) {
-        Thread.sleep(1000)  // Bad!
-    }
-}
-
-// Good: Proper suspension
-suspend fun fetchData(): Data = withContext(Dispatchers.IO) {
-    delay(1000)  // Non-blocking
-    repository.fetch()
-}
-
-// Good: Structured concurrency
-class UserService(
-    private val scope: CoroutineScope,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default
-) {
-    fun processAsync() = scope.launch(dispatcher) {
-        // Work happens in controlled scope
-    }
-}
-
-// Good: Exception handling
-suspend fun safeFetch(): Result<Data> = runCatching {
-    withContext(Dispatchers.IO) {
-        api.fetch()
-    }
-}
-```
-
-### Collections
-```kotlin
-// Bad: Mutable collections exposed
-class UserRepository {
-    private val users = mutableListOf<User>()
-    fun getUsers(): MutableList<User> = users  // Exposes internal state!
-}
-
-// Good: Immutable interface
-class UserRepository {
-    private val _users = mutableListOf<User>()
-    val users: List<User> get() = _users.toList()
-}
-
-// Good: Collection transformations
-val activeAdminEmails = users
-    .filter { it.isActive }
-    .filter { it.role == Role.ADMIN }
-    .map { it.email }
-    .distinct()
-
-// Good: Sequence for large collections
-val result = largeList.asSequence()
-    .filter { expensiveCheck(it) }
-    .map { transform(it) }
-    .take(10)
-    .toList()
-```
-
-## Code Smells & Fixes
-
-### God Class
-```kotlin
-// Bad: Class does everything
-class OrderManager {
-    fun createOrder() { ... }
-    fun validateOrder() { ... }
-    fun calculatePricing() { ... }
-    fun sendNotification() { ... }
-    fun generateReport() { ... }
-}
-
-// Good: Single responsibility
-class OrderService(
-    private val validator: OrderValidator,
-    private val pricingService: PricingService,
-    private val notificationService: NotificationService,
-) {
-    fun createOrder(request: CreateOrderRequest): Order {
-        validator.validate(request)
-        val pricing = pricingService.calculate(request.items)
-        val order = orderRepository.save(Order(request, pricing))
-        notificationService.sendConfirmation(order)
-        return order
-    }
-}
-```
-
-### Feature Envy
-```kotlin
-// Bad: Method uses another class's data too much
-fun calculateDiscount(order: Order): Double {
-    return if (order.customer.loyaltyPoints > 100 &&
-               order.customer.memberSince.isBefore(oneYearAgo) &&
-               order.customer.totalOrders > 10) {
-        order.total * 0.15
-    } else {
-        0.0
-    }
-}
-
-// Good: Move logic to appropriate class
-// In Customer class
-fun Customer.isEligibleForPremiumDiscount(): Boolean =
-    loyaltyPoints > 100 &&
-    memberSince.isBefore(LocalDate.now().minusYears(1)) &&
-    totalOrders > 10
-
-// Usage
-fun calculateDiscount(order: Order): Double =
-    if (order.customer.isEligibleForPremiumDiscount()) order.total * 0.15 else 0.0
-```
-
-## CI/CD Integration
+## CI Integration — GitHub Actions
 
 ```yaml
-# GitHub Actions
+# .github/workflows/quality.yml
 name: Kotlin Quality
+
 on: [push, pull_request]
 
 jobs:
-  quality:
+  ktlint-detekt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { java-version: '17', distribution: 'temurin' }
+      - uses: gradle/actions/setup-gradle@v4
 
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-
-      - name: Detekt
-        run: ./gradlew detekt
-
-      - name: Ktlint
+      - name: ktlint
         run: ./gradlew ktlintCheck
 
-      - name: Tests with Coverage
-        run: ./gradlew test jacocoTestReport
+      - name: detekt
+        run: ./gradlew detekt
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
+      - name: Upload SARIF (GitHub Code Scanning)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          files: build/reports/jacoco/test/jacocoTestReport.xml
+          sarif_file: build/reports/detekt/detekt.sarif
+
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: |
+            **/build/reports/ktlint/
+            **/build/reports/detekt/
 ```
 
-## Common Commands
+## Pre-Commit Hook
 
-```bash
-# Full quality check
-./gradlew check
-
-# Individual tools
-./gradlew detekt
-./gradlew ktlintCheck
-./gradlew ktlintFormat
-
-# Test with coverage
-./gradlew test jacocoTestReport
-
-# Generate reports
-./gradlew detekt --report html:build/reports/detekt.html
+```yaml
+# lefthook.yml
+pre-commit:
+  parallel: true
+  commands:
+    ktlint:
+      glob: "*.{kt,kts}"
+      run: ./gradlew ktlintFormat -PfilesToFormat={staged_files}
+      stage_fixed: true
+    detekt:
+      glob: "*.{kt,kts}"
+      run: ./gradlew detekt
 ```
+
+## Custom detekt Rules
+
+```kotlin
+class NoPrintStatement : Rule() {
+    override val issue = Issue(
+        id = "NoPrintStatement",
+        severity = Severity.Style,
+        description = "Use Logger.d() instead of println()",
+        debt = Debt.FIVE_MINS,
+    )
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+        super.visitCallExpression(expression)
+        val name = expression.calleeExpression?.text
+        if (name in setOf("println", "print")) {
+            report(CodeSmell(issue, Entity.from(expression), "Use a logger"))
+        }
+    }
+}
+
+class CustomRuleSet : RuleSetProvider {
+    override val ruleSetId: String = "custom"
+    override fun instance(config: Config) = RuleSet(ruleSetId, listOf(NoPrintStatement()))
+}
+```
+
+Register via `META-INF/services/io.gitlab.arturbosch.detekt.api.RuleSetProvider`.
+
+## Wallet App Quality Checklist
+
+For BHODL-style production:
+
+- [ ] `ktlintCheck` and `detekt` in CI
+- [ ] No baseline regressions (new issues block PR)
+- [ ] Compose rules enabled (consistent composable patterns)
+- [ ] No `println` / `Log.d` (use `Kermit` / `Timber`)
+- [ ] No `TODO`/`FIXME` in main code (use issue tracker)
+- [ ] Magic numbers explained or named constants
+- [ ] Cyclomatic complexity ≤ 15 per function
+- [ ] No `@Suppress` without comment explaining why
+- [ ] All public types documented (KDoc)
+- [ ] No platform types from Java interop without explicit nullability
+- [ ] No `!!` force-unwrap in main code (review usage)
+
+## detekt Rule Sets Cheat Sheet
+
+| Rule set | Highlights |
+|---|---|
+| `complexity` | CyclomaticComplexMethod, LongMethod, LongParameterList, NestedBlockDepth |
+| `coroutines` | RedundantSuspendModifier, GlobalCoroutineUsage |
+| `empty-blocks` | EmptyFunctionBlock, EmptyCatchBlock |
+| `exceptions` | TooGenericExceptionCaught, SwallowedException |
+| `naming` | FunctionNaming, ClassNaming, VariableNaming |
+| `performance` | ForEachOnRange, SpreadOperator |
+| `potential-bugs` | EqualsAlwaysReturnsTrueOrFalse, HasPlatformType, NullableToStringCall |
+| `style` | MagicNumber, ReturnCount, ThrowsCount, WildcardImport |
+| `formatting` (via plugin) | All ktlint rules as detekt issues |
+
+## Anti-Patterns
+
+| Anti-pattern | Why it's bad | Correct approach |
+|---|---|---|
+| Skipping ktlint/detekt in CI | Style/quality drifts | Both in CI on every PR |
+| `autoCorrect = true` in CI | Mutates code unexpectedly | Set false in CI; true only for pre-commit |
+| Massive baseline never reduced | Quality debt accumulates | Reduce baseline by ≥1 issue per PR rule |
+| Hardcoded suppressions everywhere | Defeats lint | Use baseline for legacy, fix new issues |
+| Per-developer `.editorconfig` overrides | Inconsistent | Single root `.editorconfig`, no exceptions |
+| Skipping Compose rules in Compose project | Misses real bugs | Always enable Compose rules |
+| `MagicNumber` rule disabled globally | Misses real magic numbers | Configure ignore list, don't disable |
+| `WildcardImport` allowed | IDE auto-import noise | Disable wildcard imports project-wide |
+| `TooGenericExceptionCaught` disabled | Hides bugs | Allow only with `_` or `ignore` named param |
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `ktlint`: line too long but config says 120 | Editorconfig override | Check nested `.editorconfig` |
+| `detekt`: false positive on Composable | Compose rules not loaded | Add `detekt-compose-rules` plugin |
+| Slow detekt | Many files | `parallel = true`, exclude generated/build |
+| Baseline drift between branches | Auto-regenerated | Commit baseline manually |
+| `detekt-formatting` and `ktlint` conflict | Same rules, different config | Pick one for each rule |
+| KMP `commonMain` not analyzed | Source set config | Apply ktlint/detekt to all source sets |
+| Compose preview functions flagged as unused | `@Preview` lint exception missing | Configure `excludeAnnotatedFunctions: ['Preview']` |
+| `MaxLineLength` flagged inside string template | Hard to break | `// ktlint-disable max-line-length` or refactor |
+| KSP-generated code flagged | Excludes wrong | Add `**/generated/**` to excludes |
+
+## When NOT to Use This Skill
+
+| Scenario | Use Instead |
+|----------|-------------|
+| Rust supply chain | `quality/rust-supply-chain` |
+| Generic vuln scanning across languages | `quality/osv-scanner` |
+| Java SpotBugs/Checkstyle | Java-specific quality skill |
+| TypeScript ESLint | TypeScript-specific |
+| Android Lint (manifest, resources) | Android Lint built-in |
+| Kotlin security-specific issues | `security/kotlin-security` |
+| KMP code patterns | `mobile/kotlin-multiplatform` |

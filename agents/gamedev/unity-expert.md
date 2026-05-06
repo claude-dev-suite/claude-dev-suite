@@ -16,7 +16,7 @@ description: |
   DO NOT USE FOR: Unreal Engine — use a generic engine response;
   Godot — use a generic engine response; pure C# .NET backend (ASP.NET, EF Core,
   Blazor) — use `dotnet-expert`
-model: sonnet
+model: opus
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - best-practices/token-optimization
@@ -48,6 +48,7 @@ skills:
   - gamedev/2d-art/seamless-textures
   - gamedev/2d-art/animation-frames
   - gamedev/2d-art/tools
+  - gamedev/2d-art/ai-art-tools
   - gamedev/2d-art/lighting-art
   - gamedev/2d-art/vfx-2d
   - gamedev/2d-art/environment-design

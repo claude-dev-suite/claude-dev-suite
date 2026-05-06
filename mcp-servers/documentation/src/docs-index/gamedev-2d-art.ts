@@ -23,6 +23,7 @@ export const GAMEDEV_2D_ART_TECHNOLOGIES = [
   "gamedev-2d-art-seamless-textures",
   "gamedev-2d-art-animation-frames",
   "gamedev-2d-art-tools",
+  "gamedev-2d-art-ai-art-tools",
   "gamedev-2d-art-lighting-art",
   "gamedev-2d-art-vfx-2d",
   "gamedev-2d-art-environment-design",
@@ -55,6 +56,10 @@ export const gamedev2dArtDocs: DocsRecord = {
   "gamedev-2d-art-tools": e(
     "gamedev/2d-art/tools/overview.md",
     "https://www.aseprite.org/docs/",
+  ),
+  "gamedev-2d-art-ai-art-tools": e(
+    "gamedev/2d-art/ai-art-tools/overview.md",
+    "https://www.pixellab.ai/",
   ),
   "gamedev-2d-art-lighting-art": e(
     "gamedev/2d-art/lighting-art/overview.md",

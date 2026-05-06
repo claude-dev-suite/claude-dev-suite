@@ -92,6 +92,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'check_style',
+    // audit-justification: must enumerate supported linters across 5 languages so Claude routes correctly
     description: 'Run unified linting using ESLint/Biome (JS/TS), Ruff/Pylint (Python), Checkstyle (Java), golangci-lint (Go), or Clippy (Rust). Falls back to basic checks if no linter is installed.',
     inputSchema: {
       type: 'object',
@@ -200,7 +201,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'code_metrics',
-    description: 'Calculate code metrics: LOC, SLOC, comments ratio, function counts, class counts. Provides an overview of codebase size and structure.',
+    description: 'Calculate code metrics (LOC, SLOC, comments ratio, function/class counts) for codebase size overview.',
     inputSchema: {
       type: 'object',
       properties: {

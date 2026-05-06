@@ -209,6 +209,11 @@ export interface ExtendedManifest {
   upgradeHistory: UpgradeHistoryEntry[];
   /** Snapshot of all available components at install time (for new-component detection) */
   availableAtInstall?: CatalogSnapshot;
+  /**
+   * Relative paths of `.claude/rules/{category}.md` files written by dev-suite.
+   * Used for clean uninstall. Missing field is treated as an empty array (backward compat).
+   */
+  installedRuleFiles?: string[];
 }
 
 /**

@@ -1,5 +1,6 @@
 ---
 name: shadow-mode-deployment
+disable-model-invocation: true
 description: |
   Shadow and canary deployment of RAG pipeline changes: dual-execute new + old,
   offline LLM-judge comparison, gradual traffic ramp, auto-rollback guardrails,

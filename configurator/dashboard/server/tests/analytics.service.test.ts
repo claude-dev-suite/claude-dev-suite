@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AnalyticsService } from '../src/services/analytics.service.js';
+import type { TokenUsageEntry } from '../src/services/analytics.service.js';
 import { createTempDir, cleanupTempDir, createMockAnalyticsData } from './test-utils.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -385,6 +386,253 @@ describe('AnalyticsService', () => {
       expect(summary.hasData).toBe(false);
       expect(summary.totalEntries).toBe(0);
       expect(summary.successRate).toBe(0);
+    });
+  });
+
+  // ============================================================
+  // TOKEN USAGE TRACKING
+  // ============================================================
+
+  describe('recordTokenUsage', () => {
+    it('should record a token-usage entry and persist it', () => {
+      const result = analyticsService.recordTokenUsage(projectDir, {
+        agentId: 'react-expert',
+        tokensInput: 1000,
+        tokensOutput: 500,
+        model: 'sonnet',
+        success: true,
+        durationMs: 250,
+      });
+
+      expect(result.success).toBe(true);
+
+      const entries = analyticsService.getTokenUsage(projectDir);
+      expect(entries.length).toBe(1);
+      expect(entries[0].agentId).toBe('react-expert');
+      expect(entries[0].tokensInput).toBe(1000);
+      expect(entries[0].tokensOutput).toBe(500);
+      expect(entries[0].model).toBe('sonnet');
+      expect(entries[0].success).toBe(true);
+      expect(entries[0].id).toBeDefined();
+      expect(entries[0].timestamp).toBeDefined();
+    });
+
+    it('should auto-compute costUsd when not provided', () => {
+      analyticsService.recordTokenUsage(projectDir, {
+        tokensInput: 1_000_000,
+        tokensOutput: 0,
+        model: 'haiku',
+        success: true,
+      });
+
+      const entries = analyticsService.getTokenUsage(projectDir);
+      // Haiku input: $0.25/MTok → $0.25 for 1M input tokens
+      expect(entries[0].costUsd).toBeCloseTo(0.25, 4);
+    });
+
+    it('should preserve caller-supplied costUsd', () => {
+      analyticsService.recordTokenUsage(projectDir, {
+        tokensInput: 100,
+        tokensOutput: 100,
+        model: 'sonnet',
+        costUsd: 9.99,
+        success: true,
+      });
+
+      const entries = analyticsService.getTokenUsage(projectDir);
+      expect(entries[0].costUsd).toBe(9.99);
+    });
+
+    it('should accumulate multiple entries', () => {
+      analyticsService.recordTokenUsage(projectDir, {
+        agentId: 'agent-a',
+        tokensInput: 100,
+        tokensOutput: 50,
+        success: true,
+      });
+      analyticsService.recordTokenUsage(projectDir, {
+        agentId: 'agent-b',
+        tokensInput: 200,
+        tokensOutput: 100,
+        success: false,
+      });
+
+      const entries = analyticsService.getTokenUsage(projectDir);
+      expect(entries.length).toBe(2);
+    });
+
+    it('should create the analytics dir if absent', () => {
+      const freshDir = createTempDir('token-fresh-');
+      try {
+        const result = analyticsService.recordTokenUsage(freshDir, {
+          tokensInput: 10,
+          tokensOutput: 5,
+          success: true,
+        });
+        expect(result.success).toBe(true);
+        const entries = analyticsService.getTokenUsage(freshDir);
+        expect(entries.length).toBe(1);
+      } finally {
+        cleanupTempDir(freshDir);
+      }
+    });
+  });
+
+  describe('getTokenUsage', () => {
+    function seedEntries(dir: string): void {
+      const now = Date.now();
+      const entries: Array<Omit<TokenUsageEntry, 'id' | 'timestamp'>> = [
+        { agentId: 'react-expert', skillPath: 'frontend-react', mcpTool: 'fetch_docs', model: 'sonnet', tokensInput: 500, tokensOutput: 300, success: true },
+        { agentId: 'ts-expert',    skillPath: 'typescript',      mcpTool: 'search_docs', model: 'haiku',  tokensInput: 200, tokensOutput: 100, success: true },
+        { agentId: 'react-expert', skillPath: 'frontend-react',                           model: 'opus',   tokensInput: 1000, tokensOutput: 800, success: false },
+      ];
+
+      for (let i = 0; i < entries.length; i++) {
+        const data = entries[i];
+        const filePath = analyticsService.getTokenUsagePath(dir);
+        const analyticsDir = path.dirname(filePath);
+        if (!fs.existsSync(analyticsDir)) fs.mkdirSync(analyticsDir, { recursive: true });
+
+        // Use recordTokenUsage to keep IDs unique
+        analyticsService.recordTokenUsage(dir, {
+          ...data,
+          durationMs: 100 + i * 50,
+        });
+      }
+
+      // Backdate entry[2] to 2 days ago for time filtering
+      const raw = fs.readFileSync(analyticsService.getTokenUsagePath(dir), 'utf-8');
+      const parsed = JSON.parse(raw);
+      parsed.entries[0].timestamp = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(analyticsService.getTokenUsagePath(dir), JSON.stringify(parsed, null, 2));
+    }
+
+    beforeEach(() => seedEntries(projectDir));
+
+    it('should return all entries when no filters', () => {
+      const entries = analyticsService.getTokenUsage(projectDir);
+      expect(entries.length).toBe(3);
+    });
+
+    it('should filter by agentId', () => {
+      const entries = analyticsService.getTokenUsage(projectDir, { agentId: 'react-expert' });
+      expect(entries.every((e) => e.agentId === 'react-expert')).toBe(true);
+      expect(entries.length).toBe(2);
+    });
+
+    it('should filter by skillPath', () => {
+      const entries = analyticsService.getTokenUsage(projectDir, { skillPath: 'typescript' });
+      expect(entries.every((e) => e.skillPath === 'typescript')).toBe(true);
+      expect(entries.length).toBe(1);
+    });
+
+    it('should filter by mcpTool', () => {
+      const entries = analyticsService.getTokenUsage(projectDir, { mcpTool: 'fetch_docs' });
+      expect(entries.length).toBe(1);
+      expect(entries[0].mcpTool).toBe('fetch_docs');
+    });
+
+    it('should filter by model', () => {
+      const entries = analyticsService.getTokenUsage(projectDir, { model: 'haiku' });
+      expect(entries.every((e) => e.model === 'haiku')).toBe(true);
+      expect(entries.length).toBe(1);
+    });
+
+    it('should filter by since', () => {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const entries = analyticsService.getTokenUsage(projectDir, { since: yesterday });
+      // Entry 0 was backdated 2 days ago, so only 2 remain
+      expect(entries.length).toBe(2);
+    });
+
+    it('should honour limit', () => {
+      const entries = analyticsService.getTokenUsage(projectDir, { limit: 1 });
+      expect(entries.length).toBe(1);
+    });
+
+    it('should return newest-first order', () => {
+      const entries = analyticsService.getTokenUsage(projectDir);
+      for (let i = 0; i < entries.length - 1; i++) {
+        expect(new Date(entries[i].timestamp).getTime()).toBeGreaterThanOrEqual(
+          new Date(entries[i + 1].timestamp).getTime()
+        );
+      }
+    });
+
+    it('should return empty array when file does not exist', () => {
+      const emptyDir = createTempDir('token-empty-');
+      try {
+        const entries = analyticsService.getTokenUsage(emptyDir);
+        expect(entries).toEqual([]);
+      } finally {
+        cleanupTempDir(emptyDir);
+      }
+    });
+  });
+
+  describe('getAggregatedTokenUsage', () => {
+    beforeEach(() => {
+      // Seed known data
+      analyticsService.recordTokenUsage(projectDir, { agentId: 'react-expert', tokensInput: 1000, tokensOutput: 500, model: 'sonnet', success: true });
+      analyticsService.recordTokenUsage(projectDir, { agentId: 'react-expert', tokensInput: 500,  tokensOutput: 200, model: 'haiku',  success: true });
+      analyticsService.recordTokenUsage(projectDir, { agentId: 'ts-expert',    tokensInput: 300,  tokensOutput: 100, model: 'sonnet', success: true });
+    });
+
+    it('should aggregate by agent and return correct totals', () => {
+      const rows = analyticsService.getAggregatedTokenUsage(projectDir, { groupBy: 'agent' });
+
+      expect(rows.length).toBe(2);
+
+      const reactRow = rows.find((r) => r.key === 'react-expert');
+      expect(reactRow).toBeDefined();
+      expect(reactRow!.totalTokens).toBe(1000 + 500 + 500 + 200); // 2200
+      expect(reactRow!.callCount).toBe(2);
+      expect(reactRow!.avgTokensPerCall).toBe(1100);
+    });
+
+    it('should aggregate by model', () => {
+      const rows = analyticsService.getAggregatedTokenUsage(projectDir, { groupBy: 'model' });
+      const sonnetRow = rows.find((r) => r.key === 'sonnet');
+      const haikuRow  = rows.find((r) => r.key === 'haiku');
+
+      expect(sonnetRow).toBeDefined();
+      expect(haikuRow).toBeDefined();
+      // sonnet: react(1000+500) + ts(300+100) = 1900
+      expect(sonnetRow!.totalTokens).toBe(1900);
+    });
+
+    it('should sort results by totalTokens descending', () => {
+      const rows = analyticsService.getAggregatedTokenUsage(projectDir, { groupBy: 'agent' });
+      for (let i = 0; i < rows.length - 1; i++) {
+        expect(rows[i].totalTokens).toBeGreaterThanOrEqual(rows[i + 1].totalTokens);
+      }
+    });
+
+    it('should return empty array when no entries exist', () => {
+      const emptyDir = createTempDir('token-agg-empty-');
+      try {
+        const rows = analyticsService.getAggregatedTokenUsage(emptyDir, { groupBy: 'agent' });
+        expect(rows).toEqual([]);
+      } finally {
+        cleanupTempDir(emptyDir);
+      }
+    });
+
+    it('should filter by since when aggregating', () => {
+      // Add an old entry
+      const filePath = analyticsService.getTokenUsagePath(projectDir);
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      // Backdate first entry to 10 days ago
+      parsed.entries[0].timestamp = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(filePath, JSON.stringify(parsed, null, 2));
+
+      const since = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      const rows = analyticsService.getAggregatedTokenUsage(projectDir, { groupBy: 'agent', since });
+
+      // react-expert's first entry was backdated, should now have only 1 entry in range
+      const reactRow = rows.find((r) => r.key === 'react-expert');
+      expect(reactRow?.callCount).toBe(1);
     });
   });
 

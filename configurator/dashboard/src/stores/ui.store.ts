@@ -18,7 +18,7 @@ import { create, type StateCreator } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { config } from '@/config';
 
-type Panel = 'wizard' | 'orchestrator' | 'code-review' | 'codegen' | 'usage' | 'live-performance';
+type Panel = 'wizard' | 'orchestrator' | 'code-review' | 'codegen' | 'usage' | 'live-performance' | 'token-analytics';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 

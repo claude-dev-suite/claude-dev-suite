@@ -27,7 +27,7 @@ This document maps each agent to its required MCP servers and skills.
 | **spring-boot-expert** | documentation, api-tester | spring-boot, spring-data-jpa, spring-security, spring-web, flyway, lombok, mapstruct |
 | **nestjs-expert** | documentation, api-tester | nestjs, typescript, prisma, postgresql |
 | **fastapi-expert** | documentation, api-tester | fastapi, python, sqlalchemy, pydantic, pytest |
-| **rust-expert** | documentation | rust, actix-web, axum, rocket, warp |
+| **rust-expert** | documentation | rust, actix-web, axum, rocket, warp, proptest, rustls, arti, rusqlite, rust-decimal, rust-supply-chain, osv-scanner, rust-tracing, rust-cross-compile |
 | **go-expert** | documentation | go, gin, fiber, echo, chi |
 | **deno-expert** | documentation | deno, fresh, oak, typescript |
 | **dotnet-expert** | documentation, api-tester | aspnet-core, aspnet-minimal-api, aspnet-middleware, aspnet-signalr, aspnet-blazor, aspnet-identity, aspnet-validation, entity-framework-core, csharp, xunit, nunit, dotnet-quality, dotnet-security, postgresql, sql-server, swagger-dotnet, resilience-patterns, caching-strategies, webhooks, pagination, error-handling, cors-security-headers, error-tracking, health-checks, ddd |
@@ -105,6 +105,9 @@ This document maps each agent to its required MCP servers and skills.
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
 | **mobile-expert** | documentation | react-native, flutter, expo, push-notifications, i18n, webauthn, stripe, file-upload |
+| **kmp-expert** | documentation | languages/kotlin, languages/swift, languages/uniffi, languages/java-foreign, mobile/kotlin-multiplatform, frontend-frameworks/compose-multiplatform, build-tools/gradle-kmp, build-tools/rust-cross-compile, testing/kotest, testing/turbine, testing/maestro, testing/compose-snapshot, testing/proptest, observability/rust-tracing, observability/sentry-selfhosted, infrastructure/reproducible-builds, security/sigstore-cosign, quality/rust-supply-chain, quality/kotlin-quality, quality/osv-scanner, documentation/docs-toolchain |
+| **android-native-expert** | documentation | languages/kotlin, mobile/jetpack-compose, mobile/android-native, databases/sqlcipher, security/libsodium, security/age-encryption, testing/kotest, testing/turbine, testing/maestro, testing/compose-snapshot, security/sigstore-cosign, quality/kotlin-quality, quality/osv-scanner, observability/sentry-selfhosted |
+| **ios-native-expert** | documentation | languages/swift, mobile/ios-native, databases/sqlcipher, security/libsodium, security/age-encryption, testing/maestro, security/sigstore-cosign, quality/osv-scanner, observability/sentry-selfhosted |
 
 ### Game Development Agents
 

@@ -1,5 +1,6 @@
 ---
 name: bitcoin-core-release-engineering
+disable-model-invocation: true
 description: |
   Bitcoin Core release engineering: Guix reproducible builds, signed
   release tarballs, deterministic outputs, code-signing keys, the

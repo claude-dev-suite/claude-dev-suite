@@ -177,4 +177,122 @@ describe('InstallationService', () => {
       expect(status.manifest).toBeDefined();
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Lazy skill loading mode
+  // ---------------------------------------------------------------------------
+
+  describe('skillLoadingMode: lazy', () => {
+    it('should write .claude/skills/_README.md describing the dual model', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        skillLoadingMode: 'lazy',
+      });
+
+      const readmePath = path.join(projectDir, '.claude', 'skills', '_README.md');
+      expect(fs.existsSync(readmePath)).toBe(true);
+
+      const readmeContent = fs.readFileSync(readmePath, 'utf-8');
+      // Must reference the skill-loader MCP fallback for non-preloaded skills.
+      expect(readmeContent).toContain('skill-loader');
+      // Must list the natively preloaded skill referenced by typescript-expert.
+      expect(readmeContent).toContain('`typescript`');
+    });
+
+    it('should copy referenced skills natively under flat names in lazy mode', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        skillLoadingMode: 'lazy',
+      });
+
+      // The agent declares skill 'typescript' — flatten leaves it unchanged.
+      const skillFile = path.join(projectDir, '.claude', 'skills', 'typescript', 'SKILL.md');
+      expect(fs.existsSync(skillFile)).toBe(true);
+    });
+
+    it('should add skill-loader entry to .mcp.json in lazy mode', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        skillLoadingMode: 'lazy',
+      });
+
+      const mcpJsonPath = path.join(projectDir, '.mcp.json');
+      expect(fs.existsSync(mcpJsonPath)).toBe(true);
+
+      const mcpJson = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')) as {
+        mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }>;
+      };
+      expect(mcpJson.mcpServers['skill-loader']).toBeDefined();
+      expect(mcpJson.mcpServers['skill-loader'].env.DEV_SUITE_ROOT).toBeDefined();
+    });
+
+    it('should NOT add skill-loader to .mcp.json in eager mode (default)', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        // skillLoadingMode deliberately omitted — defaults to 'eager'
+      });
+
+      const mcpJsonPath = path.join(projectDir, '.mcp.json');
+      const mcpJson = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')) as {
+        mcpServers: Record<string, unknown>;
+      };
+      expect(mcpJson.mcpServers['skill-loader']).toBeUndefined();
+    });
+
+    it('should still copy individual SKILL.md files in eager mode (default)', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        skillLoadingMode: 'eager',
+      });
+
+      const skillFile = path.join(projectDir, '.claude', 'skills', 'typescript', 'SKILL.md');
+      expect(fs.existsSync(skillFile)).toBe(true);
+    });
+
+    it('should still install agent .md files in lazy mode', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        skillLoadingMode: 'lazy',
+      });
+
+      const agentFile = path.join(projectDir, '.claude', 'agents', 'typescript-expert.md');
+      expect(fs.existsSync(agentFile)).toBe(true);
+    });
+
+    it('should produce valid manifest in lazy mode', async () => {
+      const manifest = await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        skillLoadingMode: 'lazy',
+      });
+
+      expect(manifest.agents).toContain('typescript-expert');
+      // _README.md is tracked as a skill-type file (replaces the legacy index.md).
+      const readmeEntry = manifest.files.find(f => f.path === '.claude/skills/_README.md');
+      expect(readmeEntry).toBeDefined();
+      // The natively preloaded skill folder is also tracked.
+      const skillEntry = manifest.files.find(f => f.path === '.claude/skills/typescript');
+      expect(skillEntry).toBeDefined();
+    });
+  });
 });

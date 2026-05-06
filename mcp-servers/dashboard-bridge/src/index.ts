@@ -150,7 +150,7 @@ const tools = [
   // Dashboard tools
   {
     name: "dashboard_open",
-    description: "Open the dev-suite dashboard in the default browser. Can open specific pages like wizard, agents, mcp, knowledge, or settings.",
+    description: "Open the dev-suite dashboard in default browser. Pages: wizard, agents, mcp, knowledge, settings.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -227,7 +227,7 @@ const tools = [
   // Orchestrator tools
   {
     name: "get_orchestrator_task",
-    description: "Get the next pending orchestrator task from the queue. Claude Code should call this to receive tasks submitted from the dashboard GUI.",
+    description: "Get next pending orchestrator task from the dashboard queue (call to receive GUI-submitted tasks).",
     inputSchema: {
       type: "object" as const,
       properties: {

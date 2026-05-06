@@ -657,6 +657,40 @@ export interface KBUsageResponse extends PaginatedResponse<KBUsageEntry> {
 }
 
 // ============================================
+// TOKEN USAGE ANALYTICS TYPES (opt-in)
+// ============================================
+
+/**
+ * A single token-usage event (mirrors backend TokenUsageEntry).
+ * No prompt content is stored — only counts and metadata.
+ */
+export interface TokenUsageEntry {
+  id: string;
+  timestamp: string;
+  agentId?: string;
+  skillPath?: string;
+  mcpTool?: string;
+  sessionId?: string;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
+  model?: string;
+  success: boolean;
+  durationMs?: number;
+}
+
+/**
+ * Aggregated row returned by GET /api/analytics/token-usage/aggregate
+ */
+export interface TokenAggregatedRow {
+  key: string;
+  totalTokens: number;
+  totalCostUsd: number;
+  callCount: number;
+  avgTokensPerCall: number;
+}
+
+// ============================================
 // CHECK UPDATES ENDPOINT TYPES
 // ============================================
 

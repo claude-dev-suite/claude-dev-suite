@@ -31,6 +31,7 @@ export {
   CONVENTIONAL_COMMIT_PATTERN,
   CLAUDE_HOOK_EVENTS,
   CLAUDE_HOOK_TEMPLATES,
+  CLAUDE_OUTPUT_FILTER_HOOKS,
 } from './hooks/hooks.constants.js';
 
 /**
@@ -163,6 +164,23 @@ export class HooksService {
 
   importClaudeHooks(projectPath: string, exported: ClaudeHooksExport, merge?: boolean): { success: boolean; error?: string } {
     return this.claudeHooks.importClaudeHooks(projectPath, exported, merge);
+  }
+
+  // ========== OUTPUT FILTER HOOKS ==========
+
+  installOutputFilterHook(
+    projectPath: string,
+    hookId: string,
+    devSuiteRoot?: string
+  ): { success: boolean; scriptPath?: string; error?: string } {
+    return this.claudeHooks.installOutputFilterHook(projectPath, hookId, devSuiteRoot);
+  }
+
+  uninstallOutputFilterHook(
+    projectPath: string,
+    hookId: string
+  ): { success: boolean; error?: string } {
+    return this.claudeHooks.uninstallOutputFilterHook(projectPath, hookId);
   }
 
   // ========== INTEGRATION VALIDATOR HOOK ==========

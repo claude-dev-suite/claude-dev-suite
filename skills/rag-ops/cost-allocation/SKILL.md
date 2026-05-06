@@ -1,5 +1,6 @@
 ---
 name: cost-allocation
+disable-model-invocation: true
 description: |
   Per-tenant, per-feature, per-query RAG cost tracking. Covers token counting
   (tiktoken, Anthropic count_tokens), structured metadata logging, aggregation

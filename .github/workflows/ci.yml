@@ -35,6 +35,9 @@ jobs:
         run: npm run build
         working-directory: mcp-servers
 
+      - name: Audit MCP tool descriptions (token budget)
+        run: node scripts/audit-mcp-descriptions.mjs
+
       - name: Lint
         run: npm run lint
         working-directory: configurator/dashboard

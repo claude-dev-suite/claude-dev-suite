@@ -323,19 +323,19 @@ export function WizardContainer({
         );
       case 4:
         return (
-          <StepRules
-            selectedRules={state.selectedRules}
-            onToggleRule={toggleRule}
-            onInitRules={initRules}
-          />
-        );
-      case 5:
-        return (
           <Step4Environment
             projectPath={state.projectPath}
             selectedMcpServers={state.selectedMcpServers}
             envVars={state.envVars}
             onEnvVarChange={setEnvVar}
+          />
+        );
+      case 5:
+        return (
+          <StepRules
+            selectedRules={state.selectedRules}
+            onToggleRule={toggleRule}
+            onInitRules={initRules}
           />
         );
       case 6:

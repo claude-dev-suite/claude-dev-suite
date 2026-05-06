@@ -202,8 +202,19 @@ Figma.
 | `.atlas` | TexturePacker / Spine binary |
 | `.spine` / `.json` | Spine binary / runtime JSON |
 
+## AI-assisted generation
+
+For AI-driven sprite / pixel-art / tileset generation (PixelLab, Scenario,
+Leonardo, Retro Diffusion, Stable Diffusion + LoRAs) see the dedicated
+[ai-art-tools/SKILL.md](../ai-art-tools/SKILL.md). Short take:
+**PixelLab** is the purpose-built choice for pixel art with native
+sprite-sheet + animation output and an Aseprite plugin; **Scenario** wins
+for project-style-locked asset libraries; **Stable Diffusion + a
+pixel-art LoRA** is the free, fully-local route for technical artists.
+
 ## See also
 
+- [ai-art-tools/SKILL.md](../ai-art-tools/SKILL.md) — AI generators trade-offs
 - [tile-design/SKILL.md](../tile-design/SKILL.md)
 - [animation-frames/SKILL.md](../animation-frames/SKILL.md)
 - [seamless-textures/SKILL.md](../seamless-textures/SKILL.md)

@@ -1,6 +1,6 @@
 # Dev-Suite
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](https://github.com/claude-dev-suite/claude-dev-suite)
+[![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)](https://github.com/claude-dev-suite/claude-dev-suite)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **A comprehensive AI-powered development toolkit that extends Claude Code with specialized agents, MCP servers, and visual orchestration.**
@@ -42,7 +42,7 @@
 
 Dev-Suite transforms Claude Code into a full-stack development powerhouse by providing:
 
-- **Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust, Go, Deno, modern C++ (C++17/20/23), Windows kernel & driver development (WDF/KMDF/UMDF, HID, IDD), data engineering, RAG (retrieval-augmented generation), industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter/Android Kotlin), game development (Unity 2D/3D, URP, Cinemachine, DOTS, Netcode, XR), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
+- **Specialized Agents** - Domain experts for React, Angular, Vue, Svelte, Next.js, Electron, Tauri, Spring Boot, ASP.NET Core, Python, FastAPI, Rust (with arti/rustls/rusqlite/rust_decimal/proptest/rust-supply-chain ecosystem), Go, Deno, modern C++ (C++17/20/23), Windows kernel & driver development (WDF/KMDF/UMDF, HID, IDD), data engineering, RAG (retrieval-augmented generation), industrial automation (DCS/PLC), testing (Vitest/Playwright/pytest/Testcontainers/Maestro/Kotest/Turbine/Paparazzi/Roborazzi/proptest), security, DevOps, cloud (AWS/Azure/GCP), mobile (React Native/Flutter, Kotlin Multiplatform + Compose Multiplatform, native Android with Jetpack Compose + Keystore/Biometric, native iOS with SwiftUI + Keychain/Secure Enclave, Rust ↔ Kotlin/Swift via UniFFI, Java Foreign Memory API + jextract for desktop OS keyring), encrypted storage (SQLCipher, libsodium, age), build & supply chain (Gradle KMP, cargo-ndk, cargo-deny/audit/nextest, Sigstore/Cosign keyless signing, OSV-Scanner, reproducible builds), code quality (detekt, ktlint, Compose Rules), observability (Rust tracing + OpenTelemetry, self-hosted Sentry/GlitchTip), documentation (mdBook + rustdoc + Dokka + Showkase), game development (Unity 2D/3D, URP, Cinemachine, DOTS, Netcode, XR), messaging, creative frontend (Framer Motion, GSAP, Three.js, WebGL), and more
 - **MCP Servers** - Extend Claude with tools for documentation (with KB discovery via `list_docs`), databases, Docker, API testing, logs, performance profiling, security scanning, and more
 - **Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI/RAG integration, embeddings, vector stores, document processing, animation, 3D graphics, and more
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
@@ -214,8 +214,7 @@ Specialized MCP servers extend Claude Code with powerful tools:
 | **code-quality** | 7 | Complexity analysis, dead code, duplicates, import graph |
 | **security-scanner** | 6 | Dependency audit, secrets scan, SAST |
 | **dashboard-bridge** | 9 | Dashboard control, orchestrator queue |
-
-**Total**: **79 tools** available to Claude Code
+| **skill-loader** | 3 | Lazy-load dev-suite skill bodies on demand (powers hybrid lazy-skill installs) |
 
 See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 
@@ -295,6 +294,9 @@ Specialized agents organized by domain:
 #### Cloud & Mobile Agents
 - **cloud-expert** - AWS, Azure, GCP, Terraform, serverless, API gateway, service mesh
 - **mobile-expert** - React Native, Flutter, Expo, push notifications, payments
+- **kmp-expert** - Kotlin Multiplatform + Compose Multiplatform across Android/iOS/Desktop/Wasm, Rust ↔ Kotlin/Swift bindings via UniFFI (incl. KMP fork), Gradle KMP, expect/actual, StateFlow + Voyager/Decompose + Koin, Bitcoin libs via UniFFI (BDK, LDK Node, LWK, CDK, Breez SDK Liquid)
+- **android-native-expert** - Native Android with Jetpack Compose, Kotlin, Material 3 / Material You, Navigation Compose 2.8 type-safe routes, Hilt DI, Android Keystore + BiometricPrompt with crypto-object binding, EncryptedSharedPreferences, WorkManager (Hilt-injected), Foreground Services with Android 14+ types, NFC (NDEF/IsoDep/HCE), Universal/App Links, FileProvider, ProGuard/R8, Network Security Config + cert pinning, SQLCipher with Keystore-derived key
+- **ios-native-expert** - Native iOS with SwiftUI 6.x + @Observable, Swift Concurrency, NavigationStack/SplitView with type-safe routes, Keychain Services with biometric SAC (.biometryCurrentSet), Secure Enclave P-256 keys, BGTaskScheduler app refresh + processing, Universal Links + custom URI schemes, App Groups, Share Extensions, Privacy Manifest (PrivacyInfo.xcprivacy), StoreKit 2, GRDB + SQLCipher, age + age-plugin-se for SEP-bound encrypted backups
 
 #### Game Development Agents
 - **unity-expert** - Unity 6 (2D and 3D), C#, MonoBehaviour lifecycle, ScriptableObjects, URP/HDRP, Shader Graph, Input System, UI Toolkit, Cinemachine, Addressables, DOTS/ECS, Netcode for GameObjects, AR Foundation, XR Interaction Toolkit, Sprite Atlas v2, Tilemap, 2D Animation, 2D Lights, Pixel Perfect Camera, platformer character controllers (coyote time, jump buffer)
@@ -948,6 +950,14 @@ Control the dashboard and orchestrator from Claude Code.
 | Agent | Triggers | Skills | MCP Servers |
 |-------|----------|--------|-------------|
 | **security-expert** | security, authentication, authorization, JWT | jwt, oauth2, owasp, secrets-management | security-scanner, documentation |
+
+### Mobile Agents
+
+| Agent | Triggers | Skills | MCP Servers |
+|-------|----------|--------|-------------|
+| **kmp-expert** | Kotlin Multiplatform, KMP, Compose Multiplatform, expect/actual, iosMain/commonMain, UniFFI, BDK/LDK/LWK/CDK/Breez SDK KMP bindings, Voyager, Decompose, Koin, SQLDelight, Material 3 cross-platform, Gradle KMP, XCFramework, CocoaPods/SwiftPM | languages/kotlin, languages/swift, languages/uniffi, mobile/kotlin-multiplatform, frontend-frameworks/compose-multiplatform | documentation |
+| **android-native-expert** | Jetpack Compose, @Composable, ViewModel, Hilt, Navigation Compose, Material You / Dynamic Color, Android Keystore, KeyGenParameterSpec, BiometricPrompt, EncryptedSharedPreferences, WorkManager, Foreground Service, NFC, HCE, App Links, FileProvider, ProGuard, R8, SQLCipher | languages/kotlin, mobile/jetpack-compose, mobile/android-native, databases/sqlcipher, security/libsodium, security/age-encryption | documentation |
+| **ios-native-expert** | SwiftUI, @Observable, NavigationStack, NavigationSplitView, @AppStorage, @SceneStorage, @FocusState, Keychain Services, Secure Enclave, BGTaskScheduler, Universal Links, App Groups, Share Extension, Privacy Manifest, StoreKit 2, GRDB SQLCipher, age-plugin-se | languages/swift, mobile/ios-native, databases/sqlcipher, security/libsodium, security/age-encryption | documentation |
 
 ### Game Development Agents
 

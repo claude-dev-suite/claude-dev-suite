@@ -13,6 +13,15 @@ skills:
   - backend-frameworks/warp
   - api-design/rest-api
   - testing/rust-testing
+  - testing/proptest
+  - network/rustls
+  - network/arti
+  - databases/rusqlite
+  - data-processing/rust-decimal
+  - quality/rust-supply-chain
+  - quality/osv-scanner
+  - observability/rust-tracing
+  - build-tools/rust-cross-compile
 ---
 
 # Rust Expert Agent

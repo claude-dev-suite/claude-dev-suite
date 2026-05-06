@@ -8,6 +8,591 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-06
+
+Sprint 5 release — token-cost optimization Phase 1 + lazy skill loading + 3
+new mobile agents + skill-loader MCP server + token analytics dashboard +
+output-filter hook templates.
+
+### Changed
+
+- **Lazy skill loading — hybrid native + MCP discovery**:
+  When `skill-loader` is selected, the installer now copies the skills
+  *referenced by the selected agents* into `.claude/skills/<flat-name>/SKILL.md`
+  so Claude Code's built-in Skills auto-discovery picks up only their
+  YAML descriptions at boot (bodies stay on-demand, per the official
+  progressive-disclosure model). All other dev-suite skills remain reachable
+  on demand through the `skill-loader` MCP server (`list_skills` /
+  `load_skill`), with zero boot cost.
+
+  **Why**: previous lazy mode emitted a single `.claude/skills/index.md`
+  that Claude Code does not auto-load — discovery had to be model-driven
+  via `list_skills`. The new hybrid keeps boot context minimal (only the
+  ~30–80 skills relevant to the chosen agents are visible at boot) while
+  preserving native discoverability for the agents' core skill set.
+
+  **Modified files**:
+  - `configurator/dashboard/server/src/services/installation.service.ts` —
+    `installAgentLazy()` now copies referenced skills under flattened names,
+    handles flat-name collisions with a hash suffix, and the lazy README
+    documents the dual mechanism.
+  - `configurator/dashboard/server/src/services/installation/file-operations.ts`
+    — new `flattenSkillName()` helper enforcing Claude Code's naming rules
+    (lowercase, digits, hyphens, max 64 chars) with a hash-truncation
+    fallback for over-length paths.
+  - `configurator/dashboard/src/components/wizard/Step3McpServers.tsx` —
+    info banner reworded to describe the hybrid model.
+
+  **Replaces**: `.claude/skills/index.md` with `.claude/skills/_README.md`
+  (leading underscore prevents Claude Code from mistaking the file for a
+  skill folder).
+
+  **Tests**: lazy-mode tests in `installation.service.test.ts` updated;
+  new `tests/installation/file-operations.test.ts` covers the flatten
+  helper (10 tests).
+
+### Added
+
+- **Sprint 5 — Token cost optimization Phase 1.3 (skill bundle resolver)**:
+  Agent YAML frontmatter can now declare skill bundles that expand to many
+  skill paths at load time, compressing heavy frontmatters without losing
+  any skills at install time.
+
+  **New file**: `configurator/dashboard/server/src/services/agent-bundles.ts`
+  — exports `BUNDLES: Record<string, string[]>` (15 bundle definitions,
+  covering 7 RAG groups and 7 infra groups) and `expandBundleEntry()`.
+
+  **Modified**: `parseAgentFile()` in `agents.service.ts` now uses a
+  line-by-line parser (replacing the single-regex approach) that tolerates
+  YAML comment lines in skill lists, then expands `bundle:<id>` entries and
+  deduplicates the final list. Plain skill lists (all other agents) are
+  completely unaffected.
+
+  **Converted agents**:
+  - `agents/data/rag-expert.md` — 95 skills / 109 frontmatter lines → 11 bundles
+    + 6 explicit skills / 19 lines (83% frontmatter reduction)
+  - `agents/infrastructure/sysadmin-expert.md` — 56 skills / 56 frontmatter
+    lines → 7 bundles + 14 explicit skills / 22 lines (61% reduction)
+
+  **Tests**: 12 new tests in `agents.service.test.ts` covering bundle
+  expansion, mixed bundle+explicit, deduplication, unknown-bundle graceful
+  degradation, and backward compatibility of plain skill lists.
+
+### Changed
+
+- **Sprint 5 — Token cost optimization Phase 1.1 (model routing)**:
+  Per-agent model recalibration based on dedicated research + 11 empirical
+  benchmarks. Final distribution: 50 sonnet / 8 opus / 3 haiku (was 56/5/0).
+
+  **Promoted to Opus** (5 agents — high-stakes specialized domains):
+  - `agents/backend/windows-driver-expert.md` — kernel-mode driver code,
+    BSOD-stakes, IRQL/SAL/WDF reasoning where Sonnet had documented failure modes
+  - `agents/mobile/kmp-expert.md` — genuine cross-platform orchestration
+    (Kotlin/Native + iOS Keychain + Android Keystore + Rust UniFFI + Gradle KMP)
+    with sparse training data on UniFFI KMP fork
+  - `agents/gamedev/unity-expert.md` — 30 skills spanning qualitatively
+    distinct subsystems (DOTS/ECS, Netcode, Shader Graph, 2D toolkit) requiring
+    multi-system reasoning per task
+  - `agents/mobile/android-native-expert.md` — wallet-grade Keystore +
+    biometric crypto-object binding for BHODL-class apps
+  - `agents/mobile/ios-native-expert.md` — wallet-grade Secure Enclave +
+    Keychain access control for BHODL-class apps
+
+  **Demoted to Sonnet** (2 agents from Opus — benchmark confirmed equivalent):
+  - `agents/industrial/dcs-analyst.md` — Sonnet matched Opus on PRT
+    cross-reference anomaly detection across all evaluated criteria
+  - `agents/industrial/freelance-engineer.md` — Sonnet matched Opus on
+    bulk PRT generation + 5-step validation
+
+  **Demoted to Haiku** (3 agents from Sonnet — benchmark passed 90/40 threshold):
+  - `agents/infrastructure/docker-expert.md` — Dockerfile multi-stage
+    refactor with cache/non-root/healthcheck handled equivalently by Haiku
+  - `agents/core/documentation-expert.md` — TSDoc generation including
+    `@typeParam`, `@example`, `@throws` produced at parity quality
+  - `agents/core/log-analyst.md` — multi-service correlation across 5
+    microservices with cascade chain identification matched Sonnet
+
+  **Kept on Sonnet** (after benchmark, FAIL verdict on 6 candidates):
+  - `vitest-expert` (Haiku missed `vi.hoisted()` for ESM mock)
+  - `playwright-expert` (Haiku had `||` locator logic bug + wrong devices key)
+  - `streamlit-expert` (Haiku used inline `if st.button():` anti-pattern)
+  - `open-source-expert` (Haiku missed transitive AGPL through pdfkit — legal exposure)
+  - `architect` (Opus differences were presentational, not substantive)
+  - `deno-expert` (Haiku functional gap on `-1` button + JSX `.value` drops)
+  - `prisma-expert` (conservative — multi-phase shadow column migration too complex for Haiku per pattern observed elsewhere)
+
+### Added
+
+- **`docs/MODEL-ROUTING-AUDIT.md`** — full per-agent rationale for the 62
+  agents analyzed, benchmark methodology, decision framework (90/40 cost
+  threshold, bias-to-Sonnet for ambiguity), and lessons learned. Reference
+  document for future model routing decisions and onboarding.
+
+### Architectural decision
+
+Phase 1.1 of the token-optimization roadmap is now complete. The estimated
+cumulative impact is **−10-15% session token spend** from the 3 high-frequency
+Haiku demotions (docker, documentation, log-analyst), partially offset by the
+5 Opus promotions on low-frequency specialists. Net cost reduction is modest
+but the quality improvement on cross-platform/wallet/specialized domains is
+meaningful. Phase 1.2 (top-10 agent body slimming) and Phase 1.3 (skill bundle
+resolver in `agents.service.ts`) remain to be executed in subsequent sprints
+to reach the original −20-30% Phase 1 target.
+
+Key lesson from the 11 benchmarks: Haiku is reliably good at pattern-matched
+codegen with mechanical correctness criteria, and consistently fails on
+legal/security reasoning, framework anti-pattern detection, and simultaneous
+multi-system tasks. The 90/40 threshold (90% quality at 40% cost) with bias
+toward Sonnet for ambiguity prevented 6 user-facing quality regressions while
+still capturing 5 meaningful cost wins.
+
+- **11 new skills (Sprint 4 — completing the BHODL TECH_STACK coverage)**:
+
+  Rust ecosystem (Sprint 4A):
+  - `skills/network/arti/SKILL.md` — Arti pure-Rust Tor implementation by
+    Tor Project. Embeddable Tor client for privacy-respecting wallets:
+    TorClient API, bootstrap with persistent state cache, .onion connections,
+    bridges (obfs4, snowflake), arti-hyper for HTTP through Tor, mobile
+    integration via UniFFI, BootstrapStatus events for progress UI,
+    onion service hosting, full BHODL pattern (BDK + Tor) and Cargo cross-compile.
+  - `skills/network/rustls/SKILL.md` — rustls modern pure-Rust TLS. Drop-in
+    replacement for OpenSSL/native-tls in Rust apps with mobile cross-compile
+    in mind. ClientConfig + ServerConfig, certificate verification with
+    webpki-roots, mTLS, custom verifier with **certificate pinning**
+    (SHA-256 SPKI hash for wallet apps), ALPN, session resumption,
+    crypto provider selection (ring vs aws-lc-rs), reqwest/hyper/tokio
+    integration, mobile cross-compile examples.
+  - `skills/databases/rusqlite/SKILL.md` — rusqlite ergonomic Rust SQLite.
+    Bundled SQLite (no system dep), transactions, prepared statements,
+    custom types via `ToSql`/`FromSql`, JSON1 support (BIP329 labels storage),
+    blob streaming, FTS5 full-text search, migrations via rusqlite_migration,
+    connection pooling (r2d2_sqlite), async via tokio-rusqlite, SQLCipher
+    integration, mobile cross-compile, custom SQL functions.
+  - `skills/data-processing/rust-decimal/SKILL.md` — rust_decimal exact
+    fixed-point arithmetic. Critical for BHODL fiat conversions and
+    cost-basis tracking — never use f64 for money. RoundingStrategy
+    reference, sat ↔ fiat conversion patterns, serde + SQLite storage
+    (always TEXT not REAL), wallet capital-gain calculation pattern,
+    locale-aware display.
+  - `skills/testing/proptest/SKILL.md` — Property-based testing for Rust.
+    Strategies (regex strings, custom Arbitrary, structs via proptest-derive),
+    common patterns (round-trip, invariants, equivalence, idempotence),
+    shrinking + regression files, stateful property tests for state
+    machines, Bitcoin-specific arbitraries (sats, xpubs, descriptors,
+    PSBTs), differential testing for BDK/legacy migrations, integration
+    with cargo-fuzz.
+  - `skills/quality/rust-supply-chain/SKILL.md` — Production Rust supply
+    chain: cargo-deny (license + advisory + bans with detailed deny.toml
+    config rejecting GPL/AGPL for permissive wallet apps), cargo-audit,
+    cargo-nextest (faster + more reliable than cargo test), cargo-tarpaulin
+    + llvm-cov (coverage), cargo-machete (unused deps), cargo-outdated,
+    cargo-vet (audit attestations), cargo-msrv. Full GitHub Actions CI
+    pattern, wallet app quality checklist, MSRV pinning.
+
+  Kotlin/Java quality (Sprint 4B):
+  - `skills/quality/kotlin-quality/SKILL.md` — detekt + ktlint + Compose
+    Rules. Production-grade detekt.yml config (complexity, exceptions,
+    naming with Composable exception, performance, potential-bugs, style),
+    ktlint Gradle plugin, .editorconfig, baseline workflow for legacy code,
+    custom detekt rule example, Compose Rules cross-platform integration,
+    SARIF upload to GitHub Code Scanning. Replaces a much shorter
+    pre-existing kotlin-quality skill stub.
+  - `skills/languages/java-foreign/SKILL.md` — JDK 22+ Foreign Function &
+    Memory API (Project Panama, JEP 442/454) and jextract. Replaces JNI
+    for desktop wallet OS interop (libsecret on Linux, Keychain on macOS,
+    Credential Manager on Windows). MemorySegment + Arena pattern,
+    downcall/upcall handles, struct layouts, jextract auto-binding
+    generation, BHODL-style cross-platform Keyring abstraction with
+    expect/actual KMP integration.
+
+  Observability + docs + cross-language scanning (Sprint 4C):
+  - `skills/observability/sentry-selfhosted/SKILL.md` — Privacy-respecting
+    crash reporting via self-hosted Sentry (or GlitchTip lighter alt).
+    Docker Compose install, Rust + Android + iOS SDKs with `beforeSend`
+    PII scrubbing (addresses, balances, seeds redacted), opt-in only
+    pattern for wallet apps, route via Tor, source-map/symbol upload,
+    release health, alert rules, retention/backup strategy.
+  - `skills/documentation/docs-toolchain/SKILL.md` — mdBook (long-form
+    Bitcoin Core-style handbook) + rustdoc (Rust API auto-gen) + Dokka
+    (Kotlin API auto-gen, multiplatform-aware) + Showkase (Compose
+    component browser). Single-site deployment to GitHub Pages combining
+    all four outputs, versioning strategy, custom CSS branding, doc
+    linting via `missing_docs` lint and detekt documentation rules.
+  - `skills/quality/osv-scanner/SKILL.md` — Google's OSV-Scanner —
+    language-agnostic vulnerability scanner querying OSV.dev (aggregates
+    RustSec, GHSA, PyPA, npm, Go vulndb, Android, distro CVEs). Single
+    tool for polyglot projects (BHODL: Rust + Kotlin + Swift + JS).
+    Configuration, GitHub Actions integration with scheduled weekly scan,
+    SARIF output, comparison with cargo-audit/Dependabot/Snyk/Trivy,
+    SBOM scanning workflow.
+
+### Changed
+
+- **`kmp-expert` agent** — extended `skills:` array with all 11 Sprint 4
+  skills (now declares 21 skills total; covers full BHODL stack end-to-end).
+- **`android-native-expert` agent** — extended with `quality/kotlin-quality`,
+  `quality/osv-scanner`, `observability/sentry-selfhosted`.
+- **`ios-native-expert` agent** — extended with `quality/osv-scanner`,
+  `observability/sentry-selfhosted`.
+- **`rust-expert` agent** — extended with all Rust-ecosystem Sprint 4
+  skills (`testing/proptest`, `network/rustls`, `network/arti`,
+  `databases/rusqlite`, `data-processing/rust-decimal`,
+  `quality/rust-supply-chain`, `quality/osv-scanner`,
+  `observability/rust-tracing`, `build-tools/rust-cross-compile`).
+  This makes `rust-expert` complete for any production Rust app, not just
+  web frameworks.
+
+### Architectural decision
+
+Sprint 4 brings the BHODL TECH_STACK coverage to ~100% of P0/P1 items. The
+new skills are all framework-agnostic — they serve any project with the
+respective tech, not just BHODL. The major themes:
+
+1. **Rust ecosystem completion**: arti + rustls + rusqlite + rust_decimal
+   + proptest + rust-supply-chain are foundational for any production
+   Rust app, not specifically wallet code. They were missing across the
+   dev-suite generally.
+2. **Java Foreign Memory API**: JDK 22+ desktop apps need this for OS
+   keyring access (the legitimate JNI replacement). Important for any
+   Kotlin/JVM desktop app.
+3. **OSV-Scanner**: cross-language vuln scanning is the right default
+   for polyglot projects. Sits alongside cargo-deny (Rust-specific
+   policy) without redundancy.
+4. **Self-hosted Sentry**: opt-in privacy-respecting crash reporting is
+   underserved by mainstream tooling. Documented patterns make this
+   achievable for small teams.
+5. **Docs toolchain**: combining mdBook + rustdoc + Dokka into a unified
+   docs site is the Bitcoin Core / BDK pattern — high-quality docs for
+   open-source software.
+
+With Sprint 1+2+3+4, the BHODL TECH_STACK is fully covered. Future work
+on dev-suite should focus on:
+- The token-cost optimization roadmap (Phase 1.1 model routing — saved in memory)
+- Other verticals (gaming, web3, etc.) as projects demand
+- Skill maintenance as ecosystems evolve (Compose 2.x, Kotlin 2.3, etc.)
+
+- **9 new skills (Sprint 3 — mobile testing, build pipeline, observability)**:
+
+  Testing skills:
+  - `skills/testing/maestro/SKILL.md` — Maestro E2E mobile testing by mobile.dev:
+    YAML-based declarative flow files, single tool for Android + iOS (Compose
+    Multiplatform / Flutter / React Native), Maestro Studio recording, JS scripting,
+    cloud runner integration, biometric/permission auto-grant patterns, full CI
+    examples (GitHub Actions both Android emulator and iOS simulator), wallet
+    app patterns including biometric debug-bypass for E2E.
+  - `skills/testing/kotest/SKILL.md` — Kotest Kotlin testing framework: 9 spec
+    styles (StringSpec, FunSpec, BehaviorSpec, etc.), rich matchers, data-driven
+    tests with `withData`, property-based testing with arbs and shrinking,
+    coroutine-native test bodies, test isolation modes, Spring + Testcontainers
+    + Koin extensions, MockK integration, full KMP support including
+    iosSimulatorArm64Test.
+  - `skills/testing/turbine/SKILL.md` — Turbine for kotlinx.coroutines Flow
+    testing: `flow.test { }` DSL, `awaitItem`/`awaitComplete`/`awaitError`,
+    StateFlow/SharedFlow patterns, virtual time (`runTest` + `advanceTimeBy`)
+    for debounce/flatMapLatest, `turbineScope` for parallel flow assertions,
+    multi-platform commonTest support.
+  - `skills/testing/compose-snapshot/SKILL.md` — Paparazzi (JVM, Square) +
+    Roborazzi (Robolectric, Takahirom) Compose snapshot/visual regression
+    testing. Multi-variant tests (themes, locales, font scales), Showkase
+    auto-discovery, image diff thresholds, CI artifact upload patterns,
+    re-recording workflow, KMP shared composable coverage via Android target.
+
+  Build & supply-chain skills:
+  - `skills/build-tools/gradle-kmp/SKILL.md` — Gradle for KMP: settings.gradle.kts,
+    version catalogs (`libs.versions.toml`), KMP plugin config, source set
+    hierarchy, XCFramework + CocoaPods + SwiftPM output, Maven Central
+    publishing (vanniktech plugin), build cache + configuration cache,
+    composite builds, convention plugins (`build-logic/`), full GitHub
+    Actions / GitLab CI matrix patterns.
+  - `skills/build-tools/rust-cross-compile/SKILL.md` — cross-compiling Rust
+    for mobile and other targets: rustup target management, cargo-ndk for
+    Android, native iOS targets (aarch64-apple-ios + sim variants), `lipo`
+    for universal sim libs, XCFramework packaging, `cross` Docker-based
+    cross-compile for Linux/Windows, openssl/sqlite/sqlcipher cross-compile
+    pitfalls and fixes (vendored / rustls / bundled-sqlcipher), build profiles
+    for size optimization, sccache, full CI matrix examples.
+  - `skills/security/sigstore-cosign/SKILL.md` — Sigstore + Cosign keyless
+    signing: OIDC-based identity (no long-lived keys), Fulcio CA, Rekor
+    transparency log, signing containers + blobs + attestations (SLSA
+    provenance, SBOMs), GitHub Actions integration with `id-token: write`,
+    Kubernetes policy enforcement (policy-controller, Kyverno), Gitsign for
+    commit signing, Cosign vs Notary v2, mobile artifact signing pattern
+    for wallet app releases.
+  - `skills/infrastructure/reproducible-builds/SKILL.md` — bit-for-bit
+    identical builds: SOURCE_DATE_EPOCH, Bitcoin Core's Guix-based approach
+    (the gold standard), Nix Flakes alternative, Rust reproducibility
+    (`--remap-path-prefix`, pinned toolchain, `Cargo.lock`, codegen-units),
+    Android APK reproducibility considerations, iOS dSYM/Xcode caveats with
+    pragmatic XCFramework-only-reproducible recommendation, CI verification
+    pattern (build twice, diff with diffoscope), distribution pattern
+    (Bitcoin Core multi-builder SHA256SUMS attestations).
+
+  Observability skill:
+  - `skills/observability/rust-tracing/SKILL.md` — Rust `tracing` crate:
+    spans + events + structured fields, `#[instrument]` macro, async-aware
+    context propagation, multi-layer subscribers (fmt, JSON, file appender,
+    OpenTelemetry, Tokio Console), env-filter and per-target filtering,
+    mobile FFI integration (Android Logcat via `tracing-android`, iOS
+    `os.Logger` via `tracing-oslog`) for wallet apps shipping Rust core
+    via UniFFI, privacy-respecting log redaction patterns
+    (`RedactedAddr` Display impl, feature-flag gated secret logging).
+
+### Changed
+
+- **`kmp-expert` agent** — extended `skills:` array to include the 9 new
+  Sprint 3 skills: build (`gradle-kmp`, `rust-cross-compile`), testing
+  (`kotest`, `turbine`, `maestro`, `compose-snapshot`), observability
+  (`rust-tracing`), supply chain (`reproducible-builds`, `sigstore-cosign`).
+- **`android-native-expert` agent** — extended `skills:` array with
+  `testing/{kotest,turbine,maestro,compose-snapshot}` and
+  `security/sigstore-cosign`.
+- **`ios-native-expert` agent** — extended `skills:` array with
+  `testing/maestro` and `security/sigstore-cosign`.
+
+### Architectural decision
+
+Sprint 3 closes the loop on the mobile/wallet stack from Sprint 1+2 by
+adding the surrounding production discipline: testing (unit, Flow,
+snapshot, E2E), reproducible cross-platform builds (Rust + Gradle), keyless
+signing for releases, and structured observability for the Rust core. The
+testing skills are deliberately framework-agnostic — Maestro works for any
+mobile UI, Kotest for any Kotlin/JVM project, Turbine for any
+coroutines.Flow code, Paparazzi/Roborazzi for any Jetpack Compose code.
+The build/supply-chain skills (`gradle-kmp`, `rust-cross-compile`,
+`sigstore-cosign`, `reproducible-builds`) form a coherent reproducibility +
+verifiability story for any open-source binary distribution, modeled on
+Bitcoin Core's process. `rust-tracing` is positioned as a generic
+observability skill but with explicit FFI-to-mobile-logger patterns for
+the BHODL-style use case. With Sprint 1+2+3 the mobile/wallet vertical
+is end-to-end self-sufficient: KMP/native code → cross-compile + signed
+reproducible build → tested at every layer → shipped with verifiable
+provenance.
+
+- **`android-native-expert` agent** under `agents/mobile/` — native
+  Android specialist for Jetpack Compose UI + the Android platform API
+  surface. Covers Compose 1.8+ with `collectAsStateWithLifecycle`, type-safe
+  Navigation Compose 2.8 routes, Hilt DI; Android Keystore (with StrongBox
+  detection and fallback) + BiometricPrompt with `CryptoObject` cipher
+  binding for unlocking wallet secrets; WorkManager (Hilt-injected periodic
+  sync); Foreground Services with Android 14+ `foregroundServiceType`
+  declarations; NFC (NDEF reader-mode + HCE); Universal/App Links with
+  `assetlinks.json`; FileProvider; ProGuard/R8 rules for Compose + KMP +
+  UniFFI; Network Security Config + cert pinning; SQLCipher with
+  Keystore-derived database key.
+
+- **`ios-native-expert` agent** under `agents/mobile/` — native iOS
+  specialist for SwiftUI 6.x + the iOS platform API surface. Covers
+  SwiftUI with `@Observable` (Swift 5.9+), NavigationStack /
+  NavigationSplitView with type-safe paths, Swift Concurrency (`async let`,
+  `TaskGroup`, actors, `@MainActor`); Keychain Services with biometric
+  Secure Access Control (`.biometryCurrentSet` + `WhenPasscodeSetThisDeviceOnly`);
+  Secure Enclave P-256 keys with `dataRepresentation` persistence;
+  BGTaskScheduler app-refresh + processing tasks; Universal Links via
+  associated domains + AASA hosting; App Groups for extension data sharing;
+  Share Extensions; Privacy Manifest (`PrivacyInfo.xcprivacy`) with
+  required-reason API entries; StoreKit 2; GRDB.swift with SQLCipher;
+  age-plugin-se for SEP-bound encrypted backups.
+
+- **6 new supporting skills** (Sprint 2 of mobile/security coverage):
+  - `skills/mobile/jetpack-compose/SKILL.md` +
+    `quick-ref/{state-effects,navigation,interop}.md` — Compose for
+    Android only: `collectAsStateWithLifecycle`, ViewModel + Hilt
+    integration, `@Observable` with Compose, side-effect APIs
+    (`LaunchedEffect`, `DisposableEffect`, `LifecycleEventEffect`,
+    `produceState`, `derivedStateOf`, `snapshotFlow`); Navigation Compose
+    2.8 type-safe `@Serializable` routes with deep links, multi-stack
+    bottom nav, dialog/bottom-sheet destinations; Activity Result
+    Contracts (permissions, Photo Picker, custom contracts); AndroidView /
+    ComposeView interop, Fragment hosting; window insets and edge-to-edge.
+  - `skills/mobile/android-native/SKILL.md` +
+    `quick-ref/{keystore-biometric,nfc-services}.md` — Activity lifecycle
+    (modern with `enableEdgeToEdge`); Android Keystore deep dive
+    (KeyGenParameterSpec full reference, StrongBox vs TEE detection, key
+    attestation chain, key invalidation handling); BiometricPrompt with
+    crypto-object binding (Cipher/Signature/Mac modes), authenticator
+    classes (BIOMETRIC_STRONG vs WEAK), error code reference, complete
+    wallet seed-storage pattern; EncryptedSharedPreferences;
+    WorkManager full reference (constraints, periodic, chained, Hilt
+    workers, Foreground WorkManager); Foreground Services (Android 14+
+    `foregroundServiceType` taxonomy); NFC (foreground dispatch vs reader
+    mode, NDEF read/write, HCE setup); Notifications + permission;
+    Universal/App Links + custom URI; FileProvider; ProGuard/R8 rules;
+    Network Security Config.
+  - `skills/mobile/ios-native/SKILL.md` +
+    `quick-ref/{swiftui-architecture,secure-storage,system-integration}.md` —
+    SwiftUI App protocol, scenes, state APIs (`@State`, `@Binding`,
+    `@Observable`, `@Environment`, `@AppStorage`, `@SceneStorage`);
+    NavigationStack with type-safe paths and `NavigationPath`,
+    NavigationSplitView, sheets/detents/fullScreenCover/popover, alerts,
+    `@FocusState`, toolbars, TabView, lifecycle modifiers, animations;
+    Keychain Services deep dive (accessibility levels with focus on
+    `WhenPasscodeSetThisDeviceOnly`, access controls including biometric
+    SAC flags, access groups, iCloud sync semantics); Secure Enclave
+    (P-256 key generation, `dataRepresentation` persistence, signing,
+    ECDH, key agreement, attestation via DCAppAttest); wallet seed
+    pattern with SEP-wrapped DB key; BGTaskScheduler (registration,
+    scheduling, expiration handling, Xcode debugger simulation);
+    Universal Links with AASA file format; App Groups (UserDefaults +
+    file storage + Keychain); Share Extensions; Privacy Manifest with
+    required-reason API category reference; StoreKit 2; Push
+    Notifications.
+  - `skills/databases/sqlcipher/SKILL.md` — SQLCipher (encrypted SQLite)
+    for mobile wallet data: PRAGMA reference (key, rekey, kdf_iter,
+    cipher_compatibility, cipher_use_hmac), passphrase vs raw 256-bit
+    key derivation, integration in Rust (`rusqlite` with
+    `bundled-sqlcipher` feature), Android (`sqlcipher-android` with Room
+    or SQLDelight via SupportFactory), iOS (CocoaPods or SwiftPM with
+    GRDB.swift), KMP (SQLDelight + custom drivers); key rotation;
+    performance tuning (WAL, NORMAL synchronous, cache_size); backup +
+    integrity checks; complete BHODL-style wallet pattern (Keystore-derived
+    DB key) with troubleshooting.
+  - `skills/security/libsodium/SKILL.md` — libsodium primitives cheat
+    sheet, Rust bindings (`dryoc` pure-Rust preferred, `sodiumoxide` as
+    alternative); SecretBox (XSalsa20-Poly1305) and SecretStream (chunked
+    streaming) patterns; Argon2id password hashing with Config presets
+    (interactive / moderate / sensitive); X25519 + Ed25519 public-key
+    operations; key derivation; memory hygiene with `Protected<T>`
+    locked-memory wrappers; bindings for Python (PyNaCl), JS
+    (`libsodium-wrappers`), Java/Android (lazysodium), Swift (Sodium);
+    complete wallet seed-encryption pattern.
+  - `skills/security/age-encryption/SKILL.md` — age (and rage) modern
+    file encryption: CLI quick start, X25519 recipients, passphrase
+    Scrypt recipients, SSH key recipients (encrypt to GitHub
+    `~/.ssh/authorized_keys`), plugin system (age-yubikey, age-plugin-se
+    for SEP, age-plugin-tpm); file format details; Rust integration with
+    the `age` crate (encrypt/decrypt + streaming); multi-recipient
+    backup pattern (passphrase + YubiKey + companion's age key) for
+    wallet exports; comparison with GPG.
+
+### Architectural decision
+
+Sprint 2 completes mobile coverage by splitting concerns three ways:
+**`kmp-expert`** for shared business logic + cross-platform Compose UI,
+**`android-native-expert`** for the Android side (Compose UI + Android
+platform APIs + Keystore-backed crypto), **`ios-native-expert`** for the
+iOS side (SwiftUI + Apple platform APIs + Keychain/SEP). Three agents +
+the cross-cutting skills allow apps to pick: pure native per-platform,
+shared logic + native UI, or fully shared via Compose Multiplatform —
+without forcing a single approach. The cross-loaded skills
+(`databases/sqlcipher`, `security/libsodium`, `security/age-encryption`)
+are deliberately framework-agnostic so they remain useful in other
+contexts (desktop wallets, server-side secret management, encrypted
+backups for any project).
+
+This unblocks BHODL (and similar Bitcoin/wallet apps) end-to-end at the
+KMP, native Android, and native iOS layers. Sprint 3 will add mobile
+testing (Maestro, Kotest, Turbine, Paparazzi/Roborazzi), build/CI
+extensions (Gradle KMP CI presets, sigstore/cosign, reproducible
+builds), and observability (rust-tracing, mobile crash reporting
+patterns).
+
+- **`kmp-expert` agent** under `agents/mobile/` — Kotlin Multiplatform +
+  Compose Multiplatform specialist. Covers shared business logic across
+  Android, iOS, JVM Desktop and Web (Wasm); declarative UI with Compose
+  Multiplatform; Rust ↔ Kotlin/Swift bindings via **UniFFI** (including
+  the **UbiqueInnovation KMP fork** used by BDK, LDK Node, LWK, CDK,
+  Breez SDK Liquid); Gradle KMP setup (XCFramework, CocoaPods, SwiftPM);
+  state/navigation/DI patterns (StateFlow + Voyager/Decompose + Koin);
+  Material 3 + custom design tokens. Designed to fill the major gap in
+  mobile coverage (the existing `mobile-expert` only covered React
+  Native / Flutter / Expo).
+
+- **5 new supporting skills** (Sprint 1 of mobile/FFI coverage):
+  - `skills/languages/kotlin/SKILL.md` + `quick-ref/{coroutines,advanced}.md` —
+    Kotlin 2.x language fundamentals (null safety, sealed/data classes,
+    scope functions, coroutines/Flow, generics variance, KSP, context
+    parameters, inline value classes, multiplatform `expect`/`actual`
+    introduction).
+  - `skills/languages/swift/SKILL.md` + `quick-ref/{concurrency,interop}.md` —
+    Swift 5.10/6.x fundamentals (optionals, value vs reference,
+    protocols/generics, Codable, Result Builders), Swift 6 strict
+    concurrency (actors, Sendable, MainActor, AsyncSequence/Stream,
+    TaskGroup), and Apple platform interop (ObjC, C, Rust via UniFFI,
+    Keychain Services, Secure Enclave with biometric access control,
+    `os.Logger` privacy markers).
+  - `skills/languages/uniffi/SKILL.md` + `quick-ref/{proc-macro,kmp-bindings}.md` —
+    Mozilla UniFFI for Rust → Kotlin/Swift bindings: UDL definition,
+    proc-macro mode (`#[uniffi::export]`), async support (Tokio runtime),
+    callback interfaces, trait interfaces, custom type validation at FFI
+    boundary, error mapping (thiserror + `uniffi::Error`), memory model
+    (`Disposable`/`AutoCloseable`), and full setup of the
+    **uniffi-kotlin-multiplatform-bindings** fork (cargo-ndk, sparse iOS
+    builds, KMP cinterop, Bitcoin libraries reference list).
+  - `skills/mobile/kotlin-multiplatform/SKILL.md` +
+    `quick-ref/{gradle,ios-integration,libraries}.md` — KMP setup
+    (Gradle plugin, source set hierarchy, default + custom intermediate
+    sets, target configuration), `expect`/`actual` patterns (functions,
+    classes, type aliases), iOS framework export (XCFramework, CocoaPods,
+    SwiftPM, embedAndSign workflow, Skie integration for idiomatic Swift
+    Flow/sealed wrappers), and a curated KMP library matrix (Ktor 3,
+    SQLDelight, Koin, kotlinx-datetime, Coil 3, Decompose, Kermit,
+    Multiplatform Settings, Realm, etc.).
+  - `skills/frontend-frameworks/compose-multiplatform/SKILL.md` +
+    `quick-ref/{ios-platform,navigation-di,theming}.md` — Compose
+    Multiplatform 1.8+ (Stable iOS): `@Composable`, state hoisting,
+    `remember`/`mutableStateOf`/`rememberSaveable`, side effects
+    (`LaunchedEffect`/`DisposableEffect`/`produceState`/`derivedStateOf`),
+    Material 3, modifier order rules, performance (`@Immutable`/`@Stable`,
+    `key` on `LazyColumn`), iOS platform bridging
+    (`ComposeUIViewController`, `UIKitViewController` / `UIKitView`,
+    SwiftUI ↔ Compose hybrid, keyboard/safe-area/gestures/haptics/share
+    sheet via `expect`/`actual`), navigation libraries (Voyager, Decompose,
+    Jetpack Navigation Compose KMP) with DI integration (Koin,
+    kotlin-inject), and theming (Material 3 color schemes, custom design
+    tokens via `CompositionLocal`, dynamic color, multi-brand, dark mode,
+    high contrast, accessibility).
+
+### Architectural decision
+
+The new mobile/FFI skills are designed for the BHODL-style stack
+(Bitcoin wallet on KMP + Compose Multiplatform with Rust core via UniFFI)
+but stay framework-agnostic enough to serve any cross-platform Kotlin
+project. The split between `languages/uniffi` (binding mechanics) and
+`mobile/kotlin-multiplatform` (KMP build system) keeps each skill focused.
+The `kmp-expert` agent cross-loads all five skills to act as the single
+entry point for KMP+Compose+Rust mobile work, mirroring the
+`unity-expert` cross-load pattern. This is **Sprint 1** of a larger
+mobile-coverage plan; future sprints will add native Android (`android-native-expert` +
+`mobile/jetpack-compose`), native iOS (`ios-native-expert` + `mobile/ios-native`),
+SQLCipher / libsodium / age encryption skills, and mobile testing skills
+(Maestro, Kotest, Turbine, Paparazzi/Roborazzi).
+
+- **`gamedev/2d-art/ai-art-tools` skill** — AI-assisted 2D / pixel-art
+  generation tools. Compares **PixelLab** (purpose-built pixel-art
+  generator with Aseprite plugin and animation support), **Scenario**
+  (per-project style-locked custom-trained models), **Leonardo.AI**
+  (general game-asset generator), **Retro Diffusion** (Stable Diffusion
+  fine-tune that runs locally), DIY **Stable Diffusion + LoRAs**, and
+  general-purpose models (Midjourney, DALL-E 3) for concept art. Includes
+  a 30-second decision matrix, integration patterns (Aseprite plugin /
+  REST API / ComfyUI / batch script), hybrid AI+human workflows that
+  ship, May 2026 cost reality check, and anti-patterns (raw AI ship,
+  high-res-then-downscale, ignoring commercial license).
+
+- **PixelLab pointer in `tools/SKILL.md`** — short cross-reference under
+  the new "AI-assisted generation" section, pointing to the dedicated
+  `ai-art-tools` skill.
+
+- **`unity-expert` cross-loads `ai-art-tools`** — added to the existing
+  engine-agnostic 2D art skills bundle (joins the 10 skills shipped in
+  1.6.0). Future `godot-expert` / `phaser-expert` will inherit the same
+  skill without duplication.
+
+- **Documentation MCP — `gamedev-2d-art-ai-art-tools` registered** under
+  the `gamedev-2d-art` category with `https://www.pixellab.ai/` as the
+  upstream link.
+
+### Architectural decision
+
+PixelLab (and AI pixel-art generation in general) is a SaaS / tooling
+domain, not a paradigm requiring behavioral steering or context
+isolation, so a dedicated agent would be overkill. Instead, the
+knowledge lives as a skill cross-loaded from existing engine agents,
+which is the same pattern used for the engine-agnostic 2D art skills
+(1.6.0). The split between hand-authoring tools (`tools/`) and AI
+generators (`ai-art-tools/`) keeps each skill focused while letting
+either be fetched independently.
+
 ---
 
 ## [1.7.0] - 2026-05-03

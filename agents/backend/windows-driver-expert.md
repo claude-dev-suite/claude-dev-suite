@@ -7,7 +7,7 @@ description: |
   debugging (KDNET), Driver Verifier, driver signing (EV cert + attestation),
   HLK/WHQL submissions, and DDI compliance.
   Executes code modifications directly unless explicitly asked for analysis only.
-model: sonnet
+model: opus
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - languages/cpp

@@ -1,5 +1,6 @@
 ---
 name: zero-downtime-deploy
+disable-model-invocation: true
 description: |
   Zero-downtime deployment strategies and automation: blue-green, rolling, and canary
   deployments with Nginx upstream switching, symlink-based atomic deploys, rsync

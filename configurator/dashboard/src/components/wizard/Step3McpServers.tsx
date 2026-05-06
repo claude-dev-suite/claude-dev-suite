@@ -115,8 +115,19 @@ export function Step3McpServers({
     );
   }
 
+  const lazyEnabled = selectedMcpServers.includes('skill-loader');
+
   return (
     <div className="space-y-6">
+      {lazyEnabled && (
+        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm text-blue-300">
+          <strong>Lazy skill loading enabled.</strong> Selecting <code>skill-loader</code> switches the
+          install to a hybrid model: skills referenced by the agents you picked are installed natively
+          (Claude Code auto-discovers them, body loaded on-demand) — all other skills stay reachable
+          via the <code>skill-loader</code> MCP server. <code>DEV_SUITE_ROOT</code> is pre-filled in
+          the next step with the dev-suite bundle shipped with this Dashboard.
+        </div>
+      )}
       <PanelSection
         title="Configure MCP Servers"
         description={`Select the MCP servers to enable. ${selectedMcpServers.length} of ${servers.length} selected.`}

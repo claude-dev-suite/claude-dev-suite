@@ -1,0 +1,15 @@
+{
+  "name": "@dev-suite/skill-loader",
+  "version": "1.0.0",
+  "description": "MCP server for lazy-loading dev-suite skill bodies on demand",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}

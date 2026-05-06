@@ -280,6 +280,83 @@ export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
 };
 
 // ============================================
+// OUTPUT-FILTER HOOK TEMPLATES (PreToolUse)
+// ============================================
+
+/**
+ * PreToolUse hook templates that rewrite Bash tool inputs to filter verbose
+ * output before it enters Claude Code's context window.
+ *
+ * Each template ships a companion shell script (templates/hooks/<scriptFile>)
+ * that is copied to the target project's .claude/hooks/ directory at install
+ * time.  The settings.json hook command references that local script.
+ *
+ * All scripts are fail-open: if filtering logic encounters an error the
+ * original command is forwarded unchanged.
+ *
+ * Token-savings estimates are approximate and depend on project verbosity.
+ */
+export const CLAUDE_OUTPUT_FILTER_HOOKS: Record<string, ClaudeHookTemplate> = {
+  'filter-test-output': {
+    id: 'filter-test-output',
+    name: 'Filter test output',
+    description:
+      'Intercepts npm test, pytest, cargo test, go test, mvn test, gradle test and ' +
+      'similar runners. Rewrites the command to emit only FAIL/ERROR/PASS summary ' +
+      'lines plus a 20-line tail, preserving all information needed for debugging.',
+    event: 'PreToolUse',
+    scriptFile: 'filter-test-output.sh',
+    tokenSavingsEstimate: '~5–50K tokens per test run (average ~10K)',
+    category: 'output-filter',
+    hooks: [
+      {
+        matcher: 'Bash',
+        hooks: ['.claude/hooks/filter-test-output.sh'],
+      },
+    ],
+  },
+
+  'filter-lint': {
+    id: 'filter-lint',
+    name: 'Filter lint output',
+    description:
+      'Intercepts eslint, pylint, flake8, ruff, cargo clippy, golangci-lint, ' +
+      'prettier --check, detekt, ktlint and similar linters. Rewrites the command ' +
+      'to emit only error-severity lines plus a suppressed-warning count.',
+    event: 'PreToolUse',
+    scriptFile: 'filter-lint.sh',
+    tokenSavingsEstimate: '~5–20K tokens per lint run',
+    category: 'output-filter',
+    hooks: [
+      {
+        matcher: 'Bash',
+        hooks: ['.claude/hooks/filter-lint.sh'],
+      },
+    ],
+  },
+
+  'truncate-logs': {
+    id: 'truncate-logs',
+    name: 'Truncate log output',
+    description:
+      'Intercepts tail, journalctl, docker logs, kubectl logs, cat /var/log/* ' +
+      'and similar log-reading commands. Caps output at the last 100 lines ' +
+      '(configurable via DS_LOG_LINE_LIMIT env var) to prevent large log dumps ' +
+      'from consuming the context window.',
+    event: 'PreToolUse',
+    scriptFile: 'truncate-logs.sh',
+    tokenSavingsEstimate: '~1K–50K+ tokens per invocation (highly variable)',
+    category: 'output-filter',
+    hooks: [
+      {
+        matcher: 'Bash',
+        hooks: ['.claude/hooks/truncate-logs.sh'],
+      },
+    ],
+  },
+};
+
+// ============================================
 // UTILITY FUNCTIONS
 // ============================================
 

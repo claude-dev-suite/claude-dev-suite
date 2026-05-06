@@ -1,5 +1,6 @@
 ---
 name: multi-region
+disable-model-invocation: true
 description: |
   Multi-region RAG deployments for latency and resilience. Covers
   geo-replicated vector stores (Pinecone multi-region, Qdrant cluster,

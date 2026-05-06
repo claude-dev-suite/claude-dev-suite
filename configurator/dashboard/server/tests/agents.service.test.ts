@@ -5,8 +5,9 @@
  * since AgentsService resolves its path from __dirname.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AgentsService } from '../src/services/agents.service.js';
+import { BUNDLES, expandBundleEntry } from '../src/services/agent-bundles.js';
 
 describe('AgentsService', () => {
   let agentsService: AgentsService;
@@ -158,6 +159,155 @@ describe('AgentsService', () => {
       const servers2 = await agentsService.getMcpServers();
 
       expect(servers1).not.toBe(servers2);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Bundle expansion tests
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe('expandBundleEntry (unit)', () => {
+    it('passes plain skill paths through unchanged', () => {
+      expect(expandBundleEntry('rag/rag-architecture', 'test-agent')).toEqual([
+        'rag/rag-architecture',
+      ]);
+    });
+
+    it('expands a known bundle to multiple skill paths', () => {
+      const result = expandBundleEntry('bundle:rag/foundation', 'test-agent');
+      expect(result).toEqual(BUNDLES['rag/foundation']);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('expansion result contains no duplicates', () => {
+      const result = expandBundleEntry('bundle:rag/foundation', 'test-agent');
+      const unique = new Set(result);
+      expect(unique.size).toBe(result.length);
+    });
+
+    it('returns empty array and warns for unknown bundle', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const result = expandBundleEntry('bundle:nonexistent/bundle', 'test-agent');
+      expect(result).toEqual([]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Unknown bundle "nonexistent/bundle"')
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('all bundle IDs resolve to non-empty arrays', () => {
+      for (const [bundleId, skills] of Object.entries(BUNDLES)) {
+        expect(skills.length, `Bundle "${bundleId}" must have at least one skill`).toBeGreaterThan(0);
+      }
+    });
+
+    it('no bundle entry is an empty string', () => {
+      for (const [bundleId, skills] of Object.entries(BUNDLES)) {
+        for (const skill of skills) {
+          expect(skill.trim(), `Bundle "${bundleId}" has empty skill entry`).not.toBe('');
+        }
+      }
+    });
+  });
+
+  describe('bundle expansion via real agent frontmatters', () => {
+    it('rag-expert expands to the full 95-skill set with no duplicates', async () => {
+      const agents = await agentsService.getAgents();
+      const ragExpert = agents.find((a) => a.id === 'rag-expert');
+
+      // rag-expert must be present
+      expect(ragExpert, 'rag-expert agent not found').toBeDefined();
+      const skills = ragExpert!.skills;
+
+      // Verify exact count matches original flat list
+      expect(skills.length).toBe(95);
+
+      // Verify no duplicates after bundle expansion
+      const unique = new Set(skills);
+      expect(unique.size).toBe(skills.length);
+    });
+
+    it('rag-expert skills include key entries from every bundle group', async () => {
+      const agents = await agentsService.getAgents();
+      const ragExpert = agents.find((a) => a.id === 'rag-expert');
+      expect(ragExpert).toBeDefined();
+      const skillSet = new Set(ragExpert!.skills);
+
+      // Spot-check one representative skill from each bundle
+      expect(skillSet.has('rag/rag-architecture')).toBe(true);           // rag/foundation
+      expect(skillSet.has('rag/graph-rag')).toBe(true);                  // rag/specialized
+      expect(skillSet.has('rag/entity-resolution')).toBe(true);          // rag/knowledge-graph
+      expect(skillSet.has('rag/ares-framework')).toBe(true);             // rag/evaluation
+      expect(skillSet.has('rag/ingestion-orchestration')).toBe(true);    // rag/ingestion
+      expect(skillSet.has('retrieval/colbert-retrieval')).toBe(true);    // rag/retrieval
+      expect(skillSet.has('embeddings/embedding-models')).toBe(true);    // rag/embeddings
+      expect(skillSet.has('vector-stores/pgvector-advanced')).toBe(true); // rag/vector-stores
+      expect(skillSet.has('document-processing/pdf-extraction')).toBe(true); // rag/document-processing
+      expect(skillSet.has('rag-frameworks/llamaindex')).toBe(true);      // rag/frameworks
+      expect(skillSet.has('rag-ops/tei-triton-serving')).toBe(true);     // rag/ops
+      // Explicit supporting skills
+      expect(skillSet.has('languages/python')).toBe(true);
+      expect(skillSet.has('security/api-security')).toBe(true);
+    });
+
+    it('sysadmin-expert expands to the full 56-skill set with no duplicates', async () => {
+      const agents = await agentsService.getAgents();
+      const sysadmin = agents.find((a) => a.id === 'sysadmin-expert');
+
+      expect(sysadmin, 'sysadmin-expert agent not found').toBeDefined();
+      const skills = sysadmin!.skills;
+
+      expect(skills.length).toBe(56);
+
+      const unique = new Set(skills);
+      expect(unique.size).toBe(skills.length);
+    });
+
+    it('sysadmin-expert skills include key entries from every bundle group', async () => {
+      const agents = await agentsService.getAgents();
+      const sysadmin = agents.find((a) => a.id === 'sysadmin-expert');
+      expect(sysadmin).toBeDefined();
+      const skillSet = new Set(sysadmin!.skills);
+
+      // Spot-check one representative skill from each bundle
+      expect(skillSet.has('infrastructure/nginx')).toBe(true);           // infra/web-server
+      expect(skillSet.has('infrastructure/firewall')).toBe(true);        // infra/security-hardening
+      expect(skillSet.has('security/secrets-management')).toBe(true);    // infra/security-hardening
+      expect(skillSet.has('infrastructure/systemd')).toBe(true);         // infra/services
+      expect(skillSet.has('infrastructure/server-monitoring')).toBe(true); // infra/monitoring
+      expect(skillSet.has('infrastructure/backup-recovery')).toBe(true); // infra/backup-network
+      expect(skillSet.has('infrastructure/kubernetes')).toBe(true);      // infra/k8s-cloud
+      expect(skillSet.has('cloud/aws')).toBe(true);                      // infra/k8s-cloud
+      expect(skillSet.has('databases/postgresql')).toBe(true);           // infra/databases
+      // Explicit skills
+      expect(skillSet.has('infrastructure/linux-server')).toBe(true);
+      expect(skillSet.has('ci-cd/github-actions')).toBe(true);
+    });
+
+    it('agents with plain skill lists (no bundles) continue to work', async () => {
+      const agents = await agentsService.getAgents();
+      // Find an agent that doesn't use bundles — any agent other than rag/sysadmin
+      const plainAgent = agents.find(
+        (a) => a.id !== 'rag-expert' && a.id !== 'sysadmin-expert' && a.skills.length > 0
+      );
+      // If no other agents exist the test is vacuously OK
+      if (!plainAgent) return;
+      // Skills must all be non-empty strings (bundles expanded fine, plain pass-through works)
+      for (const skill of plainAgent.skills) {
+        expect(typeof skill).toBe('string');
+        expect(skill.trim()).not.toBe('');
+      }
+    });
+
+    it('mixed bundle + explicit skill declaration deduplicates correctly', async () => {
+      // Both rag-expert bundles and explicit list overlap on security/api-security —
+      // it is in both the explicit list AND potentially referenced again in bundles.
+      // The dedup logic must keep it exactly once.
+      const agents = await agentsService.getAgents();
+      const ragExpert = agents.find((a) => a.id === 'rag-expert');
+      expect(ragExpert).toBeDefined();
+      const securityEntries = ragExpert!.skills.filter((s) => s === 'security/api-security');
+      expect(securityEntries.length).toBe(1);
     });
   });
 });

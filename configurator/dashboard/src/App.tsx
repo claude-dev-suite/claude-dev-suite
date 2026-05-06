@@ -29,6 +29,9 @@ const UsagePanel = lazy(() =>
 const LivePerformancePanel = lazy(() =>
   import('./components/live-performance/LivePerformancePanel').then(module => ({ default: module.LivePerformancePanel }))
 );
+const TokenAnalyticsPanel = lazy(() =>
+  import('./components/analytics/TokenAnalyticsPanel').then(module => ({ default: module.TokenAnalyticsPanel }))
+);
 
 export function App() {
   const logger = getLogger('App');
@@ -118,7 +121,7 @@ export function App() {
 
   // Redirect to wizard if not installed and on a panel that requires installation
   useEffect(() => {
-    if (!isInstalled && (currentPanel === 'orchestrator' || currentPanel === 'code-review' || currentPanel === 'codegen' || currentPanel === 'usage' || currentPanel === 'live-performance')) {
+    if (!isInstalled && (currentPanel === 'orchestrator' || currentPanel === 'code-review' || currentPanel === 'codegen' || currentPanel === 'usage' || currentPanel === 'live-performance' || currentPanel === 'token-analytics')) {
       setCurrentPanel('wizard');
       setWizardStep(1);
     }
@@ -266,6 +269,24 @@ export function App() {
             >
               <Suspense fallback={<LoadingPanel message="Loading Live Performance..." />}>
                 <LivePerformancePanel projectPath={projectPath} />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        )}
+
+        {/* Token Analytics panel */}
+        {currentPanel === 'token-analytics' && projectPath && isInstalled && (
+          <div className="h-full">
+            <ErrorBoundary
+              fallback={
+                <ErrorFallback
+                  showHomeButton={true}
+                  onHome={() => setCurrentPanel('orchestrator')}
+                />
+              }
+            >
+              <Suspense fallback={<LoadingPanel message="Loading Token Analytics..." />}>
+                <TokenAnalyticsPanel projectPath={projectPath} />
               </Suspense>
             </ErrorBoundary>
           </div>

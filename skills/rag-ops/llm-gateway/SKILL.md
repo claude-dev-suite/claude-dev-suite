@@ -1,5 +1,6 @@
 ---
 name: llm-gateway
+disable-model-invocation: true
 description: |
   LLM gateways in front of RAG stacks. Covers Portkey (caching, fallbacks,
   retries, observability), OpenRouter (300+ model routing), LiteLLM Proxy,

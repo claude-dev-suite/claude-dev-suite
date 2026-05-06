@@ -1,5 +1,6 @@
 ---
 name: batch-inference
+disable-model-invocation: true
 description: |
   Batch RAG for high-volume ingest and bulk query scenarios. Covers OpenAI
   Batch API (50% discount, 24h SLA), Anthropic Message Batches API, Voyage

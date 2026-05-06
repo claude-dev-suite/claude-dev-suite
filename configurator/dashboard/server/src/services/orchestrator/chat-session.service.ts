@@ -257,14 +257,26 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
       });
     }
 
+    // Track whether we've emitted any user-visible text/tool output during this iteration.
+    // If false at the end, we emit a warning instead of leaving the user with a silent "Done".
+    let hasEmittedAnyOutput = false;
+
     try {
       for await (const message of query({
         prompt: finalPrompt,
         options: {
           cwd: pathValidation.path!,
           resume: useResume,
-          // Load CLAUDE.md and project settings from the target project
-          systemPrompt: { type: 'preset', preset: 'claude_code' },
+          // Load CLAUDE.md and project settings from the target project.
+          // Append a small instruction so the assistant doesn't silently drop
+          // conversational/small-talk inputs (e.g. "ciao") under the strict
+          // claude_code preset — without it the SDK can complete with zero
+          // emitted text/tool blocks, leaving the UI showing only "Done".
+          systemPrompt: {
+            type: 'preset',
+            preset: 'claude_code',
+            append: 'Always reply to the user, even for greetings, small talk, or vague/open-ended messages. If the user is just chatting, respond briefly and conversationally as a helpful software engineering assistant working in this project. Never finish a turn without producing visible text.',
+          },
           settingSources: ['project'],
           allowedTools: clientAllowedTools || ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
           permissionMode: (hasJobContext ? 'acceptEdits' : (this.config.chat.permissionMode === 'interactive' ? 'default' : this.config.chat.permissionMode)) as 'default' | 'acceptEdits' | 'bypassPermissions',
@@ -276,6 +288,26 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
           },
         },
       })) {
+        // Diagnostic INFO log of every SDK message — top-level keys + type +
+        // (when present) message subtype/role so we can see the real shape of
+        // what comes out of @anthropic-ai/claude-agent-sdk in this runtime.
+        {
+          const m = message as Record<string, unknown>;
+          const inner = m.message as Record<string, unknown> | undefined;
+          wsLogger.info('SDK message received', {
+            correlationId,
+            data: {
+              type: m.type ?? null,
+              subtype: m.subtype ?? null,
+              topLevelKeys: Object.keys(m),
+              innerType: inner ? (inner.type ?? null) : null,
+              innerRole: inner ? (inner.role ?? null) : null,
+              innerKeys: inner ? Object.keys(inner) : null,
+              hasContent: inner ? Array.isArray(inner.content) : false,
+              contentLen: inner && Array.isArray(inner.content) ? inner.content.length : 0,
+            },
+          });
+        }
         // Check if abort was signaled during iteration
         if (this.state.abortController?.signal?.aborted) {
           wsLogger.info('Abort signal detected during iteration');
@@ -298,8 +330,22 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
 
         // Handle assistant message
         if (this.sdkService.isAssistantMessage(message)) {
+          // Diagnostic: log content block summary so we can see WHY a turn
+          // emits nothing (text empty? thinking block? unsupported type?)
+          wsLogger.info('Assistant message content', {
+            correlationId,
+            data: {
+              blockCount: message.message.content.length,
+              blockTypes: message.message.content.map((b: { type?: string }) => b.type ?? 'unknown'),
+              firstTextPreview: message.message.content
+                .find((b: { type?: string; text?: string }) => b.type === 'text')
+                ?.text?.slice(0, 100) ?? null,
+            },
+          });
           for (const block of message.message.content) {
-            if (block.type === 'text' && block.text) {
+            // Surface non-empty whitespace-only / thinking blocks as well
+            if (block.type === 'text' && typeof block.text === 'string' && block.text.trim().length > 0) {
+              hasEmittedAnyOutput = true;
               // Claude output: white/default for readability (no heavy coloring)
               this.wsClientService.broadcast({
                 type: 'chat_output',
@@ -310,6 +356,7 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
                 } as ChatOutputPayload,
               });
             } else if (block.type === 'tool_use' && block.name) {
+              hasEmittedAnyOutput = true;
               // Detect agent usage (Task tool with subagent_type)
               if (block.name === 'Task') {
                 const input = block.input as Record<string, unknown> | undefined;
@@ -370,6 +417,82 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
           const maxTurns = this.config.chat.maxTurns;
           const hitTurnLimit = maxTurns !== undefined && numTurns >= maxTurns;
           const hasResult = message.result && message.result.trim().length > 0;
+
+          // Diagnostic: dump every field on the result message — including the
+          // `errors[]` array (when subtype === 'error_during_execution' the
+          // SDK puts the cause here even with is_error === false).
+          {
+            const m = message as unknown as Record<string, unknown>;
+            wsLogger.info('Result message detail', {
+              correlationId,
+              data: {
+                resultSubtype: m.subtype ?? null,
+                isError: m.is_error ?? null,
+                permissionDenials: m.permission_denials ?? null,
+                errors: m.errors ?? null,
+                modelUsage: m.modelUsage ?? null,
+                totalCostUsd: m.total_cost_usd ?? null,
+                durationApiMs: m.duration_api_ms ?? null,
+              },
+            });
+          }
+
+          // If the SDK signaled an execution error via subtype, surface it to
+          // the user instead of letting the generic "no response" warning run.
+          const resultSubtype = (message as unknown as { subtype?: string }).subtype;
+          if (!hasEmittedAnyOutput && resultSubtype && resultSubtype !== 'success') {
+            const errs = (message as unknown as { errors?: unknown[] }).errors;
+            const errSummary =
+              Array.isArray(errs) && errs.length > 0
+                ? errs
+                    .map((e) =>
+                      typeof e === 'string'
+                        ? e
+                        : (e as { message?: string; error?: string })?.message ??
+                          (e as { message?: string; error?: string })?.error ??
+                          JSON.stringify(e)
+                    )
+                    .join(' | ')
+                : 'no error detail';
+            this.wsClientService.broadcast({
+              type: 'chat_output',
+              payload: {
+                text: `\x1b[31m✗ Claude SDK execution error (subtype: ${resultSubtype}): ${errSummary}\x1b[0m\n`,
+                raw: true,
+                contentType: 'text',
+              } as ChatOutputPayload,
+            });
+            hasEmittedAnyOutput = true;  // suppress the generic warning that follows
+          }
+
+          // Silent-completion guard: if no output was emitted during the iteration,
+          // surface either the result text (if present) or an explicit "no response"
+          // warning so the user is never left with a bare "Done".
+          if (!hasEmittedAnyOutput) {
+            if (hasResult) {
+              this.wsClientService.broadcast({
+                type: 'chat_output',
+                payload: {
+                  text: message.result!,
+                  raw: true,
+                  contentType: 'text',
+                } as ChatOutputPayload,
+              });
+            } else {
+              this.wsClientService.broadcast({
+                type: 'chat_output',
+                payload: {
+                  text: `\x1b[33m⚠️  Claude did not return any response. Possible causes: missing/invalid ANTHROPIC_API_KEY, network issue, or the prompt was too short for the 'claude_code' system preset (try a more concrete coding task).\x1b[0m\n`,
+                  raw: true,
+                  contentType: 'text',
+                } as ChatOutputPayload,
+              });
+              wsLogger.warn('Claude SDK iteration finished with no emitted output', {
+                correlationId,
+                data: { numTurns, isError: message.is_error, hasResult: false },
+              });
+            }
+          }
 
           // Completion: green separator
           this.wsClientService.broadcast({

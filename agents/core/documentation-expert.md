@@ -4,7 +4,7 @@ description: |
   Technical documentation expert. Specializes in JSDoc/TSDoc, API documentation,
   README creation, and documentation generation with TypeDoc.
   Use for documenting code, APIs, and creating project documentation.
-model: sonnet
+model: haiku
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*
 skills:
   - documentation/jsdoc-tsdoc

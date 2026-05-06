@@ -7,7 +7,7 @@ import { UpdateNotification } from '../common/UpdateNotification';
 import { useTutorial } from '../../hooks/useTutorial';
 import { API_BASE } from '../../utils/api';
 
-export type PanelType = 'wizard' | 'orchestrator' | 'code-review' | 'codegen' | 'usage' | 'live-performance';
+export type PanelType = 'wizard' | 'orchestrator' | 'code-review' | 'codegen' | 'usage' | 'live-performance' | 'token-analytics';
 
 interface TabConfig {
   id: PanelType;
@@ -24,6 +24,7 @@ const tabs: TabConfig[] = [
   { id: 'codegen', label: 'Code Generator', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', position: 'center', showWhen: 'installed' },
   { id: 'usage', label: 'Usage', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', position: 'center', showWhen: 'installed' },
   { id: 'live-performance', label: 'Live Performance', icon: 'M13 10V3L4 14h7v7l9-11h-7z', position: 'center', showWhen: 'installed' },
+  { id: 'token-analytics', label: 'Token Analytics', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', position: 'center', showWhen: 'installed' },
   // Right side - setup (only when not installed)
   { id: 'wizard', label: 'Setup Wizard', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4', position: 'right', showWhen: 'not-installed' },
 ];

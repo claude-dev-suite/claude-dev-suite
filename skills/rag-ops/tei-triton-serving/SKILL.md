@@ -1,5 +1,6 @@
 ---
 name: tei-triton-serving
+disable-model-invocation: true
 description: |
   High-performance serving of embedding and reranker models in production.
   Covers HuggingFace Text Embeddings Inference (TEI) on GPU, Docker

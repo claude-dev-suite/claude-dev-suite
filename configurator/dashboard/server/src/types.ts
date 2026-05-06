@@ -99,6 +99,21 @@ export interface InstallConfig {
   envVars: Record<string, string>;
   rules?: string[];
   detectedStack?: DetectionResult;
+  /**
+   * Controls how skill files are delivered to the target project.
+   *
+   * - `'eager'` (default): copy every referenced SKILL.md into
+   *   `.claude/skills/<path>/SKILL.md` at install time. No runtime dependency.
+   * - `'lazy'`: hybrid model — copy only the skills referenced by selected
+   *   agents under flattened native names (`.claude/skills/<flat-name>/SKILL.md`)
+   *   so Claude Code's auto-discovery loads their description at boot and the
+   *   body on demand. All other dev-suite skills remain reachable via the
+   *   `skill-loader` MCP server (`list_skills`, `load_skill`). The
+   *   `skill-loader` entry is added to `.mcp.json` automatically.
+   *   Requires `DEV_SUITE_ROOT` to point to the dev-suite repo at runtime
+   *   (auto-prefilled by the dashboard with the bundled copy).
+   */
+  skillLoadingMode?: 'eager' | 'lazy';
 }
 
 export interface InstallManifest {
@@ -286,6 +301,12 @@ export interface ClaudeHookTemplate {
     hooks: string[];
   }>;
   event: string;
+  /** Relative path inside templates/hooks/ for PreToolUse output-filter scripts */
+  scriptFile?: string;
+  /** Human-readable token-savings estimate (approximate) */
+  tokenSavingsEstimate?: string;
+  /** Template category for UI grouping */
+  category?: 'quality' | 'security' | 'output-filter';
 }
 
 // Claude Code Hook command - can be a string (shell command) or an object (prompt hook)

@@ -13,7 +13,8 @@
     "documentation",
     "log-analyzer",
     "performance-profiler",
-    "security-scanner"
+    "security-scanner",
+    "skill-loader"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
@@ -27,6 +28,7 @@
     "build:log-analyzer": "npm run build -w log-analyzer",
     "build:performance-profiler": "npm run build -w performance-profiler",
     "build:security-scanner": "npm run build -w security-scanner",
+    "build:skill-loader": "npm run build -w skill-loader",
     "test": "npm run test --workspaces --if-present",
     "clean": "rm -rf node_modules */node_modules */dist"
   },

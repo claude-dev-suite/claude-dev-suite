@@ -1,5 +1,6 @@
 ---
 name: deployment-strategies
+disable-model-invocation: true
 description: |
   Production deployment strategies. Blue-green, canary, rolling update,
   recreate. Zero-downtime deployments, rollback procedures, database

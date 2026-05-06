@@ -4,7 +4,7 @@ description: |
   Docker and containerization specialist. Expert in Dockerfile optimization,
   multi-stage builds, and Docker Compose. Executes code modifications directly
   unless explicitly asked for analysis only.
-model: sonnet
+model: haiku
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 skills:
   - infrastructure/docker

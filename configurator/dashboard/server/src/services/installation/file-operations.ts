@@ -156,6 +156,30 @@ export function findAgentFile(dir: string, filename: string): string | null {
 }
 
 /**
+ * Flatten a skill source path (e.g. `frontend-frameworks/react`) into a
+ * single-segment directory name suitable for `.claude/skills/<name>/`.
+ *
+ * Claude Code's native Skills auto-discovery requires a flat structure
+ * (`.claude/skills/<name>/SKILL.md`) with names limited to lowercase letters,
+ * digits, and hyphens, max 64 chars.
+ */
+export function flattenSkillName(skillPath: string): string {
+  const flat = skillPath
+    .toLowerCase()
+    .replace(/[\\/]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  if (flat.length <= 64) return flat;
+
+  // Truncate while preserving uniqueness via short hash suffix
+  const hash = crypto.createHash('sha1').update(skillPath).digest('hex').slice(0, 8);
+  const head = flat.slice(0, 64 - hash.length - 1).replace(/-+$/, '');
+  return `${head}-${hash}`;
+}
+
+/**
  * Parse skills list from agent file content
  */
 export function parseAgentSkills(content: string): string[] {

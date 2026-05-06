@@ -220,6 +220,8 @@ export type {
   TimelineEntry,
   KBUsageRequest,
   KBUsageResponse,
+  TokenUsageEntry,
+  TokenAggregatedRow,
   // Update types
   CheckUpdatesResponse,
   PullUpdatesResponse,

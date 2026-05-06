@@ -7,6 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'node:url';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type {
   ClaudeHookUI,
@@ -18,6 +19,7 @@ import type {
 import {
   CLAUDE_HOOK_EVENTS,
   CLAUDE_HOOK_TEMPLATES,
+  CLAUDE_OUTPUT_FILTER_HOOKS,
 } from './hooks.constants.js';
 
 export class ClaudeHooksService {
@@ -598,6 +600,157 @@ Respond ONLY with valid JSON:
     }
 
     return { success: true, configured: true };
+  }
+
+  // ========== OUTPUT FILTER HOOKS ==========
+
+  /**
+   * Install an output-filter PreToolUse hook for a target project.
+   *
+   * Steps:
+   *  1. Resolve the template from CLAUDE_OUTPUT_FILTER_HOOKS.
+   *  2. Copy the companion shell script from `devSuiteRoot/templates/hooks/`
+   *     to `<projectPath>/.claude/hooks/` and make it executable (chmod +x on
+   *     POSIX; on Windows the script requires WSL or Git Bash at runtime).
+   *  3. Register the hook in `.claude/settings.json` pointing to the local copy.
+   *
+   * Fail-open guarantee: each script already handles its own errors gracefully.
+   * This method only installs; it does not execute the script itself.
+   *
+   * @param projectPath   Absolute path to the target project.
+   * @param hookId        Key from CLAUDE_OUTPUT_FILTER_HOOKS (e.g. 'filter-test-output').
+   * @param devSuiteRoot  Absolute path to the dev-suite source repo root.
+   *                      Defaults to three levels up from this file's directory.
+   */
+  installOutputFilterHook(
+    projectPath: string,
+    hookId: string,
+    devSuiteRoot?: string
+  ): { success: boolean; scriptPath?: string; error?: string } {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+
+    const template = CLAUDE_OUTPUT_FILTER_HOOKS[hookId];
+    if (!template) {
+      return { success: false, error: `Unknown output-filter hook: ${hookId}` };
+    }
+
+    if (!template.scriptFile) {
+      return { success: false, error: `Template ${hookId} has no scriptFile defined` };
+    }
+
+    // Resolve the source script: <devSuiteRoot>/templates/hooks/<scriptFile>
+    const root = devSuiteRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..');
+    const srcScript = path.join(root, 'templates', 'hooks', template.scriptFile);
+
+    if (!fs.existsSync(srcScript)) {
+      return { success: false, error: `Source script not found: ${srcScript}` };
+    }
+
+    // Destination: <projectPath>/.claude/hooks/<scriptFile>
+    const hooksDir = path.join(projectPath, '.claude', 'hooks');
+    const destScript = path.join(hooksDir, template.scriptFile);
+
+    try {
+      if (!fs.existsSync(hooksDir)) {
+        fs.mkdirSync(hooksDir, { recursive: true });
+      }
+
+      fs.copyFileSync(srcScript, destScript);
+
+      // Make executable on POSIX systems
+      try {
+        fs.chmodSync(destScript, 0o755);
+      } catch {
+        // chmod may fail on Windows — this is acceptable; the script needs bash anyway
+      }
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+
+    // Register in settings.json using the local relative path
+    const localHookCmd = `.claude/hooks/${template.scriptFile}`;
+    const addResult = this.addClaudeHook(projectPath, {
+      event: template.event,
+      matcher: template.hooks[0]?.matcher,
+      commands: [localHookCmd],
+    });
+
+    if (!addResult.success) {
+      return { success: false, error: addResult.error };
+    }
+
+    return { success: true, scriptPath: destScript };
+  }
+
+  /**
+   * Uninstall an output-filter hook: removes the script from .claude/hooks/
+   * and removes the matching entry from .claude/settings.json.
+   *
+   * @param projectPath  Absolute path to the target project.
+   * @param hookId       Key from CLAUDE_OUTPUT_FILTER_HOOKS.
+   */
+  uninstallOutputFilterHook(
+    projectPath: string,
+    hookId: string
+  ): { success: boolean; error?: string } {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+
+    const template = CLAUDE_OUTPUT_FILTER_HOOKS[hookId];
+    if (!template) {
+      return { success: false, error: `Unknown output-filter hook: ${hookId}` };
+    }
+
+    if (!template.scriptFile) {
+      return { success: false, error: `Template ${hookId} has no scriptFile defined` };
+    }
+
+    // Remove the script file if it exists
+    const destScript = path.join(projectPath, '.claude', 'hooks', template.scriptFile);
+    if (fs.existsSync(destScript)) {
+      try {
+        fs.unlinkSync(destScript);
+      } catch (e) {
+        return { success: false, error: (e as Error).message };
+      }
+    }
+
+    // Remove the hook entry from settings.json
+    const settings = this.readClaudeSettings(projectPath);
+    if (!settings?.hooks) {
+      // Nothing to clean up in settings — still report success
+      return { success: true };
+    }
+
+    const localHookCmd = `.claude/hooks/${template.scriptFile}`;
+    const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: string[] }>>;
+    const eventKey = template.event;
+    const eventHooks = hooks[eventKey];
+
+    if (!Array.isArray(eventHooks)) {
+      return { success: true };
+    }
+
+    const before = eventHooks.length;
+    const filtered = eventHooks.filter(
+      (h) => !Array.isArray(h.hooks) || !h.hooks.includes(localHookCmd)
+    );
+
+    if (filtered.length === before) {
+      // Entry not found in settings — idempotent success
+      return { success: true };
+    }
+
+    if (filtered.length === 0) {
+      delete hooks[eventKey];
+    } else {
+      hooks[eventKey] = filtered;
+    }
+
+    return this.writeClaudeSettings(projectPath, settings);
   }
 
   /**
