@@ -17,7 +17,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.128",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.3.2",
+    "express-rate-limit": "^8.5.1",
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
     "helmet": "^8.1.0",
