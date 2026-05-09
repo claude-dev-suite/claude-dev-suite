@@ -200,6 +200,7 @@ export function TokenAnalyticsPanel({ projectPath }: TokenAnalyticsPanelProps) {
   }, [projectPath, groupBy, timeRange]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing with external HTTP API: refetch when filters change
     void fetchData();
   }, [fetchData]);
 
