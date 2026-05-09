@@ -24,6 +24,7 @@ public class SSEController {
 }
 
 @Service
+@Slf4j
 public class NotificationService {
 
     private final Sinks.Many<Notification> sink = Sinks.many().multicast().onBackpressureBuffer();
@@ -34,7 +35,10 @@ public class NotificationService {
     }
 
     public void sendNotification(Notification notification) {
-        sink.tryEmitNext(notification);
+        Sinks.EmitResult result = sink.tryEmitNext(notification);
+        if (result.isFailure()) {
+            log.warn("Notification emit failed: {} for userId={}", result, notification.getUserId());
+        }
     }
 }
 ```
