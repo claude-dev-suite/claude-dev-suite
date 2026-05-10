@@ -9,18 +9,21 @@ description: |
   for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__docker-manager__*
-skills:
-  # Infrastructure bundles (expand to 42 skills at load time)
+core_skills:
+  # 3 single skills — the always-on knowledge for an everyday Linux box.
+  # Everything else (full bundles + specialized) is on-demand via skill-loader.
+  - infrastructure/linux-server
+  - infrastructure/nginx
+  - infrastructure/systemd
+extended_skills:
   - bundle:infra/web-server
-  - bundle:infra/security-hardening
   - bundle:infra/services
+  - bundle:infra/security-hardening
   - bundle:infra/monitoring
   - bundle:infra/backup-network
   - bundle:infra/k8s-cloud
   - bundle:infra/databases
-  # Explicit skills not covered by bundles
   - best-practices/token-optimization
-  - infrastructure/linux-server
   - infrastructure/server-performance
   - infrastructure/email-infrastructure
   - infrastructure/zero-downtime-deploy

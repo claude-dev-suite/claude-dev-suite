@@ -82,6 +82,8 @@ export interface McpServer {
   recommendedFor: string[];
   /** Technologies that should trigger auto-selection */
   detectedWhen: string[];
+  /** Built-in capability of dev-suite: always installed, hidden from the wizard. */
+  isDefault?: boolean;
 }
 
 /**

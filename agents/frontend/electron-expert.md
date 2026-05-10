@@ -7,10 +7,11 @@ description: |
   explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - desktop/electron
   - languages/typescript
   - build-tools/vite
+extended_skills:
   - testing/vitest
   - testing/playwright
 ---

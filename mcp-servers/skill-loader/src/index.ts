@@ -20,30 +20,45 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
+import {
+  buildSkillIndex,
+  checkSkillInvocable,
+  loadQuickRefBody,
+  resolveSkillPath as resolveSkillPathLib,
+  resolveSkillsDir,
+  type SkillEntry,
+} from "./lib.js";
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
-const DEV_SUITE_ROOT = process.env.DEV_SUITE_ROOT;
+// Self-resolve the skills directory. Two paths:
+//   1. `DEV_SUITE_ROOT` env var (dev mode / explicit override)
+//   2. Bundled fallback: <packageDir>/skills/ — populated at build time
+//      by scripts/copy-skills.mjs from dev-suite/skills/. This is the
+//      production path: works inside Electron resources AND inside per-
+//      project .mcp-servers/skill-loader/ copies, with zero env var.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// dist/index.js → ../ = package root (where skills/ lives after prebuild)
+const PACKAGE_DIR = path.resolve(__dirname, "..");
 
-if (!DEV_SUITE_ROOT) {
-  console.error(
-    "[skill-loader] Fatal: DEV_SUITE_ROOT environment variable is not set."
-  );
+let SKILLS_DIR: string;
+let SKILLS_SOURCE: "env" | "bundled";
+try {
+  const resolved = resolveSkillsDir(process.env, PACKAGE_DIR);
+  SKILLS_DIR = resolved.skillsDir;
+  SKILLS_SOURCE = resolved.source;
+} catch (err) {
+  console.error(`[skill-loader] Fatal: ${(err as Error).message}`);
   process.exit(1);
 }
 
-const SKILLS_DIR = path.resolve(DEV_SUITE_ROOT, "skills");
-
-if (!fs.existsSync(SKILLS_DIR)) {
-  console.error(
-    `[skill-loader] Fatal: skills directory not found at ${SKILLS_DIR}`
-  );
-  process.exit(1);
-}
-
-console.error(`[skill-loader] Skills directory: ${SKILLS_DIR}`);
+console.error(
+  `[skill-loader] Skills directory: ${SKILLS_DIR} (source: ${SKILLS_SOURCE})`,
+);
 
 // ---------------------------------------------------------------------------
 // In-memory cache with TTL
@@ -75,94 +90,7 @@ class TtlCache<T> {
 }
 
 // ---------------------------------------------------------------------------
-// Skill index types
-// ---------------------------------------------------------------------------
-
-interface SkillEntry {
-  /** Relative path under skills/, e.g. "languages/kotlin" */
-  path: string;
-  /** Human-readable name from frontmatter (falls back to directory name) */
-  name: string;
-  /** One-line description extracted from frontmatter */
-  description: string;
-  /** Category derived from top-level directory (e.g. "languages") */
-  category: string;
-  /** Whether the skill opts out of automatic model invocation */
-  disableModelInvocation: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// YAML frontmatter parser (minimal — no external dependency)
-// ---------------------------------------------------------------------------
-
-interface SkillFrontmatter {
-  name?: string;
-  description?: string;
-  "disable-model-invocation"?: boolean;
-  [key: string]: unknown;
-}
-
-/**
- * Extract the YAML frontmatter block from a markdown file.
- * Returns an empty object if there is no frontmatter.
- */
-function parseFrontmatter(content: string): SkillFrontmatter {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content);
-  if (!match) return {};
-
-  const yaml = match[1];
-  const result: SkillFrontmatter = {};
-
-  for (const line of yaml.split(/\r?\n/)) {
-    // Handle key: value pairs (single-line values only)
-    const kv = /^(\S+?):\s*(.+)$/.exec(line);
-    if (kv) {
-      const key = kv[1];
-      const raw = kv[2].trim();
-
-      if (raw === "true") {
-        result[key] = true;
-      } else if (raw === "false") {
-        result[key] = false;
-      } else if (raw === "|") {
-        // Multi-line literal block — will be accumulated below
-        result[key] = "";
-      } else {
-        result[key] = raw;
-      }
-      continue;
-    }
-
-    // Continuation lines for multi-line values (indented)
-    const indent = /^  (.+)$/.exec(line);
-    if (indent) {
-      // Find the last key whose value is a string so we can append
-      const keys = Object.keys(result);
-      if (keys.length > 0) {
-        const lastKey = keys[keys.length - 1];
-        const current = result[lastKey];
-        if (typeof current === "string") {
-          result[lastKey] = current
-            ? current + "\n" + indent[1]
-            : indent[1];
-        }
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
- * Return the first non-empty sentence (up to first newline) from a multi-line
- * description string so the index stays compact.
- */
-function firstSentence(text: string): string {
-  return text.split(/\n/)[0].trim();
-}
-
-// ---------------------------------------------------------------------------
-// Index builder
+// Index builder (cached wrapper around lib.buildSkillIndex)
 // ---------------------------------------------------------------------------
 
 const indexCache = new TtlCache<SkillEntry[]>();
@@ -171,89 +99,17 @@ const INDEX_CACHE_KEY = "__index__";
 function buildIndex(): SkillEntry[] {
   const cached = indexCache.get(INDEX_CACHE_KEY);
   if (cached) return cached;
-
-  const entries: SkillEntry[] = [];
-
-  function walk(dir: string): void {
-    let names: string[];
-    try {
-      names = fs.readdirSync(dir);
-    } catch {
-      return;
-    }
-
-    for (const name of names) {
-      const fullPath = path.join(dir, name);
-      let stat: fs.Stats;
-      try {
-        stat = fs.statSync(fullPath);
-      } catch {
-        continue;
-      }
-
-      if (stat.isDirectory()) {
-        walk(fullPath);
-      } else if (name === "SKILL.md") {
-        try {
-          const content = fs.readFileSync(fullPath, "utf-8");
-          const fm = parseFrontmatter(content);
-
-          // Relative path under SKILLS_DIR (normalised, forward slashes)
-          const relPath = path
-            .relative(SKILLS_DIR, path.dirname(fullPath))
-            .replace(/\\/g, "/");
-
-          // Category is the first path segment
-          const category = relPath.split("/")[0] ?? "misc";
-
-          const disableModelInvocation =
-            fm["disable-model-invocation"] === true;
-
-          entries.push({
-            path: relPath,
-            name: typeof fm.name === "string" ? fm.name : path.basename(path.dirname(fullPath)),
-            description: typeof fm.description === "string"
-              ? firstSentence(fm.description)
-              : "",
-            category,
-            disableModelInvocation,
-          });
-        } catch {
-          // Skip unreadable skills
-        }
-      }
-    }
-  }
-
-  walk(SKILLS_DIR);
-  entries.sort((a, b) => a.path.localeCompare(b.path));
+  const entries = buildSkillIndex(SKILLS_DIR);
   indexCache.set(INDEX_CACHE_KEY, entries);
   return entries;
 }
 
-// ---------------------------------------------------------------------------
-// Path safety
-// ---------------------------------------------------------------------------
-
 /**
- * Resolve a caller-supplied skill path to an absolute filesystem path and
- * validate it stays within SKILLS_DIR.  Throws if the path escapes.
+ * Module-bound wrapper using the configured SKILLS_DIR. Pure logic lives
+ * in lib.resolveSkillPath.
  */
 function resolveSkillPath(skillPath: string): string {
-  // Reject obvious traversal attempts before path.resolve normalises them
-  if (skillPath.includes("..")) {
-    throw new Error("Invalid skill path: path traversal not allowed");
-  }
-
-  // Normalise and check containment
-  const resolved = path.resolve(SKILLS_DIR, skillPath);
-  if (!resolved.startsWith(SKILLS_DIR + path.sep) && resolved !== SKILLS_DIR) {
-    throw new Error(
-      `Invalid skill path: resolved path escapes skills directory`
-    );
-  }
-
-  return resolved;
+  return resolveSkillPathLib(skillPath, SKILLS_DIR);
 }
 
 // ---------------------------------------------------------------------------
@@ -498,17 +354,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new Error("skill_path is required and must be a non-empty string");
       }
 
-      const resolvedDir = resolveSkillPath(skillPath.trim());
+      const trimmedPath = skillPath.trim();
+      const resolvedDir = resolveSkillPath(trimmedPath);
       const skillFile = path.join(resolvedDir, "SKILL.md");
 
       if (!fs.existsSync(skillFile)) {
         throw new Error(
           `Skill not found: '${skillPath}'. ` +
-          `Use list_skills to discover available skill paths.`
+            `Use list_skills to discover available skill paths.`,
         );
       }
 
+      // Read via cache for hot paths, then enforce disable-model-invocation
+      // (the cache stores raw content; the gate is checked on every call).
       const content = readCached(skillFile);
+      checkSkillInvocable(content, trimmedPath);
 
       return {
         content: [
@@ -526,42 +386,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       if (typeof skillPath !== "string" || skillPath.trim() === "") {
         throw new Error(
-          "skill_path is required and must be a non-empty string"
+          "skill_path is required and must be a non-empty string",
         );
       }
       if (typeof ref !== "string" || ref.trim() === "") {
         throw new Error("ref is required and must be a non-empty string");
       }
 
-      // Validate ref doesn't escape (no path separators or traversal)
-      const sanitizedRef = ref.trim();
-      if (
-        sanitizedRef.includes("/") ||
-        sanitizedRef.includes("\\") ||
-        sanitizedRef.includes("..")
-      ) {
-        throw new Error(
-          "Invalid ref: must be a simple filename without path separators"
-        );
-      }
-
-      const resolvedDir = resolveSkillPath(skillPath.trim());
-      const refFile = path.join(resolvedDir, "quick-ref", `${sanitizedRef}.md`);
-
-      // Extra safety check after joining
-      const quickRefDir = path.join(resolvedDir, "quick-ref");
-      if (!refFile.startsWith(quickRefDir + path.sep) && refFile !== quickRefDir) {
-        throw new Error("Invalid ref: path escapes quick-ref directory");
-      }
-
-      if (!fs.existsSync(refFile)) {
-        throw new Error(
-          `Quick-ref file not found: '${skillPath}/quick-ref/${sanitizedRef}.md'. ` +
-          `Check that the file exists in the skill's quick-ref/ directory.`
-        );
-      }
-
-      const content = readCached(refFile);
+      // loadQuickRefBody handles ref validation, path resolution, and read.
+      // It does an uncached read; for the production hot-path we keep the
+      // cache below by using readCached on the resolved file when the lib
+      // returns successfully. Simpler: just delegate (uncached read).
+      const content = loadQuickRefBody(skillPath.trim(), ref, SKILLS_DIR);
 
       return {
         content: [

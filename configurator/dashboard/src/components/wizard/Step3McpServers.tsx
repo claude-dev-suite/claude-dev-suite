@@ -69,6 +69,18 @@ export function Step3McpServers({
     fetchServers();
   }, []);
 
+  // Auto-select dev-suite built-in MCP servers (`isDefault: true`).
+  // Backend also auto-includes them at install time, but reflecting the
+  // selection in the UI keeps state consistent and the user informed.
+  useEffect(() => {
+    if (servers.length === 0) return;
+    for (const server of servers) {
+      if (server.isDefault && !selectedMcpServers.includes(server.name)) {
+        onToggleMcpServer(server.name);
+      }
+    }
+  }, [servers, selectedMcpServers, onToggleMcpServer]);
+
   // Calculate servers recommended by selected agents
   const agentRecommendedServers = useMemo(() => {
     const recommended = new Set<string>();
@@ -121,11 +133,11 @@ export function Step3McpServers({
     <div className="space-y-6">
       {lazyEnabled && (
         <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm text-blue-300">
-          <strong>Lazy skill loading enabled.</strong> Selecting <code>skill-loader</code> switches the
-          install to a hybrid model: skills referenced by the agents you picked are installed natively
-          (Claude Code auto-discovers them, body loaded on-demand) — all other skills stay reachable
-          via the <code>skill-loader</code> MCP server. <code>DEV_SUITE_ROOT</code> is pre-filled in
-          the next step with the dev-suite bundle shipped with this Dashboard.
+          <strong>Tiered skill loading is built-in.</strong> The <code>skill-loader</code> MCP server
+          is always installed: each agent's <code>core_skills</code> are preloaded as native Claude
+          Code skills (descriptions in context, body on demand) while <code>extended_skills</code>
+          and the rest of the dev-suite catalog stay reachable via <code>skill-loader</code> on
+          demand. <code>DEV_SUITE_ROOT</code> is pre-filled in the next step.
         </div>
       )}
       <PanelSection
@@ -184,29 +196,46 @@ export function Step3McpServers({
             const isRecommendedByAgent = agentRecommendedServers.has(server.name);
             const isRecommended = recommendedMcpServers.includes(server.name);
             const hasEnvVars = server.envVars.some((v) => v.required);
+            const isBuiltIn = server.isDefault === true;
 
             return (
               <Card
                 key={server.name}
-                selectable
+                selectable={!isBuiltIn}
                 selected={isSelected}
-                onClick={() => onToggleMcpServer(server.name)}
+                onClick={isBuiltIn ? undefined : () => onToggleMcpServer(server.name)}
                 padding="md"
               >
                 <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={isSelected}
-                    onChange={() => onToggleMcpServer(server.name)}
-                  />
+                  {isBuiltIn ? (
+                    <div
+                      className="w-4 h-4 mt-0.5 flex items-center justify-center text-primary-400"
+                      title="Built-in dev-suite capability — always installed"
+                    >
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => onToggleMcpServer(server.name)}
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-white">{server.name}</span>
-                      {isRecommendedByAgent && (
+                      {isBuiltIn && (
+                        <Badge variant="success" size="sm">
+                          Always installed
+                        </Badge>
+                      )}
+                      {!isBuiltIn && isRecommendedByAgent && (
                         <Badge variant="info" size="sm">
                           Recommended
                         </Badge>
                       )}
-                      {isRecommended && !isRecommendedByAgent && (
+                      {!isBuiltIn && isRecommended && !isRecommendedByAgent && (
                         <Badge variant="success" size="sm">
                           Detected
                         </Badge>

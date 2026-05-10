@@ -6,10 +6,14 @@ description: |
   unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, mcp__documentation__*
-skills:
+core_skills:
   - frontend-frameworks/react
-  - frontend-frameworks/react-19
   - frontend-frameworks/react-hooks
+  - languages/typescript
+extended_skills:
+  - state-management/zustand
+  - styling/tailwindcss
+  - frontend-frameworks/react-19
   - frontend-frameworks/react-suspense
   - frontend-frameworks/react-patterns
   - frontend-frameworks/react-context
@@ -20,10 +24,7 @@ skills:
   - frontend-frameworks/react-forms
   - frontend-frameworks/react-server-components
   - frontend-frameworks/react-hook-form
-  - languages/typescript
-  - styling/tailwindcss
   - styling/shadcn-ui
-  - state-management/zustand
   - state-management/tanstack-query
   - state-management/swr
   - testing/vitest

@@ -9,6 +9,7 @@ import {
   cleanupTempDir,
   createMockDevSuiteDir,
   createMockProject,
+  createMockSkillLoader,
 } from './test-utils.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -232,7 +233,25 @@ describe('InstallationService', () => {
         mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }>;
       };
       expect(mcpJson.mcpServers['skill-loader']).toBeDefined();
-      expect(mcpJson.mcpServers['skill-loader'].env.DEV_SUITE_ROOT).toBeDefined();
+      // No DEV_SUITE_ROOT by default — server self-resolves to bundled skills.
+      // Keeping the env empty makes the project portable across machines.
+      expect(mcpJson.mcpServers['skill-loader'].env.DEV_SUITE_ROOT).toBeUndefined();
+    });
+
+    it('passes DEV_SUITE_ROOT to skill-loader env only when user provides one', async () => {
+      const customRoot = '/some/custom/dev-suite';
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: { DEV_SUITE_ROOT: customRoot },
+        skillLoadingMode: 'lazy',
+      });
+
+      const mcpJson = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.mcp.json'), 'utf-8'),
+      ) as { mcpServers: Record<string, { env: Record<string, string> }> };
+      expect(mcpJson.mcpServers['skill-loader'].env.DEV_SUITE_ROOT).toBe(customRoot);
     });
 
     it('should NOT add skill-loader to .mcp.json in eager mode (default)', async () => {
@@ -293,6 +312,159 @@ describe('InstallationService', () => {
       // The natively preloaded skill folder is also tracked.
       const skillEntry = manifest.files.find(f => f.path === '.claude/skills/typescript');
       expect(skillEntry).toBeDefined();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Auto-include of MCP servers marked `isDefault: true`
+  // ---------------------------------------------------------------------------
+
+  describe('isDefault MCP servers (built-in capabilities)', () => {
+    beforeEach(() => {
+      createMockSkillLoader(devSuiteDir);
+      // Cache from a previous test (different beforeEach instance) may already
+      // hold the older server list — force the next install to re-scan.
+      installationService = new InstallationService();
+    });
+
+    it('auto-includes skill-loader in .mcp.json even if not explicitly requested', async () => {
+      const manifest = await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [], // user picked nothing
+        envVars: {},
+      });
+
+      // Manifest reflects the auto-included server
+      expect(manifest.mcpServers).toContain('skill-loader');
+
+      // .mcp.json carries the entry — env is empty by default so the
+      // project remains portable; the server self-resolves to its
+      // bundled skills/ catalog.
+      const mcpJson = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.mcp.json'), 'utf-8'),
+      ) as { mcpServers: Record<string, { env: Record<string, string> }> };
+      expect(mcpJson.mcpServers['skill-loader']).toBeDefined();
+      expect(mcpJson.mcpServers['skill-loader'].env).toEqual({});
+    });
+
+    it('auto-include forces lazy mode (writes _README.md and preloads core skills)', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      // Lazy mode marker
+      expect(fs.existsSync(path.join(projectDir, '.claude', 'skills', '_README.md'))).toBe(true);
+      // typescript-expert declares only `skills:` (legacy) → treated as core,
+      // so the typescript skill is preloaded under flat name.
+      expect(fs.existsSync(path.join(projectDir, '.claude', 'skills', 'typescript', 'SKILL.md'))).toBe(true);
+    });
+
+    it('writes skillListingBudgetFraction=0.05 in .claude/settings.json on fresh install', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const settingsPath = path.join(projectDir, '.claude', 'settings.json');
+      expect(fs.existsSync(settingsPath)).toBe(true);
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      expect(settings.skillListingBudgetFraction).toBe(0.05);
+    });
+
+    it('preserves an existing skillListingBudgetFraction set by the user', async () => {
+      const settingsPath = path.join(projectDir, '.claude', 'settings.json');
+      fs.mkdirSync(path.join(projectDir, '.claude'), { recursive: true });
+      fs.writeFileSync(
+        settingsPath,
+        JSON.stringify({ skillListingBudgetFraction: 0.1, customField: 'keep me' }, null, 2),
+      );
+
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      expect(settings.skillListingBudgetFraction).toBe(0.1); // user value preserved
+      expect(settings.customField).toBe('keep me');
+    });
+
+    it('merges skillListingBudgetFraction into an existing settings.json without it', async () => {
+      const settingsPath = path.join(projectDir, '.claude', 'settings.json');
+      fs.mkdirSync(path.join(projectDir, '.claude'), { recursive: true });
+      fs.writeFileSync(
+        settingsPath,
+        JSON.stringify({ hooks: { PreToolUse: [] } }, null, 2),
+      );
+
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      expect(settings.skillListingBudgetFraction).toBe(0.05);
+      // Pre-existing keys are kept
+      expect(settings.hooks).toEqual({ PreToolUse: [] });
+    });
+
+    it('removes stale skill folders left by a previous install', async () => {
+      // Simulate a stale eager-mode install: nested folder with SKILL.md
+      const skillsDir = path.join(projectDir, '.claude', 'skills');
+      const staleNested = path.join(skillsDir, 'infrastructure', 'systemd');
+      fs.mkdirSync(staleNested, { recursive: true });
+      fs.writeFileSync(path.join(staleNested, 'SKILL.md'), '# stale\n');
+      // Simulate a stale lazy-mode install: flat folder
+      const staleFlat = path.join(skillsDir, 'old-flat-skill');
+      fs.mkdirSync(staleFlat, { recursive: true });
+      fs.writeFileSync(path.join(staleFlat, 'SKILL.md'), '# stale\n');
+      // Preserve a user-owned non-skill file
+      fs.writeFileSync(path.join(skillsDir, 'NOTES.md'), 'user notes');
+
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      // Stale folders are gone
+      expect(fs.existsSync(staleNested)).toBe(false);
+      expect(fs.existsSync(staleFlat)).toBe(false);
+      // User-owned top-level file is preserved
+      expect(fs.existsSync(path.join(skillsDir, 'NOTES.md'))).toBe(true);
+      // Fresh install still wrote the typescript skill
+      expect(fs.existsSync(path.join(skillsDir, 'typescript', 'SKILL.md'))).toBe(true);
+    });
+
+    it('explicit skillLoadingMode=eager bypasses lazy even when skill-loader auto-included', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        skillLoadingMode: 'eager',
+      });
+
+      // skill-loader still auto-included into manifest …
+      const mcpJson = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.mcp.json'), 'utf-8'),
+      ) as { mcpServers: Record<string, unknown> };
+      // …but eager mode does NOT add it to .mcp.json (the MCP entry is
+      // only emitted in lazy mode where the runtime fallback is needed)
+      expect(mcpJson.mcpServers['skill-loader']).toBeUndefined();
+      // No _README.md written in eager mode
+      expect(fs.existsSync(path.join(projectDir, '.claude', 'skills', '_README.md'))).toBe(false);
     });
   });
 });

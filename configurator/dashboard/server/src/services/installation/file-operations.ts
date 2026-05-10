@@ -11,6 +11,7 @@ import * as crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { getLogger } from '../../utils/logger.js';
 import { validatePathWithinBase, validateEntryName } from './security-helpers.js';
+import { expandBundleEntry } from '../agent-bundles.js';
 
 const logger = getLogger('InstallationFileOps');
 
@@ -179,22 +180,125 @@ export function flattenSkillName(skillPath: string): string {
   return `${head}-${hash}`;
 }
 
+export interface ParsedAgentSkills {
+  /** Union of core + extended (deduplicated, bundle-expanded). */
+  all: string[];
+  /** Skills always preloaded under `.claude/skills/`. */
+  core: string[];
+  /** Skills accessible only via `skill-loader` MCP (not preloaded). */
+  extended: string[];
+}
+
 /**
- * Parse skills list from agent file content
+ * Defensive cap for unmigrated agents that still declare a single legacy
+ * `skills:` list. When `core_skills:` is missing, the first
+ * `LEGACY_SKILLS_CORE_CAP` entries become core (preloaded for Claude Code's
+ * Level 1 description budget), the rest fall through to extended (reachable
+ * via `skill-loader`). Without this cap, an unmigrated agent with 25+ skills
+ * (e.g. spring-boot-expert) would single-handedly consume the entire ~1%
+ * `skillListingBudgetFraction` budget and cause the *"N descriptions
+ * dropped"* warning.
+ *
+ * Agents that explicitly declare `core_skills:` bypass this cap — the cap is
+ * a safety net for legacy frontmatters, not a global ceiling.
  */
-export function parseAgentSkills(content: string): string[] {
-  const skills: string[] = [];
-  const skillsMatch = content.match(/^skills:\s*\n((?:\s+-\s+.+\n?)+)/m);
-  if (skillsMatch?.[1]) {
-    const skillLines = skillsMatch[1].match(/^\s+-\s+(.+)$/gm);
-    if (skillLines) {
-      for (const line of skillLines) {
-        const match = line.match(/^\s+-\s+(.+)$/);
-        if (match?.[1]) skills.push(match[1].trim());
+export const LEGACY_SKILLS_CORE_CAP = 3;
+
+/**
+ * Parse a YAML list block like `skills:` / `core_skills:` / `extended_skills:`
+ * line-by-line, tolerating comment lines and blank lines.
+ */
+function parseYamlSkillList(content: string, key: string, agentId: string): string[] {
+  const raw: string[] = [];
+  const lines = content.split('\n');
+  const keyRe = new RegExp(`^${key}:\\s*$`);
+  let inBlock = false;
+  for (const line of lines) {
+    if (keyRe.test(line)) {
+      inBlock = true;
+      continue;
+    }
+    if (inBlock) {
+      // A non-indented, non-empty line signals a new top-level YAML key
+      if (line.length > 0 && !/^\s/.test(line)) {
+        inBlock = false;
+        continue;
+      }
+      const itemMatch = line.match(/^\s+-\s+(.+)$/);
+      if (itemMatch?.[1]) {
+        const entry = itemMatch[1].replace(/#.*$/, '').trim();
+        if (entry) raw.push(entry);
       }
     }
   }
-  return skills;
+
+  const seen = new Set<string>();
+  const expanded: string[] = [];
+  for (const entry of raw) {
+    for (const skill of expandBundleEntry(entry, agentId)) {
+      if (!seen.has(skill)) {
+        seen.add(skill);
+        expanded.push(skill);
+      }
+    }
+  }
+  return expanded;
+}
+
+/**
+ * Parse the YAML frontmatter of an agent file and return its skills tiered
+ * into `core` (always preloaded) and `extended` (on-demand via `skill-loader`).
+ *
+ * Schema rules:
+ * - If `core_skills:` is present, it populates `core`. `extended_skills:`
+ *   populates `extended`. Legacy `skills:` is ignored to avoid ambiguity.
+ * - If only legacy `skills:` is present (no `core_skills:`), the full list
+ *   populates `core` (zero-regression backward compat for unmigrated agents).
+ * - Bundle references (`bundle:<id>`) are expanded via `expandBundleEntry`.
+ *
+ * @param content Full agent file content (markdown with frontmatter)
+ * @param agentId Used only for warning messages on unknown bundles
+ */
+export function parseAgentSkillsStructured(content: string, agentId = 'unknown'): ParsedAgentSkills {
+  const frontmatterEnd = content.startsWith('---')
+    ? content.indexOf('---', 3)
+    : -1;
+  const frontmatter = frontmatterEnd > 0 ? content.substring(3, frontmatterEnd) : content;
+
+  const hasCoreKey = /^core_skills:\s*$/m.test(frontmatter);
+  let core: string[];
+  let extended: string[];
+
+  if (hasCoreKey) {
+    core = parseYamlSkillList(frontmatter, 'core_skills', agentId);
+    extended = parseYamlSkillList(frontmatter, 'extended_skills', agentId);
+  } else {
+    // Backward compat for legacy `skills:`. We cap how many become core to
+    // protect Claude Code's Level 1 description budget — see
+    // LEGACY_SKILLS_CORE_CAP. The remainder still ships with the agent but
+    // is reachable on demand via `skill-loader` MCP rather than preloaded.
+    const legacy = parseYamlSkillList(frontmatter, 'skills', agentId);
+    core = legacy.slice(0, LEGACY_SKILLS_CORE_CAP);
+    extended = legacy.slice(LEGACY_SKILLS_CORE_CAP);
+  }
+
+  // Deduplicate union (a skill in both core and extended → core wins).
+  const coreSet = new Set(core);
+  const all = [...core];
+  for (const s of extended) {
+    if (!coreSet.has(s)) all.push(s);
+  }
+
+  return { all, core, extended };
+}
+
+/**
+ * Backward-compatible accessor returning the full skill list (core + extended,
+ * deduplicated, bundle-expanded). Use `parseAgentSkillsStructured` when you
+ * need to distinguish the two tiers (e.g. lazy install pipeline).
+ */
+export function parseAgentSkills(content: string, agentId = 'unknown'): string[] {
+  return parseAgentSkillsStructured(content, agentId).all;
 }
 
 /**

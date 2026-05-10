@@ -36,8 +36,18 @@ describe('AgentsService', () => {
         expect(agent).toHaveProperty('description');
         expect(agent).toHaveProperty('category');
         expect(agent).toHaveProperty('skills');
+        expect(agent).toHaveProperty('coreSkills');
+        expect(agent).toHaveProperty('extendedSkills');
         expect(agent).toHaveProperty('filePath');
       }
+    });
+
+    it('unmigrated agents have coreSkills = skills and extendedSkills empty', async () => {
+      const agents = await agentsService.getAgents();
+      // Pick an agent that hasn't been migrated to the core/extended schema yet
+      const legacyAgent = agents.find((a) => a.skills.length > 0 && a.extendedSkills.length === 0);
+      if (!legacyAgent) return; // vacuously OK once all agents are migrated
+      expect(legacyAgent.coreSkills).toEqual(legacyAgent.skills);
     });
 
     it('should cache results', async () => {
@@ -75,6 +85,21 @@ describe('AgentsService', () => {
         expect(server).toHaveProperty('category');
         expect(server).toHaveProperty('tools');
         expect(server).toHaveProperty('envVars');
+      }
+    });
+
+    it('skill-loader is marked isDefault: true (built-in capability)', async () => {
+      const servers = await agentsService.getMcpServers();
+      const skillLoader = servers.find((s) => s.name === 'skill-loader');
+      expect(skillLoader, 'skill-loader MCP server not found').toBeDefined();
+      expect(skillLoader!.isDefault).toBe(true);
+    });
+
+    it('non-default servers have isDefault unset or false', async () => {
+      const servers = await agentsService.getMcpServers();
+      const nonDefault = servers.filter((s) => s.name !== 'skill-loader');
+      for (const server of nonDefault) {
+        expect(server.isDefault, `${server.name} should not be marked isDefault`).not.toBe(true);
       }
     });
 

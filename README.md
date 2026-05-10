@@ -214,7 +214,7 @@ Specialized MCP servers extend Claude Code with powerful tools:
 | **code-quality** | 7 | Complexity analysis, dead code, duplicates, import graph |
 | **security-scanner** | 6 | Dependency audit, secrets scan, SAST |
 | **dashboard-bridge** | 9 | Dashboard control, orchestrator queue |
-| **skill-loader** | 3 | Lazy-load dev-suite skill bodies on demand (powers hybrid lazy-skill installs) |
+| **skill-loader** ⭐ | 3 | Built-in: lazy-loads dev-suite skill bodies on demand. Always installed; powers tiered `core_skills` / `extended_skills` agent schema |
 
 See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 

@@ -11,11 +11,12 @@
   "envVars": [
     {
       "name": "DEV_SUITE_ROOT",
-      "description": "Absolute path to the dev-suite source repository. Required so the server can read skill files at runtime.",
-      "required": true,
+      "description": "Optional override: absolute path to a dev-suite source repository (for development against live skill changes). When unset, the server uses its bundled skills catalog — no configuration needed.",
+      "required": false,
       "default": ""
     }
   ],
   "recommendedFor": [],
-  "detectedWhen": []
+  "detectedWhen": [],
+  "isDefault": true
 }

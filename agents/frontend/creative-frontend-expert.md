@@ -9,13 +9,14 @@ description: |
   in the browser.
 model: sonnet
 allowed-tools: Read, Edit, Write, Bash, Glob, Grep, mcp__documentation__*
-skills:
+core_skills:
   - animation/framer-motion
   - animation/gsap
+  - styling/advanced-css-effects
+extended_skills:
   - graphics/three-js
   - graphics/svg-animation
   - graphics/canvas-webgl
-  - styling/advanced-css-effects
 ---
 
 # Creative Frontend Expert Agent

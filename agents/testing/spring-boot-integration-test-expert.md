@@ -6,14 +6,15 @@ description: |
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - testing/spring-boot-integration
   - testing/testcontainers
   - testing/junit
-  - testing/rest-assured
+extended_skills:
   - backend-frameworks/spring-boot
-  - backend-frameworks/spring-data-jpa
   - databases/postgresql
+  - testing/rest-assured
+  - backend-frameworks/spring-data-jpa
   - databases/mongodb
   - testing/messaging-testing-kafka
   - testing/messaging-testing-rabbitmq
@@ -22,7 +23,6 @@ skills:
   - backend-frameworks/spring-amqp
   - logging/logback
   - logging/slf4j
-  # Contract & load testing
   - testing/contract-testing
   - testing/load-testing
 ---

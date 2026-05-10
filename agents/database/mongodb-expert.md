@@ -6,10 +6,11 @@ description: |
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - databases/mongodb
   - databases/spring-data-mongodb
   - backend-frameworks/spring-boot
+extended_skills:
   - languages/java
   - infrastructure/docker
 ---

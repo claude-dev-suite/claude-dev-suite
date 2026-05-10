@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { describe, it, expect } from 'vitest';
-import { flattenSkillName } from '../../src/services/installation/file-operations.js';
+import {
+  flattenSkillName,
+  parseAgentSkills,
+  parseAgentSkillsStructured,
+} from '../../src/services/installation/file-operations.js';
 
 describe('flattenSkillName', () => {
   it('passes through a simple lowercase name unchanged', () => {
@@ -50,5 +54,215 @@ describe('flattenSkillName', () => {
   it('only emits characters allowed by Claude Code skill naming rules', () => {
     const result = flattenSkillName('Frontend/React_Hooks.v2');
     expect(result).toMatch(/^[a-z0-9-]+$/);
+  });
+});
+
+describe('parseAgentSkillsStructured', () => {
+  it('legacy `skills:` (≤ cap) — all entries become core, extended empty', () => {
+    const content = `---
+name: legacy-agent
+description: Test
+skills:
+  - frontend-frameworks/react
+  - languages/typescript
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'legacy-agent');
+    expect(result.core).toEqual(['frontend-frameworks/react', 'languages/typescript']);
+    expect(result.extended).toEqual([]);
+    expect(result.all).toEqual(['frontend-frameworks/react', 'languages/typescript']);
+  });
+
+  it('legacy `skills:` (> cap) — first 3 become core, rest fall through to extended', () => {
+    const content = `---
+name: heavy-legacy
+description: Test
+skills:
+  - one
+  - two
+  - three
+  - four
+  - five
+  - six
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'heavy-legacy');
+    expect(result.core).toEqual(['one', 'two', 'three']);
+    expect(result.extended).toEqual(['four', 'five', 'six']);
+    // .all remains the full union, in the original order
+    expect(result.all).toEqual(['one', 'two', 'three', 'four', 'five', 'six']);
+  });
+
+  it('explicit `core_skills:` bypasses the legacy cap', () => {
+    const content = `---
+name: tiered-with-many
+description: Test
+core_skills:
+  - one
+  - two
+  - three
+  - four
+  - five
+extended_skills:
+  - six
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'tiered-with-many');
+    // All 5 explicitly-declared core_skills are preserved — the cap only
+    // applies to the legacy fallback path.
+    expect(result.core).toEqual(['one', 'two', 'three', 'four', 'five']);
+    expect(result.extended).toEqual(['six']);
+  });
+
+  it('new schema `core_skills:` + `extended_skills:` — both populated', () => {
+    const content = `---
+name: tiered-agent
+description: Test
+core_skills:
+  - frontend-frameworks/react
+  - languages/typescript
+extended_skills:
+  - frontend-frameworks/react-suspense
+  - state-management/zustand
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'tiered-agent');
+    expect(result.core).toEqual(['frontend-frameworks/react', 'languages/typescript']);
+    expect(result.extended).toEqual(['frontend-frameworks/react-suspense', 'state-management/zustand']);
+    expect(result.all).toEqual([
+      'frontend-frameworks/react',
+      'languages/typescript',
+      'frontend-frameworks/react-suspense',
+      'state-management/zustand',
+    ]);
+  });
+
+  it('new schema present — legacy `skills:` is ignored to avoid ambiguity', () => {
+    const content = `---
+name: mixed-agent
+description: Test
+skills:
+  - legacy/skill-that-should-be-ignored
+core_skills:
+  - frontend-frameworks/react
+extended_skills:
+  - state-management/zustand
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'mixed-agent');
+    expect(result.core).toEqual(['frontend-frameworks/react']);
+    expect(result.extended).toEqual(['state-management/zustand']);
+    expect(result.all).not.toContain('legacy/skill-that-should-be-ignored');
+  });
+
+  it('skill in both core and extended — core wins, no duplicate in `all`', () => {
+    const content = `---
+name: dup-agent
+description: Test
+core_skills:
+  - frontend-frameworks/react
+extended_skills:
+  - frontend-frameworks/react
+  - state-management/zustand
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'dup-agent');
+    expect(result.core).toEqual(['frontend-frameworks/react']);
+    expect(result.extended).toEqual(['frontend-frameworks/react', 'state-management/zustand']);
+    const reactCount = result.all.filter((s) => s === 'frontend-frameworks/react').length;
+    expect(reactCount).toBe(1);
+    expect(result.all).toEqual(['frontend-frameworks/react', 'state-management/zustand']);
+  });
+
+  it('expands `bundle:<id>` references in `core_skills:`', () => {
+    const content = `---
+name: bundled-agent
+description: Test
+core_skills:
+  - bundle:rag/foundation
+  - languages/python
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'bundled-agent');
+    expect(result.core).toContain('languages/python');
+    expect(result.core).toContain('rag/rag-architecture'); // from rag/foundation bundle
+    expect(result.core.length).toBeGreaterThan(2);
+  });
+
+  it('expands `bundle:<id>` references in `extended_skills:`', () => {
+    const content = `---
+name: bundled-extended-agent
+description: Test
+core_skills:
+  - languages/python
+extended_skills:
+  - bundle:rag/foundation
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'bundled-extended-agent');
+    expect(result.core).toEqual(['languages/python']);
+    expect(result.extended).toContain('rag/rag-architecture');
+    expect(result.extended.length).toBeGreaterThan(1);
+  });
+
+  it('tolerates inline YAML comments and blank lines', () => {
+    const content = `---
+name: commented-agent
+description: Test
+core_skills:
+  # Top of the list
+  - frontend-frameworks/react
+
+  - languages/typescript # core type system
+---
+# body`;
+    const result = parseAgentSkillsStructured(content, 'commented-agent');
+    expect(result.core).toEqual(['frontend-frameworks/react', 'languages/typescript']);
+  });
+
+  it('agent without any frontmatter returns empty lists', () => {
+    const content = '# just a body, no frontmatter\n';
+    const result = parseAgentSkillsStructured(content, 'no-fm-agent');
+    expect(result.core).toEqual([]);
+    expect(result.extended).toEqual([]);
+    expect(result.all).toEqual([]);
+  });
+});
+
+describe('parseAgentSkills (backward-compat wrapper)', () => {
+  it('returns the union of core + extended', () => {
+    const content = `---
+name: any
+description: x
+core_skills:
+  - a/x
+extended_skills:
+  - b/y
+---`;
+    expect(parseAgentSkills(content, 'any')).toEqual(['a/x', 'b/y']);
+  });
+
+  it('returns legacy skills list for unmigrated agents', () => {
+    const content = `---
+name: legacy
+description: x
+skills:
+  - a/x
+  - b/y
+---`;
+    expect(parseAgentSkills(content, 'legacy')).toEqual(['a/x', 'b/y']);
+  });
+
+  it('expands bundles (regression: previously bundles were dropped)', () => {
+    const content = `---
+name: bundled
+description: x
+skills:
+  - bundle:rag/foundation
+  - languages/python
+---`;
+    const result = parseAgentSkills(content, 'bundled');
+    expect(result).toContain('languages/python');
+    expect(result).toContain('rag/rag-architecture');
   });
 });

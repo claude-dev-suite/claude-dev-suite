@@ -9,10 +9,11 @@ description: |
   Use for UI reviews, design system setup, component styling, and UX audits.
 model: sonnet
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*
-skills:
+core_skills:
   - ux/visual-hierarchy
-  - ux/design-systems
   - ux/interaction-design
+  - ux/design-systems
+extended_skills:
   - styling/tailwindcss
   - styling/shadcn-ui
   - styling/radix-ui

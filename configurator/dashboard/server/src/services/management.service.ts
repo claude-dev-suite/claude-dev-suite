@@ -15,6 +15,7 @@ import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { createHash } from 'crypto';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
+import { parseAgentSkills } from './installation/file-operations.js';
 
 const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 
@@ -157,9 +158,9 @@ export class ManagementService {
     const destPath = path.join(agentsDir, agentId + '.md');
     fs.copyFileSync(agentFile, destPath);
 
-    // Copy skills
+    // Copy skills (eager — copy the agent's full skill set)
     const agentContent = fs.readFileSync(agentFile, 'utf-8');
-    const skills = this.parseAgentSkills(agentContent);
+    const skills = parseAgentSkills(agentContent, agentId);
     const skillsSource = path.join(devSuiteDir, 'skills');
 
     for (const skillPath of skills) {
@@ -500,21 +501,6 @@ export class ManagementService {
       }
     }
     return null;
-  }
-
-  private parseAgentSkills(content: string): string[] {
-    const skills: string[] = [];
-    const skillsMatch = content.match(/^skills:\s*\n((?:\s+-\s+.+\n?)+)/m);
-    if (skillsMatch?.[1]) {
-      const skillLines = skillsMatch[1].match(/^\s+-\s+(.+)$/gm);
-      if (skillLines) {
-        for (const line of skillLines) {
-          const match = line.match(/^\s+-\s+(.+)$/);
-          if (match?.[1]) skills.push(match[1].trim());
-        }
-      }
-    }
-    return skills;
   }
 
   private copyDirSync(src: string, dest: string): void {

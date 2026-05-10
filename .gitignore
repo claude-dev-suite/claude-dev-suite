@@ -16,6 +16,10 @@ pnpm-debug.log*
 mcp-servers/*/dist/
 mcp-servers/**/dist/
 
+# Skills catalog auto-bundled into skill-loader at build time (source of
+# truth lives in dev-suite/skills/). Never commit this duplicate.
+mcp-servers/skill-loader/skills/
+
 # Claude Code local configuration (developer-specific)
 .claude/
 

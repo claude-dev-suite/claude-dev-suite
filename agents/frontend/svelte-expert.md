@@ -6,13 +6,14 @@ description: |
   directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - frontend-frameworks/svelte
+  - meta-frameworks/sveltekit
   - languages/typescript
+extended_skills:
   - styling/tailwindcss
   - testing/vitest
   - testing/playwright
-  - meta-frameworks/sveltekit
   - ui-libraries/skeleton
 ---
 

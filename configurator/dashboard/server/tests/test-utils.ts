@@ -236,6 +236,12 @@ TypeScript fundamentals and patterns.
 `
   );
 
+  // Optional: also create a stand-in `skill-loader` MCP server marked
+  // `isDefault: true` so tests can exercise the auto-include path. Tests
+  // that don't need it can ignore it; tests that do can assert that it
+  // gets added to .mcp.json without explicit selection.
+  // (Built only when explicitly requested via createMockSkillLoader.)
+
   // Create registry directory
   const registryDir = path.join(dir, 'registry');
   fs.mkdirSync(registryDir, { recursive: true });
@@ -262,6 +268,55 @@ TypeScript fundamentals and patterns.
     path.join(registryDir, 'detection.json'),
     JSON.stringify({ patterns: [] }, null, 2)
   );
+}
+
+/**
+ * Add a stand-in `skill-loader` MCP server to a mock dev-suite directory.
+ * Marked `isDefault: true` so it triggers the auto-include path under test.
+ * Also extends `mcp-servers/package.json` workspaces with `skill-loader`.
+ */
+export function createMockSkillLoader(devSuiteDir: string): void {
+  const mcpRoot = path.join(devSuiteDir, 'mcp-servers');
+  const slDir = path.join(mcpRoot, 'skill-loader');
+  fs.mkdirSync(path.join(slDir, 'dist'), { recursive: true });
+  fs.writeFileSync(
+    path.join(slDir, 'package.json'),
+    JSON.stringify(
+      { name: '@dev-suite/skill-loader', version: '1.0.0', main: 'dist/index.js' },
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(
+    path.join(slDir, 'metadata.json'),
+    JSON.stringify(
+      {
+        name: 'skill-loader',
+        description: 'On-demand skill body loader',
+        shortDescription: 'Skill loader',
+        category: 'core',
+        tools: ['list_skills', 'load_skill', 'load_quick_ref'],
+        envVars: [{ name: 'DEV_SUITE_ROOT', description: 'dev-suite path', required: true, default: '' }],
+        recommendedFor: [],
+        detectedWhen: [],
+        isDefault: true,
+      },
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(
+    path.join(slDir, 'dist', 'index.js'),
+    '#!/usr/bin/env node\nconsole.log("skill-loader stub");',
+  );
+
+  // Extend workspaces array
+  const pkgPath = path.join(mcpRoot, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+  if (Array.isArray(pkg.workspaces) && !pkg.workspaces.includes('skill-loader')) {
+    pkg.workspaces.push('skill-loader');
+    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+  }
 }
 
 /**

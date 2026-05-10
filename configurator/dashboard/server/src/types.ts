@@ -52,7 +52,12 @@ export interface Agent {
   name: string;
   description: string;
   category: AgentCategory;
+  /** Union of coreSkills + extendedSkills (deduplicated, bundle-expanded). Kept for backward compat with consumers that don't distinguish tiers. */
   skills: string[];
+  /** Skills always preloaded under `.claude/skills/` in lazy mode (Level 1 budget). If the agent declares only legacy `skills:`, that list populates `coreSkills`. */
+  coreSkills: string[];
+  /** Skills not preloaded — accessible on-demand via `skill-loader` MCP server (`list_skills` / `load_skill`). Empty unless the agent uses the new `core_skills:` / `extended_skills:` schema. */
+  extendedSkills: string[];
   mcpServers: string[];
   filePath: string;
 }
@@ -79,6 +84,8 @@ export interface McpServer {
   recommendedFor: string[];
   detectedWhen: string[];
   path: string;
+  /** Built-in capability of dev-suite: always installed, hidden from the wizard checkbox. Used for `skill-loader` so agents can always reach the MCP-side skill catalog. */
+  isDefault?: boolean;
 }
 
 export interface EnvVarConfig {
@@ -102,16 +109,21 @@ export interface InstallConfig {
   /**
    * Controls how skill files are delivered to the target project.
    *
-   * - `'eager'` (default): copy every referenced SKILL.md into
-   *   `.claude/skills/<path>/SKILL.md` at install time. No runtime dependency.
-   * - `'lazy'`: hybrid model — copy only the skills referenced by selected
-   *   agents under flattened native names (`.claude/skills/<flat-name>/SKILL.md`)
-   *   so Claude Code's auto-discovery loads their description at boot and the
-   *   body on demand. All other dev-suite skills remain reachable via the
-   *   `skill-loader` MCP server (`list_skills`, `load_skill`). The
-   *   `skill-loader` entry is added to `.mcp.json` automatically.
-   *   Requires `DEV_SUITE_ROOT` to point to the dev-suite repo at runtime
-   *   (auto-prefilled by the dashboard with the bundled copy).
+   * - `'lazy'` (default when `skill-loader` is installed, which now happens
+   *   automatically): copy only each agent's `core_skills:` (or legacy
+   *   `skills:` for unmigrated agents) under flattened native names
+   *   (`.claude/skills/<flat-name>/SKILL.md`) so Claude Code auto-discovers
+   *   them and loads only descriptions at boot — bodies stay on demand.
+   *   `extended_skills:` and the wider dev-suite catalog remain reachable
+   *   via `skill-loader` MCP (`list_skills`, `load_skill`). `DEV_SUITE_ROOT`
+   *   is auto-prefilled by the dashboard.
+   * - `'eager'` (`@deprecated`): copy every referenced SKILL.md into
+   *   `.claude/skills/<path>/SKILL.md` at install time. Kept as an escape
+   *   hatch for environments without `DEV_SUITE_ROOT` (CI, container).
+   *   Not exposed in the dashboard UI.
+   *
+   * @deprecated `'eager'` value will be removed in a future major version;
+   *   prefer `'lazy'` (now built-in via `skill-loader`).
    */
   skillLoadingMode?: 'eager' | 'lazy';
 }

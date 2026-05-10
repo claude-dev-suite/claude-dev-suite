@@ -8,6 +8,143 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-05-10
+
+Patch release — eliminates the Claude Code *"N skill descriptions
+dropped"* warning on dev-suite installs by promoting the `skill-loader`
+MCP server to a built-in capability, introducing a tiered skill schema
+on agent frontmatters, and auto-tuning the project's
+`skillListingBudgetFraction`. Existing projects continue to work
+unchanged; re-installing the dev-suite picks up the new behaviour
+automatically.
+
+### Added
+
+- **Tiered skill schema on agent frontmatters** — agents can now declare
+  two separate lists:
+  - `core_skills:` — always preloaded under
+    `.claude/skills/<flat-name>/SKILL.md` (Level 1 description budget).
+  - `extended_skills:` — not preloaded; reachable on demand via the
+    `skill-loader` MCP server (`list_skills`, `load_skill`).
+  Legacy `skills:` is still accepted; when present without
+  `core_skills:`, the first 3 entries are treated as core
+  (`LEGACY_SKILLS_CORE_CAP`) and the rest fall through to extended.
+  This protects Claude Code's Level 1 budget when an unmigrated agent
+  declares 20+ skills (e.g. `spring-boot-expert`).
+
+- **`skill-loader` is now a built-in** — `isDefault: true` in its
+  `metadata.json` causes the install pipeline to auto-include it
+  regardless of user wizard selection, and `Step3McpServers.tsx`
+  renders a non-interactive *"Always installed"* badge instead of a
+  checkbox. Lazy mode becomes the default for any install where
+  `skill-loader` is present. Explicit `skillLoadingMode: 'eager'`
+  (`@deprecated`) is preserved as a documented escape hatch.
+
+- **`skill-loader` self-bundles its skills catalog** — a `prebuild`
+  step (`scripts/copy-skills.mjs`) syncs `dev-suite/skills/` into the
+  package's own `skills/` directory, which is shipped both inside the
+  Electron installer (via `extraResources`) and into per-project
+  `.mcp-servers/skill-loader/` copies. The server self-resolves at
+  runtime to its own bundled catalog, so projects are fully portable
+  across machines without `DEV_SUITE_ROOT`. The env var remains a
+  documented dev-time override against a live `dev-suite/skills/`.
+
+- **Auto-tuned `skillListingBudgetFraction`** — install pipeline writes
+  `0.05` (5%, ~100 descriptions of headroom) into the project's
+  `.claude/skills/settings.json` if no value is set. Costs ~10K tokens
+  per session (trivial vs ~200K context). User-set values are
+  preserved unchanged.
+
+- **Stale skill cleanup on re-install** — `.claude/skills/` is scrubbed
+  of dev-suite-managed folders (any subfolder containing a `SKILL.md`)
+  before the install populates it, so eager→lazy transitions and
+  changes to selected agents don't accumulate orphan descriptions.
+  Top-level non-skill files (e.g. user's `NOTES.md`) are preserved.
+
+- **Top-10 heaviest agents migrated to the new schema** — `rag-expert`,
+  `sysadmin-expert`, `ux-expert`, `mongodb-expert`,
+  `creative-frontend-expert`, `electron-expert`,
+  `spring-boot-integration-test-expert`, `windows-driver-expert`,
+  `svelte-expert`, `react-expert`. Each declares ≤ 3 individual
+  `core_skills`; bundles are exclusively in `extended_skills`.
+
+### Changed
+
+- **`installAgentLazy()` preloads only `core_skills`** (or, for legacy
+  agents, the first 3 entries of `skills:`). Extended skills stay in
+  the dev-suite catalog and are fetched on demand by `skill-loader` at
+  runtime, drastically reducing the `.claude/skills/` footprint.
+- **`.claude/skills/_README.md`** rewritten to describe the new
+  *core preloaded vs. extended on-demand* model.
+- **`installAgent()` (eager mode)** now correctly expands `bundle:<id>`
+  references via the shared parser (regression fix: before this
+  release, bundle entries were silently dropped in eager mode because
+  `parseAgentSkills` used a non-bundle-aware regex).
+- **Three duplicate `parseAgentSkills` implementations consolidated**
+  into a single `parseAgentSkillsStructured()` in
+  `installation/file-operations.ts`. `agents.service.ts`,
+  `installation.service.ts`, and `management.service.ts` share the
+  same parser (line-by-line, comment-tolerant, bundle-expanding).
+- **`Step3McpServers.tsx`** banner copy updated: tiered skill loading
+  is now described as built-in, not as something the user enables.
+
+### Fixed
+
+- **`skill-loader.load_skill` honors `disable-model-invocation`** —
+  skills tagged this way were already filtered out of `list_skills`
+  but could still be loaded by guessing the path. The loader now
+  checks the frontmatter and rejects the load.
+
+### Tests
+
+- Three test files extended:
+  `configurator/dashboard/server/tests/installation/file-operations.test.ts`
+  (parser cap, explicit `core_skills:` bypass, bundle expansion in
+  both tiers), `tests/installation.service.test.ts` (auto-include of
+  `isDefault` MCP servers, eager bypass, stale cleanup, settings.json
+  budget write/preserve/merge), `tests/agents.service.test.ts`
+  (`coreSkills`/`extendedSkills`/`isDefault` shape).
+- New `mcp-servers/skill-loader/tests/lib.test.ts` — 44 unit tests
+  covering `parseFrontmatter` (CRLF, multi-line `|`, malformed),
+  `firstSentence`, `resolveSkillPath` (traversal + absolute escape),
+  `buildSkillIndex` (filters, sort, fallback names), `loadSkillBody`,
+  `loadQuickRefBody` (path-separator rejection), and `resolveSkillsDir`
+  (env override vs bundled fallback).
+- `configurator/dashboard/server/tests/test-utils.ts` —
+  `createMockSkillLoader()` helper for auto-include scenarios.
+
+### Modified files
+
+- `mcp-servers/skill-loader/` — `metadata.json` (`isDefault: true`,
+  optional env), `src/index.ts` (uses `lib.resolveSkillsDir`),
+  `src/lib.ts` (new pure-function library, ~250 lines), `package.json`
+  (`prebuild` script + test scripts), `scripts/copy-skills.mjs`
+  (skills sync), `tests/lib.test.ts` (new).
+- `configurator/dashboard/server/src/types.ts` — `Agent.coreSkills`,
+  `Agent.extendedSkills`, `McpServer.isDefault`, `@deprecated 'eager'`.
+- `configurator/dashboard/server/src/services/installation/file-operations.ts`
+  — `parseAgentSkillsStructured()`, `LEGACY_SKILLS_CORE_CAP`.
+- `configurator/dashboard/server/src/services/installation.service.ts`
+  — `cleanStaleSkills()`, `ensureSkillBudget()`, auto-include of
+  `isDefault` MCP servers, `installAgentLazy` preloads only core.
+- `configurator/dashboard/server/src/services/agents.service.ts` —
+  uses shared parser, surfaces `isDefault`, no longer auto-prefills
+  `DEV_SUITE_ROOT`.
+- `configurator/dashboard/server/src/services/management.service.ts`
+  — duplicate `parseAgentSkills` removed.
+- `configurator/dashboard/src/components/wizard/Step3McpServers.tsx`
+  — checkbox replaced by *"Always installed"* badge for built-ins;
+  auto-select on mount.
+- `configurator/dashboard/src/types/mcp.ts` — `McpServer.isDefault`.
+- `configurator/dashboard/package.json` — `extraResources` filter
+  includes `skill-loader/skills/**`.
+- `agents/{data/rag,infrastructure/sysadmin,frontend/ux,
+  database/mongodb,frontend/creative-frontend,frontend/electron,
+  testing/spring-boot-integration-test,backend/windows-driver,
+  frontend/svelte,frontend/react}-expert.md` — split into
+  `core_skills` + `extended_skills`, ≤ 3 individual cores per agent.
+- `.gitignore` — `mcp-servers/skill-loader/skills/`.
+
 ## [1.8.1] - 2026-05-06
 
 Patch release — fixes a regression where the orchestrator chat would fail

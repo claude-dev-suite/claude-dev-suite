@@ -9,17 +9,18 @@ description: |
   Executes code modifications directly unless explicitly asked for analysis only.
 model: opus
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - languages/cpp
-  - build-tools/cmake
-  - quality/cpp-quality
-  - security/cpp-security
   - windows/wdf-kmdf
+  - windows/driver-debugging
+extended_skills:
+  - windows/driver-signing
+  - quality/cpp-quality
+  - build-tools/cmake
+  - security/cpp-security
   - windows/wdf-umdf
   - windows/hid-input-filter
   - windows/indirect-display
-  - windows/driver-debugging
-  - windows/driver-signing
 mcp_servers:
   - documentation
 ---

@@ -13,7 +13,7 @@ import { parseYamlDescription } from '../utils/yaml-utils.js';
 import { timeOperation, TIMING_THRESHOLDS } from '../utils/performance.js';
 import { getLogger } from '../utils/logger.js';
 import { extractEnvVar, EXCLUDED_DIRS } from '../utils/fs-utils.js';
-import { expandBundleEntry } from './agent-bundles.js';
+import { parseAgentSkillsStructured } from './installation/file-operations.js';
 
 const logger = getLogger('AgentsService');
 
@@ -175,15 +175,12 @@ export class AgentsService {
                 let detectedValue = envVar.default || '';
                 let source = detectedValue ? 'default' : 'manual';
 
-                // Auto-prefill DEV_SUITE_ROOT for the skill-loader MCP server
-                // with the dev-suite bundle path the dashboard already knows
-                // about (Electron resourcesPath in production / repo root in
-                // dev). This way users don't have to clone/locate the repo
-                // manually — the install just works out of the box.
-                if (serverName === 'skill-loader' && envVar.name === 'DEV_SUITE_ROOT') {
-                  detectedValue = devSuiteDir;
-                  source = 'bundled-dev-suite';
-                }
+                // skill-loader's `DEV_SUITE_ROOT` is a development-time
+                // override only — the server self-resolves to its bundled
+                // skills/ catalog when unset. We do NOT auto-prefill it
+                // here, otherwise we'd bake an absolute path tied to the
+                // dashboard's filesystem into the project's `.mcp.json`,
+                // breaking portability when the project is moved or shared.
 
                 // Try to detect value from project .env files
                 if (projectPath) {
@@ -260,50 +257,13 @@ export class AgentsService {
       // Parse description
       const description = parseYamlDescription(frontmatter);
 
-      // Parse skills — entries may be plain paths or bundle references
-      // (e.g. `- bundle:rag/foundation`). Bundles are expanded to their
-      // constituent skill paths and the final list is deduplicated so that
-      // a skill appearing in multiple bundles (or listed explicitly AND
-      // inside a bundle) is included only once.
-      //
-      // The parser works line-by-line so it tolerates comment lines
-      // (lines starting with `#`) interspersed in the YAML list, which
-      // the original single-regex approach could not handle.
-      const rawSkills: string[] = [];
-      const frontmatterLines = frontmatter.split('\n');
-      let inSkillsBlock = false;
-      for (const line of frontmatterLines) {
-        if (/^skills:\s*$/.test(line)) {
-          inSkillsBlock = true;
-          continue;
-        }
-        if (inSkillsBlock) {
-          // A non-indented, non-empty, non-comment line signals a new top-level key
-          if (line.length > 0 && !/^\s/.test(line)) {
-            inSkillsBlock = false;
-            continue;
-          }
-          const itemMatch = line.match(/^\s+-\s+(.+)$/);
-          if (itemMatch?.[1]) {
-            // Strip inline YAML comments (e.g. `bundle:x # comment`)
-            const entry = itemMatch[1].replace(/#.*$/, '').trim();
-            if (entry) rawSkills.push(entry);
-          }
-          // Comment-only or blank indented lines are silently skipped
-        }
-      }
-
       const agentId = fileName.replace('.md', '');
-      const seen = new Set<string>();
-      const skills: string[] = [];
-      for (const entry of rawSkills) {
-        for (const skill of expandBundleEntry(entry, agentId)) {
-          if (!seen.has(skill)) {
-            seen.add(skill);
-            skills.push(skill);
-          }
-        }
-      }
+
+      // Parse skills with the shared structured parser (handles legacy
+      // `skills:` and the new `core_skills:` / `extended_skills:` schema,
+      // expands `bundle:<id>` references, deduplicates).
+      const { all: skills, core: coreSkills, extended: extendedSkills } =
+        parseAgentSkillsStructured(content, agentId);
 
       // Parse MCP servers from allowed-tools
       const mcpServers: string[] = [];
@@ -338,6 +298,8 @@ export class AgentsService {
         description: description || `${name} agent`,
         category,
         skills,
+        coreSkills,
+        extendedSkills,
         mcpServers,
         filePath,
       };
@@ -358,6 +320,7 @@ export class AgentsService {
     let envVars: EnvVarConfig[] = [];
     let recommendedFor: string[] = [];
     let detectedWhen: string[] = [];
+    let isDefault = false;
 
     const metadataPath = path.join(serverPath, 'metadata.json');
     if (fs.existsSync(metadataPath)) {
@@ -369,6 +332,7 @@ export class AgentsService {
         tools = metadata.tools || [];
         recommendedFor = metadata.recommendedFor || [];
         detectedWhen = metadata.detectedWhen || [];
+        isDefault = metadata.isDefault === true;
 
         if (metadata.envVars && Array.isArray(metadata.envVars)) {
           envVars = metadata.envVars.map((ev: Record<string, unknown>) => ({
@@ -412,6 +376,7 @@ export class AgentsService {
       recommendedFor,
       detectedWhen,
       path: serverPath,
+      isDefault,
     };
   }
 

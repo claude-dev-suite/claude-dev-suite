@@ -10,8 +10,14 @@ description: |
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
-  # RAG bundles (expand to 89 skills at load time)
+core_skills:
+  # 3 single skills — RAG architecture + Python language + chunking. Everything
+  # else (specialized patterns, evaluation, ingestion, retrieval, vector stores,
+  # frameworks, ops) is on-demand via skill-loader.
+  - rag/rag-architecture
+  - rag/chunking-strategies
+  - languages/python
+extended_skills:
   - bundle:rag/foundation
   - bundle:rag/specialized
   - bundle:rag/knowledge-graph
@@ -23,10 +29,8 @@ skills:
   - bundle:rag/document-processing
   - bundle:rag/frameworks
   - bundle:rag/ops
-  # Supporting skills (explicit)
-  - best-practices/token-optimization
-  - languages/python
   - data-validation/pydantic
+  - best-practices/token-optimization
   - testing/pytest
   - logging/python
   - security/api-security

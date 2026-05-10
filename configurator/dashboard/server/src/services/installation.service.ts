@@ -25,6 +25,7 @@ import {
   copyDirSync,
   findAgentFile,
   parseAgentSkills,
+  parseAgentSkillsStructured,
   flattenSkillName,
   getServerEnvVars,
   updateClaudeMd,
@@ -130,12 +131,29 @@ export class InstallationService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    const { agents, mcpServers, envVars, rules = [], detectedStack } = config;
+    const { agents, mcpServers: requestedMcpServers, envVars, rules = [], detectedStack } = config;
     const devSuiteDir = getDevSuiteDir();
 
-    // Auto-link: if the user explicitly selects the `skill-loader` MCP server,
-    // implicitly switch to lazy skill loading (the whole point of that server).
-    // The client can still override by passing skillLoadingMode='eager' explicitly.
+    // Auto-include MCP servers marked `isDefault: true` in their metadata
+    // (dev-suite built-in capabilities, currently `skill-loader`). Skipped
+    // when the caller explicitly asks for `skillLoadingMode='eager'` —
+    // that's the escape hatch for environments without DEV_SUITE_ROOT
+    // (CI, containers). Eager mode copies all skills locally so the MCP
+    // runtime fallback isn't needed.
+    const mcpServers = [...requestedMcpServers];
+    const allowAutoInclude = config.skillLoadingMode !== 'eager';
+    if (allowAutoInclude) {
+      const allServers = await this.agentsService.getMcpServers();
+      for (const meta of allServers) {
+        if (meta.isDefault && !mcpServers.includes(meta.name)) {
+          mcpServers.push(meta.name);
+          logger.info('Auto-included default MCP server', { context: { name: meta.name } });
+        }
+      }
+    }
+
+    // Lazy is the default whenever `skill-loader` is in the install set
+    // (now automatic via `isDefault`). Explicit `'eager'` still wins.
     let skillLoadingMode: 'eager' | 'lazy' = config.skillLoadingMode ?? 'eager';
     if (config.skillLoadingMode === undefined && mcpServers.includes('skill-loader')) {
       skillLoadingMode = 'lazy';
@@ -174,6 +192,25 @@ export class InstallationService {
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.mkdirSync(skillsDir, { recursive: true });
     fs.mkdirSync(mcpServersDir, { recursive: true });
+
+    // Clean stale skill folders left over from previous installs (eager
+    // mode nested folders, lazy mode flat names from a previous agent set).
+    // Without this, re-installing accumulates skill descriptions in
+    // `.claude/skills/` and re-triggers Claude Code's
+    // `skillListingBudgetFraction` warning. We treat any direct child of
+    // `.claude/skills/` containing a `SKILL.md` (anywhere in its tree) as
+    // dev-suite-managed and remove it. `_README.md` and unrelated user files
+    // are preserved.
+    this.cleanStaleSkills(skillsDir);
+
+    // dev-suite typically installs 30-60 core skills across selected agents,
+    // which exceeds Claude Code's default `skillListingBudgetFraction = 0.01`
+    // (~20 descriptions). We raise it to 0.05 (~100 descriptions) so the
+    // *"N descriptions dropped"* warning doesn't fire. The bump costs ~10K
+    // tokens per session — trivial vs the ~200K context window. User's
+    // explicit override (any pre-existing value in `.claude/settings.json`)
+    // is preserved.
+    this.ensureSkillBudget(claudeDir, manifest, extendedManifest, projectPath);
 
     // Install agents
     // In lazy mode we split skills in two buckets:
@@ -229,27 +266,25 @@ export class InstallationService {
     }
 
     // In lazy mode: add the skill-loader MCP server entry to .mcp.json so
-    // Claude Code can fetch skill bodies at runtime.  Point to the LOCAL copy
-    // of the server in <project>/.mcp-servers/skill-loader/ (which the install
-    // step already populated with node_modules) — NOT to the dev-suite bundle,
-    // since the bundled folder ships only dist/ + metadata + package.json
-    // (no node_modules), so launching from there would crash on missing
-    // @modelcontextprotocol/sdk imports.
+    // Claude Code can fetch skill bodies at runtime. Point to the LOCAL copy
+    // of the server in <project>/.mcp-servers/skill-loader/ (which the
+    // install step already populated with node_modules + bundled skills) —
+    // NOT to the dev-suite source, so the project stays portable.
     //
-    // DEV_SUITE_ROOT still points to the bundled dev-suite (or repo root in
-    // dev mode) — that's the catalog the skill-loader reads SKILL.md from.
+    // The skill-loader self-resolves its skills directory from
+    // <packageDir>/skills/ (auto-bundled at build time). DEV_SUITE_ROOT is
+    // injected ONLY when the user explicitly provided one (development
+    // override against a live dev-suite source).
     if (skillLoadingMode === 'lazy') {
       const skillLoaderDist = path.join(projectPath, '.mcp-servers', 'skill-loader', 'dist', 'index.js');
-      // Use DEV_SUITE_ROOT from envVars if user customized it, otherwise the
-      // bundled / repo dev-suite path the dashboard is running against.
-      const devSuiteRoot = envVars?.DEV_SUITE_ROOT?.trim() || devSuiteDir;
+      const userOverride = envVars?.DEV_SUITE_ROOT?.trim();
       mcpConfig['skill-loader'] = {
         command: 'node',
         args: [skillLoaderDist],
-        env: { DEV_SUITE_ROOT: devSuiteRoot },
+        env: userOverride ? { DEV_SUITE_ROOT: userOverride } : {},
       };
       logger.info('Lazy skill loading enabled — skill-loader MCP server added to .mcp.json', {
-        context: { skillLoaderDist, devSuiteRoot },
+        context: { skillLoaderDist, devSuiteRootOverride: userOverride ?? null },
       });
     }
 
@@ -519,6 +554,123 @@ export class InstallationService {
     };
   }
 
+  /**
+   * Ensure `.claude/settings.json` raises `skillListingBudgetFraction` to a
+   * value that fits the dev-suite's typical core-skill count (30-60 across
+   * selected agents). Default Claude Code budget is 1% (~20 descriptions),
+   * which causes the *"N descriptions dropped"* warning on heavy installs.
+   *
+   * Behaviour:
+   * - File missing → create with `{ skillListingBudgetFraction: 0.05 }`
+   * - File present, key missing → merge in `0.05` while preserving everything
+   *   else (hooks, env, permissions)
+   * - File present, key already set → leave alone (respect user override —
+   *   even when it's lower than 0.05, the user knows their context budget
+   *   better than we do)
+   */
+  private ensureSkillBudget(
+    claudeDir: string,
+    manifest: InstallManifest,
+    extendedManifest: ExtendedManifest | undefined,
+    projectPath: string,
+  ): void {
+    const TARGET_BUDGET = 0.05;
+    const settingsPath = path.join(claudeDir, 'settings.json');
+    let settings: Record<string, unknown> = {};
+    let alreadySet = false;
+
+    if (fs.existsSync(settingsPath)) {
+      try {
+        const raw = fs.readFileSync(settingsPath, 'utf-8');
+        settings = JSON.parse(raw);
+        if (Object.prototype.hasOwnProperty.call(settings, 'skillListingBudgetFraction')) {
+          alreadySet = true;
+        }
+      } catch (error: unknown) {
+        logger.warn('Failed to parse existing .claude/settings.json — overwriting with safe defaults', {
+          error,
+          context: { settingsPath },
+        });
+        settings = {};
+      }
+    }
+
+    if (alreadySet) {
+      logger.info('Preserving user-set skillListingBudgetFraction', {
+        context: { value: settings.skillListingBudgetFraction },
+      });
+      return;
+    }
+
+    settings.skillListingBudgetFraction = TARGET_BUDGET;
+    try {
+      if (!fs.existsSync(claudeDir)) {
+        fs.mkdirSync(claudeDir, { recursive: true });
+      }
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      manifest.files.push({ path: '.claude/settings.json', type: 'config', source: 'generated' });
+      if (extendedManifest) {
+        this.trackFile(extendedManifest, projectPath, '.claude/settings.json', 'config');
+      }
+      logger.info('Set skillListingBudgetFraction in .claude/settings.json', {
+        context: { settingsPath, value: TARGET_BUDGET },
+      });
+    } catch (error: unknown) {
+      logger.warn('Failed to write .claude/settings.json — skill budget not raised', {
+        error,
+        context: { settingsPath },
+      });
+    }
+  }
+
+  /**
+   * Remove dev-suite-managed skill folders from `.claude/skills/` so a
+   * re-install starts from a clean slate. Any direct child of `skillsDir`
+   * that contains a `SKILL.md` anywhere in its tree is considered managed.
+   *
+   * Files at the top level (e.g. `_README.md`) are preserved. Unrelated
+   * folders that don't contain a `SKILL.md` (rare, but possible if the user
+   * keeps custom artifacts here) are also preserved.
+   */
+  private cleanStaleSkills(skillsDir: string): void {
+    if (!fs.existsSync(skillsDir)) return;
+
+    const containsSkillMd = (dir: string): boolean => {
+      try {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (entry.isFile() && entry.name === 'SKILL.md') return true;
+          if (entry.isDirectory() && containsSkillMd(path.join(dir, entry.name))) return true;
+        }
+      } catch {
+        // unreadable — treat as no match
+      }
+      return false;
+    };
+
+    let removed = 0;
+    for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const fullPath = path.join(skillsDir, entry.name);
+      if (containsSkillMd(fullPath)) {
+        try {
+          fs.rmSync(fullPath, { recursive: true, force: true });
+          removed++;
+        } catch (error: unknown) {
+          logger.warn('Failed to remove stale skill folder', {
+            error,
+            context: { folder: fullPath },
+          });
+        }
+      }
+    }
+
+    if (removed > 0) {
+      logger.info('Cleaned stale skill folders before re-install', {
+        context: { skillsDir, removed },
+      });
+    }
+  }
+
   private installAgent(
     agentId: string,
     projectPath: string,
@@ -555,9 +707,10 @@ export class InstallationService {
         this.trackFile(extendedManifest, projectPath, `.claude/agents/${agentId}.md`, 'agent', agentFile);
       }
 
-      // Copy skills
+      // Copy skills (eager — copy core + extended). Note: now bundle-expanded
+      // by the shared parser; previously bundles silently dropped here.
       const agentContent = fs.readFileSync(agentFile, 'utf-8');
-      const skills = parseAgentSkills(agentContent);
+      const skills = parseAgentSkills(agentContent, agentId);
       const skillsSource = path.join(devSuiteDir, 'skills');
 
       for (const skillPath of skills) {
@@ -598,13 +751,17 @@ export class InstallationService {
   /**
    * Lazy variant of installAgent.
    *
-   * Copies the agent .md file AND copies the skills it references natively
-   * under `.claude/skills/<flat-name>/SKILL.md` (flat structure required by
-   * Claude Code auto-discovery). This way Claude Code loads only the skill
-   * descriptions at boot — bodies stay on-demand. Skills NOT referenced by
-   * any selected agent are reachable via the `skill-loader` MCP server, with
-   * zero boot cost; their paths are accumulated in `lazySkillPaths` so the
-   * caller can write the MCP-side index.
+   * Copies the agent .md file AND preloads ONLY the agent's `core_skills:`
+   * (or, for unmigrated agents that still use legacy `skills:`, the full
+   * list — same as before) under `.claude/skills/<flat-name>/SKILL.md`.
+   * Claude Code's native progressive disclosure loads their description at
+   * boot (Level 1) and the body on demand (Level 2).
+   *
+   * `extended_skills:` are NOT preloaded — they are reachable via the
+   * `skill-loader` MCP server (`list_skills`, `load_skill`), which reads
+   * DEV_SUITE_ROOT directly at runtime. This keeps the Level 1 budget
+   * (~1% of context, `skillListingBudgetFraction`) under control even
+   * when many agents are installed.
    */
   private installAgentLazy(
     agentId: string,
@@ -644,7 +801,11 @@ export class InstallationService {
       }
 
       const agentContent = fs.readFileSync(agentFile, 'utf-8');
-      const skills = parseAgentSkills(agentContent);
+      // Lazy mode: preload only the agent's `core_skills` (or, for unmigrated
+      // agents that still use legacy `skills:`, treat the full list as core).
+      // `extended_skills:` are NOT copied locally — they are reachable via
+      // `skill-loader` MCP at runtime, which reads DEV_SUITE_ROOT directly.
+      const { core: skills } = parseAgentSkillsStructured(agentContent, agentId);
       const skillsSource = path.join(devSuiteDir, 'skills');
       const skillsDestRoot = path.join(projectPath, '.claude', 'skills');
 
@@ -750,20 +911,24 @@ export class InstallationService {
     const lines: string[] = [
       '# Skills (lazy mode)',
       '',
-      'This project uses dev-suite **lazy skill loading**:',
+      'This project uses dev-suite **tiered skill loading** to keep Claude',
+      'Code\'s skill description budget (`skillListingBudgetFraction`,',
+      '~1% of context) under control even with many agents installed.',
       '',
-      '- Skills referenced by the agents you selected are installed as native',
-      '  Claude Code skills under `.claude/skills/<name>/SKILL.md`. Claude Code',
-      '  auto-discovers them at boot (only the YAML description is loaded;',
-      '  the body is fetched on demand when the skill is invoked).',
-      '- All other dev-suite skills are reachable on demand via the',
-      '  `skill-loader` MCP server. Use:',
+      '- **Core skills** — declared as `core_skills:` in each agent\'s',
+      '  frontmatter (or `skills:` for unmigrated agents). Installed as',
+      '  native Claude Code skills under `.claude/skills/<name>/SKILL.md`.',
+      '  Claude Code auto-discovers them at boot: only the YAML description',
+      '  is loaded; the body is fetched on demand when the skill is invoked.',
+      '- **Extended skills** — declared as `extended_skills:` in each',
+      '  agent\'s frontmatter, plus the rest of the dev-suite catalog. NOT',
+      '  preloaded. Reachable on demand via the `skill-loader` MCP server:',
       '  - `mcp__skill-loader__list_skills` to discover available skills',
       '    (pass `groupByCategory: true` for a compact summary)',
-      '  - `mcp__skill-loader__load_skill({ skill_path: "<path>" })` to fetch',
-      '    a full SKILL.md body when needed',
+      '  - `mcp__skill-loader__load_skill({ skill_path: "<path>" })` to',
+      '    fetch a full SKILL.md body when needed',
       '',
-      `## Natively preloaded skills (${preloadedSkillPaths.size})`,
+      `## Natively preloaded core skills (${preloadedSkillPaths.size})`,
       '',
     ];
 
