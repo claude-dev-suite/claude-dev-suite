@@ -8,6 +8,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-05-14
+
+Minor release — Dev-Suite Dashboard is now published as a native
+installer for **Windows, macOS (Apple Silicon + Intel), and Linux
+(AppImage / .deb / .rpm)**. The previous workflow only produced a
+Windows `.exe`. Existing users see no behavioural change; new platforms
+gain a one-click installer flow.
+
+### Added
+
+- **Cross-platform release artifacts** — every tagged release now ships:
+  - Windows: NSIS `Setup-x.y.z.exe` (x64) + blockmap + `latest.yml`
+  - macOS: `arm64.dmg` and `x64.dmg` + blockmaps + `latest-mac.yml`
+  - Linux: `AppImage`, `.deb`, `.rpm` + `latest-linux.yml`
+- **Multi-platform GitHub Actions matrix** — `release.yml` runs on
+  `windows-latest`, `macos-latest`, and `ubuntu-latest` in parallel.
+  A new `clean-assets` job runs first to strip stale artifacts.
+- **`Desktop App Downloads` section in README** — per-platform install
+  steps including unsigned-build mitigations (SmartScreen "Run anyway"
+  on Windows, right-click → Open / `xattr -d com.apple.quarantine` on
+  macOS, AppImage `chmod +x` and FUSE 2 fallback on Linux).
+- **Platform-aware Node.js bundling** — `extraResources` now uses
+  `node-${arch}` so per-arch Node distributions can coexist; the macOS
+  build packs both `arm64` and `x64` binaries in the same run.
+
+### Changed
+
+- **`electron/main.cjs` path resolution** — five helpers
+  (`findBundledNode`, `findServerPath`, `findSplashPreload`,
+  `findSplashHtml`, `findPreload`) now use `process.resourcesPath` and
+  pick `node.exe` vs `bin/node` based on `process.platform`. Required
+  for macOS, where resources live under `.app/Contents/Resources/`
+  rather than `./resources/`.
+- **`CLAUDE.md` release checklist** — extended from 9 to 11 steps to
+  reflect multi-platform CI: local rebuild is now an optional Windows
+  smoke test, CI publishes the full asset set, and pre-release `rc.N`
+  tags are documented for risky releases.
+
+### Notes
+
+- Installers are **unsigned**. macOS users must approve via right-click
+  → Open or strip the quarantine flag on first launch. Windows users
+  see a one-time SmartScreen prompt. Code signing / Apple notarization
+  is planned for a follow-up release.
+
 ## [1.8.2] - 2026-05-10
 
 Patch release — eliminates the Claude Code *"N skill descriptions

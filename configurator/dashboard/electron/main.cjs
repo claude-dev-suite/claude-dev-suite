@@ -180,52 +180,33 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 // PATH UTILITIES
 // ============================================
 
-function findSplashPreload() {
-  const exePath = app.getPath('exe');
-  const exeDir = path.dirname(exePath);
-
+// process.resourcesPath resolves to the right resources folder on every platform:
+//   Windows : <install>/resources
+//   macOS   : <App>.app/Contents/Resources
+//   Linux   : <extracted>/resources (AppImage), /opt/<app>/resources (deb/rpm)
+function findElectronAsset(fileName) {
+  const resourcesPath = process.resourcesPath || '';
   const candidates = [
-    path.join(exeDir, 'resources', 'app.asar.unpacked', 'electron', 'splash-preload.cjs'),
-    path.join(exeDir, 'resources', 'electron', 'splash-preload.cjs'),
-    path.join(__dirname, 'splash-preload.cjs'),
+    path.join(resourcesPath, 'app.asar.unpacked', 'electron', fileName),
+    path.join(resourcesPath, 'electron', fileName),
+    path.join(__dirname, fileName),
   ];
-
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
   }
-  return path.join(__dirname, 'splash-preload.cjs');
+  return path.join(__dirname, fileName);
+}
+
+function findSplashPreload() {
+  return findElectronAsset('splash-preload.cjs');
 }
 
 function findSplashHtml() {
-  const exePath = app.getPath('exe');
-  const exeDir = path.dirname(exePath);
-
-  const candidates = [
-    path.join(exeDir, 'resources', 'app.asar.unpacked', 'electron', 'splash.html'),
-    path.join(exeDir, 'resources', 'electron', 'splash.html'),
-    path.join(__dirname, 'splash.html'),
-  ];
-
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
-  }
-  return path.join(__dirname, 'splash.html');
+  return findElectronAsset('splash.html');
 }
 
 function findPreload() {
-  const exePath = app.getPath('exe');
-  const exeDir = path.dirname(exePath);
-
-  const candidates = [
-    path.join(exeDir, 'resources', 'app.asar.unpacked', 'electron', 'preload.cjs'),
-    path.join(exeDir, 'resources', 'electron', 'preload.cjs'),
-    path.join(__dirname, 'preload.cjs'),
-  ];
-
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
-  }
-  return path.join(__dirname, 'preload.cjs');
+  return findElectronAsset('preload.cjs');
 }
 
 function getDevSuitePath() {
@@ -245,17 +226,18 @@ function getDevSuitePath() {
 }
 
 function findBundledNode() {
-  const exePath = app.getPath('exe');
-  const exeDir = path.dirname(exePath);
+  // Windows ships Node as `node.exe` at the root of the Node distribution.
+  // macOS and Linux ship it as `bin/node` inside the distribution folder.
+  const nodeBin = process.platform === 'win32' ? 'node.exe' : path.join('bin', 'node');
+  const resourcesPath = process.resourcesPath || '';
 
   const candidates = [
-    path.join(exeDir, 'resources', 'app.asar.unpacked', 'node', 'node.exe'),
-    path.join(exeDir, 'resources', 'node', 'node.exe'),
-    path.join(exeDir, 'node', 'node.exe'),
-    path.join(__dirname, '..', 'node', 'node.exe'),
+    path.join(resourcesPath, 'app.asar.unpacked', 'node', nodeBin),
+    path.join(resourcesPath, 'node', nodeBin),
+    path.join(__dirname, '..', 'node', nodeBin),
   ];
 
-  console.log('[Electron] Looking for node.exe...');
+  console.log('[Electron] Looking for bundled node (' + nodeBin + ')...');
   for (const p of candidates) {
     console.log('[Electron] Checking:', p, '- exists:', fs.existsSync(p));
     if (fs.existsSync(p)) {
@@ -267,13 +249,15 @@ function findBundledNode() {
 }
 
 function findServerPath() {
-  const exePath = app.getPath('exe');
-  const exeDir = path.dirname(exePath);
+  // process.resourcesPath points to the correct resources folder on every platform:
+  //   Windows : <install>/resources
+  //   macOS   : <App>.app/Contents/Resources
+  //   Linux   : <extracted>/resources (AppImage), /opt/<app>/resources (deb/rpm)
+  const resourcesPath = process.resourcesPath || '';
 
-  // Look for compiled TypeScript server
   const candidates = [
-    path.join(exeDir, 'resources', 'app.asar.unpacked', 'server', 'dist', 'index.js'),
-    path.join(exeDir, 'resources', 'app', 'server', 'dist', 'index.js'),
+    path.join(resourcesPath, 'app.asar.unpacked', 'server', 'dist', 'index.js'),
+    path.join(resourcesPath, 'app', 'server', 'dist', 'index.js'),
     path.join(__dirname, '..', 'server', 'dist', 'index.js'),
   ];
 

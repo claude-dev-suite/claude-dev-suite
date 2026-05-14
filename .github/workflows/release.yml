@@ -1,15 +1,24 @@
 # Dev-Suite Dashboard Release Workflow
 #
-# Builds the NSIS installer .exe and attaches it to the GitHub Release.
+# Builds installers for Windows (NSIS .exe), macOS (DMG arm64 + x64) and Linux
+# (AppImage + .deb + .rpm) and attaches them to the GitHub Release.
 #
 # Triggers on: push of tags matching v* (e.g., v1.0.0, v1.2.3)
 #
 # Release flow:
 #   1. Create a tag: git tag -a v1.0.0 -m "v1.0.0"
 #   2. Push: git push origin v1.0.0
-#   3. This workflow builds and uploads the .exe to the release
+#   3. This workflow cleans old assets, builds per-platform, and uploads.
 #
 # Re-running on the same tag will clean old assets before uploading.
+#
+# Artifacts produced per platform:
+#   Windows : *Setup*.exe, *.exe.blockmap, latest.yml
+#   macOS   : *-arm64.dmg, *-x64.dmg (+ blockmaps), latest-mac.yml
+#   Linux   : *.AppImage, *.deb, *.rpm, latest-linux.yml
+#
+# Builds are unsigned (Apple Developer ID / Windows code-signing cert not configured).
+# macOS users must right-click → Open or run `xattr -d com.apple.quarantine` on first launch.
 
 name: Release
 
@@ -26,8 +35,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
-    runs-on: windows-latest
+  clean-assets:
+    name: Clean previous release assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Ensure release exists, then strip old assets
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "Preparing release $VERSION"
+          if ! gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION does not exist yet — creating draft release"
+            gh release create "$VERSION" \
+              --title "$VERSION" \
+              --notes "Automated release — assets uploaded by CI." \
+              --draft=false
+          fi
+          gh release view "$VERSION" --json assets --jq '.assets[].name' | while read -r name; do
+            echo "Deleting: $name"
+            gh release delete-asset "$VERSION" "$name" --yes
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.os }})
+    needs: clean-assets
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            eb_args: --win nsis --x64
+          - os: macos-latest
+            platform: mac
+            eb_args: --mac dmg --arm64 --x64
+          - os: ubuntu-latest
+            platform: linux
+            eb_args: --linux AppImage deb rpm --x64
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
@@ -39,6 +90,10 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: configurator/dashboard/package-lock.json
+
+      - name: Install Linux packaging deps
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y rpm fakeroot
 
       - name: Install dashboard dependencies
         working-directory: configurator/dashboard
@@ -60,31 +115,63 @@ jobs:
         working-directory: mcp-servers
         run: npm run build
 
-      - name: Download bundled Node.js
+      - name: Download bundled Node.js (Windows x64)
+        if: matrix.os == 'windows-latest'
         working-directory: configurator/dashboard
         shell: bash
         run: |
           NODE_VERSION="20.11.1"
-          NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x64.zip"
-          curl -fL --retry 5 --retry-delay 10 --retry-connrefused -o node.zip "$NODE_URL"
+          curl -fL --retry 5 --retry-delay 10 --retry-connrefused -o node.zip \
+            "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x64.zip"
           unzip -q node.zip
-          rm -rf node
-          mv "node-v${NODE_VERSION}-win-x64" node
+          rm -rf node-x64
+          mv "node-v${NODE_VERSION}-win-x64" node-x64
           rm node.zip
 
-      - name: Ensure npm is available in bundled Node
+      - name: Ensure npm is available in bundled Node (Windows)
+        if: matrix.os == 'windows-latest'
         working-directory: configurator/dashboard
         shell: bash
         run: |
-          NPM_CLI="node/node_modules/npm/bin/npm-cli.js"
+          NPM_CLI="node-x64/node_modules/npm/bin/npm-cli.js"
           if [ ! -f "$NPM_CLI" ]; then
             echo "npm-cli.js not found in bundled node — copying from system npm..."
             SYSTEM_NPM=$(npm root -g)/npm
-            mkdir -p node/node_modules
-            cp -r "$SYSTEM_NPM" node/node_modules/npm
+            mkdir -p node-x64/node_modules
+            cp -r "$SYSTEM_NPM" node-x64/node_modules/npm
           fi
           ls "$NPM_CLI"
           echo "npm-cli.js OK"
+
+      - name: Download bundled Node.js (macOS arm64 + x64)
+        if: matrix.os == 'macos-latest'
+        working-directory: configurator/dashboard
+        run: |
+          NODE_VERSION="20.11.1"
+          for ARCH in arm64 x64; do
+            curl -fL --retry 5 --retry-delay 10 --retry-connrefused \
+              -o "node-darwin-${ARCH}.tar.gz" \
+              "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-${ARCH}.tar.gz"
+            tar -xf "node-darwin-${ARCH}.tar.gz"
+            rm -rf "node-${ARCH}"
+            mv "node-v${NODE_VERSION}-darwin-${ARCH}" "node-${ARCH}"
+            rm "node-darwin-${ARCH}.tar.gz"
+            test -x "node-${ARCH}/bin/node" || { echo "missing node binary for ${ARCH}"; exit 1; }
+          done
+
+      - name: Download bundled Node.js (Linux x64)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: configurator/dashboard
+        run: |
+          NODE_VERSION="20.11.1"
+          curl -fL --retry 5 --retry-delay 10 --retry-connrefused \
+            -o node-linux-x64.tar.xz \
+            "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+          tar -xf node-linux-x64.tar.xz
+          rm -rf node-x64
+          mv "node-v${NODE_VERSION}-linux-x64" node-x64
+          rm node-linux-x64.tar.xz
+          test -x node-x64/bin/node
 
       - name: Build frontend
         working-directory: configurator/dashboard
@@ -92,28 +179,42 @@ jobs:
 
       - name: Build Electron installer
         working-directory: configurator/dashboard
-        run: npx electron-builder --win nsis
+        run: npx electron-builder ${{ matrix.eb_args }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Avoid electron-builder probing the keychain for a Developer ID — we ship unsigned.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - name: Clean old release assets
+      - name: Upload artifacts to release
         shell: bash
+        working-directory: configurator/dashboard
         run: |
+          set -euo pipefail
           VERSION=${GITHUB_REF#refs/tags/}
-          echo "Cleaning old assets from release $VERSION"
-          gh release view "$VERSION" --json assets --jq '.assets[].name' | while read -r name; do
-            echo "Deleting: $name"
-            gh release delete-asset "$VERSION" "$name" --yes
+          shopt -s nullglob
+
+          declare -a FILES
+          case "${{ matrix.platform }}" in
+            win)
+              FILES=(dist-electron/*Setup*.exe dist-electron/*Setup*.exe.blockmap dist-electron/latest.yml)
+              ;;
+            mac)
+              FILES=(dist-electron/*.dmg dist-electron/*.dmg.blockmap dist-electron/latest-mac.yml)
+              ;;
+            linux)
+              FILES=(dist-electron/*.AppImage dist-electron/*.deb dist-electron/*.rpm dist-electron/latest-linux.yml)
+              ;;
+          esac
+
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "::error::No artifacts matched for platform ${{ matrix.platform }}"
+            ls -la dist-electron
+            exit 1
+          fi
+
+          for f in "${FILES[@]}"; do
+            echo "Uploading: $f"
+            gh release upload "$VERSION" "$f" --clobber
           done
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload installer to release
-        shell: bash
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          EXE=$(find configurator/dashboard/dist-electron -name "*Setup*.exe" | head -1)
-          echo "Uploading $EXE to release $VERSION"
-          gh release upload "$VERSION" "$EXE"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

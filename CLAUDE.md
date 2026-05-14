@@ -213,12 +213,19 @@ Version format: `MAJOR.MINOR.PATCH` — applied to `configurator/dashboard/packa
 1. Decide bump type (PATCH / MINOR / MAJOR) based on the table above
 2. Update `configurator/dashboard/package.json` and `configurator/dashboard/server/package.json` to the new version
 3. Move `## [Unreleased]` content in `CHANGELOG.md` to `## [x.y.z] - YYYY-MM-DD`, leave a blank `## [Unreleased]` above it
-4. Rebuild the Electron app: `cd configurator/dashboard && npm run electron:build`
+4. *(Optional smoke test on Windows)* `cd configurator/dashboard && npm run electron:build` — verifies the local NSIS build is not broken before tagging. macOS/Linux artifacts are produced only by CI; no local cross-build.
 5. Commit: `release(vX.Y.Z): <one-line summary>`
 6. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z — <summary>"`
-7. Push commit + tag: `git push origin main --tags`
-8. Create GitHub release: `gh release create vX.Y.Z <installer.exe> <installer.exe.blockmap> --title "vX.Y.Z — ..." --notes "..."`
-9. Verify the CI `Release` workflow passes — if it fails, fix the issue, move the tag (`git tag -d vX.Y.Z && git tag -a vX.Y.Z HEAD ...`), and force-push the tag (`git push origin vX.Y.Z --force`)
+7. Push commit + tag: `git push origin main --tags` — this triggers the `Release` workflow, which auto-creates the release if missing.
+8. *(Optional)* edit the release notes: `gh release edit vX.Y.Z --notes "..."`. **Do not pass binary files** — CI uploads them across 3 runners (windows-latest, macos-latest, ubuntu-latest). Expect ~25-45 min for all platforms to finish.
+9. Verify the CI `Release` workflow passes for **all three** matrix jobs (win / mac / linux). If any platform fails: fix the issue, then either:
+   - re-run the failed matrix job from the Actions UI (faster), **or**
+   - move the tag (`git tag -d vX.Y.Z && git tag -a vX.Y.Z HEAD ...`) and force-push (`git push origin vX.Y.Z --force`) — this re-runs everything.
+10. Verify the published assets contain the full set:
+    - Windows: `*Setup*.exe`, `*Setup*.exe.blockmap`, `latest.yml`
+    - macOS:   `*-arm64.dmg`, `*-x64.dmg` (+ blockmaps), `latest-mac.yml`
+    - Linux:   `*.AppImage`, `*.deb`, `*.rpm`, `latest-linux.yml`
+11. For risky releases, ship as `vX.Y.Z-rc.N` first (CI workflow triggers on any `v*` tag) and validate on macOS/Linux machines before promoting to a stable tag.
 
 ## Anti-Staleness Rule
 

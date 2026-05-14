@@ -1,6 +1,6 @@
 # Dev-Suite
 
-[![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)](https://github.com/claude-dev-suite/claude-dev-suite)
+[![Version](https://img.shields.io/github/v/release/claude-dev-suite/claude-dev-suite.svg)](https://github.com/claude-dev-suite/claude-dev-suite/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **A comprehensive AI-powered development toolkit that extends Claude Code with specialized agents, MCP servers, and visual orchestration.**
@@ -25,6 +25,7 @@
   - [Hooks Management](#hooks-management)
   - [Upgrade System](#upgrade-system)
   - [Electron Desktop App](#electron-desktop-app)
+  - [Desktop App Downloads](#desktop-app-downloads)
 - [Installation Modes](#installation-modes)
 - [Usage](#usage)
 - [Configuration](#configuration)
@@ -73,6 +74,8 @@ Optional:
 ---
 
 ## Quick Start
+
+> Prefer a one-click installer? Skip the clone step and jump to [Desktop App Downloads](#desktop-app-downloads) for Windows / macOS / Linux pre-built installers.
 
 ### 1. Clone Dev-Suite
 
@@ -468,6 +471,75 @@ The dashboard is available as a native desktop application:
 - Auto-updater for seamless version updates
 - Native system tray integration
 - Same features as the web dashboard
+
+See [Desktop App Downloads](#desktop-app-downloads) below for pre-built installers.
+
+---
+
+### Desktop App Downloads
+
+Pre-built installers for every tagged release are published on the [GitHub Releases](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest) page.
+
+| Platform | Architecture | Asset | Notes |
+|----------|--------------|-------|-------|
+| Windows  | x64          | `Dev-Suite-Dashboard-Setup-x.y.z.exe` | NSIS installer |
+| macOS    | Apple Silicon | `Dev-Suite-Dashboard-x.y.z-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS    | Intel         | `Dev-Suite-Dashboard-x.y.z-x64.dmg`  | 2019 and earlier |
+| Linux    | x64          | `Dev-Suite-Dashboard-x.y.z.AppImage` | Portable, all distros |
+| Linux    | x64          | `dev-suite-dashboard_x.y.z_amd64.deb` | Debian / Ubuntu / Mint |
+| Linux    | x64          | `dev-suite-dashboard-x.y.z.x86_64.rpm` | Fedora / RHEL / openSUSE |
+
+> Installers are currently **unsigned**. The OS will show a warning on first launch — see the per-platform instructions below.
+
+#### Windows
+
+1. Download `Dev-Suite-Dashboard-Setup-x.y.z.exe`.
+2. Double-click to run. SmartScreen will show **"Windows protected your PC"** because the binary isn't signed yet.
+3. Click **More info** → **Run anyway**.
+4. The installer will set up the app and add a Start menu shortcut.
+
+#### macOS
+
+1. Download the DMG matching your CPU: `arm64` for Apple Silicon, `x64` for Intel.
+   - Not sure? Click  → **About This Mac**. "Chip: Apple…" = arm64.
+2. Open the DMG and drag **Dev-Suite Dashboard** into **Applications**.
+3. First launch is blocked by Gatekeeper because the app isn't notarized. Choose one:
+   - **Recommended:** Right-click the app in Applications → **Open** → confirm **Open** in the dialog. macOS will remember the choice.
+   - **CLI alternative:** strip the quarantine flag:
+     ```bash
+     xattr -d com.apple.quarantine "/Applications/Dev-Suite Dashboard.app"
+     ```
+
+#### Linux — AppImage (portable, all distros)
+
+```bash
+chmod +x Dev-Suite-Dashboard-*.AppImage
+./Dev-Suite-Dashboard-*.AppImage
+```
+
+If the AppImage refuses to run on a system without FUSE 2 (Ubuntu 22.04+, Fedora 38+), install it with `sudo apt install libfuse2` or extract and run instead:
+```bash
+./Dev-Suite-Dashboard-*.AppImage --appimage-extract-and-run
+```
+
+#### Linux — Debian / Ubuntu / Mint (`.deb`)
+
+```bash
+sudo dpkg -i dev-suite-dashboard_*_amd64.deb
+sudo apt-get install -f   # only if dpkg reports missing dependencies
+```
+
+#### Linux — Fedora / RHEL / openSUSE (`.rpm`)
+
+```bash
+sudo rpm -i dev-suite-dashboard-*.x86_64.rpm
+# or, on systems with dnf:
+sudo dnf install ./dev-suite-dashboard-*.x86_64.rpm
+```
+
+#### Auto-updates
+
+The desktop app checks GitHub Releases at startup and every 4 hours. When a new version is published, you'll get an in-app notification and an **Install on quit** option. Auto-updates work the same on all three platforms.
 
 ---
 

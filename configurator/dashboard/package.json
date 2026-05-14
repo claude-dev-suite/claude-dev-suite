@@ -1,6 +1,6 @@
 {
   "name": "@dev-suite/dashboard",
-  "version": "1.8.2",
+  "version": "1.9.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -116,7 +116,7 @@
         ]
       },
       {
-        "from": "node",
+        "from": "node-${arch}",
         "to": "node",
         "filter": [
           "**/*"
@@ -130,7 +130,12 @@
       "private": false
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
     },
     "nsis": {
       "oneClick": true,
@@ -140,10 +145,34 @@
       "shortcutName": "Dev-Suite Dashboard"
     },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        },
+        {
+          "target": "rpm",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Development",
+      "maintainer": "Dev-Suite Team <claude-dev-suite@users.noreply.github.com>",
+      "synopsis": "Dev-Suite Dashboard — AI-powered development toolkit for Claude Code",
+      "description": "Visual project configuration, MCP server orchestration, and multi-agent task management for Claude Code."
     },
     "mac": {
-      "target": "dmg"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
+        }
+      ],
+      "category": "public.app-category.developer-tools",
+      "identity": null
     }
   }
 }
