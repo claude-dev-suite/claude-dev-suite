@@ -169,7 +169,8 @@
       "category": "Development",
       "maintainer": "Dev-Suite Team <claude-dev-suite@users.noreply.github.com>",
       "synopsis": "Dev-Suite Dashboard: AI-powered development toolkit for Claude Code",
-      "description": "Visual project configuration, MCP server orchestration, and multi-agent task management for Claude Code."
+      "description": "Visual project configuration, MCP server orchestration, and multi-agent task management for Claude Code.",
+      "artifactName": "dev-suite-dashboard-${version}-${arch}.${ext}"
     },
     "mac": {
       "target": [
