@@ -1,6 +1,6 @@
 # Dev-Suite
 
-[![Version](https://img.shields.io/github/v/release/claude-dev-suite/claude-dev-suite.svg)](https://github.com/claude-dev-suite/claude-dev-suite/releases)
+[![Version](https://img.shields.io/github/v/release/claude-dev-suite/claude-dev-suite.svg?include_prereleases)](https://github.com/claude-dev-suite/claude-dev-suite/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **A comprehensive AI-powered development toolkit that extends Claude Code with specialized agents, MCP servers, and visual orchestration.**
