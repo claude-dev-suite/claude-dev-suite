@@ -3,6 +3,13 @@
   "version": "1.9.0",
   "private": true,
   "type": "module",
+  "description": "Dev-Suite Dashboard — visual project configuration and multi-agent orchestration for Claude Code.",
+  "homepage": "https://github.com/claude-dev-suite/claude-dev-suite",
+  "author": {
+    "name": "Dev-Suite Team",
+    "email": "claude-dev-suite@users.noreply.github.com",
+    "url": "https://github.com/claude-dev-suite"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

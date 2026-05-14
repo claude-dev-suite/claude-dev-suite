@@ -179,9 +179,11 @@ jobs:
 
       - name: Build Electron installer
         working-directory: configurator/dashboard
-        run: npx electron-builder ${{ matrix.eb_args }}
+        # --publish never: disable electron-builder's implicit "create release from version" behaviour.
+        # We upload assets manually below (see "Upload artifacts to release") so we control exactly
+        # which release tag receives them (e.g. v1.9.0-rc.1) instead of the bare semver (v1.9.0).
+        run: npx electron-builder ${{ matrix.eb_args }} --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Avoid electron-builder probing the keychain for a Developer ID — we ship unsigned.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
