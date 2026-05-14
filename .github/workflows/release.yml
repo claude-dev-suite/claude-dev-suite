@@ -15,7 +15,7 @@
 # Artifacts produced per platform:
 #   Windows : *Setup*.exe, *.exe.blockmap, latest.yml
 #   macOS   : *-arm64.dmg, *-x64.dmg (+ blockmaps), latest-mac.yml
-#   Linux   : *.AppImage, *.deb, *.rpm, latest-linux.yml
+#   Linux   : *.AppImage, *.deb, latest-linux.yml
 #
 # Builds are unsigned (Apple Developer ID / Windows code-signing cert not configured).
 # macOS users must right-click → Open or run `xattr -d com.apple.quarantine` on first launch.
@@ -76,7 +76,7 @@ jobs:
             eb_args: --mac dmg --arm64 --x64
           - os: ubuntu-latest
             platform: linux
-            eb_args: --linux AppImage deb rpm --x64
+            eb_args: --linux AppImage deb --x64
 
     runs-on: ${{ matrix.os }}
 
@@ -204,7 +204,7 @@ jobs:
               FILES=(dist-electron/*.dmg dist-electron/*.dmg.blockmap dist-electron/latest-mac.yml)
               ;;
             linux)
-              FILES=(dist-electron/*.AppImage dist-electron/*.deb dist-electron/*.rpm dist-electron/latest-linux.yml)
+              FILES=(dist-electron/*.AppImage dist-electron/*.deb dist-electron/latest-linux.yml)
               ;;
           esac
 

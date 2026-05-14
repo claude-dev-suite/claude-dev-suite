@@ -485,9 +485,8 @@ Pre-built installers for every tagged release are published on the [GitHub Relea
 | Windows  | x64          | `Dev-Suite-Dashboard-Setup-x.y.z.exe` | NSIS installer |
 | macOS    | Apple Silicon | `Dev-Suite-Dashboard-x.y.z-arm64.dmg` | M1 / M2 / M3 / M4 |
 | macOS    | Intel         | `Dev-Suite-Dashboard-x.y.z-x64.dmg`  | 2019 and earlier |
-| Linux    | x64          | `Dev-Suite-Dashboard-x.y.z.AppImage` | Portable, all distros |
+| Linux    | x64          | `Dev-Suite-Dashboard-x.y.z.AppImage` | Portable, all distros (incl. Fedora / RHEL) |
 | Linux    | x64          | `dev-suite-dashboard_x.y.z_amd64.deb` | Debian / Ubuntu / Mint |
-| Linux    | x64          | `dev-suite-dashboard-x.y.z.x86_64.rpm` | Fedora / RHEL / openSUSE |
 
 > Installers are currently **unsigned**. The OS will show a warning on first launch — see the per-platform instructions below.
 
@@ -529,13 +528,9 @@ sudo dpkg -i dev-suite-dashboard_*_amd64.deb
 sudo apt-get install -f   # only if dpkg reports missing dependencies
 ```
 
-#### Linux — Fedora / RHEL / openSUSE (`.rpm`)
+#### Linux — Fedora / RHEL / openSUSE
 
-```bash
-sudo rpm -i dev-suite-dashboard-*.x86_64.rpm
-# or, on systems with dnf:
-sudo dnf install ./dev-suite-dashboard-*.x86_64.rpm
-```
+No native `.rpm` is published yet — use the AppImage above. It runs on all RPM-based distros without installation.
 
 #### Auto-updates
 

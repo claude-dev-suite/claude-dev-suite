@@ -21,7 +21,7 @@ gain a one-click installer flow.
 - **Cross-platform release artifacts** — every tagged release now ships:
   - Windows: NSIS `Setup-x.y.z.exe` (x64) + blockmap + `latest.yml`
   - macOS: `arm64.dmg` and `x64.dmg` + blockmaps + `latest-mac.yml`
-  - Linux: `AppImage`, `.deb`, `.rpm` + `latest-linux.yml`
+  - Linux: `AppImage`, `.deb` + `latest-linux.yml` (RPM postponed — see Notes)
 - **Multi-platform GitHub Actions matrix** — `release.yml` runs on
   `windows-latest`, `macos-latest`, and `ubuntu-latest` in parallel.
   A new `clean-assets` job runs first to strip stale artifacts.
@@ -52,6 +52,12 @@ gain a one-click installer flow.
   → Open or strip the quarantine flag on first launch. Windows users
   see a one-time SmartScreen prompt. Code signing / Apple notarization
   is planned for a follow-up release.
+- **RPM target temporarily disabled.** `rpmbuild` fails when fpm passes
+  the productName "Dev-Suite Dashboard" (with space) as the spec
+  package name, and fpm swallows rpmbuild's stderr. The AppImage runs
+  natively on Fedora/RHEL/openSUSE so users on RPM distros are still
+  covered. RPM can be re-enabled later by setting `linux.executableName`
+  or shipping a custom spec template.
 
 ## [1.8.2] - 2026-05-10
 
