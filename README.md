@@ -480,6 +480,9 @@ See [Desktop App Downloads](#desktop-app-downloads) below for pre-built installe
 
 Pre-built installers for every tagged release are published on the [GitHub Releases](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest) page.
 
+> **Important prerequisite — install Node.js first.**
+> The desktop app launches its own dashboard but does **not** ship a system-wide Node.js runtime. Claude Code starts MCP servers via the `.mcp.json` it reads on each project, and those server processes require `node` to be available on the user's `PATH`. Without Node.js v20+ installed system-wide, MCP servers will fail silently. The app shows a warning dialog on first launch if Node is missing — install it from [nodejs.org](https://nodejs.org/) and restart the app.
+
 | Platform | Architecture | Asset | Notes |
 |----------|--------------|-------|-------|
 | Windows  | x64          | `Dev-Suite-Dashboard-Setup-x.y.z.exe` | NSIS installer |

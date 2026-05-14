@@ -32,6 +32,13 @@ gain a one-click installer flow.
 - **Platform-aware Node.js bundling** — `extraResources` now uses
   `node-${arch}` so per-arch Node distributions can coexist; the macOS
   build packs both `arm64` and `x64` binaries in the same run.
+- **System Node.js detection on startup** — the Electron app now probes
+  the user's PATH for `node` after the splash screen and, if missing,
+  shows a warning dialog with a direct link to nodejs.org. Without a
+  system Node, Claude Code cannot spawn the MCP servers listed in
+  `.mcp.json`, so the dialog prevents silent failures users would
+  otherwise blame on dev-suite. The app still opens (user can dismiss
+  the warning) but the message makes the dependency explicit.
 
 ### Changed
 

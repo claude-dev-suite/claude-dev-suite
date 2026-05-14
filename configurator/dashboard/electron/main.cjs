@@ -9,7 +9,7 @@
  * - TypeScript backend server
  */
 
-const { app, BrowserWindow, dialog, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, Menu, ipcMain, shell } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
@@ -223,6 +223,61 @@ function getDevSuitePath() {
   const devPath = path.resolve(__dirname, '..', '..', '..');
   if (fs.existsSync(path.join(devPath, 'agents'))) return devPath;
   return devPath;
+}
+
+// Probes the user's PATH for a working Node.js install. Required because MCP servers
+// are launched by Claude Code (via .mcp.json), not by this Electron app — so even if
+// we bundle Node for our own dashboard backend, Claude Code still needs a system Node.
+function checkSystemNode() {
+  return new Promise((resolve) => {
+    const cmd = process.platform === 'win32' ? 'node.exe' : 'node';
+    let stdout = '';
+    let child;
+    try {
+      child = spawn(cmd, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    } catch {
+      resolve({ available: false, version: null });
+      return;
+    }
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.on('error', () => resolve({ available: false, version: null }));
+    child.on('exit', (code) => {
+      if (code === 0) {
+        const version = stdout.trim();
+        resolve({ available: true, version });
+      } else {
+        resolve({ available: false, version: null });
+      }
+    });
+  });
+}
+
+async function warnIfNodeMissing() {
+  const { available, version } = await checkSystemNode();
+  if (available) {
+    console.log('[Electron] System Node detected:', version);
+    return;
+  }
+  console.warn('[Electron] System Node.js not found on PATH — MCP servers will not start.');
+
+  const downloadUrl = 'https://nodejs.org/en/download/';
+  const result = await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Node.js non trovato',
+    message: 'Node.js non è installato su questo sistema.',
+    detail:
+      'Dev-Suite Dashboard si apre comunque, ma gli MCP server (avviati da Claude Code) ' +
+      'non potranno partire senza Node.js v20 o superiore installato e accessibile dal PATH.\n\n' +
+      'Scarica e installa Node.js, poi riavvia l\'app.',
+    buttons: ['Scarica Node.js', 'Continua senza'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+
+  if (result.response === 0) {
+    shell.openExternal(downloadUrl);
+  }
 }
 
 function findBundledNode() {
@@ -707,9 +762,10 @@ async function initialize() {
     console.log('[Electron] Project selected:', projectPath);
     updateSplash('init', 'done');
 
-    // Show runtime step (Node.js)
+    // Show runtime step (Node.js) — warn the user if Node is not on PATH,
+    // because Claude Code's MCP servers won't start without it.
     updateSplash('runtime', 'pending');
-    await new Promise(r => setTimeout(r, 300)); // Brief visual pause
+    await warnIfNodeMissing();
     updateSplash('runtime', 'done');
 
     // Start server
