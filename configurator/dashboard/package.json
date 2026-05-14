@@ -3,7 +3,7 @@
   "version": "1.9.0",
   "private": true,
   "type": "module",
-  "description": "Dev-Suite Dashboard — visual project configuration and multi-agent orchestration for Claude Code.",
+  "description": "Dev-Suite Dashboard: visual project configuration and multi-agent orchestration for Claude Code.",
   "homepage": "https://github.com/claude-dev-suite/claude-dev-suite",
   "author": {
     "name": "Dev-Suite Team",
@@ -168,7 +168,7 @@
       ],
       "category": "Development",
       "maintainer": "Dev-Suite Team <claude-dev-suite@users.noreply.github.com>",
-      "synopsis": "Dev-Suite Dashboard — AI-powered development toolkit for Claude Code",
+      "synopsis": "Dev-Suite Dashboard: AI-powered development toolkit for Claude Code",
       "description": "Visual project configuration, MCP server orchestration, and multi-agent task management for Claude Code."
     },
     "mac": {
