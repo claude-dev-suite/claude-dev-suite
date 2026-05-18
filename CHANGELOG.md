@@ -8,6 +8,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-05-18
+
+Minor release — adds water-treatment domain expertise to dev-suite. New
+`membrane-expert` agent for Reverse Osmosis (RO), Nanofiltration (NF), and
+Electrodeionization (EDI) processes, backed by six knowledge skills covering
+the full diagnostic chain: pretreatment → fundamentals → NF distinct
+selectivity → troubleshooting → autopsy → economics/EDI. First domain-vertical
+agent in dev-suite (previous industrial agents were DCS/PLC engineering only).
+
+### Added
+
+- **membrane-expert agent** — Reverse Osmosis and EDI process expert (Sonnet)
+  for water treatment, desalination, ultrapure water, and pharmaceutical WFI.
+  Covers ASTM D4516 KPI normalization (NPF, NSP, NDP), fouling/scaling
+  diagnostics, CIP planning, integrity testing, SEC/LCOW economics, EDI
+  sizing with FCE, and regulatory citation (ASTM, ISO, USP, Ph. Eur., WHO,
+  EN, SEMI). Bilingual IT/EN. Filed under `agents/industrial/`.
+- **Six new industrial skills** backing the agent:
+  - `industrial/membrane-ro-fundamentals` — formulas, standards reference,
+    vendor design windows (DuPont, Hydranautics, Toray, Suez, LANXESS),
+    water chemistry, EDI quick reference, IT/EN glossary
+  - `industrial/membrane-troubleshooting` — diagnostic frame of reference,
+    fouling taxonomy, scaling by mineral species, integrity loss, CIP
+    decision matrix, ASTM D4516 trend-based diagnostics, baseline schema
+  - `industrial/membrane-economics-edi` — SEC/LCOW benchmarks, lifecycle
+    decision matrix, EDI fundamentals + FCE, 8 EDI failure modes, EDI vs
+    Mixed-Bed DI economics, pharma UPW/WFI regulatory context
+  - `industrial/membrane-pretreatment` — pretreatment chain architectures
+    (SWRO open/beach well, BWRO well/surface, tertiary reuse), KPI targets
+    (SDI, turbidity, AOC, Fe/Mn), coagulation chemistry, antiscalant
+    selection, SBS dechlorination + the oxidant paradox, biocide strategy
+  - `industrial/membrane-nf` — Nanofiltration distinct from RO/UF: DSPM-DE
+    rejection mechanism, IEP-driven pH selectivity tuning, vendor matrix
+    (NF270/NF90/NF200/NF245, Suez DK/DL/HL, Toray SUL, Pentair tubular),
+    applications (softening, NOM removal, offshore sulfate, mining, dairy,
+    OSN), per-ion rejection tracking
+  - `industrial/membrane-autopsy` — autopsy decision matrix, sampling and
+    preservation protocol, lab method suite (visual, weight-loss, dye test
+    per ASTM D6908, SEM/EDS, FTIR, biofilm characterization, Fujiwara
+    chlorine confirmation, cross-section), findings-to-action interpretation,
+    warranty claim workflow (open RMA before pulling element)
+
+### Changed
+
+- README "Industrial Automation Agents" section renamed to "Industrial
+  Agents" to host both DCS/PLC automation and water-treatment process
+  expertise.
+
 ## [1.9.0] - 2026-05-14
 
 Minor release — Dev-Suite Dashboard is now published as a native

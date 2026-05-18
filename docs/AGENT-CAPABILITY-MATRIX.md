@@ -124,13 +124,14 @@ This document maps each agent to its required MCP servers and skills.
 | **data-engineering-expert** | documentation | pandas, pydantic, python, pytest, ruff |
 | **rag-expert** | documentation | rag (architecture, chunking, retrieval, evaluation, agentic, graph, multimodal, guardrails, caching, security, observability, production), retrieval (ColBERT, SPLADE, BM25, RankGPT, cross-encoder), embeddings, vector-stores, document-processing, rag-frameworks (LlamaIndex, Haystack, DSPy, LangGraph, +4), rag-ops (TEI, batch, cost, multi-region, gateway) |
 
-### Industrial Automation Agents
+### Industrial Agents
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
 | **dcs-analyst** | documentation | industrial/freelance-formats, industrial/isa-standards, industrial/dcs-platforms |
 | **freelance-engineer** | documentation | industrial/freelance-formats, industrial/isa-standards, industrial/bulk-engineering |
 | **automation-architect** | documentation | industrial/freelance-formats, industrial/isa-standards, industrial/dcs-platforms, industrial/iec61131, industrial/bulk-engineering, pandas, pydantic |
+| **membrane-expert** | documentation | industrial/membrane-ro-fundamentals, industrial/membrane-troubleshooting, industrial/membrane-economics-edi, industrial/membrane-pretreatment, industrial/membrane-nf, industrial/membrane-autopsy |
 
 ## MCP Server Requirements
 

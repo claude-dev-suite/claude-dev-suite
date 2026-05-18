@@ -267,10 +267,11 @@ Specialized agents organized by domain:
 - **data-engineering-expert** - pandas, openpyxl, lxml, bulk data pipelines, Excel/XML/CSV, UTF-16 file formats
 - **rag-expert** - Retrieval-Augmented Generation end-to-end: chunking, embeddings, vector stores (Pinecone/Weaviate/Qdrant/pgvector/ES), hybrid search, reranking, agentic RAG (Self-RAG/CRAG), graph RAG, multimodal RAG, evaluation (RAGAS/DeepEval), guardrails, LangChain/LlamaIndex/Haystack/DSPy
 
-#### Industrial Automation Agents
+#### Industrial Agents
 - **dcs-analyst** - ABB Freelance PRT/DMF/CSV file analysis, tag extraction, DCS reverse engineering
 - **freelance-engineer** - ABB Freelance engineering file generation, PRT/DMF bulk templating
 - **automation-architect** - DCS/PLC automation pipeline design, cross-platform strategies (ABB, Siemens, Emerson, Honeywell)
+- **membrane-expert** - Reverse Osmosis and EDI process expertise for water treatment, desalination, ultrapure water, and pharma WFI (ASTM D4516 KPI normalization, fouling/scaling diagnostics, CIP planning, SEC/LCOW economics, regulatory citations)
 
 #### Database Agents
 - **prisma-expert** - Schema design, queries, migrations
