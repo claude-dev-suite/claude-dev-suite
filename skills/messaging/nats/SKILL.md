@@ -7,7 +7,7 @@ description: |
 
   USE WHEN: user mentions "nats", "jetstream", "cloud-native messaging", "request/reply", "subject wildcards", asks about "lightweight messaging", "microservices communication", "nats streaming"
 
-  DO NOT USE FOR: event sourcing - use `kafka` or `pulsar`; complex routing - use `rabbitmq`; AWS-native - use `sqs`; Azure-native - use `azure-service-bus`; JMS compliance - use `activemq`; persistent queues only - use dedicated broker
+  DO NOT USE FOR: complex routing - use `rabbitmq`; AWS-native - use `sqs`; Azure-native - use `azure-service-bus`; JMS compliance - use `activemq`; persistent queues only - use dedicated broker
 allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 # NATS Core Knowledge
@@ -139,7 +139,6 @@ response, _ := nc.Request("orders.validate", body, 5*time.Second)
 - Complex routing patterns - RabbitMQ exchanges are more flexible
 - JMS compliance needed - Use ActiveMQ
 - AWS-native integration - SQS integrates better
-- Enterprise support required - Consider commercial alternatives
 
 ## Anti-Patterns
 
