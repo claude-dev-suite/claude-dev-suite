@@ -181,6 +181,7 @@ export function LivePerformancePanel({ projectPath }: LivePerformancePanelProps)
 
   // Load environments on mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loader toggles loading state; intentional fetch-on-mount
     fetchEnvironments();
   }, [projectPath, fetchEnvironments]);
 

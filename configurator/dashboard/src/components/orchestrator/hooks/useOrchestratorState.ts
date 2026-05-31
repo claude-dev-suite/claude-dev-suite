@@ -164,7 +164,6 @@ export function useOrchestratorState(projectPath?: string): UseOrchestratorState
   useEffect(() => {
     if (lastProjectPathRef.current === projectPath) return;
     lastProjectPathRef.current = projectPath;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing with localStorage on project switch
     setChatSessionId(readStoredSessionId(projectPath));
   }, [projectPath]);
 

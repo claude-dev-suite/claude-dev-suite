@@ -176,10 +176,12 @@ export function useHooksData(projectPath: string): HooksDataState & HooksDataAct
   }, [getEffectivePath, selectedRepo, projectPath]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loader toggles loading state; intentional fetch-on-mount
     fetchRepositories();
   }, [fetchRepositories]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loader toggles loading state; intentional fetch when repo changes
     fetchStatus();
   }, [projectPath, selectedRepo, fetchStatus]);
 

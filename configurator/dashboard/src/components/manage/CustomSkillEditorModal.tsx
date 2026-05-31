@@ -64,6 +64,7 @@ export function CustomSkillEditorModal({
 
   // Initialize content when skill changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional re-init when the skill prop changes
     setName(skill.name);
     setContent(skill.content);
     setHasChanges(isGenerated);

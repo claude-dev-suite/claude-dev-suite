@@ -48,6 +48,7 @@ export function AddMcpModal({
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state reset when modal closes
       setSelectedServer(null);
       setEnvVars({});
     }

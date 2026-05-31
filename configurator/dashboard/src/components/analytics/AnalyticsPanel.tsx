@@ -62,6 +62,7 @@ export function AnalyticsPanel({ projectPath }: AnalyticsPanelProps) {
   }, [projectPath, technology, tool, dateRange, page]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loader toggles loading state; intentional fetch-on-mount
     fetchData();
   }, [fetchData]);
 
