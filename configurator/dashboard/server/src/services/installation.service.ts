@@ -27,6 +27,7 @@ import {
   parseAgentSkills,
   parseAgentSkillsStructured,
   flattenSkillName,
+  toInstalledAgentContent,
   getServerEnvVars,
   updateClaudeMd,
   cleanClaudeMdSection,
@@ -222,18 +223,21 @@ export class InstallationService {
     const lazySkillPaths = new Map<string, string>(); // skillPath → description (NON-preloaded)
     const preloadedSkillPaths = new Set<string>();    // original path of natively installed skills
     const usedFlatNames = new Map<string, string>();  // flatName → originalSkillPath (collision detection)
+    const skillPathToFlat = new Map<string, string>(); // skillPath → final flat dir name (shared across agents)
 
     for (const agentId of agents) {
       if (skillLoadingMode === 'lazy') {
         const installed = this.installAgentLazy(
-          agentId, projectPath, devSuiteDir, manifest, extendedManifest, lazySkillPaths, preloadedSkillPaths, usedFlatNames
+          agentId, projectPath, devSuiteDir, manifest, extendedManifest, lazySkillPaths, preloadedSkillPaths, usedFlatNames, skillPathToFlat
         );
         if (installed) {
           manifest.agents.push(agentId);
           extendedManifest.agents.push(agentId);
         }
       } else {
-        const installed = this.installAgent(agentId, projectPath, devSuiteDir, manifest, extendedManifest);
+        const installed = this.installAgent(
+          agentId, projectPath, devSuiteDir, manifest, extendedManifest, usedFlatNames, preloadedSkillPaths, skillPathToFlat
+        );
         if (installed) {
           manifest.agents.push(agentId);
           extendedManifest.agents.push(agentId);
@@ -671,12 +675,87 @@ export class InstallationService {
     }
   }
 
+  /**
+   * Install one skill as a FLAT top-level dir under `.claude/skills/<flat>/`
+   * (the only shape Claude Code resolves by name), with cross-agent collision
+   * handling. Returns the final flat dir name (so the agent's `skills:` list can
+   * reference it), or null if the skill is invalid/missing. Idempotent: a skill
+   * already installed by another agent returns its recorded flat name.
+   */
+  private installSkillFlat(
+    skillPath: string,
+    devSuiteDir: string,
+    projectPath: string,
+    manifest: InstallManifest,
+    extendedManifest: ExtendedManifest | undefined,
+    usedFlatNames: Map<string, string>,
+    preloadedSkillPaths: Set<string>,
+    skillPathToFlat: Map<string, string>
+  ): string | null {
+    const already = skillPathToFlat.get(skillPath);
+    if (already) return already;
+
+    if (!validateSkillPath(skillPath)) {
+      logger.warn('Invalid skill path - potential path traversal', { context: { skillPath } });
+      return null;
+    }
+    const skillsSource = path.join(devSuiteDir, 'skills');
+    const srcSkillDir = path.join(skillsSource, skillPath);
+    try {
+      validatePathWithinBase(srcSkillDir, skillsSource, false);
+    } catch {
+      logger.warn('Skill path validation failed', { context: { skillPath } });
+      return null;
+    }
+    if (!fs.existsSync(srcSkillDir)) return null;
+
+    let flatName = flattenSkillName(skillPath);
+    if (!flatName) {
+      logger.warn('Skill flatten produced empty name', { context: { skillPath } });
+      return null;
+    }
+    // Collision: a different skillPath already claimed this flat name.
+    const claimedBy = usedFlatNames.get(flatName);
+    if (claimedBy && claimedBy !== skillPath) {
+      const suffix = crypto.createHash('sha1').update(skillPath).digest('hex').slice(0, 6);
+      const max = 64 - suffix.length - 1;
+      flatName = `${flatName.slice(0, max).replace(/-+$/, '')}-${suffix}`;
+      logger.warn('Flat skill name collision — applied hash suffix', {
+        context: { skillPath, claimedBy, flatName },
+      });
+    }
+
+    const skillsDestRoot = path.join(projectPath, '.claude', 'skills');
+    const destSkillDir = path.join(skillsDestRoot, flatName);
+    try {
+      validatePathWithinBase(destSkillDir, skillsDestRoot, false);
+    } catch {
+      logger.warn('Flattened skill path failed validation', { context: { skillPath, flatName } });
+      return null;
+    }
+
+    if (!fs.existsSync(destSkillDir)) {
+      copyDirSync(srcSkillDir, destSkillDir);
+      manifest.files.push({ path: `.claude/skills/${flatName}`, type: 'skill', source: srcSkillDir });
+      if (extendedManifest) {
+        this.trackFile(extendedManifest, projectPath, `.claude/skills/${flatName}`, 'skill', srcSkillDir);
+      }
+    }
+    usedFlatNames.set(flatName, skillPath);
+    preloadedSkillPaths.add(skillPath);
+    skillPathToFlat.set(skillPath, flatName);
+    return flatName;
+  }
+
   private installAgent(
     agentId: string,
     projectPath: string,
     devSuiteDir: string,
     manifest: InstallManifest,
-    extendedManifest?: ExtendedManifest
+    extendedManifest: ExtendedManifest | undefined,
+    usedFlatNames: Map<string, string>,
+    preloadedSkillPaths: Set<string>,
+    skillPathToFlat: Map<string, string>
   ): boolean {
     // SECURITY: Validate agentId
     if (!validateAgentId(agentId)) {
@@ -699,43 +778,30 @@ export class InstallationService {
       validatePathWithinBase(agentFile, path.join(devSuiteDir, 'agents'), false);
       validatePathWithinBase(destPath, projectPath, false);
 
-      fs.copyFileSync(agentFile, destPath);
-      manifest.files.push({ path: `.claude/agents/${agentId}.md`, type: 'agent', source: agentFile });
-
-      // Track with hash for upgrade system
-      if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, `.claude/agents/${agentId}.md`, 'agent', agentFile);
-      }
-
-      // Copy skills (eager — copy core + extended). Note: now bundle-expanded
-      // by the shared parser; previously bundles silently dropped here.
+      // Eager mode: copy ALL of the agent's skills as FLAT top-level dirs
+      // (bundle-expanded by the shared parser), then write the agent file with
+      // Claude-Code-native frontmatter so tool restrictions + skill preload
+      // actually take effect (see toInstalledAgentContent / Option R).
       const agentContent = fs.readFileSync(agentFile, 'utf-8');
       const skills = parseAgentSkills(agentContent, agentId);
-      const skillsSource = path.join(devSuiteDir, 'skills');
-
+      const installedFlat: string[] = [];
       for (const skillPath of skills) {
-        // SECURITY: Validate skillPath
-        if (!validateSkillPath(skillPath)) {
-          logger.warn('Invalid skill path - potential path traversal', { context: { skillPath } });
-          continue;
-        }
+        const flat = this.installSkillFlat(
+          skillPath, devSuiteDir, projectPath, manifest, extendedManifest,
+          usedFlatNames, preloadedSkillPaths, skillPathToFlat
+        );
+        if (flat && !installedFlat.includes(flat)) installedFlat.push(flat);
+      }
 
-        const srcSkillDir = path.join(skillsSource, skillPath);
-        const destSkillDir = path.join(projectPath, '.claude', 'skills', skillPath);
-
-        // SECURITY: Validate paths stay within expected directories
-        try {
-          validatePathWithinBase(srcSkillDir, skillsSource, false);
-          validatePathWithinBase(destSkillDir, path.join(projectPath, '.claude', 'skills'), false);
-        } catch {
-          logger.warn('Skill path validation failed', { context: { skillPath } });
-          continue;
-        }
-
-        if (fs.existsSync(srcSkillDir) && !fs.existsSync(destSkillDir)) {
-          copyDirSync(srcSkillDir, destSkillDir);
-          manifest.files.push({ path: `.claude/skills/${skillPath}`, type: 'skill', source: srcSkillDir });
-        }
+      const installedContent = toInstalledAgentContent(agentContent, {
+        installedSkillFlatNames: installedFlat,
+        grantSkillTool: true,
+      });
+      fs.writeFileSync(destPath, installedContent, 'utf-8');
+      manifest.files.push({ path: `.claude/agents/${agentId}.md`, type: 'agent', source: agentFile });
+      // Track with hash for upgrade system (hash reflects the installed file)
+      if (extendedManifest) {
+        this.trackFile(extendedManifest, projectPath, `.claude/agents/${agentId}.md`, 'agent', agentFile);
       }
 
       return true;
@@ -771,7 +837,8 @@ export class InstallationService {
     extendedManifest: ExtendedManifest | undefined,
     lazySkillPaths: Map<string, string>,
     preloadedSkillPaths: Set<string>,
-    usedFlatNames: Map<string, string>
+    usedFlatNames: Map<string, string>,
+    skillPathToFlat: Map<string, string>
   ): boolean {
     // SECURITY: Validate agentId
     if (!validateAgentId(agentId)) {
@@ -793,88 +860,38 @@ export class InstallationService {
       validatePathWithinBase(agentFile, path.join(devSuiteDir, 'agents'), false);
       validatePathWithinBase(destPath, projectPath, false);
 
-      fs.copyFileSync(agentFile, destPath);
-      manifest.files.push({ path: `.claude/agents/${agentId}.md`, type: 'agent', source: agentFile });
+      // Lazy mode: preload only the agent's `core_skills` (or, for unmigrated
+      // agents that still use legacy `skills:`, the cap-limited core) as FLAT
+      // dirs. `extended_skills:` are NOT copied — they stay reachable via the
+      // `skill-loader` MCP at runtime. Then write the agent file with
+      // Claude-Code-native frontmatter (tools/mcpServers/skills + skill-loader +
+      // Skill) so tool restrictions and skill preload actually take effect.
+      const agentContent = fs.readFileSync(agentFile, 'utf-8');
+      const { core: coreSkills } = parseAgentSkillsStructured(agentContent, agentId);
+      const installedFlat: string[] = [];
+      for (const skillPath of coreSkills) {
+        const flat = this.installSkillFlat(
+          skillPath, devSuiteDir, projectPath, manifest, extendedManifest,
+          usedFlatNames, preloadedSkillPaths, skillPathToFlat
+        );
+        if (flat) {
+          if (!installedFlat.includes(flat)) installedFlat.push(flat);
+          // Now preloaded natively — drop from the MCP-side index if present.
+          lazySkillPaths.delete(skillPath);
+        }
+      }
 
+      const installedContent = toInstalledAgentContent(agentContent, {
+        installedSkillFlatNames: installedFlat,
+        extraMcpServers: ['skill-loader'],
+        grantSkillTool: true,
+      });
+      fs.writeFileSync(destPath, installedContent, 'utf-8');
+      manifest.files.push({ path: `.claude/agents/${agentId}.md`, type: 'agent', source: agentFile });
+      // Track with hash for upgrade system (hash reflects the installed file).
       if (extendedManifest) {
         this.trackFile(extendedManifest, projectPath, `.claude/agents/${agentId}.md`, 'agent', agentFile);
       }
-
-      const agentContent = fs.readFileSync(agentFile, 'utf-8');
-      // Lazy mode: preload only the agent's `core_skills` (or, for unmigrated
-      // agents that still use legacy `skills:`, treat the full list as core).
-      // `extended_skills:` are NOT copied locally — they are reachable via
-      // `skill-loader` MCP at runtime, which reads DEV_SUITE_ROOT directly.
-      const { core: skills } = parseAgentSkillsStructured(agentContent, agentId);
-      const skillsSource = path.join(devSuiteDir, 'skills');
-      const skillsDestRoot = path.join(projectPath, '.claude', 'skills');
-
-      for (const skillPath of skills) {
-        if (!validateSkillPath(skillPath)) {
-          logger.warn('Invalid skill path - potential path traversal', { context: { skillPath } });
-          continue;
-        }
-
-        const srcSkillDir = path.join(skillsSource, skillPath);
-        try {
-          validatePathWithinBase(srcSkillDir, skillsSource, false);
-        } catch {
-          logger.warn('Skill path validation failed', { context: { skillPath } });
-          continue;
-        }
-
-        if (!fs.existsSync(srcSkillDir)) continue;
-
-        // Already preloaded by another agent — nothing more to do.
-        if (preloadedSkillPaths.has(skillPath)) continue;
-
-        // Native preload: copy the entire skill folder (SKILL.md + quick-ref/)
-        // to a flat directory name under .claude/skills/.
-        let flatName = flattenSkillName(skillPath);
-        if (!flatName) {
-          logger.warn('Skill flatten produced empty name', { context: { skillPath } });
-          continue;
-        }
-
-        // Collision: a different skillPath already claimed this flat name.
-        // Disambiguate with a short hash suffix so both skills coexist.
-        const claimedBy = usedFlatNames.get(flatName);
-        if (claimedBy && claimedBy !== skillPath) {
-          const suffix = crypto.createHash('sha1').update(skillPath).digest('hex').slice(0, 6);
-          const max = 64 - suffix.length - 1;
-          flatName = `${flatName.slice(0, max).replace(/-+$/, '')}-${suffix}`;
-          logger.warn('Flat skill name collision — applied hash suffix', {
-            context: { skillPath, claimedBy, flatName },
-          });
-        }
-
-        const destSkillDir = path.join(skillsDestRoot, flatName);
-        try {
-          validatePathWithinBase(destSkillDir, skillsDestRoot, false);
-        } catch {
-          logger.warn('Flattened skill path failed validation', { context: { skillPath, flatName } });
-          continue;
-        }
-
-        if (!fs.existsSync(destSkillDir)) {
-          copyDirSync(srcSkillDir, destSkillDir);
-          manifest.files.push({
-            path: `.claude/skills/${flatName}`,
-            type: 'skill',
-            source: srcSkillDir,
-          });
-        }
-        usedFlatNames.set(flatName, skillPath);
-        preloadedSkillPaths.add(skillPath);
-        // Drop from MCP-side index if a previous agent had registered it.
-        lazySkillPaths.delete(skillPath);
-      }
-
-      // Second pass: register every skill the dev-suite catalog DOES NOT
-      // preload natively into the MCP-side index. This is done by the caller
-      // for skills outside selected agents — but here we don't have visibility
-      // on those, so the MCP fallback at runtime resolves them by reading
-      // DEV_SUITE_ROOT directly.
 
       return true;
     } catch (error: unknown) {

@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Installed agents now use Claude Code's native subagent frontmatter, so tool
+  restrictions and skill preload actually take effect.** Previously the
+  installer copied agents verbatim, leaving dev-suite's `allowed-tools:` field
+  (which Claude Code ignores for subagents — they silently inherited *all*
+  tools) and path-style `skills:` entries (which don't match the flattened skill
+  directories, so preload was skipped with a "skill not found" warning). The
+  installer now rewrites each `.claude/agents/*.md` at install time into native
+  `tools:` + `mcpServers:` + flat `skills:` via a new `toInstalledAgentContent`
+  transform, and installs skills as flat top-level dirs in both eager and lazy
+  modes. Verified end-to-end against Claude Code 2.1.158: subagents are now
+  restricted to their declared tools, preload their core skills without
+  warnings, and reach their MCP servers (incl. `skill-loader`) at runtime.
+
 ## [1.10.0] - 2026-05-18
 
 Minor release — adds water-treatment domain expertise to dev-suite. New
