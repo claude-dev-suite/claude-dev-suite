@@ -158,6 +158,7 @@ export function FilesPanel() {
   // ---- Load tree ----
   useEffect(() => {
     if (!projectPath) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- toggles loading state; intentional fetch when path changes
     setTreeLoading(true);
     setTreeError(null);
 

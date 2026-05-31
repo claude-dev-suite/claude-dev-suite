@@ -90,6 +90,7 @@ export function useWebSocket(
   const subscribersRef = useRef<Map<WsMessageType, Set<MessageHandler>>>(new Map());
   const shouldReconnectRef = useRef<boolean>(true);
   const reconnectAttemptRef = useRef<number>(0); // Use ref to avoid stale closures
+  const connectRef = useRef<(() => void) | null>(null); // Latest connect(), so the reconnect timer never calls a stale closure
 
   const log = useCallback(
     (message: string, data?: unknown) => {
@@ -274,7 +275,7 @@ export function useWebSocket(
         reconnectTimeoutRef.current = window.setTimeout(() => {
           reconnectAttemptRef.current += 1;
           setReconnectAttempt((prev) => prev + 1);
-          connect();
+          connectRef.current?.();
         }, delay);
       } else if (reconnectAttemptRef.current >= opts.maxReconnectAttempts) {
         logger.error('Max reconnect attempts reached', {
@@ -292,6 +293,12 @@ export function useWebSocket(
     stopHeartbeat,
     getReconnectDelay,
   ]);
+
+  // Keep the ref pointed at the latest connect() so the reconnect timer above
+  // (which fires long after render) never invokes a stale closure.
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   // Disconnect
   const disconnect = useCallback(() => {

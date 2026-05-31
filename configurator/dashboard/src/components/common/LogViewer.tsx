@@ -183,6 +183,7 @@ export function LogViewer({
 
   // Load initial logs
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loader toggles loading state; intentional fetch-on-mount
     fetchLogs();
   }, [fetchLogs]);
 

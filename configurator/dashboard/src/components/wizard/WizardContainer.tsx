@@ -83,7 +83,6 @@ export function WizardContainer({
   useEffect(() => {
     if (initialPath && initialPath !== prevInitialPathRef.current) {
       prevInitialPathRef.current = initialPath;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState((prev) => ({ ...prev, projectPath: initialPath }));
       setWizardMode('configure');
     }

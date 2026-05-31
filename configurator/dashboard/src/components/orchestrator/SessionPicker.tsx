@@ -49,6 +49,7 @@ export function SessionPicker({ isOpen, onClose, onSelect, currentSessionId }: S
 
   useEffect(() => {
     if (isOpen && projectPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loader toggles loading state; intentional fetch when opened
       loadSessions();
     }
   }, [isOpen, projectPath, loadSessions]);

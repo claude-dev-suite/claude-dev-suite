@@ -150,6 +150,7 @@ export function CodeReviewPanel({ projectPath, onStartReview, onOpenMcpSettings 
 
   // Initialize
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loader toggles loading state; intentional fetch-on-mount
     fetchOptions();
     fetchRepositories();
   }, [projectPath, fetchOptions, fetchRepositories]);
@@ -157,6 +158,7 @@ export function CodeReviewPanel({ projectPath, onStartReview, onOpenMcpSettings 
   // Fetch file tree when scope changes to full-project or repo changes
   useEffect(() => {
     if (scope === 'full-project') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loader toggles loading state; intentional fetch when scope changes
       fetchFileTree();
     } else {
       setFileTree([]);

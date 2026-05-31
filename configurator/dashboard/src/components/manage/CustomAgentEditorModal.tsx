@@ -102,6 +102,7 @@ export function CustomAgentEditorModal({
 
   // Initialize content when agent changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional re-init when the agent prop changes
     setContent(agent.content);
     setHasChanges(isGenerated);
     setError(null);
