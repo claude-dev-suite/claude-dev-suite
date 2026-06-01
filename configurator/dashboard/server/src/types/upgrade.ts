@@ -7,6 +7,7 @@
  */
 
 import type { StackInfo } from './core.js';
+import type { ReinstallHistoryEntry } from './reinstall.js';
 
 // ============================================
 // FEATURE REGISTRY TYPES
@@ -214,6 +215,11 @@ export interface ExtendedManifest {
    * Used for clean uninstall. Missing field is treated as an empty array (backward compat).
    */
   installedRuleFiles?: string[];
+  /**
+   * History of erase-and-replace reinstalls (distinct from feature `upgradeHistory`).
+   * Missing field is treated as an empty array (backward compat).
+   */
+  reinstallHistory?: ReinstallHistoryEntry[];
 }
 
 /**

@@ -11,6 +11,7 @@ import { Button, Badge } from '../common';
 import { UpdateCard } from './UpdateCard';
 import { ConflictModal } from './ConflictModal';
 import { UpgradeHistoryList } from './UpgradeHistoryList';
+import { ReinstallPanel } from './ReinstallPanel';
 import type { AvailableUpgrade, ConflictResolution } from '@/types';
 import clsx from 'clsx';
 
@@ -18,7 +19,7 @@ export interface UpdatesTabProps {
   projectPath: string;
 }
 
-type ViewMode = 'available' | 'history';
+type ViewMode = 'available' | 'history' | 'reinstall';
 
 export function UpdatesTab({ projectPath }: UpdatesTabProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('available');
@@ -216,6 +217,17 @@ export function UpdatesTab({ projectPath }: UpdatesTabProps) {
             <Badge variant="default" className="ml-2">{history.length}</Badge>
           )}
         </button>
+        <button
+          onClick={() => setViewMode('reinstall')}
+          className={clsx(
+            'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+            viewMode === 'reinstall'
+              ? 'border-primary-500 text-primary-400'
+              : 'border-transparent text-surface-400 hover:text-white'
+          )}
+        >
+          Reinstall / Sync
+        </button>
       </div>
 
       {viewMode === 'available' ? (
@@ -306,11 +318,13 @@ export function UpdatesTab({ projectPath }: UpdatesTabProps) {
             )}
           </div>
         </>
-      ) : (
+      ) : viewMode === 'history' ? (
         <UpgradeHistoryList
           history={history}
           isLoading={isLoadingHistory}
         />
+      ) : (
+        <ReinstallPanel projectPath={projectPath} />
       )}
 
       {/* Conflict Modal */}

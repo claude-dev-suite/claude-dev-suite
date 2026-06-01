@@ -10,6 +10,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Erase-and-replace reinstall/sync.** A new transactional way to bring an
+  installed project back in line with the current dev-suite source, replacing
+  the incremental upgrade engine for component sync (which only covered
+  `hook-merge`/`agent-replace` and had no orphan removal). It scopes its erase
+  to manifest-tracked *managed* files (agents, MCP servers, rules) and
+  re-installs from `.dev-suite.json`, so it removes orphaned/renamed components,
+  while preserving user content: custom agents/skills under `custom/`, user text
+  in `CLAUDE.md` (outside the dev-suite markers), and user keys in
+  `.claude/settings.json`. Locally modified managed files are surfaced in a
+  preview with a per-file **Overwrite / Keep** opt-out. The whole operation is
+  wrapped in a backup + automatic rollback on failure, and a post-install verify
+  (tracked files exist, `.mcp.json` has absolute server paths). Surfaced via a
+  new **Reinstall / Sync** tab in the dashboard Updates view
+  (`ReinstallPanel` + `useReinstall`), a `POST /api/reinstall/{preview,execute}`
+  API, a headless CLI (`npm run reinstall -- --project <path> [--dry-run|--yes|--keep …]`),
+  and a `/reinstall-dev-suite` slash command.
+- **`cleanStaleSkills` now preserves the reserved `.claude/skills/custom/`
+  folder** (previously any top-level skill dir containing a `SKILL.md` — including
+  user `custom/` skills — was wiped on every install/reinstall).
 - **Multi-domain architect.** The `architect` agent was reworked from a
   web/enterprise-biased agent into a domain-agnostic one. It now runs a
   "Step 0 — Domain routing" protocol (classify the request's domain, then

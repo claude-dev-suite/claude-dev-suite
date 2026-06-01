@@ -301,6 +301,19 @@ export {
 } from './upgrade.js';
 
 // ============================================
+// REINSTALL (ERASE-AND-REPLACE) TYPES
+// ============================================
+
+export type {
+  ReinstallFileResolution,
+  ReinstallModifiedFile,
+  ReinstallPreviewResult,
+  ReinstallExecuteRequest,
+  ReinstallExecuteResult,
+  ReinstallHistoryEntry,
+} from './reinstall.js';
+
+// ============================================
 // RECIPES/AUTOMATIONS TYPES
 // ============================================
 

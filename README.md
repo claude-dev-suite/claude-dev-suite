@@ -1065,6 +1065,7 @@ Slash commands available in Claude Code after initialization:
 | `/reconfigure` | Modify existing configuration (add/remove agents, MCP servers) |
 | `/health-check` | Validate installation and diagnose issues |
 | `/sync-dev-suite` | Update dev-suite components to latest version |
+| `/reinstall-dev-suite` | Transactional erase-and-replace reinstall/sync (backup + rollback, orphan removal, per-file opt-out) |
 | `/ui-wizard` | Launch configuration dashboard |
 | `/uninstall` | Remove dev-suite components (interactive, preserves user content) |
 | `/uninstall-dev-suite` | Full dev-suite removal with complete cleanup |
@@ -1081,6 +1082,14 @@ The easiest way to upgrade is through the **Updates** tab in the dashboard:
 2. Navigate to the **Updates** tab
 3. Review available updates and select components to upgrade
 4. Click **Apply Updates** — dev-suite handles conflict detection automatically
+
+For a clean, full resync (rather than incremental feature updates), use the
+**Reinstall / Sync** tab. It performs a transactional erase-and-replace: managed
+components are re-installed from source and orphaned ones removed, while your
+custom agents/skills, `CLAUDE.md` notes, and `settings.json` keys are preserved.
+Locally modified files are previewed with an **Overwrite / Keep** choice, a backup
+is taken, and any failure rolls back automatically. Headless equivalent:
+`/reinstall-dev-suite` or `npm run reinstall -- --project <path> --dry-run`.
 
 ### Manual Upgrade
 

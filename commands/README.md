@@ -16,6 +16,7 @@ Claude Code slash commands for project initialization and management.
 | `/reconfigure` | `reconfigure.md` | Modify existing configuration (add/remove agents, MCP servers) |
 | `/health-check` | `health-check.md` | Validate installation and diagnose issues |
 | `/sync-dev-suite` | `sync-dev-suite.md` | Update dev-suite components to latest version |
+| `/reinstall-dev-suite` | `reinstall-dev-suite.md` | Transactional erase-and-replace reinstall/sync (backup + rollback, orphan removal, per-file opt-out) |
 | `/uninstall` | `uninstall.md` | Remove dev-suite components (interactive, preserves user content) |
 | `/uninstall-dev-suite` | `uninstall-dev-suite.md` | Full dev-suite removal with complete cleanup |
 | `/release-promote` | `release-promote.md` | Generate all promotional content for a release (HN, Twitter, LinkedIn, Reddit, dev.to) |
@@ -123,6 +124,23 @@ Validates the dev-suite installation: checks MCP server builds, config file synt
 ```
 
 Syncs the installed dev-suite components with the latest version from the dev-suite source repository. Equivalent to the **Updates** tab in the dashboard.
+
+---
+
+### `/reinstall-dev-suite` - Erase-and-Replace Reinstall
+
+**Usage:**
+```
+/reinstall-dev-suite
+```
+
+Transactional **erase-and-replace** sync. Erases dev-suite-managed files (agents,
+skills, MCP servers, rules) and re-installs them from the current source, removing
+components no longer selected. Preserves custom agents/skills under `custom/`, your
+`CLAUDE.md` notes, and your `settings.json` keys. Always previews first (`--dry-run`)
+and lets you `--keep` specific locally modified files; creates a backup and rolls
+back automatically on failure. Equivalent to the **Reinstall / Sync** tab in the
+dashboard Updates view.
 
 ---
 

@@ -15,6 +15,7 @@ import { loggingRoutes } from './logging.routes.js';
 import { orchestratorRoutes } from './orchestrator.routes.js';
 import { gitRoutes } from './git.routes.js';
 import { upgradeRoutes } from './upgrade.routes.js';
+import { reinstallRoutes } from './reinstall.routes.js';
 import { recipesRoutes } from './recipes.routes.js';
 import { templatesRoutes } from './templates.routes.js';
 import { customAgentsRoutes } from './custom-agents.routes.js';
@@ -57,6 +58,9 @@ export function registerRoutes(app: Express): void {
 
   // Upgrade routes
   app.use('/api', upgradeRoutes);
+
+  // Reinstall (erase-and-replace) routes
+  app.use('/api', reinstallRoutes);
 
   // Recipes/Automation routes
   app.use('/api', recipesRoutes);

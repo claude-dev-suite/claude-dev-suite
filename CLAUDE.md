@@ -95,7 +95,8 @@ Path: `configurator/dashboard/server/src/services/`
 | `management.service.ts` | Generate CLAUDE.md with agent routing, manage installed components, discover new components |
 | `recipes.service.ts` | Pre-built workflow recipes for common tasks |
 | `templates.service.ts` | Project scaffolding template management |
-| `upgrade.service.ts` | Upgrade installed dev-suite components to latest versions |
+| `upgrade.service.ts` | Apply incremental `hook-merge` features to installed dev-suite components |
+| `reinstall.service.ts` | Transactional erase-and-replace reinstall/sync (scoped erase of managed files + re-install from source, backup + rollback, orphan removal, per-file opt-out) |
 | `workflows.service.ts` | Multi-step workflow orchestration |
 | `codegen.service.ts` | Spec-driven code generation pipeline with validation and AI refinement |
 | `rules.service.ts` | List available project rule templates from the `rules/` directory |
@@ -157,7 +158,7 @@ npm run test            # Run all tests
 npm run test:coverage   # Run with coverage report
 ```
 
-**Test coverage**: `detection.service.test.ts` (includes Android/Kotlin and Unity 2D/3D detection), `agents.service.test.ts`, `management.service.test.ts` (includes `getNewComponents` scenarios), `installation.service.test.ts` (includes `availableAtInstall` snapshot), `installation/file-operations.test.ts` (skill flattening, bundle expansion, and `toInstalledAgentContent` native-frontmatter transform), `hooks.service.test.ts`, `analytics.service.test.ts`, `code-review.service.test.ts`, `codegen.service.test.ts`, `workflows.service.test.ts`, `orchestrator.security.test.ts`, `websocket.rate-limit.test.ts`, `logger.test.ts`, `security-codeql.test.ts` (path-injection and ReDoS regression tests), `git.service.test.ts`, `recipes.service.test.ts`, `templates.service.test.ts`, `custom-agents.service.test.ts`, `upgrade.service.test.ts`, `upgrade/` (conflict-detector, feature-applier, package-installer, stack-compatibility, upgrade-utils), `git-security.test.ts`, `git-helpers.test.ts`, route tests in `routes/` (all route files covered)
+**Test coverage**: `detection.service.test.ts` (includes Android/Kotlin and Unity 2D/3D detection), `agents.service.test.ts`, `management.service.test.ts` (includes `getNewComponents` scenarios), `installation.service.test.ts` (includes `availableAtInstall` snapshot), `installation/file-operations.test.ts` (skill flattening, bundle expansion, and `toInstalledAgentContent` native-frontmatter transform), `hooks.service.test.ts`, `analytics.service.test.ts`, `code-review.service.test.ts`, `codegen.service.test.ts`, `workflows.service.test.ts`, `orchestrator.security.test.ts`, `websocket.rate-limit.test.ts`, `logger.test.ts`, `security-codeql.test.ts` (path-injection and ReDoS regression tests), `git.service.test.ts`, `recipes.service.test.ts`, `templates.service.test.ts`, `custom-agents.service.test.ts`, `upgrade.service.test.ts`, `upgrade/` (conflict-detector, feature-applier, package-installer, stack-compatibility, upgrade-utils), `reinstall.service.test.ts` (erase-and-replace: custom-agent preservation, CLAUDE.md/settings.json merge, opt-out keep, orphan removal, rollback), `cli/reinstall.cli.test.ts` (headless CLI `run()`), `git-security.test.ts`, `git-helpers.test.ts`, route tests in `routes/` (all route files covered)
 
 **Manual verification checklist** (when modifying initialization logic):
 - Detection identifies frameworks, databases, and Git provider correctly
