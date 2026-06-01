@@ -4,6 +4,7 @@ import {
   flattenSkillName,
   parseAgentSkills,
   parseAgentSkillsStructured,
+  toInstalledAgentContent,
 } from '../../src/services/installation/file-operations.js';
 
 describe('flattenSkillName', () => {
@@ -264,5 +265,97 @@ skills:
     const result = parseAgentSkills(content, 'bundled');
     expect(result).toContain('languages/python');
     expect(result).toContain('rag/rag-architecture');
+  });
+});
+
+describe('toInstalledAgentContent', () => {
+  const AGENT = `---
+name: architect
+description: |
+  Software architect.
+model: sonnet
+allowed-tools: Read, Grep, Glob, WebSearch, mcp__documentation__*, mcp__api-explorer__*
+skills:
+  - best-practices/clean-code
+  - backend-frameworks/spring-cloud-gateway
+---
+
+# Body
+Hello.
+`;
+
+  it('renames allowed-tools to the native tools field', () => {
+    const out = toInstalledAgentContent(AGENT, { installedSkillFlatNames: [] });
+    const fm = out.slice(0, out.indexOf('\n---', 3));
+    expect(fm).not.toMatch(/^allowed-tools:/m);
+    expect(fm).toMatch(/^tools:.*\bRead\b/m);
+    expect(fm).toMatch(/^tools:.*\bWebSearch\b/m);
+  });
+
+  it('derives mcpServers from mcp__<server>__* tool entries', () => {
+    const out = toInstalledAgentContent(AGENT, { installedSkillFlatNames: [] });
+    expect(out).toMatch(/^\s+-\s+documentation$/m);
+    expect(out).toMatch(/^\s+-\s+api-explorer$/m);
+  });
+
+  it('adds extra MCP servers and the Skill tool when requested', () => {
+    const out = toInstalledAgentContent(AGENT, {
+      installedSkillFlatNames: [],
+      extraMcpServers: ['skill-loader'],
+      grantSkillTool: true,
+    });
+    expect(out).toMatch(/^\s+-\s+skill-loader$/m);
+    expect(out).toMatch(/^tools:.*\bSkill\b/m);
+  });
+
+  it('replaces path-style skills with the installed flat dir names', () => {
+    const out = toInstalledAgentContent(AGENT, {
+      installedSkillFlatNames: ['best-practices-clean-code', 'backend-frameworks-spring-cloud-gateway'],
+    });
+    const skillsBlock = out.slice(out.indexOf('skills:'));
+    expect(skillsBlock).toMatch(/^\s+-\s+best-practices-clean-code$/m);
+    expect(skillsBlock).toMatch(/^\s+-\s+backend-frameworks-spring-cloud-gateway$/m);
+    // no path-style (slash) skill entries remain
+    expect(out).not.toMatch(/^\s+-\s+\S+\/\S+$/m);
+  });
+
+  it('does not leak skills list items into mcpServers', () => {
+    const out = toInstalledAgentContent(AGENT, {
+      installedSkillFlatNames: ['best-practices-clean-code'],
+      extraMcpServers: ['skill-loader'],
+    });
+    const mcpBlock = out.slice(out.indexOf('mcpServers:'), out.indexOf('skills:'));
+    expect(mcpBlock).not.toMatch(/clean-code/);
+    expect(mcpBlock).not.toMatch(/spring-cloud-gateway/);
+  });
+
+  it('preserves body and other frontmatter keys', () => {
+    const out = toInstalledAgentContent(AGENT, { installedSkillFlatNames: [] });
+    expect(out).toMatch(/^name: architect$/m);
+    expect(out).toMatch(/^model: sonnet$/m);
+    expect(out).toContain('# Body');
+    expect(out).toContain('Hello.');
+  });
+
+  it('omits the skills block when no skills are installed', () => {
+    const out = toInstalledAgentContent(AGENT, { installedSkillFlatNames: [] });
+    const fm = out.slice(0, out.indexOf('\n---', 3));
+    expect(fm).not.toMatch(/^skills:/m);
+  });
+
+  it('leaves content without frontmatter untouched', () => {
+    const plain = '# No frontmatter\njust text';
+    expect(toInstalledAgentContent(plain, { installedSkillFlatNames: [] })).toBe(plain);
+  });
+
+  it('emits no tools field when the source has no allowed-tools (inherit all)', () => {
+    const noTools = `---
+name: x
+description: y
+---
+body`;
+    const out = toInstalledAgentContent(noTools, { installedSkillFlatNames: [] });
+    expect(out).not.toMatch(/^tools:/m);
+    expect(out).toMatch(/^name: x$/m);
   });
 });

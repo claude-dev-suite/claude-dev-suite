@@ -15,7 +15,8 @@ import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { createHash } from 'crypto';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
-import { parseAgentSkills } from './installation/file-operations.js';
+import { parseAgentSkills, flattenSkillName, toInstalledAgentContent } from './installation/file-operations.js';
+import { validatePathWithinBase } from './installation/index.js';
 
 const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 
@@ -154,23 +155,36 @@ export class ManagementService {
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.mkdirSync(skillsDir, { recursive: true });
 
-    // Copy agent
-    const destPath = path.join(agentsDir, agentId + '.md');
-    fs.copyFileSync(agentFile, destPath);
-
-    // Copy skills (eager — copy the agent's full skill set)
+    // Copy skills (eager — copy the agent's full skill set) as FLAT top-level
+    // dirs, the only shape Claude Code resolves by name.
     const agentContent = fs.readFileSync(agentFile, 'utf-8');
     const skills = parseAgentSkills(agentContent, agentId);
     const skillsSource = path.join(devSuiteDir, 'skills');
 
+    const installedFlat: string[] = [];
     for (const skillPath of skills) {
       if (!/^[a-zA-Z0-9_.\/-]+$/.test(skillPath)) throw new Error('Invalid skill path');
-      const srcSkillDir = path.join(skillsSource, skillPath);
-      const destSkillDir = path.join(skillsDir, skillPath);
-      if (fs.existsSync(srcSkillDir) && !fs.existsSync(destSkillDir)) {
-        this.copyDirSync(srcSkillDir, destSkillDir);
+      // validatePathWithinBase returns the validated path (and rejects traversal,
+      // which the regex above does not) — use the returned values in the fs sinks.
+      const safeSrc = validatePathWithinBase(path.join(skillsSource, skillPath), skillsSource, false);
+      if (!fs.existsSync(safeSrc)) continue;
+      const flatName = flattenSkillName(skillPath);
+      if (!flatName) continue;
+      const safeDest = validatePathWithinBase(path.join(skillsDir, flatName), skillsDir, false);
+      if (!fs.existsSync(safeDest)) {
+        this.copyDirSync(safeSrc, safeDest);
       }
+      if (!installedFlat.includes(flatName)) installedFlat.push(flatName);
     }
+
+    // Write the agent with Claude-Code-native frontmatter (tools/mcpServers/
+    // flat skills) so tool restrictions + skill preload take effect.
+    const destPath = validatePathWithinBase(path.join(agentsDir, agentId + '.md'), agentsDir, false);
+    fs.writeFileSync(
+      destPath,
+      toInstalledAgentContent(agentContent, { installedSkillFlatNames: installedFlat, grantSkillTool: true }),
+      'utf-8'
+    );
 
     // Update .dev-suite.json
     this.updateDevSuiteConfig(projectPath, (config) => {

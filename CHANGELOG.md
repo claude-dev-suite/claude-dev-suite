@@ -8,6 +8,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-domain architect.** The `architect` agent was reworked from a
+  web/enterprise-biased agent into a domain-agnostic one. It now runs a
+  "Step 0 — Domain routing" protocol (classify the request's domain, then
+  discover + load the relevant skills via `skill-loader`/`Skill` before
+  designing) and uses a small domain-agnostic `core_skills` + on-demand
+  `extended_skills`.
+- **`systems/` skill pack** — low-level / systems architecture domains the
+  catalog lacked: `os-kernel-architecture`, `embedded-rtos`,
+  `systems-networking`, `storage-engines`, `distributed-consensus`,
+  `virtualization`, `hardware-aware-design`.
+- **`ai-systems/` skill pack** — AI-integrated systems architecture (decision
+  layer): `edge-inference`, `inference-serving-topology`, `hybrid-edge-cloud`,
+  `ai-hardware-selection`, `model-gateway-routing`, `agentic-architecture`.
+
+### Fixed
+
+- **Installed agents now use Claude Code's native subagent frontmatter, so tool
+  restrictions and skill preload actually take effect.** Previously the
+  installer copied agents verbatim, leaving dev-suite's `allowed-tools:` field
+  (which Claude Code ignores for subagents — they silently inherited *all*
+  tools) and path-style `skills:` entries (which don't match the flattened skill
+  directories, so preload was skipped with a "skill not found" warning). The
+  installer now rewrites each `.claude/agents/*.md` at install time into native
+  `tools:` + `mcpServers:` + flat `skills:` via a new `toInstalledAgentContent`
+  transform, and installs skills as flat top-level dirs in both eager and lazy
+  modes. Verified end-to-end against Claude Code 2.1.158: subagents are now
+  restricted to their declared tools, preload their core skills without
+  warnings, and reach their MCP servers (incl. `skill-loader`) at runtime.
+
 ## [1.10.0] - 2026-05-18
 
 Minor release — adds water-treatment domain expertise to dev-suite. New

@@ -43,6 +43,9 @@ import { GAMEDEV_2D_ART_TECHNOLOGIES, gamedev2dArtDocs } from "./gamedev-2d-art.
 import { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
 // Windows kernel & user-mode driver development
 import { WINDOWS_DRIVERS_TECHNOLOGIES, windowsDriversDocs } from "./windows-drivers.js";
+// Low-level / systems & AI-integrated systems architecture
+import { SYSTEMS_TECHNOLOGIES, systemsDocs } from "./systems.js";
+import { AI_SYSTEMS_TECHNOLOGIES, aiSystemsDocs } from "./ai-systems.js";
 
 // Re-export individual category modules
 export { FRONTEND_TECHNOLOGIES, frontendDocs } from "./frontend.js";
@@ -78,6 +81,9 @@ export { GAMEDEV_2D_ART_TECHNOLOGIES, gamedev2dArtDocs } from "./gamedev-2d-art.
 export { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
 // Windows kernel & user-mode driver development
 export { WINDOWS_DRIVERS_TECHNOLOGIES, windowsDriversDocs } from "./windows-drivers.js";
+// Low-level / systems & AI-integrated systems architecture
+export { SYSTEMS_TECHNOLOGIES, systemsDocs } from "./systems.js";
+export { AI_SYSTEMS_TECHNOLOGIES, aiSystemsDocs } from "./ai-systems.js";
 
 /**
  * Combined list of all supported technologies
@@ -117,6 +123,9 @@ export const SUPPORTED_TECHNOLOGIES = [
   ...BITCOIN_TECHNOLOGIES,
   // Windows drivers
   ...WINDOWS_DRIVERS_TECHNOLOGIES,
+  // Low-level / systems & AI-integrated systems
+  ...SYSTEMS_TECHNOLOGIES,
+  ...AI_SYSTEMS_TECHNOLOGIES,
 ] as const;
 
 export type Technology = (typeof SUPPORTED_TECHNOLOGIES)[number];
@@ -159,6 +168,9 @@ export const docsIndex: Record<string, Record<string, { local: string; url: stri
   ...bitcoinDocs,
   // Windows drivers
   ...windowsDriversDocs,
+  // Low-level / systems & AI-integrated systems
+  ...systemsDocs,
+  ...aiSystemsDocs,
 };
 
 /**
@@ -193,4 +205,6 @@ export const CATEGORY_MAP: Record<string, readonly string[]> = {
   "gamedev-2d-art": GAMEDEV_2D_ART_TECHNOLOGIES,
   bitcoin: BITCOIN_TECHNOLOGIES,
   "windows-drivers": WINDOWS_DRIVERS_TECHNOLOGIES,
+  systems: SYSTEMS_TECHNOLOGIES,
+  "ai-systems": AI_SYSTEMS_TECHNOLOGIES,
 };

@@ -301,6 +301,120 @@ export function parseAgentSkills(content: string, agentId = 'unknown'): string[]
   return parseAgentSkillsStructured(content, agentId).all;
 }
 
+export interface InstalledAgentOptions {
+  /** Flat dir names of skills installed locally for this agent (preloaded). */
+  installedSkillFlatNames: string[];
+  /** Extra MCP servers to connect (e.g. 'skill-loader' in lazy mode). */
+  extraMcpServers?: string[];
+  /** Grant the native `Skill` tool (for runtime skill discovery/loading). */
+  grantSkillTool?: boolean;
+}
+
+/**
+ * Rewrite a dev-suite agent's frontmatter into the shape Claude Code's native
+ * subagent loader expects, applied when writing `.claude/agents/<id>.md`.
+ *
+ * dev-suite source agents use `allowed-tools:` (Claude Code ignores it — its
+ * field is `tools:`, so subagents silently inherit ALL tools) and path-style
+ * `skills:` (don't match the flattened skill dirs we install, so preload is
+ * skipped with a warning). This transform fixes both at the install boundary;
+ * the source files keep dev-suite conventions (still read by agents.service,
+ * validators, etc.). Verified against Claude Code 2.1.158:
+ *  - native `tools:` actually restricts the subagent;
+ *  - a subagent gets MCP access via the `mcpServers:` field (NOT a
+ *    `mcp__x__*` wildcard in `tools:`);
+ *  - skills resolve by their top-level `.claude/skills/<dir>` name.
+ *
+ * Transforms:
+ *  - `allowed-tools: <csv>` → `tools: <csv>` (non-MCP tools + any `mcp__x__*`
+ *    entries kept in the allowlist; `Skill` appended when grantSkillTool).
+ *  - emits `mcpServers:` from the `mcp__<server>__*` tool entries AND the
+ *    legacy `mcp_servers:` list, plus extraMcpServers.
+ *  - replaces `skills:`/`core_skills:`/`extended_skills:` with a single
+ *    `skills:` list of installedSkillFlatNames (omitted when empty).
+ *
+ * Agents that omit `allowed-tools` keep inheriting all tools (no `tools:`
+ * emitted) — intentional, matches today's effective behavior.
+ */
+export function toInstalledAgentContent(content: string, opts: InstalledAgentOptions): string {
+  const { installedSkillFlatNames, extraMcpServers = [], grantSkillTool = false } = opts;
+
+  if (!content.startsWith('---')) return content;
+  const fmEnd = content.indexOf('\n---', 3);
+  if (fmEnd < 0) return content;
+  const fmBlock = content.slice(3, fmEnd).replace(/^\r?\n/, '');
+  const body = content.slice(fmEnd + 4).replace(/^\r?\n/, '\n');
+
+  const mcpServers: string[] = [];
+  let toolsCsv: string | null = null;
+
+  // Pass 1 — collect inputs and emit kept lines (dropping keys we regenerate).
+  const kept: string[] = [];
+  const lines = fmBlock.split('\n');
+  let skipKind: 'mcp' | 'other' | null = null;
+  for (const line of lines) {
+    const keyMatch = line.match(/^([A-Za-z0-9_-]+):(.*)$/);
+    if (keyMatch && !/^\s/.test(line)) {
+      const key = keyMatch[1];
+      skipKind = null;
+      if (key === 'allowed-tools' || key === 'tools') {
+        toolsCsv = (keyMatch[2] ?? '').trim();
+        continue; // regenerated below
+      }
+      if (key === 'mcp_servers' || key === 'mcpServers') {
+        skipKind = 'mcp'; // collect its list items, regenerate below
+        continue;
+      }
+      if (key === 'skills' || key === 'core_skills' || key === 'extended_skills') {
+        skipKind = 'other'; // discard list items, regenerate `skills:` below
+        continue;
+      }
+      kept.push(line);
+      continue;
+    }
+    // indented / list / comment / blank line
+    if (skipKind === 'mcp') {
+      const item = line.match(/^\s+-\s+(.+?)\s*$/);
+      if (item?.[1]) {
+        const v = item[1].replace(/#.*$/, '').trim();
+        if (v && !mcpServers.includes(v)) mcpServers.push(v);
+      }
+      continue;
+    }
+    if (skipKind === 'other') continue; // drop old skills list items
+    kept.push(line);
+  }
+
+  // Derive tools list + MCP servers from the (allowed-)tools CSV.
+  const toolEntries: string[] = [];
+  if (toolsCsv) {
+    for (const raw of toolsCsv.split(',')) {
+      const t = raw.trim();
+      if (!t) continue;
+      toolEntries.push(t);
+      const mcp = t.match(/^mcp__(.+?)__/);
+      if (mcp?.[1] && !mcpServers.includes(mcp[1])) mcpServers.push(mcp[1]);
+    }
+  }
+  for (const s of extraMcpServers) if (s && !mcpServers.includes(s)) mcpServers.push(s);
+  if (grantSkillTool && !toolEntries.some((t) => t === 'Skill')) toolEntries.push('Skill');
+
+  // Reassemble frontmatter: kept lines, then regenerated blocks.
+  const out: string[] = [];
+  for (const l of kept) if (l.trim() !== '') out.push(l);
+  if (toolEntries.length > 0) out.push(`tools: ${toolEntries.join(', ')}`);
+  if (mcpServers.length > 0) {
+    out.push('mcpServers:');
+    for (const s of mcpServers) out.push(`  - ${s}`);
+  }
+  if (installedSkillFlatNames.length > 0) {
+    out.push('skills:');
+    for (const s of installedSkillFlatNames) out.push(`  - ${s}`);
+  }
+
+  return `---\n${out.join('\n')}\n---\n${body.replace(/^\n/, '')}`;
+}
+
 /**
  * Read MCP server metadata to get required environment variables
  */
