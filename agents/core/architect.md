@@ -44,6 +44,8 @@ extended_skills:
   - systems/distributed-consensus
   - systems/virtualization
   - systems/hardware-aware-design
+  - systems/data-intensive
+  - systems/security-architecture
   # AI-integrated systems architecture
   - ai-systems/edge-inference
   - ai-systems/inference-serving-topology
