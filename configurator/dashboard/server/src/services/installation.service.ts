@@ -654,7 +654,12 @@ export class InstallationService {
     let removed = 0;
     for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const fullPath = path.join(skillsDir, entry.name);
+      // Never touch the reserved `custom/` folder — it holds user-authored
+      // skills (custom-agents.service), even though they contain SKILL.md.
+      if (entry.name === 'custom' || !validateEntryName(entry.name)) continue;
+      // SECURITY: validatePathWithinBase returns a path verified to stay inside
+      // skillsDir (rejects traversal/symlink escape) — use the returned value.
+      const fullPath = validatePathWithinBase(path.join(skillsDir, entry.name), skillsDir, false);
       if (containsSkillMd(fullPath)) {
         try {
           fs.rmSync(fullPath, { recursive: true, force: true });

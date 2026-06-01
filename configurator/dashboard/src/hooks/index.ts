@@ -17,6 +17,7 @@ export { useToast } from './useToast';
 export { useComponentLogger, useComponentLoggerQuiet } from './useComponentLogger';
 export { useFocusTrap } from './useFocusTrap';
 export { useUpgrade } from './useUpgrade';
+export { useReinstall } from './useReinstall';
 export { useRecipes } from './useRecipes';
 export { useAutoUpdater } from './useAutoUpdater';
 export { useTemplates, useTemplate, useValidateVariables, useScaffold, useTemplateConfig } from './useTemplates';
@@ -48,6 +49,11 @@ export type {
   UseUpgradeOptions,
   UseUpgradeResult,
 } from './useUpgrade';
+
+export type {
+  UseReinstallOptions,
+  UseReinstallResult,
+} from './useReinstall';
 
 export type {
   UseRecipesOptions,
