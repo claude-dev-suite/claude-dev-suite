@@ -35,7 +35,7 @@ extended_skills:
   - backend-frameworks/spring-data-jpa
   - infrastructure/docker
   - infrastructure/kubernetes
-  - databases/prisma
+  - orm-odm/prisma
   # Low-level / systems architecture
   - systems/os-kernel-architecture
   - systems/embedded-rtos
@@ -44,6 +44,13 @@ extended_skills:
   - systems/distributed-consensus
   - systems/virtualization
   - systems/hardware-aware-design
+  # AI-integrated systems architecture
+  - ai-systems/edge-inference
+  - ai-systems/inference-serving-topology
+  - ai-systems/hybrid-edge-cloud
+  - ai-systems/ai-hardware-selection
+  - ai-systems/model-gateway-routing
+  - ai-systems/agentic-architecture
 ---
 
 # Software Architect Agent
