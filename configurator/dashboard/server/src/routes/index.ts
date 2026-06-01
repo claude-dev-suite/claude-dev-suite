@@ -16,6 +16,7 @@ import { orchestratorRoutes } from './orchestrator.routes.js';
 import { gitRoutes } from './git.routes.js';
 import { upgradeRoutes } from './upgrade.routes.js';
 import { reinstallRoutes } from './reinstall.routes.js';
+import { releaseCheckRoutes } from './release-check.routes.js';
 import { recipesRoutes } from './recipes.routes.js';
 import { templatesRoutes } from './templates.routes.js';
 import { customAgentsRoutes } from './custom-agents.routes.js';
@@ -61,6 +62,9 @@ export function registerRoutes(app: Express): void {
 
   // Reinstall (erase-and-replace) routes
   app.use('/api', reinstallRoutes);
+
+  // Release update check routes
+  app.use('/api', releaseCheckRoutes);
 
   // Recipes/Automation routes
   app.use('/api', recipesRoutes);

@@ -18,6 +18,7 @@ export { useComponentLogger, useComponentLoggerQuiet } from './useComponentLogge
 export { useFocusTrap } from './useFocusTrap';
 export { useUpgrade } from './useUpgrade';
 export { useReinstall } from './useReinstall';
+export { useReleaseCheck } from './useReleaseCheck';
 export { useRecipes } from './useRecipes';
 export { useAutoUpdater } from './useAutoUpdater';
 export { useTemplates, useTemplate, useValidateVariables, useScaffold, useTemplateConfig } from './useTemplates';
@@ -54,6 +55,8 @@ export type {
   UseReinstallOptions,
   UseReinstallResult,
 } from './useReinstall';
+
+export type { UseReleaseCheckResult } from './useReleaseCheck';
 
 export type {
   UseRecipesOptions,
