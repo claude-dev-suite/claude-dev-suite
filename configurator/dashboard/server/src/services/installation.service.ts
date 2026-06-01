@@ -700,14 +700,16 @@ export class InstallationService {
       return null;
     }
     const skillsSource = path.join(devSuiteDir, 'skills');
-    const srcSkillDir = path.join(skillsSource, skillPath);
+    // validatePathWithinBase returns the validated path — use the returned value
+    // as the sanitized path into every fs sink (recognized path-injection barrier).
+    let safeSrc: string;
     try {
-      validatePathWithinBase(srcSkillDir, skillsSource, false);
+      safeSrc = validatePathWithinBase(path.join(skillsSource, skillPath), skillsSource, false);
     } catch {
       logger.warn('Skill path validation failed', { context: { skillPath } });
       return null;
     }
-    if (!fs.existsSync(srcSkillDir)) return null;
+    if (!fs.existsSync(safeSrc)) return null;
 
     let flatName = flattenSkillName(skillPath);
     if (!flatName) {
@@ -726,19 +728,19 @@ export class InstallationService {
     }
 
     const skillsDestRoot = path.join(projectPath, '.claude', 'skills');
-    const destSkillDir = path.join(skillsDestRoot, flatName);
+    let safeDest: string;
     try {
-      validatePathWithinBase(destSkillDir, skillsDestRoot, false);
+      safeDest = validatePathWithinBase(path.join(skillsDestRoot, flatName), skillsDestRoot, false);
     } catch {
       logger.warn('Flattened skill path failed validation', { context: { skillPath, flatName } });
       return null;
     }
 
-    if (!fs.existsSync(destSkillDir)) {
-      copyDirSync(srcSkillDir, destSkillDir);
-      manifest.files.push({ path: `.claude/skills/${flatName}`, type: 'skill', source: srcSkillDir });
+    if (!fs.existsSync(safeDest)) {
+      copyDirSync(safeSrc, safeDest);
+      manifest.files.push({ path: `.claude/skills/${flatName}`, type: 'skill', source: safeSrc });
       if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, `.claude/skills/${flatName}`, 'skill', srcSkillDir);
+        this.trackFile(extendedManifest, projectPath, `.claude/skills/${flatName}`, 'skill', safeSrc);
       }
     }
     usedFlatNames.set(flatName, skillPath);
@@ -772,11 +774,15 @@ export class InstallationService {
     if (!agentFile) return false;
 
     try {
-      const destPath = path.join(projectPath, '.claude', 'agents', agentId + '.md');
-
-      // SECURITY: Validate paths
+      // SECURITY: Validate paths. validatePathWithinBase returns the validated
+      // path — use the returned value as the sanitized destination for the agent
+      // file write (recognized path-injection barrier).
       validatePathWithinBase(agentFile, path.join(devSuiteDir, 'agents'), false);
-      validatePathWithinBase(destPath, projectPath, false);
+      const destPath = validatePathWithinBase(
+        path.join(projectPath, '.claude', 'agents', agentId + '.md'),
+        projectPath,
+        false
+      );
 
       // Eager mode: copy ALL of the agent's skills as FLAT top-level dirs
       // (bundle-expanded by the shared parser), then write the agent file with
@@ -854,11 +860,15 @@ export class InstallationService {
     if (!agentFile) return false;
 
     try {
-      const destPath = path.join(projectPath, '.claude', 'agents', agentId + '.md');
-
-      // SECURITY: Validate paths
+      // SECURITY: Validate paths. validatePathWithinBase returns the validated
+      // path — use the returned value as the sanitized destination for the agent
+      // file write (recognized path-injection barrier).
       validatePathWithinBase(agentFile, path.join(devSuiteDir, 'agents'), false);
-      validatePathWithinBase(destPath, projectPath, false);
+      const destPath = validatePathWithinBase(
+        path.join(projectPath, '.claude', 'agents', agentId + '.md'),
+        projectPath,
+        false
+      );
 
       // Lazy mode: preload only the agent's `core_skills` (or, for unmigrated
       // agents that still use legacy `skills:`, the cap-limited core) as FLAT
