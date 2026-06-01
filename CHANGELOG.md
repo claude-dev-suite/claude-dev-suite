@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-06-02
+
 ### Added
 
 - **GitHub release update alert.** The dashboard now checks the latest published
