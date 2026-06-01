@@ -36,6 +36,14 @@ extended_skills:
   - infrastructure/docker
   - infrastructure/kubernetes
   - databases/prisma
+  # Low-level / systems architecture
+  - systems/os-kernel-architecture
+  - systems/embedded-rtos
+  - systems/systems-networking
+  - systems/storage-engines
+  - systems/distributed-consensus
+  - systems/virtualization
+  - systems/hardware-aware-design
 ---
 
 # Software Architect Agent
