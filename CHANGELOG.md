@@ -19,10 +19,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`systems/` skill pack** — low-level / systems architecture domains the
   catalog lacked: `os-kernel-architecture`, `embedded-rtos`,
   `systems-networking`, `storage-engines`, `distributed-consensus`,
-  `virtualization`, `hardware-aware-design`.
+  `virtualization`, `hardware-aware-design`, `data-intensive`,
+  `security-architecture`.
 - **`ai-systems/` skill pack** — AI-integrated systems architecture (decision
   layer): `edge-inference`, `inference-serving-topology`, `hybrid-edge-cloud`,
   `ai-hardware-selection`, `model-gateway-routing`, `agentic-architecture`.
+- **Generalized vertical architecture skills** (engine-agnostic counterparts of
+  existing domain-specific packs): `systems/distributed-ledger` (from
+  `bitcoin/*`), `systems/cyber-physical` (from `industrial/*`),
+  `systems/game-engine-architecture` (from `gamedev/unity-*`).
 
 ### Fixed
 

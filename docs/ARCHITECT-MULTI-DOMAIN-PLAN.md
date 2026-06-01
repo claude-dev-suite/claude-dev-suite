@@ -432,8 +432,11 @@ deep-dive narrative. This keeps the loose coupling: agent → skill → KB.
   `knowledge_base` before/with merge, or `fetch_docs` 404s for the new topics.
   Push is outward-facing → awaiting go-ahead. (More topics per technology can be
   added later.)
-- **P3 — Generalize verticals.** PENDING — `bitcoin` → distributed-ledger,
-  `industrial` → cyber-physical, `unity` → game-engine.
+- **P3 — Generalize verticals.** ✅ **DONE 2026-06-01.** Engine-agnostic skills
+  extracted: `systems/distributed-ledger` (from `bitcoin/*`),
+  `systems/cyber-physical` (from `industrial/*`),
+  `systems/game-engine-architecture` (from `gamedev/unity-*`). Wired into the
+  architect + docs-index + KB (pushed to `knowledge_base`).
 - **P4 — Optional families** (#11, #13, #14, #15) as use cases emerge.
 
 ---
