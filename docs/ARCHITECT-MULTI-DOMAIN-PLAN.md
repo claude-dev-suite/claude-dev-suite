@@ -422,10 +422,16 @@ deep-dive narrative. This keeps the loose coupling: agent → skill → KB.
   pre-existing `databases/prisma`→`orm-odm/prisma` mis-reference). **KB fill
   (§8) — PENDING** (see P2-KB below). data-intensive / system-security skills —
   PENDING (next batch).
-- **P2-KB — Knowledge-base fill.** ⏳ **PENDING.** Author `knowledge_base` repo
-  deep-dives + `docs-index/systems.ts` + `docs-index/ai-systems.ts` and wire
-  `index.ts` (§8). Touches the **external** repo (clone → write → push → delete)
-  — outward-facing; confirm before pushing.
+- **P2-KB — Knowledge-base fill.** 🟡 **PREPARED, AWAITING EXTERNAL PUSH
+  (2026-06-01).** In-repo: `docs-index/systems.ts` + `docs-index/ai-systems.ts`
+  created and wired into `index.ts` (5-point pattern), one canonical topic per
+  technology (15 total); documentation MCP builds clean. KB content: 15
+  deep-dive articles authored and **committed locally** in a `knowledge_base`
+  clone *outside* this repo (commit not pushed). **Coupling:** the in-repo
+  docs-index references these `local` paths, so the KB commit must be pushed to
+  `knowledge_base` before/with merge, or `fetch_docs` 404s for the new topics.
+  Push is outward-facing → awaiting go-ahead. (More topics per technology can be
+  added later.)
 - **P3 — Generalize verticals.** PENDING — `bitcoin` → distributed-ledger,
   `industrial` → cyber-physical, `unity` → game-engine.
 - **P4 — Optional families** (#11, #13, #14, #15) as use cases emerge.
