@@ -310,6 +310,12 @@ export type {
 } from './reinstall.js';
 
 // ============================================
+// RELEASE UPDATE CHECK TYPES
+// ============================================
+
+export type { ReleaseCheckResult } from './release.js';
+
+// ============================================
 // TEMPLATES TYPES
 // ============================================
 

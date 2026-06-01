@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { useProjectStore } from '../../stores/project.store';
 import { useUIStore } from '../../stores/ui.store';
 import { UpdateNotification } from '../common/UpdateNotification';
+import { ReleaseUpdateBanner } from '../common/ReleaseUpdateBanner';
 import { useTutorial } from '../../hooks/useTutorial';
 import { API_BASE } from '../../utils/api';
 
@@ -169,6 +170,9 @@ export function Header() {
               ?
             </button>
           )}
+
+          {/* GitHub release update alert (web/dev; suppressed in Electron) */}
+          <ReleaseUpdateBanner />
 
           {/* Auto-Update Notification */}
           <UpdateNotification />

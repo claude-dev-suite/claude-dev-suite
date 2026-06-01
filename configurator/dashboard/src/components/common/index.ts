@@ -36,3 +36,4 @@ export { ErrorFallback, type ErrorFallbackProps } from './ErrorFallback';
 export { ErrorMessage, type ErrorMessageProps } from './ErrorMessage';
 export { LoadingPanel, type LoadingPanelProps } from './LoadingPanel';
 export { UpdateNotification, type UpdateNotificationProps } from './UpdateNotification';
+export { ReleaseUpdateBanner } from './ReleaseUpdateBanner';

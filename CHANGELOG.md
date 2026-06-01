@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **GitHub release update alert.** The dashboard now checks the latest published
+  GitHub release of dev-suite and compares it against the running version
+  (`package.json`), showing a dismissible "Update available: vX.Y.Z" banner in
+  the header when a newer release exists. Backend endpoint
+  `GET /api/release-check` (new `release-check.service.ts`) queries
+  `releases/latest` for `claude-dev-suite/claude-dev-suite` — unauthenticated
+  (public repo), using `GH_TOKEN`/`GITHUB_TOKEN` only if present, with a 1h
+  in-memory cache, a 5s timeout, and graceful degradation on network/rate-limit
+  errors. Suppressed inside the packaged Electron app (the native auto-updater
+  already covers app updates) and dismissible per version; fills the gap in
+  web/dev where the Electron updater does not run.
 - **Erase-and-replace reinstall/sync.** A new transactional way to bring an
   installed project back in line with the current dev-suite source, replacing
   the incremental upgrade engine for component sync (which only covered
