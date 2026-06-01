@@ -35,7 +35,12 @@ import {
   saveManifest,
   calculateFileHashFromPath,
 } from './upgrade/index.js';
-import { copyDirSync, removePathScopedRules } from './installation/index.js';
+import {
+  copyDirSync,
+  removePathScopedRules,
+  validatePathWithinBase,
+  validateEntryName,
+} from './installation/index.js';
 import type {
   InstallConfig,
   DetectionResult,
@@ -111,7 +116,7 @@ export class ReinstallService {
       }
 
       // Drift detection (only meaningful for files that still exist + have a hash)
-      const fullPath = path.join(projectPath, file.path);
+      const fullPath = this.safe(projectPath, file.path);
       const currentHash = calculateFileHashFromPath(fullPath);
       if (currentHash && file.hash && currentHash !== file.hash) {
         modifiedManagedFiles.push({
@@ -165,7 +170,7 @@ export class ReinstallService {
     const keptSnapshots = new Map<string, Buffer>();
     for (const [relPath, decision] of Object.entries(resolutions)) {
       if ((decision as ReinstallFileResolution) !== 'keep') continue;
-      const full = path.join(projectPath, relPath);
+      const full = this.safe(projectPath, relPath);
       if (fs.existsSync(full)) {
         keptSnapshots.set(relPath, fs.readFileSync(full));
         keptFiles.push(relPath);
@@ -211,7 +216,7 @@ export class ReinstallService {
       for (const relPath of keptFiles) {
         const snapshot = keptSnapshots.get(relPath);
         if (!snapshot) continue;
-        const full = path.join(projectPath, relPath);
+        const full = this.safe(projectPath, relPath);
         fs.mkdirSync(path.dirname(full), { recursive: true });
         fs.writeFileSync(full, snapshot);
         // Re-track the user's hash so future previews don't flag it forever.
@@ -303,6 +308,17 @@ export class ReinstallService {
     return resolved;
   }
 
+  /**
+   * SECURITY: build a path from `base` + segments and verify it stays within
+   * `base` (rejects `..`, resolves symlinks, prefix-checks). Returns the
+   * sanitized absolute path to use at the fs sink. Every fs operation in this
+   * service goes through here so a malicious manifest/`.dev-suite.json` cannot
+   * read, write, or delete outside the project (or backup) root.
+   */
+  private safe(base: string, ...segments: string[]): string {
+    return validatePathWithinBase(path.join(base, ...segments), base);
+  }
+
   private fail(error: string): ReinstallExecuteResult {
     return {
       success: false,
@@ -324,7 +340,7 @@ export class ReinstallService {
       agents?: { enabled?: string[] };
       mcpServers?: { enabled?: string[] };
       rules?: { enabled?: string[] };
-    }>(path.join(projectPath, '.dev-suite.json'));
+    }>(this.safe(projectPath, '.dev-suite.json'));
 
     return {
       agents: devSuiteJson?.agents?.enabled ?? manifest.agents ?? [],
@@ -373,14 +389,21 @@ export class ReinstallService {
    * (a directory hashes to null), so they can't be counted from `files`.
    */
   private countManagedSkillDirs(projectPath: string): number {
-    const skillsDir = path.join(projectPath, '.claude', 'skills');
+    const skillsDir = this.safe(projectPath, '.claude', 'skills');
     if (!fs.existsSync(skillsDir)) return 0;
 
+    // Every descendant must stay within skillsDir (validated against it).
     const containsSkillMd = (dir: string): boolean => {
       try {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
           if (entry.isFile() && entry.name === 'SKILL.md') return true;
-          if (entry.isDirectory() && containsSkillMd(path.join(dir, entry.name))) return true;
+          if (
+            entry.isDirectory() &&
+            validateEntryName(entry.name) &&
+            containsSkillMd(validatePathWithinBase(path.join(dir, entry.name), skillsDir))
+          ) {
+            return true;
+          }
         }
       } catch {
         // unreadable — treat as no match
@@ -391,8 +414,8 @@ export class ReinstallService {
     let count = 0;
     try {
       for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-        if (!entry.isDirectory() || entry.name === 'custom') continue;
-        if (containsSkillMd(path.join(skillsDir, entry.name))) count++;
+        if (!entry.isDirectory() || entry.name === 'custom' || !validateEntryName(entry.name)) continue;
+        if (containsSkillMd(this.safe(skillsDir, entry.name))) count++;
       }
     } catch {
       return 0;
@@ -431,16 +454,16 @@ export class ReinstallService {
 
       if (category === 'managed-file') {
         // agent files + .claude/rules/*.md copies
-        const full = path.join(projectPath, file.path);
+        const full = this.safe(projectPath, file.path);
         if (fs.existsSync(full)) {
           fs.unlinkSync(full);
           if (isOrphan) orphansRemoved.push(file.path);
         }
       } else if (category === 'mcp-server') {
         const name = this.componentName(file);
-        if (!name || erasedMcpDirs.has(name)) continue;
+        if (!name || !validateEntryName(name) || erasedMcpDirs.has(name)) continue;
         erasedMcpDirs.add(name);
-        const serverDir = path.join(projectPath, '.mcp-servers', name);
+        const serverDir = this.safe(projectPath, '.mcp-servers', name);
         if (fs.existsSync(serverDir)) {
           fs.rmSync(serverDir, { recursive: true, force: true });
           if (isOrphan) orphansRemoved.push(`.mcp-servers/${name}`);
@@ -468,14 +491,14 @@ export class ReinstallService {
 
     // Every tracked file must exist.
     for (const file of manifest.files ?? []) {
-      const full = path.join(projectPath, file.path);
+      const full = this.safe(projectPath, file.path);
       if (!fs.existsSync(full)) {
         throw new Error(`Verification failed: tracked file missing after install: ${file.path}`);
       }
     }
 
     // .mcp.json must be valid JSON with absolute, existing server entry args.
-    const mcpJsonPath = path.join(projectPath, '.mcp.json');
+    const mcpJsonPath = this.safe(projectPath, '.mcp.json');
     if (fs.existsSync(mcpJsonPath)) {
       let parsed: { mcpServers?: Record<string, { args?: string[] }> };
       try {
@@ -507,20 +530,20 @@ export class ReinstallService {
    */
   private createReinstallBackup(projectPath: string, files: TrackedFile[]): string {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupDir = path.join(projectPath, `${BACKUP_DIR_PREFIX}${timestamp}`);
+    const backupDir = this.safe(projectPath, `${BACKUP_DIR_PREFIX}${timestamp}`);
     fs.mkdirSync(backupDir, { recursive: true });
 
     // .claude tree (agents, skills, rules, settings, commands, custom/)
-    const claudeDir = path.join(projectPath, '.claude');
+    const claudeDir = this.safe(projectPath, '.claude');
     if (fs.existsSync(claudeDir)) {
-      copyDirSync(claudeDir, path.join(backupDir, '.claude'));
+      copyDirSync(claudeDir, this.safe(backupDir, '.claude'));
     }
 
     // Top-level config + CLAUDE.md
     for (const f of ['.mcp.json', '.dev-suite.json', '.dev-suite-manifest.json', 'CLAUDE.md']) {
-      const src = path.join(projectPath, f);
+      const src = this.safe(projectPath, f);
       if (fs.existsSync(src)) {
-        fs.copyFileSync(src, path.join(backupDir, f));
+        fs.copyFileSync(src, this.safe(backupDir, f));
       }
     }
 
@@ -529,13 +552,13 @@ export class ReinstallService {
     for (const file of files) {
       if (file.type === 'mcp-server') {
         const name = this.componentName(file);
-        if (name) mcpNames.add(name);
+        if (name && validateEntryName(name)) mcpNames.add(name);
       }
     }
     for (const name of mcpNames) {
-      const src = path.join(projectPath, '.mcp-servers', name);
+      const src = this.safe(projectPath, '.mcp-servers', name);
       if (fs.existsSync(src)) {
-        copyDirSync(src, path.join(backupDir, '.mcp-servers', name));
+        copyDirSync(src, this.safe(backupDir, '.mcp-servers', name));
       }
     }
 
@@ -550,9 +573,9 @@ export class ReinstallService {
    */
   private rollback(projectPath: string, backupDir: string, selection: Selection, files: TrackedFile[]): void {
     // 1. Remove managed surfaces created/mutated during the attempt.
-    fs.rmSync(path.join(projectPath, '.claude'), { recursive: true, force: true });
+    fs.rmSync(this.safe(projectPath, '.claude'), { recursive: true, force: true });
     for (const f of ['.mcp.json', '.dev-suite.json', '.dev-suite-manifest.json', 'CLAUDE.md']) {
-      const p = path.join(projectPath, f);
+      const p = this.safe(projectPath, f);
       if (fs.existsSync(p)) fs.rmSync(p, { force: true });
     }
     const mcpNames = new Set<string>(selection.mcpServers);
@@ -563,14 +586,16 @@ export class ReinstallService {
       }
     }
     for (const name of mcpNames) {
-      const dir = path.join(projectPath, '.mcp-servers', name);
+      if (!validateEntryName(name)) continue;
+      const dir = this.safe(projectPath, '.mcp-servers', name);
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
     }
 
     // 2. Copy the backup tree back.
     for (const entry of fs.readdirSync(backupDir, { withFileTypes: true })) {
-      const src = path.join(backupDir, entry.name);
-      const dest = path.join(projectPath, entry.name);
+      if (!validateEntryName(entry.name)) continue;
+      const src = this.safe(backupDir, entry.name);
+      const dest = this.safe(projectPath, entry.name);
       if (entry.isDirectory()) {
         copyDirSync(src, dest);
       } else {
@@ -584,7 +609,7 @@ export class ReinstallService {
 
   private recoverSkillLoadingMode(projectPath: string): 'eager' | 'lazy' {
     const mcp = readJsonSync<{ mcpServers?: Record<string, unknown> }>(
-      path.join(projectPath, '.mcp.json')
+      this.safe(projectPath, '.mcp.json')
     );
     return mcp?.mcpServers && Object.prototype.hasOwnProperty.call(mcp.mcpServers, 'skill-loader')
       ? 'lazy'
@@ -593,7 +618,7 @@ export class ReinstallService {
 
   private recoverEnvVars(projectPath: string): Record<string, string> {
     const mcp = readJsonSync<{ mcpServers?: Record<string, { env?: Record<string, string> }> }>(
-      path.join(projectPath, '.mcp.json')
+      this.safe(projectPath, '.mcp.json')
     );
     const out: Record<string, string> = {};
     for (const entry of Object.values(mcp?.mcpServers ?? {})) {
