@@ -16,6 +16,9 @@ export const SYSTEMS_TECHNOLOGIES = [
   "hardware-aware-design",
   "data-intensive",
   "security-architecture",
+  "distributed-ledger",
+  "cyber-physical",
+  "game-engine-architecture",
 ] as const;
 
 export const systemsDocs: DocsRecord = {
@@ -71,6 +74,24 @@ export const systemsDocs: DocsRecord = {
     "threat-modeling": {
       local: "security-architecture/threat-modeling.md",
       url: "https://owasp.org/www-community/Threat_Modeling",
+    },
+  },
+  "distributed-ledger": {
+    "ledger-architecture": {
+      local: "distributed-ledger/ledger-architecture.md",
+      url: "https://ethereum.org/en/developers/docs/scaling/",
+    },
+  },
+  "cyber-physical": {
+    "ics-architecture": {
+      local: "cyber-physical/ics-architecture.md",
+      url: "https://www.isa.org/standards-and-publications/isa-standards/isa-iec-62443-series-of-standards",
+    },
+  },
+  "game-engine-architecture": {
+    "engine-architecture": {
+      local: "game-engine-architecture/engine-architecture.md",
+      url: "https://www.gameenginebook.com/",
     },
   },
 };

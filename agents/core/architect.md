@@ -46,6 +46,9 @@ extended_skills:
   - systems/hardware-aware-design
   - systems/data-intensive
   - systems/security-architecture
+  - systems/distributed-ledger
+  - systems/cyber-physical
+  - systems/game-engine-architecture
   # AI-integrated systems architecture
   - ai-systems/edge-inference
   - ai-systems/inference-serving-topology
