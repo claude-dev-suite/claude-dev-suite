@@ -408,19 +408,26 @@ deep-dive narrative. This keeps the loose coupling: agent → skill → KB.
   scratch subagent reproduced both — the `Skill '…/…' was not found` skip warning
   **and** ~31 inherited tools despite `allowed-tools: Read`. Both issues are now
   empirically proven, not inferred.
-- **P1 — Wiring & de-bias (low-risk PR).**
-  - Add `mcp__skill-loader__*` (and `Skill`) to the architect's `allowed-tools`.
-  - Convert frontmatter to a minimal domain-agnostic `core_skills:` (clean-code,
-    solid-principles, trade-off analysis) + `extended_skills:` (web **and**
-    systems domains).
-  - Rewrite the body into a **domain-agnostic decision framework** + a
-    "Domain routing" section instructing the architect to call
-    `list_skills(search=<domain>)` / `load_skill(...)` as a first step.
-- **P2 — Catalog + KB for top-priority domains.** `systems/` (§6.2) +
-  `ai-systems/` (§6.3) + #10 data-intensive + #12 system security: create skill
-  packs (§7), wire docs-index (§8.2), author KB (§8.3).
-- **P3 — Generalize verticals.** Extract general principles from `bitcoin` →
-  distributed-ledger, `industrial` → cyber-physical, `unity` → game-engine.
+- **Workstream B — install-time native transform.** ✅ **DONE 2026-06-01**
+  (commit `ecf0d13`). See §4.2 — fixes the platform-mapping bugs so tool limits
+  and skill preload take effect. This is the "wire first" prerequisite.
+- **P1 — Architect de-bias.** ✅ **DONE 2026-06-01** (commit `2b879f9`). Body
+  rewritten with the "Step 0 — Domain routing" protocol; frontmatter moved to a
+  domain-agnostic `core_skills:` + on-demand `extended_skills:`. (`skill-loader`
+  is added at install by B's lazy transform; not hardcoded in source allowed-tools
+  to avoid a dangling MCP entry in eager installs.)
+- **P2 — Skill packs.** ✅ **DONE 2026-06-01** — `systems/` (commit `995558f`,
+  7 skills) and `ai-systems/` (commit `5f66a15`, 6 skills) created, wired into
+  the architect's `extended_skills` (all 35 architect skills now resolve; fixed a
+  pre-existing `databases/prisma`→`orm-odm/prisma` mis-reference). **KB fill
+  (§8) — PENDING** (see P2-KB below). data-intensive / system-security skills —
+  PENDING (next batch).
+- **P2-KB — Knowledge-base fill.** ⏳ **PENDING.** Author `knowledge_base` repo
+  deep-dives + `docs-index/systems.ts` + `docs-index/ai-systems.ts` and wire
+  `index.ts` (§8). Touches the **external** repo (clone → write → push → delete)
+  — outward-facing; confirm before pushing.
+- **P3 — Generalize verticals.** PENDING — `bitcoin` → distributed-ledger,
+  `industrial` → cyber-physical, `unity` → game-engine.
 - **P4 — Optional families** (#11, #13, #14, #15) as use cases emerge.
 
 ---

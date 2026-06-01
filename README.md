@@ -230,7 +230,7 @@ Domain experts with deep knowledge in specific technologies:
 Specialized agents organized by domain:
 
 #### Core Agents
-- **architect** - System design, architecture decisions, trade-offs
+- **architect** - Multi-domain system design & trade-offs across web/enterprise, low-level/systems (OS & kernels, embedded/RTOS, systems networking, storage engines, distributed consensus, virtualization, hardware-aware), AI-integrated systems (edge, serving topology, hybrid, gateways, agentic), and data-intensive platforms — discovers and loads the relevant domain skills on demand
 - **code-reviewer** - Code quality, best practices, refactoring
 - **python-expert** - Python 3.10-3.14, async patterns, package management, ruff, pydantic
 - **typescript-expert** - TypeScript 5, advanced types, strict configuration
@@ -939,7 +939,7 @@ Control the dashboard and orchestrator from Claude Code.
 
 | Agent | Triggers | Skills | MCP Servers |
 |-------|----------|--------|-------------|
-| **architect** | architecture, design, scalability, trade-offs | system-design | documentation |
+| **architect** | architecture, design, scalability, trade-offs, systems, AI, data | clean-code, solid-principles (core) + web/enterprise, `systems/*`, `ai-systems/*` on demand | documentation, api-explorer, skill-loader |
 | **code-reviewer** | review, code quality, refactor, best practices | clean-code | code-quality |
 | **typescript-expert** | TypeScript, types, generics | typescript | documentation |
 | **nodejs-expert** | Node.js, npm, modules | nodejs | documentation |

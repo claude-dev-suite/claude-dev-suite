@@ -8,7 +8,7 @@ This document maps each agent to its required MCP servers and skills.
 
 | Agent | MCP Servers | Skills |
 |-------|-------------|--------|
-| **architect** | documentation | system-design, clean-code, architecture-patterns |
+| **architect** | documentation, api-explorer, skill-loader | clean-code, solid-principles, token-optimization (core); on demand: web/enterprise (DDD, event-sourcing/CQRS, multitenancy, Spring Cloud, API design), `systems/*` (OS-kernel, embedded-RTOS, systems-networking, storage-engines, distributed-consensus, virtualization, hardware-aware), `ai-systems/*` (edge-inference, inference-serving-topology, hybrid-edge-cloud, ai-hardware-selection, model-gateway-routing, agentic-architecture) |
 | **code-reviewer** | documentation, code-quality | clean-code, solid-principles, git-workflow |
 | **typescript-expert** | documentation | typescript, advanced-types |
 | **nodejs-expert** | documentation | nodejs, npm, async-patterns |
