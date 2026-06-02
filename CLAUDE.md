@@ -226,7 +226,7 @@ Version format: `MAJOR.MINOR.PATCH` — applied to `configurator/dashboard/packa
 10. Verify the published assets contain the full set:
     - Windows: `*Setup*.exe`, `*Setup*.exe.blockmap`, `latest.yml`
     - macOS:   `*-arm64.dmg`, `*-x64.dmg` (+ blockmaps), `latest-mac.yml`
-    - Linux:   `*.AppImage`, `*.deb`, `*.rpm`, `latest-linux.yml`
+    - Linux:   `*.AppImage`, `*.deb`, `latest-linux.yml` (no `.rpm` — not produced by the current build)
 11. For risky releases, ship as `vX.Y.Z-rc.N` first (CI workflow triggers on any `v*` tag) and validate on macOS/Linux machines before promoting to a stable tag.
 
 ## Anti-Staleness Rule
