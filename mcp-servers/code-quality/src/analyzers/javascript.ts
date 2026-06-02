@@ -4,6 +4,22 @@
  */
 
 import { spawn } from 'child_process';
+import { isAbsolute, normalize } from 'path';
+
+/** Reject paths containing null bytes — defence against null-byte injection */
+function validateFilePath(filePath: string): void {
+  if (filePath.includes('\0')) {
+    throw new Error('Invalid file path: contains null byte');
+  }
+  if (!isAbsolute(normalize(filePath))) {
+    throw new Error('File path must be absolute');
+  }
+}
+
+/** Return the platform-appropriate executable name for npm-bundled CLI launchers */
+function cmd(name: string): string {
+  return process.platform === 'win32' ? `${name}.cmd` : name;
+}
 import type {
   Language,
   ComplexityResult,
@@ -122,9 +138,12 @@ export class JavaScriptAnalyzer implements LanguageAnalyzer {
   }
 
   private async runEslint(filePath: string): Promise<StyleResult | null> {
+    validateFilePath(filePath);
     return new Promise((resolve) => {
-      const child = spawn('npx', ['eslint', '--format', 'json', filePath], {
-        shell: true,
+      // shell:false — arguments are passed directly to the process, preventing
+      // shell metacharacter expansion in filePath.
+      const child = spawn(cmd('npx'), ['eslint', '--format', 'json', filePath], {
+        shell: false,
         timeout: 30000
       });
 
@@ -181,9 +200,11 @@ export class JavaScriptAnalyzer implements LanguageAnalyzer {
   }
 
   private async runBiome(filePath: string): Promise<StyleResult | null> {
+    validateFilePath(filePath);
     return new Promise((resolve) => {
-      const child = spawn('npx', ['biome', 'lint', '--reporter', 'json', filePath], {
-        shell: true,
+      // shell:false — prevents shell metacharacter expansion in filePath.
+      const child = spawn(cmd('npx'), ['biome', 'lint', '--reporter', 'json', filePath], {
+        shell: false,
         timeout: 30000
       });
 

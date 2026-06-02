@@ -15,6 +15,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
+import { useToast } from '@/hooks/useToast';
 import type { LogEntry } from '../../types/logs';
 
 // Log level colors
@@ -90,6 +91,7 @@ export function LogViewer({
   enableStreaming = true,
   maxLogs = 1000,
 }: LogViewerProps) {
+  const toast = useToast();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -281,9 +283,9 @@ export function LogViewer({
       setLogs([]);
       setExpandedIds(new Set());
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to clear logs');
+      toast.error(err instanceof Error ? err.message : 'Failed to clear logs');
     }
-  }, []);
+  }, [toast]);
 
   // Export logs
   const handleExport = useCallback(() => {

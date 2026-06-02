@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { BundledLanguage, HighlighterGeneric } from 'shiki';
+import DOMPurify from 'dompurify';
 import { useProjectStore } from '../../../stores/project.store';
 import { API_BASE } from '@/utils/api';
 
@@ -312,11 +313,18 @@ export function FilesPanel() {
               {selectedFile}
             </div>
             {/* Shiki output — background already set by github-dark theme */}
+            {/* DOMPurify sanitizes as defense-in-depth; Shiki itself escapes code
+                content, but sanitization guards against any unexpected output. */}
             <div
               className="text-xs [&_pre]:p-4 [&_pre]:min-h-full [&_pre]:!bg-transparent
                 [&_.shiki]:!bg-transparent [&_code]:font-mono [&_code]:text-xs [&_code]:leading-5"
-              // File content is read from user's own local project via path-validated backend
-              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(highlightedHtml, {
+                  // Allow the structural tags and style attributes Shiki emits.
+                  ALLOWED_TAGS: ['pre', 'code', 'span'],
+                  ALLOWED_ATTR: ['class', 'style', 'tabindex'],
+                }),
+              }}
             />
           </>
         )}

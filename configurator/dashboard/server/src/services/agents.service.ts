@@ -7,18 +7,15 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import type { Agent, McpServer, EnvVarConfig, AgentCategory } from '../types.js';
 import { parseYamlDescription } from '../utils/yaml-utils.js';
 import { timeOperation, TIMING_THRESHOLDS } from '../utils/performance.js';
 import { getLogger } from '../utils/logger.js';
 import { extractEnvVar, EXCLUDED_DIRS } from '../utils/fs-utils.js';
 import { parseAgentSkillsStructured } from './installation/file-operations.js';
+import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 
 const logger = getLogger('AgentsService');
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Cache TTL in milliseconds (5 minutes)
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -26,16 +23,6 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 interface CacheEntry<T> {
   data: T | null;
   timestamp: number;
-}
-
-// Get dev-suite directory
-function getDevSuiteDir(): string {
-  // Use DEV_SUITE_DIR env var if set (Electron packaged mode)
-  if (process.env.DEV_SUITE_DIR) {
-    return process.env.DEV_SUITE_DIR;
-  }
-  // Fallback: Navigate from server/src/services to dev-suite root (development)
-  return path.resolve(__dirname, '..', '..', '..', '..', '..');
 }
 
 export class AgentsService {

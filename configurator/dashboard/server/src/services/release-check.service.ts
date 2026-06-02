@@ -117,11 +117,17 @@ export class ReleaseCheckService {
       const latestVersion = tag ? tag.replace(/^v/i, '') : null;
       const updateAvailable = !!latestVersion && isNewer(latestVersion, currentVersion);
 
+      // Only expose releaseUrl if it is a legitimate GitHub https URL.
+      // A malicious or unexpected html_url (javascript:, http:, etc.) is dropped
+      // so the frontend can safely use it as an href without an open-redirect risk.
+      const rawUrl = release.html_url ?? '';
+      const safeReleaseUrl = rawUrl.startsWith('https://github.com/') ? rawUrl : undefined;
+
       result = {
         currentVersion,
         latestVersion,
         updateAvailable,
-        releaseUrl: release.html_url,
+        releaseUrl: safeReleaseUrl,
         releaseName: release.name || release.tag_name,
         publishedAt: release.published_at,
         repo,

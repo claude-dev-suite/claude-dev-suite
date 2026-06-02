@@ -9,10 +9,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 
 export interface RuleMetadata {
   id: string;
@@ -20,11 +17,6 @@ export interface RuleMetadata {
   description: string;
   category: 'git' | 'docs';
   recommended: boolean;
-}
-
-function getDevSuiteDir(): string {
-  if (process.env.DEV_SUITE_DIR) return process.env.DEV_SUITE_DIR;
-  return path.resolve(__dirname, '..', '..', '..', '..', '..');
 }
 
 /** Parse YAML frontmatter from a markdown file (simple key: value, no arrays needed). */

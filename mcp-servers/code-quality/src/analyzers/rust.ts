@@ -4,6 +4,17 @@
  */
 
 import { spawn } from 'child_process';
+import { isAbsolute, normalize } from 'path';
+
+/** Reject paths containing null bytes — defence against null-byte injection */
+function validateFilePath(filePath: string): void {
+  if (filePath.includes('\0')) {
+    throw new Error('Invalid file path: contains null byte');
+  }
+  if (!isAbsolute(normalize(filePath))) {
+    throw new Error('File path must be absolute');
+  }
+}
 import type {
   Language,
   ComplexityResult,
@@ -177,9 +188,12 @@ export class RustAnalyzer implements LanguageAnalyzer {
   }
 
   private async runClippy(filePath: string): Promise<StyleResult | null> {
+    validateFilePath(filePath);
     return new Promise((resolve) => {
+      // shell:false — cargo reads the workspace context via cwd, filePath is only
+      // used to filter its JSON output and is NOT passed as a shell argument.
       const child = spawn('cargo', ['clippy', '--message-format=json', '--', '-W', 'clippy::all'], {
-        shell: true,
+        shell: false,
         timeout: 120000
       });
 

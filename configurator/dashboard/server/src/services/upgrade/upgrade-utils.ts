@@ -8,30 +8,25 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { fileURLToPath } from 'url';
 import { readJsonSync } from '../../utils/fs-utils.js';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
+import { getLogger } from '../../utils/logger.js';
 import type { FeatureRegistry, ExtendedManifest, TrackedFile } from '../../types/index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Import and re-export canonical getDevSuiteDir so that:
+// 1. It is available locally in this module.
+// 2. Existing callers that import { getDevSuiteDir } from upgrade-utils keep working.
+import { getDevSuiteDir as _getDevSuiteDir } from '../../utils/dev-suite-dir.js';
+export { getDevSuiteDir } from '../../utils/dev-suite-dir.js';
+const getDevSuiteDir = _getDevSuiteDir;
+
+const logger = getLogger('UpgradeUtils');
 
 // Constants
 export const DEV_SUITE_VERSION = '1.0.0';
 export const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 export const FEATURES_REGISTRY_PATH = 'registry/features.json';
 export const BACKUP_DIR_PREFIX = '.dev-suite-backup-';
-
-/**
- * Get dev-suite root directory
- */
-export function getDevSuiteDir(): string {
-  if (process.env.DEV_SUITE_DIR) {
-    return process.env.DEV_SUITE_DIR;
-  }
-  // Navigate from server/src/services/upgrade to dev-suite root
-  return path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
-}
 
 /**
  * Calculate SHA256 hash of file content
@@ -50,8 +45,8 @@ export function calculateFileHashFromPath(filePath: string): string | null {
       const content = fs.readFileSync(filePath, 'utf-8');
       return calculateFileHash(content);
     }
-  } catch {
-    // Ignore errors
+  } catch (err) {
+    logger.warn('calculateFileHashFromPath: failed to read file', { context: { filePath }, error: err instanceof Error ? err.message : String(err) });
   }
   return null;
 }
@@ -78,8 +73,9 @@ export function saveManifest(projectPath: string, manifest: ExtendedManifest): b
   try {
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    logger.warn('saveManifest: failed to write manifest', { context: { manifestPath }, error: err instanceof Error ? err.message : String(err) });
+    throw new Error(`Failed to save manifest at ${manifestPath}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 

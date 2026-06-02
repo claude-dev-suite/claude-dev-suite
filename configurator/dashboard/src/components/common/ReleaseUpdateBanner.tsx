@@ -10,6 +10,7 @@
  */
 
 import { useReleaseCheck } from '@/hooks';
+import { sanitizeReleaseUrl } from '@/utils/releaseUrl';
 
 /** True when running inside the packaged Electron shell (native updater present). */
 function isElectron(): boolean {
@@ -37,7 +38,7 @@ export function ReleaseUpdateBanner() {
           d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" transform="rotate(180 12 12)" />
       </svg>
       <a
-        href={result.releaseUrl ?? `https://github.com/${result.repo}/releases`}
+        href={sanitizeReleaseUrl(result.releaseUrl) ?? `https://github.com/${result.repo}/releases`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-sm font-medium text-amber-300 hover:text-amber-200 whitespace-nowrap"

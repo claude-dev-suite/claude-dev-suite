@@ -216,16 +216,86 @@ livePerformanceRoutes.get('/live-performance/status', async (req: Request, res: 
       return res.status(400).json({ success: false, error: 'Only http/https URLs allowed' });
     }
 
-    // SSRF protection: block link-local (AWS metadata, APIPA) and private RFC1918 ranges.
-    // localhost / 127.0.0.1 are intentionally allowed — devs run their apps there.
-    const hostname = parsedUrl.hostname;
-    if (!hostname) {
+    // SSRF protection: block link-local (AWS metadata, APIPA), private RFC1918
+    // ranges, and IPv6 private/unspecified ranges.
+    //
+    // INTENTIONAL LOOPBACK ALLOWANCE: localhost / 127.0.0.1 / ::1 are
+    // explicitly allowed because this dashboard is a developer tool and devs
+    // routinely run their apps on loopback ports.  The dashboard server itself
+    // already binds only to 127.0.0.1 so it can never be reached from the
+    // network, making SSRF via loopback a low-risk, high-value tradeoff.
+    const rawHostname = parsedUrl.hostname;
+    if (!rawHostname) {
       return res.status(400).json({ success: false, error: 'Invalid URL: missing hostname' });
     }
-    const isLinkLocal = /^169\.254\.|^0\.0\.0\.0$|^::$/.test(hostname);
-    const isPrivate = /^10\.|^172\.(1[6-9]|2\d|3[01])\.|^192\.168\./.test(hostname);
-    const isLoopback = hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
-    if (isLinkLocal || (isPrivate && !isLoopback)) {
+
+    // Node's URL parser wraps IPv6 in brackets and may normalise the form, e.g.
+    // [::ffff:10.0.0.1] → hostname "[::ffff:a00:1]" (hex encoding).
+    // Strip the brackets to get the raw address string.
+    const hostname = rawHostname.replace(/^\[|\]$/g, '');
+
+    // IPv4-mapped IPv6 (::ffff:xxxx:xxxx or ::ffff:d.d.d.d).
+    // Node's URL normalises the last 32 bits to hex (e.g. 10.0.0.1 → a00:1).
+    // Block ALL ::ffff: addresses except the IPv4-mapped loopback (::ffff:7f00:1
+    // = 127.0.0.1) which is equivalent to the loopback we intentionally allow.
+    const isIpv4Mapped = /^::ffff:/i.test(hostname);
+
+    // Attempt to recover a dotted-decimal IPv4 from the mapped address (both
+    // dotted-decimal and hex forms) for the private-range checks below.
+    let effectiveHostname: string = hostname;
+    if (isIpv4Mapped) {
+      // Dotted-decimal form: ::ffff:a.b.c.d
+      const dotted = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(hostname);
+      if (dotted && dotted[1]) {
+        effectiveHostname = dotted[1];
+      } else {
+        // Hex form: ::ffff:xxyy:zzww → convert to a.b.c.d
+        const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(hostname);
+        if (hex && hex[1] && hex[2]) {
+          const hi = parseInt(hex[1], 16);
+          const lo = parseInt(hex[2], 16);
+          effectiveHostname = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+        }
+      }
+    }
+
+    // Loopback (intentionally allowed — see comment above).
+    const isLoopback =
+      effectiveHostname === '127.0.0.1' ||
+      effectiveHostname === 'localhost' ||
+      effectiveHostname === '::1' ||
+      hostname === '::1' ||
+      /^127\.\d+\.\d+\.\d+$/.test(effectiveHostname);
+
+    // IPv4 link-local and unspecified.
+    const isLinkLocalV4 = /^169\.254\./.test(effectiveHostname);
+    const isUnspecifiedV4 = /^0\.0\.0\.0$/.test(effectiveHostname);
+
+    // RFC1918 private ranges.
+    const isPrivateV4 =
+      /^10\./.test(effectiveHostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(effectiveHostname) ||
+      /^192\.168\./.test(effectiveHostname);
+
+    // Any ::ffff: mapped address that is not loopback must be blocked (it
+    // is equivalent to one of the IPv4 ranges we block above, or to some
+    // other non-routable address).
+    const isBlockedIpv4Mapped = isIpv4Mapped && !isLoopback;
+
+    // IPv6 ULA (fc00::/7 covers fc** and fd**) and unspecified (::).
+    const isUlaV6 = /^f[cd][0-9a-f]{2}:/i.test(hostname);
+    const isUnspecifiedV6 = /^::$/.test(hostname) || hostname === '0:0:0:0:0:0:0:0';
+
+    // Link-local IPv6 (fe80::/10).
+    const isLinkLocalV6 = /^fe[89ab][0-9a-f]:/i.test(hostname);
+
+    const isBlocked = !isLoopback && (
+      isLinkLocalV4 || isUnspecifiedV4 || isPrivateV4 ||
+      isBlockedIpv4Mapped ||
+      isUlaV6 || isUnspecifiedV6 || isLinkLocalV6
+    );
+
+    if (isBlocked) {
       return res.status(400).json({ success: false, error: 'URL host not allowed' });
     }
 

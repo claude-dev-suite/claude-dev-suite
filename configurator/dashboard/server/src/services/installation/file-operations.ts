@@ -8,42 +8,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { fileURLToPath } from 'url';
 import { getLogger } from '../../utils/logger.js';
 import { validatePathWithinBase, validateEntryName } from './security-helpers.js';
 import { expandBundleEntry } from '../agent-bundles.js';
+import { getDevSuiteDir } from '../../utils/dev-suite-dir.js';
 
 const logger = getLogger('InstallationFileOps');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-/**
- * Get dev-suite root directory
- */
-export function getDevSuiteDir(): string {
-  // Use DEV_SUITE_DIR env var if set (Electron packaged mode)
-  if (process.env.DEV_SUITE_DIR) {
-    const raw = process.env.DEV_SUITE_DIR;
-    // SECURITY: validate the env var value before trusting it
-    const resolved = path.resolve(raw);
-    // Must be an absolute path after resolution
-    if (!path.isAbsolute(resolved)) {
-      throw new Error('DEV_SUITE_DIR must be an absolute path');
-    }
-    // Must resolve without any remaining traversal segments
-    if (resolved.includes('..')) {
-      throw new Error('DEV_SUITE_DIR must not contain path traversal sequences');
-    }
-    // Must point to an existing directory
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-      throw new Error(`DEV_SUITE_DIR does not point to an existing directory: ${resolved}`);
-    }
-    return resolved;
-  }
-  // Fallback: Navigate from server/src/services/installation to dev-suite root (development)
-  return path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
-}
+// Re-export the canonical validated implementation so existing importers of
+// this module keep working while there is a single source of truth (M6).
+export { getDevSuiteDir };
 
 /**
  * Calculate SHA256 hash of file content
@@ -62,8 +36,8 @@ export function calculateFileHashFromPath(filePath: string): string | null {
       const content = fs.readFileSync(filePath, 'utf-8');
       return calculateFileHash(content);
     }
-  } catch {
-    // Ignore errors
+  } catch (err) {
+    logger.warn('calculateFileHashFromPath: failed to read file', { context: { filePath }, error: err instanceof Error ? err.message : String(err) });
   }
   return null;
 }

@@ -99,11 +99,89 @@ export const HooksStatusRequestSchema = z.object({
   path: z.string().min(1, 'Project path is required'),
 });
 
+/**
+ * SECURITY: custom hook scripts must not contain shell metacharacters.
+ * Allowed characters cover typical npm-run / npx invocations.
+ */
+const safeScriptPattern = /^[a-zA-Z0-9 _./@:=-]+$/;
+const safeScriptSchema = z
+  .string()
+  .max(500, 'Custom script must be ≤ 500 characters')
+  .refine(
+    (v) => safeScriptPattern.test(v),
+    'Custom script contains disallowed shell metacharacters'
+  )
+  .optional();
+
+/**
+ * Branch names must pass git-ref validation (alphanumeric, dash, underscore,
+ * dot, forward-slash — no shell metacharacters).
+ */
+const safeBranchNamePattern = /^[a-zA-Z0-9._\-\/]+$/;
+const safeProtectedBranchesSchema = z
+  .string()
+  .max(1000, 'Protected branches list must be ≤ 1000 characters')
+  .refine(
+    (v) =>
+      v
+        .split(',')
+        .map((b) => b.trim())
+        .filter(Boolean)
+        .every((b) => safeBranchNamePattern.test(b) && !b.startsWith('-') && !b.includes('..')),
+    'One or more branch names contain invalid characters'
+  )
+  .optional();
+
+/**
+ * Per-hook configuration block (e.g. preCommit, prePush, commitMsg …).
+ *
+ * Accepts either:
+ *   - a boolean (backward-compat shorthand to enable/disable the hook), OR
+ *   - an object with the full config (enables security validation of script /
+ *     protectedBranches fields).
+ *
+ * The security-sensitive fields (script, protectedBranches) are only validated
+ * when the object form is used.  Boolean values pass through unchanged and the
+ * service layer performs its own defense-in-depth validation.
+ */
+const HookConfigEntrySchema = z.union([
+  z.boolean(),
+  z.object({
+    enabled: z.boolean().optional(),
+    actions: z.array(z.string()).optional(),
+    conventional: z.boolean().optional(),
+    pattern: z.string().max(500).optional(),
+    // C1: script validated against an allowlist of safe characters
+    script: safeScriptSchema,
+    // H1: protectedBranches validated to contain only safe git-ref chars
+    protectedBranches: safeProtectedBranchesSchema,
+  }),
+]);
+
 export const HooksInstallConfigSchema = z.object({
   useHusky: z.boolean().optional(),
   hooks: z.record(z.string(), z.boolean()).optional(),
   skipBackup: z.boolean().optional(),
-}).passthrough(); // Allow hook config fields like preCommit, prePush, etc.
+  // Per-hook config keys (preCommit, prePush, commitMsg, etc.) use a validated shape.
+  // Both boolean (legacy shorthand) and full object forms are accepted.
+  preCommit: HookConfigEntrySchema.optional(),
+  prePush: HookConfigEntrySchema.optional(),
+  commitMsg: HookConfigEntrySchema.optional(),
+  preMergeCommit: HookConfigEntrySchema.optional(),
+  prepareCommitMsg: HookConfigEntrySchema.optional(),
+  postCommit: HookConfigEntrySchema.optional(),
+  postMerge: HookConfigEntrySchema.optional(),
+  postCheckout: HookConfigEntrySchema.optional(),
+  postRewrite: HookConfigEntrySchema.optional(),
+  preRebase: HookConfigEntrySchema.optional(),
+  applypatchMsg: HookConfigEntrySchema.optional(),
+  preApplypatch: HookConfigEntrySchema.optional(),
+  postApplypatch: HookConfigEntrySchema.optional(),
+  preReceive: HookConfigEntrySchema.optional(),
+  update: HookConfigEntrySchema.optional(),
+  postReceive: HookConfigEntrySchema.optional(),
+  postUpdate: HookConfigEntrySchema.optional(),
+});
 
 export const InstallHooksRequestSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),

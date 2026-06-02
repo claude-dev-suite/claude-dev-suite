@@ -24,6 +24,7 @@ import { buildJobSummary, buildExecutionSummary, buildConsolidationTask } from '
 import { writeStoredSessionId, clearStoredSessionId } from './session-storage';
 import { PermissionDialog, type PermissionRequest as PermissionDialogRequest } from './PermissionDialog';
 import { useOrchestratorStore } from '@/stores/orchestrator.store';
+import { useToast } from '@/hooks/useToast';
 
 export interface OrchestratorPanelProps {
   projectPath: string;
@@ -41,6 +42,7 @@ export interface SubTask {
 
 export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: OrchestratorPanelProps) {
   const logger = useComponentLogger('OrchestratorPanel', { logMount: false, logUnmount: false });
+  const toast = useToast();
 
   // Use custom hooks for data and state
   const data = useOrchestratorData(projectPath);
@@ -262,7 +264,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
   const submitJob = useCallback(() => {
     if (!ws.connected) return;
     if (state.agentTasks.length === 0 && !state.jobTitle.trim()) {
-      alert('Please add at least one agent task or enter a job title');
+      toast.warning('Please add at least one agent task or enter a job title');
       return;
     }
 
@@ -329,7 +331,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
     state.setMcpSuggestions([]);
 
     ws.submitJob(job as Job, state.jobContext, subTasks);
-  }, [ws, state, projectPath, data.workflows, data.availableAgents]);
+  }, [ws, state, projectPath, data.workflows, data.availableAgents, toast]);
 
   // Send chat message
   const sendChatMessage = useCallback(

@@ -4,6 +4,17 @@
  */
 
 import { spawn } from 'child_process';
+import { isAbsolute, normalize } from 'path';
+
+/** Reject paths containing null bytes — defence against null-byte injection */
+function validateFilePath(filePath: string): void {
+  if (filePath.includes('\0')) {
+    throw new Error('Invalid file path: contains null byte');
+  }
+  if (!isAbsolute(normalize(filePath))) {
+    throw new Error('File path must be absolute');
+  }
+}
 import type {
   Language,
   ComplexityResult,
@@ -150,10 +161,11 @@ export class JavaAnalyzer implements LanguageAnalyzer {
   }
 
   private async runCheckstyle(filePath: string): Promise<StyleResult | null> {
+    validateFilePath(filePath);
     return new Promise((resolve) => {
-      // Try to run checkstyle if available
+      // shell:false — prevents shell metacharacter expansion in filePath.
       const child = spawn('checkstyle', ['-f', 'xml', filePath], {
-        shell: true,
+        shell: false,
         timeout: 60000
       });
 

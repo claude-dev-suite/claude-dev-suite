@@ -60,13 +60,39 @@ describe('ReleaseCheckService', () => {
   });
 
   it('reports updateAvailable when the latest release is newer', async () => {
-    mockFetchOnce({ tag_name: 'v999.0.0', name: 'v999.0.0', html_url: 'https://example/r', published_at: '2026-01-01T00:00:00Z' });
+    mockFetchOnce({ tag_name: 'v999.0.0', name: 'v999.0.0', html_url: 'https://github.com/owner/repo/releases/tag/v999.0.0', published_at: '2026-01-01T00:00:00Z' });
     const r = await svc.checkLatestRelease({ force: true });
     expect(r.latestVersion).toBe('999.0.0');
     expect(r.updateAvailable).toBe(true);
-    expect(r.releaseUrl).toBe('https://example/r');
+    expect(r.releaseUrl).toBe('https://github.com/owner/repo/releases/tag/v999.0.0');
     expect(r.repo).toBe('claude-dev-suite/claude-dev-suite');
     expect(r.error).toBeUndefined();
+  });
+
+  it('drops a non-github https releaseUrl from the API response', async () => {
+    mockFetchOnce({ tag_name: 'v999.0.0', html_url: 'https://evil.example.com/redirect' });
+    const r = await svc.checkLatestRelease({ force: true });
+    expect(r.releaseUrl).toBeUndefined();
+    expect(r.updateAvailable).toBe(true);
+  });
+
+  it('drops a javascript: html_url from the API response', async () => {
+    mockFetchOnce({ tag_name: 'v999.0.0', html_url: 'javascript:alert(document.cookie)' });
+    const r = await svc.checkLatestRelease({ force: true });
+    expect(r.releaseUrl).toBeUndefined();
+  });
+
+  it('drops an http:// html_url (non-TLS) from the API response', async () => {
+    mockFetchOnce({ tag_name: 'v999.0.0', html_url: 'http://github.com/owner/repo/releases/tag/v999.0.0' });
+    const r = await svc.checkLatestRelease({ force: true });
+    expect(r.releaseUrl).toBeUndefined();
+  });
+
+  it('exposes releaseUrl when html_url is a valid github.com https URL', async () => {
+    const validUrl = 'https://github.com/claude-dev-suite/claude-dev-suite/releases/tag/v1.0.0';
+    mockFetchOnce({ tag_name: 'v999.0.0', html_url: validUrl });
+    const r = await svc.checkLatestRelease({ force: true });
+    expect(r.releaseUrl).toBe(validUrl);
   });
 
   it('reports no update when the latest release is older/equal', async () => {

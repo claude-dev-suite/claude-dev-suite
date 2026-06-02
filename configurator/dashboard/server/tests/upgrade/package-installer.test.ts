@@ -189,13 +189,18 @@ describe('PackageInstallerService', () => {
       expect(result.success).toBe(true);
     });
 
+    // On Windows, spawn is called with `<pm>.cmd` (shell:false requires the
+    // full Windows shim name). On POSIX the name is unchanged.
+    const isWin = process.platform === 'win32';
+    const exe = (name: string) => isWin ? `${name}.cmd` : name;
+
     it('installs packages with npm by default (uses npm install --save-dev)', async () => {
       mockSpawnSuccess(['vitest']);
       await service.installPackages(tempDir, ['vitest'], true);
       expect(childProcess.spawn).toHaveBeenCalledWith(
-        'npm',
+        exe('npm'),
         expect.arrayContaining(['install', 'vitest', '--save-dev']),
-        expect.any(Object)
+        expect.objectContaining({ shell: false })
       );
     });
 
@@ -204,9 +209,9 @@ describe('PackageInstallerService', () => {
       mockSpawnSuccess(['vitest']);
       await service.installPackages(tempDir, ['vitest'], true);
       expect(childProcess.spawn).toHaveBeenCalledWith(
-        'yarn',
+        exe('yarn'),
         expect.arrayContaining(['add', 'vitest', '-D']),
-        expect.any(Object)
+        expect.objectContaining({ shell: false })
       );
     });
 
@@ -215,9 +220,9 @@ describe('PackageInstallerService', () => {
       mockSpawnSuccess(['vitest']);
       await service.installPackages(tempDir, ['vitest'], true);
       expect(childProcess.spawn).toHaveBeenCalledWith(
-        'pnpm',
+        exe('pnpm'),
         expect.arrayContaining(['add', 'vitest', '-D']),
-        expect.any(Object)
+        expect.objectContaining({ shell: false })
       );
     });
 
@@ -226,9 +231,9 @@ describe('PackageInstallerService', () => {
       mockSpawnSuccess(['vitest']);
       await service.installPackages(tempDir, ['vitest'], true);
       expect(childProcess.spawn).toHaveBeenCalledWith(
-        'bun',
+        exe('bun'),
         expect.arrayContaining(['add', 'vitest', '-d']),
-        expect.any(Object)
+        expect.objectContaining({ shell: false })
       );
     });
 

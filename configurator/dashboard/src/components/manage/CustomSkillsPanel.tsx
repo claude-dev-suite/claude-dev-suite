@@ -12,6 +12,7 @@ import { PanelSection } from '../layout';
 import { CustomSkillModal } from './CustomSkillModal';
 import { CustomSkillEditorModal } from './CustomSkillEditorModal';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
+import { useToast } from '@/hooks/useToast';
 import type { CustomSkillDetail } from '@/types/custom-agents';
 
 export interface CustomSkillsPanelProps {
@@ -19,6 +20,7 @@ export interface CustomSkillsPanelProps {
 }
 
 export function CustomSkillsPanel({ projectPath }: CustomSkillsPanelProps) {
+  const toast = useToast();
   const {
     skills,
     skillsLoading,
@@ -73,7 +75,7 @@ export function CustomSkillsPanel({ projectPath }: CustomSkillsPanelProps) {
     try {
       const result = await deleteSkill(skillId);
       if (!result.success) {
-        alert(result.error || 'Failed to delete skill');
+        toast.error(result.error || 'Failed to delete skill');
       }
     } finally {
       setDeletingId(null);

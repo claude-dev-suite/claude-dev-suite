@@ -130,7 +130,10 @@ filesRoutes.get('/read', async (req: Request, res: Response) => {
       return;
     }
 
-    // Security: resolve and verify the path stays inside projectRoot
+    // Security: resolve and verify the path stays inside projectRoot.
+    // path.resolve alone is insufficient — a symlink inside the project can
+    // point arbitrarily outside.  We resolve symlinks with realpathSync and
+    // re-check containment against the project root's realpath.
     const absFile = path.resolve(projectRoot, relFile);
     const rootWithSep = projectRoot.endsWith(path.sep) ? projectRoot : projectRoot + path.sep;
     if (!absFile.startsWith(rootWithSep) && absFile !== projectRoot) {
@@ -138,9 +141,31 @@ filesRoutes.get('/read', async (req: Request, res: Response) => {
       return;
     }
 
+    // Resolve the project root's realpath once (handles symlinked project dirs).
+    let realRoot: string;
+    try {
+      realRoot = fs.realpathSync(projectRoot);
+    } catch {
+      realRoot = projectRoot;
+    }
+    const realRootWithSep = realRoot.endsWith(path.sep) ? realRoot : realRoot + path.sep;
+
     let stat: fs.Stats;
+    let realFile: string;
     try {
       stat = fs.statSync(absFile);
+      // Resolve symlinks in the target file path and re-check containment.
+      // For files that do not yet exist realpathSync would throw; use the
+      // parent dir's realpath in that case (fallback containment check).
+      try {
+        realFile = fs.realpathSync(absFile);
+      } catch {
+        realFile = path.join(fs.realpathSync(path.dirname(absFile)), path.basename(absFile));
+      }
+      if (!realFile.startsWith(realRootWithSep) && realFile !== realRoot) {
+        res.status(403).json({ success: false, error: 'Path traversal not allowed' });
+        return;
+      }
     } catch {
       res.status(404).json({ success: false, error: 'File not found' });
       return;

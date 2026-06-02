@@ -12,6 +12,7 @@ import {
   ListToolsRequestSchema,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
 
 import {
   analyzeComplexity,
@@ -30,15 +31,63 @@ import {
   formatMetricsReport,
 } from './tools/index.js';
 
-import type {
-  AnalyzeComplexityInput,
-  FindDuplicatesInput,
-  CheckStyleInput,
-  DetectAntiPatternsInput,
-  FindDeadCodeInput,
-  AnalyzeDependenciesInput,
-  CodeMetricsInput,
-} from './types.js';
+// ── Runtime Zod schemas (mirroring JSON Schema declared in TOOLS below) ────────
+
+const AnalyzeComplexitySchema = z.object({
+  path: z.string().min(1),
+  threshold: z.number().optional(),
+  includeAll: z.boolean().optional(),
+});
+
+const FindDuplicatesSchema = z.object({
+  path: z.string().min(1),
+  minLines: z.number().optional(),
+  minTokens: z.number().optional(),
+});
+
+const CheckStyleSchema = z.object({
+  path: z.string().min(1),
+  fix: z.boolean().optional(),
+  rules: z.array(z.string()).optional(),
+});
+
+const AntiPatternTypeSchema = z.enum([
+  'god-class', 'long-method', 'deep-nesting', 'excessive-parameters',
+  'magic-numbers', 'empty-catch', 'duplicate-code', 'feature-envy',
+  'data-clump', 'primitive-obsession',
+]);
+
+const DetectAntiPatternsSchema = z.object({
+  path: z.string().min(1),
+  patterns: z.array(AntiPatternTypeSchema).optional(),
+  thresholds: z.object({
+    maxCyclomaticComplexity: z.number().optional(),
+    maxCognitiveComplexity: z.number().optional(),
+    maxFunctionLines: z.number().optional(),
+    maxClassLines: z.number().optional(),
+    maxNestingDepth: z.number().optional(),
+    maxParameters: z.number().optional(),
+    maxFileLines: z.number().optional(),
+  }).optional(),
+});
+
+const FindDeadCodeSchema = z.object({
+  path: z.string().min(1),
+  includeTests: z.boolean().optional(),
+  confidence: z.enum(['high', 'medium', 'low']).optional(),
+});
+
+const AnalyzeImportGraphSchema = z.object({
+  path: z.string().min(1),
+  maxDepth: z.number().optional(),
+  excludeNodeModules: z.boolean().optional(),
+});
+
+const CodeMetricsSchema = z.object({
+  path: z.string().min(1),
+  sortBy: z.enum(['loc', 'complexity', 'functions']).optional(),
+  limit: z.number().optional(),
+});
 
 // Tool definitions
 const TOOLS: Tool[] = [
@@ -248,11 +297,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
+  // Helper: return a clean MCP error without crashing the server
+  function validationError(toolName: string, issues: z.ZodIssue[]): { content: { type: 'text'; text: string }[]; isError: boolean } {
+    const detail = issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ');
+    return {
+      content: [{ type: 'text', text: `Invalid arguments for ${toolName}: ${detail}` }],
+      isError: true,
+    };
+  }
+
   try {
     switch (name) {
       case 'analyze_complexity': {
-        const input = args as unknown as AnalyzeComplexityInput;
-        const result = await analyzeComplexity(input);
+        const parsed = AnalyzeComplexitySchema.safeParse(args);
+        if (!parsed.success) return validationError(name, parsed.error.issues);
+        const result = await analyzeComplexity(parsed.data);
         const report = formatComplexityReport(result);
         return {
           content: [{ type: 'text', text: report }]
@@ -260,8 +319,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'find_duplicates': {
-        const input = args as unknown as FindDuplicatesInput;
-        const result = await findDuplicates(input);
+        const parsed = FindDuplicatesSchema.safeParse(args);
+        if (!parsed.success) return validationError(name, parsed.error.issues);
+        const result = await findDuplicates(parsed.data);
         const report = formatDuplicationReport(result);
         return {
           content: [{ type: 'text', text: report }]
@@ -269,8 +329,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'check_style': {
-        const input = args as unknown as CheckStyleInput;
-        const result = await checkStyle(input);
+        const parsed = CheckStyleSchema.safeParse(args);
+        if (!parsed.success) return validationError(name, parsed.error.issues);
+        const result = await checkStyle(parsed.data);
         const report = formatStyleReport(result);
         return {
           content: [{ type: 'text', text: report }]
@@ -278,8 +339,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'detect_antipatterns': {
-        const input = args as unknown as DetectAntiPatternsInput;
-        const result = await detectAntiPatterns(input);
+        const parsed = DetectAntiPatternsSchema.safeParse(args);
+        if (!parsed.success) return validationError(name, parsed.error.issues);
+        const result = await detectAntiPatterns(parsed.data);
         const report = formatAntiPatternReport(result);
         return {
           content: [{ type: 'text', text: report }]
@@ -287,8 +349,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'find_dead_code': {
-        const input = args as unknown as FindDeadCodeInput;
-        const result = await findDeadCode(input);
+        const parsed = FindDeadCodeSchema.safeParse(args);
+        if (!parsed.success) return validationError(name, parsed.error.issues);
+        const result = await findDeadCode(parsed.data);
         const report = formatDeadCodeReport(result);
         return {
           content: [{ type: 'text', text: report }]
@@ -296,8 +359,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'analyze_import_graph': {
-        const input = args as unknown as AnalyzeDependenciesInput;
-        const result = await analyzeDependencies(input);
+        const parsed = AnalyzeImportGraphSchema.safeParse(args);
+        if (!parsed.success) return validationError(name, parsed.error.issues);
+        const result = await analyzeDependencies(parsed.data);
         const report = formatDependencyReport(result);
         return {
           content: [{ type: 'text', text: report }]
@@ -305,8 +369,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'code_metrics': {
-        const input = args as unknown as CodeMetricsInput;
-        const result = await calculateMetrics(input);
+        const parsed = CodeMetricsSchema.safeParse(args);
+        if (!parsed.success) return validationError(name, parsed.error.issues);
+        const result = await calculateMetrics(parsed.data);
         const report = formatMetricsReport(result);
         return {
           content: [{ type: 'text', text: report }]
