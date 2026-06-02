@@ -27,13 +27,18 @@ const __dirname = path.dirname(__filename);
 export function getDevSuiteDir(): string {
   if (process.env.DEV_SUITE_DIR) {
     const raw = process.env.DEV_SUITE_DIR;
+
+    // Reject traversal in the RAW value *before* resolving — path.resolve()
+    // collapses '..' segments, so a post-resolve check is dead code. Split on
+    // both separators so the check is platform-independent.
+    if (raw.split(/[/\\]/).includes('..')) {
+      throw new Error('DEV_SUITE_DIR must not contain path traversal sequences');
+    }
+
     const resolved = path.resolve(raw);
 
     if (!path.isAbsolute(resolved)) {
       throw new Error('DEV_SUITE_DIR must be an absolute path');
-    }
-    if (resolved.includes('..')) {
-      throw new Error('DEV_SUITE_DIR must not contain path traversal sequences');
     }
     if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
       throw new Error(`DEV_SUITE_DIR does not point to an existing directory: ${resolved}`);
