@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { sanitizeReleaseUrl } from '../ReleaseUpdateBanner';
+import { sanitizeReleaseUrl } from '@/utils/releaseUrl';
 
 describe('sanitizeReleaseUrl', () => {
   it('accepts a well-formed https://github.com URL', () => {

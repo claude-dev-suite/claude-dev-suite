@@ -10,22 +10,12 @@
  */
 
 import { useReleaseCheck } from '@/hooks';
+import { sanitizeReleaseUrl } from '@/utils/releaseUrl';
 
 /** True when running inside the packaged Electron shell (native updater present). */
 function isElectron(): boolean {
   return typeof window !== 'undefined' &&
     !!(window as unknown as { electronAPI?: { updater?: unknown } }).electronAPI?.updater;
-}
-
-/**
- * Returns `url` only when it starts with `https://` (defense-in-depth against
- * open-redirect / XSS via a compromised or unexpected API-sourced value).
- * Returns `undefined` for any other scheme so callers can fall back to a safe
- * hard-coded URL.
- */
-export function sanitizeReleaseUrl(url: string | null | undefined): string | undefined {
-  if (url && url.startsWith('https://')) return url;
-  return undefined;
 }
 
 export function ReleaseUpdateBanner() {

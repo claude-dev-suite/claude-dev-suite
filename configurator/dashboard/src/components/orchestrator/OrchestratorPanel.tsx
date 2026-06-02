@@ -331,7 +331,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
     state.setMcpSuggestions([]);
 
     ws.submitJob(job as Job, state.jobContext, subTasks);
-  }, [ws, state, projectPath, data.workflows, data.availableAgents]);
+  }, [ws, state, projectPath, data.workflows, data.availableAgents, toast]);
 
   // Send chat message
   const sendChatMessage = useCallback(
