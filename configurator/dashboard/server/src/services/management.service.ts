@@ -7,7 +7,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import type { Agent } from '../types.js';
 import type { ExtendedManifest, TrackedFile, NewComponentsResult } from '../types/upgrade.js';
@@ -17,11 +16,12 @@ import { createHash } from 'crypto';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { parseAgentSkills, flattenSkillName, toInstalledAgentContent } from './installation/file-operations.js';
 import { validatePathWithinBase } from './installation/index.js';
+import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
+import { getLogger } from '../utils/logger.js';
+
+const logger = getLogger('ManagementService');
 
 const MANIFEST_FILENAME = '.dev-suite-manifest.json';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Constants
 const DEV_SUITE_START_MARKER = '<!-- DEV-SUITE-CONFIG-START -->';
@@ -32,27 +32,6 @@ const TIMEOUTS = {
   NPM_INSTALL: 120000,
   COMMAND_DEFAULT: 60000,
 };
-
-function getDevSuiteDir(): string {
-  // Use DEV_SUITE_DIR env var if set (Electron packaged mode)
-  if (process.env.DEV_SUITE_DIR) {
-    const raw = process.env.DEV_SUITE_DIR;
-    // SECURITY: validate the env var value before trusting it
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(resolved)) {
-      throw new Error('DEV_SUITE_DIR must be an absolute path');
-    }
-    if (resolved.includes('..')) {
-      throw new Error('DEV_SUITE_DIR must not contain path traversal sequences');
-    }
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-      throw new Error(`DEV_SUITE_DIR does not point to an existing directory: ${resolved}`);
-    }
-    return resolved;
-  }
-  // Fallback: Navigate from server/src/services to dev-suite root (development)
-  return path.resolve(__dirname, '..', '..', '..', '..', '..');
-}
 
 export class ManagementService {
   private agentsService = new AgentsService();
@@ -111,7 +90,7 @@ export class ManagementService {
         result.mcpServers = config.mcpServers?.enabled || [];
       } catch (error: unknown) {
         // Config file exists but invalid - log warning and continue with file system scan
-        console.warn('Failed to parse .dev-suite.json, falling back to file system scan', error);
+        logger.warn('Failed to parse .dev-suite.json, falling back to file system scan', { error });
       }
     }
 
@@ -551,7 +530,7 @@ export class ManagementService {
         config = JSON.parse(fs.readFileSync(devSuiteJsonPath, 'utf-8'));
       } catch (error: unknown) {
         // Config file exists but invalid - log warning and use default
-        console.warn('Failed to parse .dev-suite.json, using default config', error);
+        logger.warn('Failed to parse .dev-suite.json, using default config', { error });
       }
     }
 
@@ -614,7 +593,7 @@ export class ManagementService {
         }
       }
     } catch (error) {
-      console.warn('Failed to read custom agents', error);
+      logger.warn('Failed to read custom agents', { error });
     }
 
     return agents;

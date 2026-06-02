@@ -11,7 +11,7 @@ import express, { type Express, type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { randomUUID, randomBytes } from 'crypto';
+import { randomUUID, randomBytes, timingSafeEqual } from 'crypto';
 import type { ApiResponse } from './types.js';
 import { config } from './config/index.js';
 import { requestLogger, errorLogger } from './middleware/requestLogger.js';
@@ -114,14 +114,27 @@ export function createServer(): Express {
 }
 
 /**
- * Validate WebSocket token
- * Prevents unauthorized WebSocket connections
+ * Validate WebSocket token using a timing-safe comparison.
+ *
+ * SECURITY: Using `===` for secret comparison is vulnerable to timing attacks
+ * that can reveal token bytes character-by-character.  `crypto.timingSafeEqual`
+ * runs in constant time regardless of where (or whether) the strings differ.
+ *
+ * The guard on equal byte-length before calling timingSafeEqual is required
+ * because timingSafeEqual throws when the buffers have different lengths —
+ * which would itself leak the expected length.  We therefore pad/skip mismatches
+ * silently and return false without early-exit.
  */
 export function validateWsToken(token: string): boolean {
+  const candidateBuf = Buffer.from(token, 'utf8');
+  let found = false;
   for (const [, data] of wsTokens.entries()) {
-    if (data.wsToken === token) {
-      return true;
+    const storedBuf = Buffer.from(data.wsToken, 'utf8');
+    // Buffers must be the same length for timingSafeEqual; skip without
+    // short-circuiting so we always iterate the full map.
+    if (storedBuf.length === candidateBuf.length && timingSafeEqual(storedBuf, candidateBuf)) {
+      found = true;
     }
   }
-  return false;
+  return found;
 }

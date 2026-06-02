@@ -8,6 +8,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **Hardened shell/command-injection surfaces and input validation across the
+  backend and MCP servers** (security audit remediation):
+  - Git-hook generation no longer writes user-supplied `script` or
+    `protectedBranches` verbatim into executable `.git/hooks/*` files. The hook
+    install schema dropped its `.passthrough()` and now validates per-hook
+    config: custom scripts are restricted to a safe-character allowlist and
+    branch names go through `validateGitRef` (plus single-quote escaping in the
+    generated script as defense-in-depth).
+  - The `code-quality` MCP server now validates every tool's arguments with Zod
+    (previously raw `as unknown as` casts) and spawns all language linters with
+    `shell: false` (was `shell: true`), so metacharacters in a `filePath` can no
+    longer be interpreted by a shell.
+  - The `documentation` MCP server's KB fetcher uses `execFile` with argument
+    arrays instead of `exec` string interpolation, and validates
+    `KB_REPO_BRANCH` against a safe pattern (falls back to `main`).
+  - The `database-query` MCP server wraps every query in a read-only Postgres
+    transaction (`SET TRANSACTION READ ONLY`) so writes are rejected at the
+    engine level regardless of the SELECT-prefix text check.
+  - The npm package-installer spawns with `shell: false` (Windows-safe `.cmd`
+    resolution), closing a CMD-metacharacter injection path.
+  - The `live-performance` URL probe extends its SSRF blocklist to IPv4-mapped
+    IPv6, ULA (`fc00::/7`), link-local (`fe80::/10`) and unspecified addresses
+    (loopback remains intentionally allowed and is now documented).
+  - `files/read` resolves symlinks with `realpathSync` before the containment
+    check, blocking symlink escapes out of the project root.
+  - Error responses never include stack traces; the raw error message is only
+    surfaced with the explicit `DEV_SUITE_DEBUG_ERRORS=true` opt-in.
+  - WebSocket token comparison uses `crypto.timingSafeEqual`.
+  - The release-check service only exposes a `releaseUrl` that starts with
+    `https://github.com/`, and the dashboard banner re-validates the scheme —
+    closing an open-redirect / `javascript:` vector on API-sourced URLs.
+  - `getDevSuiteDir()` is consolidated into a single validated helper (three
+    copies previously skipped the `DEV_SUITE_DIR` existence/absolute/traversal
+    checks). Silent hash-read failures now log; `saveManifest` throws on write
+    failure; stray `console.warn` calls moved to the structured logger; native
+    `alert()` dialogs replaced with the in-app toast system; file-content
+    preview runs Shiki output through DOMPurify as defense-in-depth.
+
 ## [1.11.0] - 2026-06-02
 
 ### Fixed

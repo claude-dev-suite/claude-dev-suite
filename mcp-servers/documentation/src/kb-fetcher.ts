@@ -1,12 +1,27 @@
 // SPDX-License-Identifier: MIT
-import { exec as execCallback } from 'child_process';
+import { execFile as execFileCallback } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { KBCache } from './kb-cache.js';
 
-const exec = promisify(execCallback);
+const execFile = promisify(execFileCallback);
+
+// ── Branch name validation ────────────────────────────────────────────────────
+// Accepts only safe Git branch name characters (letters, digits, _, ., -, /).
+// This prevents shell injection when the branch value is used in execFile args.
+const SAFE_BRANCH_RE = /^[A-Za-z0-9_./-]+$/;
+
+function validateBranch(raw: string | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  if (SAFE_BRANCH_RE.test(raw)) return raw;
+  console.error(
+    `[KB] Unsafe KB_REPO_BRANCH value "${raw}" — falling back to "${fallback}". ` +
+    'Only alphanumerics, "_", ".", "-", "/" are allowed.'
+  );
+  return fallback;
+}
 
 export interface KBFetcherConfig {
   repoUrl: string;           // KB Git repository URL
@@ -19,7 +34,9 @@ export class KBFetcher {
 
   constructor(config: KBFetcherConfig) {
     this.config = config;
-    this.config.branch = config.branch || 'main';
+    // Validate and sanitise branch at construction time so every subsequent
+    // execFile call gets the already-validated value.
+    this.config.branch = validateBranch(config.branch, 'main');
   }
 
   /**
@@ -64,27 +81,38 @@ export class KBFetcher {
     const cachePath = this.config.cache.getCachePath(technology);
 
     try {
-      // 1. Clone with sparse checkout enabled
+      // 1. Clone with sparse checkout enabled.
+      // execFile is used instead of exec throughout this method — arguments are
+      // passed as an array so the shell is never invoked and metacharacters in
+      // repoUrl, branch, or tmpDir cannot be exploited.
       console.error(`[KB] Cloning ${this.config.repoUrl} (sparse)...`);
 
-      await exec(
-        `git clone --depth 1 --filter=blob:none --sparse --branch ${this.config.branch} "${this.config.repoUrl}" "${tmpDir}"`,
-        { timeout: 30000 } // 30s timeout
+      await execFile(
+        'git',
+        [
+          'clone', '--depth', '1', '--filter=blob:none', '--sparse',
+          '--branch', this.config.branch!,
+          this.config.repoUrl, tmpDir,
+        ],
+        { timeout: 30000 }
       );
 
       // 2. Configure sparse checkout to only include specific technology
       console.error(`[KB] Sparse checkout: knowledge/${technology}/`);
 
-      await exec(
-        `git -C "${tmpDir}" sparse-checkout set "knowledge/${technology}/"`,
+      await execFile(
+        'git',
+        ['-C', tmpDir, 'sparse-checkout', 'set', `knowledge/${technology}/`],
         { timeout: 10000 }
       );
 
       // 3. Get current commit hash
-      const { stdout: commitHash } = await exec(
-        `git -C "${tmpDir}" rev-parse HEAD`,
+      const { stdout: commitHashOut } = await execFile(
+        'git',
+        ['-C', tmpDir, 'rev-parse', 'HEAD'],
         { timeout: 5000 }
       );
+      const commitHash = commitHashOut;
 
       const commit = commitHash.trim();
 
@@ -145,12 +173,15 @@ export class KBFetcher {
    */
   async checkAvailability(): Promise<{ available: boolean; error?: string }> {
     try {
-      // Check if git is installed
-      await exec('git --version', { timeout: 5000 });
+      // Check if git is installed — execFile never invokes a shell.
+      await execFile('git', ['--version'], { timeout: 5000 });
 
-      // Try to check remote repository (ls-remote is lightweight)
-      await exec(
-        `git ls-remote "${this.config.repoUrl}" ${this.config.branch}`,
+      // Try to check remote repository (ls-remote is lightweight).
+      // repoUrl and branch are passed as separate argv elements so no quoting
+      // or shell escaping is required.
+      await execFile(
+        'git',
+        ['ls-remote', this.config.repoUrl, this.config.branch!],
         { timeout: 10000 }
       );
 

@@ -10,6 +10,7 @@ import { Button, Card, Badge, ErrorMessage, Spinner } from '../common';
 import { PanelSection } from '../layout';
 import { useCustomAgents } from '@/hooks/useCustomAgents';
 import { useComponentLogger } from '@/hooks/useComponentLogger';
+import { useToast } from '@/hooks/useToast';
 import { CustomAgentModal } from './CustomAgentModal';
 import { CustomAgentEditorModal } from './CustomAgentEditorModal';
 import { API_BASE } from '@/utils/api';
@@ -21,6 +22,7 @@ export interface CustomAgentsPanelProps {
 
 export function CustomAgentsPanel({ projectPath }: CustomAgentsPanelProps) {
   useComponentLogger('CustomAgentsPanel', { logMount: false });
+  const toast = useToast();
 
   const {
     agents,
@@ -78,7 +80,7 @@ export function CustomAgentsPanel({ projectPath }: CustomAgentsPanelProps) {
     try {
       const result = await deleteAgent(agentId);
       if (!result.success) {
-        alert(result.error || 'Failed to delete agent');
+        toast.error(result.error || 'Failed to delete agent');
       }
     } finally {
       setDeletingId(null);

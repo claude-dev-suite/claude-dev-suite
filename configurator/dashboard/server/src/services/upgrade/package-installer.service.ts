@@ -164,10 +164,16 @@ export class PackageInstallerService {
         if (dev) args.push('--save-dev');
     }
 
+    // SECURITY: shell:false prevents shell-injection attacks.
+    // On Windows, npm/yarn/pnpm/bun are installed as .cmd scripts that require
+    // the full file-name (with extension) when spawning without a shell.
+    const executableName =
+      process.platform === 'win32' ? `${packageManager}.cmd` : packageManager;
+
     return new Promise((resolve) => {
-      const proc = spawn(packageManager, args, {
+      const proc = spawn(executableName, args, {
         cwd: workDir,
-        shell: true,
+        shell: false,
         stdio: 'pipe',
       });
 

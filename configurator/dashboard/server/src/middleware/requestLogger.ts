@@ -259,13 +259,19 @@ export function errorLogger(
     errorContext
   );
 
-  // Send sanitized error response to client
+  // Send sanitized error response to client.
+  // SECURITY: stack traces are NEVER sent to the client — they expose internal
+  // file paths and library versions.  Full error details are always logged
+  // server-side (above).  The explicit opt-in env flag DEV_SUITE_DEBUG_ERRORS
+  // only controls whether the raw err.message (non-stack) is surfaced; the
+  // stack is never included.
   const isProduction = process.env.NODE_ENV === 'production';
+  const debugErrors = process.env.DEV_SUITE_DEBUG_ERRORS === 'true';
+  const clientMessage = (isProduction || !debugErrors) ? 'Internal server error' : err.message;
 
   res.status(statusCode).json({
     success: false,
-    error: isProduction ? 'Internal server error' : err.message,
+    error: clientMessage,
     correlationId,
-    ...(isProduction ? {} : { stack: err.stack?.split('\n') }),
   });
 }

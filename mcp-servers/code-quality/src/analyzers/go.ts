@@ -4,6 +4,17 @@
  */
 
 import { spawn } from 'child_process';
+import { isAbsolute, normalize } from 'path';
+
+/** Reject paths containing null bytes — defence against null-byte injection */
+function validateFilePath(filePath: string): void {
+  if (filePath.includes('\0')) {
+    throw new Error('Invalid file path: contains null byte');
+  }
+  if (!isAbsolute(normalize(filePath))) {
+    throw new Error('File path must be absolute');
+  }
+}
 import type {
   Language,
   ComplexityResult,
@@ -172,9 +183,11 @@ export class GoAnalyzer implements LanguageAnalyzer {
   }
 
   private async runGolangciLint(filePath: string): Promise<StyleResult | null> {
+    validateFilePath(filePath);
     return new Promise((resolve) => {
+      // shell:false — prevents shell metacharacter expansion in filePath.
       const child = spawn('golangci-lint', ['run', '--out-format', 'json', filePath], {
-        shell: true,
+        shell: false,
         timeout: 60000
       });
 

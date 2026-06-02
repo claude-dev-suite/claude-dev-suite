@@ -21,6 +21,10 @@
  *     explicitly will simply have it deduped out
  */
 
+import { getLogger } from '../utils/logger.js';
+
+const logger = getLogger('AgentBundles');
+
 export const BUNDLES: Record<string, string[]> = {
   // ─────────────────────────────────────────────────────────────────────────
   // RAG Expert bundles
@@ -304,9 +308,8 @@ export function expandBundleEntry(entry: string, agentId: string): string[] {
   if (!expanded) {
     // Warn but don't throw — unknown bundle degrades gracefully to an empty
     // expansion so the rest of the agent still loads.
-    console.warn(
-      `[AgentsService] Unknown bundle "${bundleId}" in agent "${agentId}". ` +
-        `Skipping. Add it to agent-bundles.ts if intentional.`
+    logger.warn(
+      `Unknown bundle "${bundleId}" in agent "${agentId}". Skipping. Add it to agent-bundles.ts if intentional.`
     );
     return [];
   }

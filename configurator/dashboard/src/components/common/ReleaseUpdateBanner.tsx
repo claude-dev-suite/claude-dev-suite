@@ -17,6 +17,17 @@ function isElectron(): boolean {
     !!(window as unknown as { electronAPI?: { updater?: unknown } }).electronAPI?.updater;
 }
 
+/**
+ * Returns `url` only when it starts with `https://` (defense-in-depth against
+ * open-redirect / XSS via a compromised or unexpected API-sourced value).
+ * Returns `undefined` for any other scheme so callers can fall back to a safe
+ * hard-coded URL.
+ */
+export function sanitizeReleaseUrl(url: string | null | undefined): string | undefined {
+  if (url && url.startsWith('https://')) return url;
+  return undefined;
+}
+
 export function ReleaseUpdateBanner() {
   const { result, showAlert, dismiss } = useReleaseCheck();
 
@@ -37,7 +48,7 @@ export function ReleaseUpdateBanner() {
           d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" transform="rotate(180 12 12)" />
       </svg>
       <a
-        href={result.releaseUrl ?? `https://github.com/${result.repo}/releases`}
+        href={sanitizeReleaseUrl(result.releaseUrl) ?? `https://github.com/${result.repo}/releases`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-sm font-medium text-amber-300 hover:text-amber-200 whitespace-nowrap"

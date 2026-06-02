@@ -62,8 +62,8 @@ export function calculateFileHashFromPath(filePath: string): string | null {
       const content = fs.readFileSync(filePath, 'utf-8');
       return calculateFileHash(content);
     }
-  } catch {
-    // Ignore errors
+  } catch (err) {
+    logger.warn('calculateFileHashFromPath: failed to read file', { context: { filePath }, error: err instanceof Error ? err.message : String(err) });
   }
   return null;
 }

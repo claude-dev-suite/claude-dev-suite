@@ -29,6 +29,43 @@ import {
   isValidAction,
 } from './hooks.constants.js';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
+import { validateGitRef } from '../git/git-security.js';
+import { getLogger } from '../../utils/logger.js';
+
+const logger = getLogger('GitHooksService');
+
+/**
+ * SECURITY (C1): Reject custom hook scripts containing shell metacharacters.
+ *
+ * Only characters required by benign npm-run/npx-style commands are permitted.
+ * Newlines, semicolons, pipes, backticks, dollar signs, parentheses, braces,
+ * angle brackets, ampersands, and backquotes are all hard-rejected.
+ */
+const SAFE_SCRIPT_PATTERN = /^[a-zA-Z0-9 _./@:=-]+$/;
+
+function validateCustomScript(script: string): void {
+  if (!SAFE_SCRIPT_PATTERN.test(script)) {
+    throw new PathValidationError(
+      'Custom script contains disallowed shell metacharacters. ' +
+        'Only alphanumeric characters, spaces, and _ . / @ : = - are permitted.'
+    );
+  }
+}
+
+/**
+ * SECURITY (H1): Validate and single-quote-escape a branch name for use in
+ * the generated shell script.
+ *
+ * Each branch name is first validated via validateGitRef (only safe git-ref
+ * characters), then wrapped in single quotes with inner single-quotes escaped
+ * as '\\'' to prevent any shell interpretation.
+ */
+function safeBranchForShell(branch: string): string {
+  // Will throw if the branch contains shell-dangerous characters.
+  validateGitRef(branch);
+  // Single-quote the branch for the generated shell script.
+  return `'${branch.replace(/'/g, "'\\''")}'`;
+}
 
 export class GitHooksService {
   /**
@@ -266,14 +303,30 @@ export class GitHooksService {
         .split(',')
         .map((b) => b.trim())
         .filter(Boolean);
-      if (branches.length > 0) {
+
+      // SECURITY (H1): validate each branch name via validateGitRef; drop
+      // any invalid names and log a warning so the caller knows.
+      const safeBranches: string[] = [];
+      for (const branch of branches) {
+        try {
+          validateGitRef(branch);
+          safeBranches.push(branch);
+        } catch {
+          logger.warn('generateHookScript: dropping invalid branch name', { context: { branch } });
+        }
+      }
+
+      if (safeBranches.length > 0) {
+        // Single-quote-escape each branch name for the generated shell script
+        // (defense-in-depth even after validateGitRef).
+        const quotedBranches = safeBranches.map(safeBranchForShell).join(' ');
         lines.push(
           '# Prevent rebasing protected branches',
           'upstream="$1"',
           'branch="${2:-$(git rev-parse --abbrev-ref HEAD)}"',
           '',
           '# Protected branches list',
-          `protected_branches="${branches.join(' ')}"`,
+          `protected_branches="${quotedBranches}"`,
           '',
           'for protected in $protected_branches; do',
           '  if [ "$branch" = "$protected" ]; then',
@@ -288,8 +341,10 @@ export class GitHooksService {
       }
     }
 
-    // For hooks with custom scripts
+    // For hooks with custom scripts.
+    // SECURITY (C1): validate before writing — throws if metacharacters are found.
     if (options.script && typeof options.script === 'string' && options.script.trim()) {
+      validateCustomScript(options.script.trim());
       lines.push('# Custom script', options.script.trim(), '', 'exit $?');
       return lines.join('\n');
     }
