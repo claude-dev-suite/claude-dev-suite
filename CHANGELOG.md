@@ -10,6 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [1.11.0] - 2026-06-02
 
+### Fixed
+
+- **Splash logo clipped at the top.** The Electron splash window was 520×400, but
+  with the project-path selector visible the content (logo + tagline + 4 steps +
+  path selector + version) needs ~490px. Because the container centers its content
+  vertically with `overflow: hidden`, the overflow spilled off the top and cropped
+  the "Dev-Suite" wordmark. Increased the splash window height to 520px so the full
+  content fits while staying centred (`electron/main.cjs`).
+
 ### Added
 
 - **GitHub release update alert.** The dashboard now checks the latest published

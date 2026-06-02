@@ -15,13 +15,13 @@ test.describe('Splash Screen — Display', () => {
     }
   });
 
-  test('splash window has correct dimensions (~400x340)', async ({ splashPage, electronApp }) => {
+  test('splash window has correct dimensions (~520x520)', async ({ splashPage, electronApp }) => {
     const bounds = await getWindowBounds(electronApp, splashPage);
     // Allow ±10px tolerance for OS chrome/DPI scaling
-    expect(bounds.width).toBeGreaterThanOrEqual(390);
-    expect(bounds.width).toBeLessThanOrEqual(410);
-    expect(bounds.height).toBeGreaterThanOrEqual(330);
-    expect(bounds.height).toBeLessThanOrEqual(350);
+    expect(bounds.width).toBeGreaterThanOrEqual(510);
+    expect(bounds.width).toBeLessThanOrEqual(530);
+    expect(bounds.height).toBeGreaterThanOrEqual(510);
+    expect(bounds.height).toBeLessThanOrEqual(530);
   });
 
   test('splash shows the Dev-Suite logo', async ({ splashPage }) => {

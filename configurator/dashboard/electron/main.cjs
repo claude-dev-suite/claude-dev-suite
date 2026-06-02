@@ -341,7 +341,7 @@ function createSplashWindow() {
   // Create window immediately with dark background (visible before HTML loads)
   splashWindow = new BrowserWindow({
     width: 520,
-    height: 400,
+    height: 520,
     frame: false,
     transparent: false,
     resizable: false,
