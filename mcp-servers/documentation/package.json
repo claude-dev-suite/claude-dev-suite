@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.22.0",
+    "zod": "^4.4.3",
     "node-fetch": "^3.3.0",
     "cheerio": "^1.2.0",
     "fuse.js": "^7.3.0"
