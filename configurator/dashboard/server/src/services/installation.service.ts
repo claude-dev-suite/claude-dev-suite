@@ -1033,46 +1033,17 @@ export class InstallationService {
         this.trackFile(extendedManifest, projectPath, indexPath, 'mcp-server', serverSource);
       }
 
-      // Run npm install in production mode
-      if (fs.existsSync(path.join(serverDest, 'package.json'))) {
-        try {
-          // Strip NODE_OPTIONS to avoid tsx loader conflicts in child process
-          const cleanEnv = { ...process.env };
-          delete cleanEnv.NODE_OPTIONS;
-
-          // Prefer calling npm-cli.js directly via the current node executable to avoid
-          // npm.cmd path resolution issues in Electron (bundled node may lack node_modules/npm).
-          const nodeExe = process.execPath;
-          const nodeDir = path.dirname(nodeExe);
-          const npmCli = path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js');
-
-          if (fs.existsSync(npmCli)) {
-            execFileSync(nodeExe, [npmCli, 'install', '--omit=dev'], {
-              cwd: serverDest,
-              stdio: 'pipe',
-              timeout: TIMEOUTS.NPM_INSTALL,
-              env: cleanEnv,
-            });
-          } else {
-            // Fall back to system npm (dev mode or system node)
-            execSync('npm install --omit=dev', {
-              cwd: serverDest,
-              stdio: 'pipe',
-              timeout: TIMEOUTS.NPM_INSTALL,
-              env: cleanEnv,
-            });
-          }
-        } catch (npmError: unknown) {
-          const msg = npmError instanceof Error ? npmError.message : String(npmError);
-          const stderr = (npmError as { stderr?: Buffer })?.stderr?.toString() || '';
-          logger.error('npm install failed for MCP server', {
-            error: npmError,
-            context: { serverName, serverDest, message: msg, stderr: stderr.substring(0, 500) }
-          });
-          // npm install failure is non-fatal: server may still work if it has no runtime deps
-          // or if deps are bundled in dist/
-        }
-      }
+      // NO npm install here — by design. Each server's `dist/index.js` is a
+      // SELF-CONTAINED esbuild bundle (see mcp-servers/scripts/bundle.mjs):
+      // every third-party dependency is inlined at dev-suite build time, and
+      // the bundler fails the build if any non-builtin dep is left external
+      // (except known optional native add-ons the libraries degrade without).
+      // So the copied server needs nothing but Node to run. This removes the
+      // previous runtime dependency on network + a resolvable `npm` — the
+      // exact step that failed silently inside the packaged Electron app and
+      // left servers crashing with ERR_MODULE_NOT_FOUND. New/updated
+      // components that pull in new deps get them bundled at build time, so
+      // install / reinstall / upgrade never touch npm for MCP servers.
 
       return true;
     } catch (error: unknown) {

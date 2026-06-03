@@ -8,6 +8,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **MCP servers no longer break on install when `npm` is unavailable.**
+  Installed servers previously shipped as unbundled `dist/index.js` files with
+  bare imports, relying on a post-copy `npm install --omit=dev` in the target
+  project to fetch runtime dependencies. That step is network/`npm`/PATH
+  dependent and failed silently inside the packaged Electron app (where
+  `process.execPath` is the Electron binary, not Node, and the GUI process PATH
+  often lacks `npm`), leaving servers whose `.mcp.json` entry crashed with
+  `ERR_MODULE_NOT_FOUND`. Each MCP server is now built into a **self-contained
+  esbuild bundle** at dev-suite build time — every third-party dependency is
+  inlined, so the copied server needs nothing but Node. The install /
+  reinstall flow no longer runs `npm install` for MCP servers at all.
+
+### Changed
+
+- **MCP server build is now an esbuild bundle, not `tsc` emit.** Each server's
+  `build` script type-checks with `tsc --noEmit` and then bundles
+  `src/index.ts` into a single self-contained `dist/index.js`
+  (`mcp-servers/scripts/bundle.mjs`). The bundler is **fail-loud**: it inspects
+  esbuild's metafile and fails the build if any non-builtin dependency is left
+  external (the only allowed externals are optional native add-ons —
+  `bufferutil`, `utf-8-validate`, `pg-native` — that `ws`/`pg` degrade
+  gracefully without). This guarantees new or updated components that pull in
+  new dependencies have them bundled at build time; install / reinstall /
+  upgrade on the user's machine never touch npm for MCP servers.
+
+- **Updates tab consolidated onto a single update mechanism.** The dashboard
+  **Updates** tab no longer exposes the incremental feature-upgrade flow
+  (the *Available* and *History* sub-tabs and *Apply Updates* / conflict-resolution
+  UI have been removed). Reinstall / Sync (transactional erase-and-replace) is now
+  the single path to bring a project up to date. The tab leads with an explicit
+  version panel that shows the version installed in the project alongside the
+  version available from source, plus an *Up to date* / *Update available* status.
+  The upgrade backend (`/api/upgrade/*`) is retained and still powers the version
+  check.
+
 ### Security
 
 - **Hardened shell/command-injection surfaces and input validation across the

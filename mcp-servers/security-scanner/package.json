@@ -8,11 +8,12 @@
     "mcp-security-scanner": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --noEmit && node ../scripts/bundle.mjs",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "mcp",

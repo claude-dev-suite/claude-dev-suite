@@ -6,12 +6,13 @@
   "main": "dist/index.js",
   "scripts": {
     "prebuild": "node scripts/copy-skills.mjs",
-    "build": "tsc",
+    "build": "tsc --noEmit && node ../scripts/bundle.mjs",
     "start": "node dist/index.js",
     "dev": "node scripts/copy-skills.mjs && tsx src/index.ts",
     "test": "node scripts/copy-skills.mjs && vitest run",
     "test:watch": "node scripts/copy-skills.mjs && vitest",
-    "test:coverage": "node scripts/copy-skills.mjs && vitest run --coverage"
+    "test:coverage": "node scripts/copy-skills.mjs && vitest run --coverage",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"
