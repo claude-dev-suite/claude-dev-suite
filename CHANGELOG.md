@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Uninstalling from the full-screen Manage modal now returns to the install
+  wizard.** Uninstall correctly reset state and navigated back to the setup
+  wizard when triggered from the Manage *tool window*, but the full-screen
+  **Manage** modal mounted `ManagePanel` without an `onUninstall` handler, so
+  uninstalling there left the modal open on a now-empty panel. The modal now
+  wires the same handler — it closes itself, clears `isInstalled`, returns to
+  the wizard (step 1), and invalidates the API cache.
+
 - **MCP servers no longer break on install when `npm` is unavailable.**
   Installed servers previously shipped as unbundled `dist/index.js` files with
   bare imports, relying on a post-copy `npm install --omit=dev` in the target

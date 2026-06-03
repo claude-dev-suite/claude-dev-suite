@@ -9,6 +9,7 @@
 import { useEffect, useCallback } from 'react';
 import { useUIStore } from '../../stores/ui.store';
 import { useProjectStore } from '../../stores/project.store';
+import { invalidateCache } from '@/hooks/useApi';
 import { ManagePanel } from './ManagePanel';
 
 export const MANAGE_MODAL_ID = 'manage-fullscreen';
@@ -16,7 +17,22 @@ export const MANAGE_MODAL_ID = 'manage-fullscreen';
 export function ManageModal() {
   const isOpen = useUIStore((s) => s.modals[MANAGE_MODAL_ID] ?? false);
   const closeModal = useUIStore((s) => s.closeModal);
+  const setPanel = useUIStore((s) => s.setPanel);
+  const setStep = useUIStore((s) => s.setStep);
   const projectPath = useProjectStore((s) => s.projectPath);
+  const setIsInstalled = useProjectStore((s) => s.setIsInstalled);
+
+  // After uninstall, leave the (now empty) manage view and return to the
+  // install wizard — mirrors ToolWindowPanel's handler so the behaviour is
+  // the same whether Manage was opened as a tool window or this full-screen
+  // modal.
+  const handleUninstall = useCallback(() => {
+    setIsInstalled(false);
+    closeModal(MANAGE_MODAL_ID);
+    setPanel('wizard');
+    setStep(1);
+    invalidateCache();
+  }, [setIsInstalled, closeModal, setPanel, setStep]);
 
   // Handle escape key to close
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -79,7 +95,7 @@ export function ManageModal() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-6xl mx-auto">
-          <ManagePanel projectPath={projectPath} />
+          <ManagePanel projectPath={projectPath} onUninstall={handleUninstall} />
         </div>
       </div>
     </div>
