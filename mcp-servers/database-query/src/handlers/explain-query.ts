@@ -23,7 +23,25 @@ export const handleExplainQuery: Handler = async (args): Promise<HandlerResult> 
   if (format === "json") explainOptions.push("FORMAT JSON");
 
   const explainSql = `EXPLAIN (${explainOptions.join(", ")}) ${sql}`;
-  const result = await db.query(explainSql, queryParams || []);
+
+  // ── Security boundary: read-only transaction ──────────────────────────────
+  // EXPLAIN ANALYZE actually executes the query, so wrapping in a read-only
+  // transaction prevents any side-effects from write operations embedded in
+  // CTEs or sub-selects.  The transaction is always rolled back so that
+  // ANALYZE's side-effects (e.g. temporary rows) are never committed.
+  const client = await db.connect();
+  let result: import("pg").QueryResult;
+  try {
+    await client.query("BEGIN");
+    await client.query("SET TRANSACTION READ ONLY");
+    result = await client.query(explainSql, queryParams || []);
+    await client.query("ROLLBACK");
+  } catch (err) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore rollback errors */ }
+    throw err;
+  } finally {
+    client.release();
+  }
 
   // Parse results and extract insights
   let plan: unknown;

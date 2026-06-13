@@ -168,6 +168,11 @@ function analyzeV8Profile(profileData: {
 /**
  * Profile a specific function by running it multiple times
  */
+/** Maximum number of arguments allowed for profileFunction */
+const MAX_PROFILE_ARGS = 100;
+/** Maximum total serialized size of all arguments (bytes) */
+const MAX_PROFILE_ARGS_BYTES = 64 * 1024; // 64 KB
+
 export async function profileFunction(
   modulePath: string,
   functionName: string,
@@ -179,6 +184,17 @@ export async function profileFunction(
   // Validate functionName is a valid JS identifier (prevent code injection)
   if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(functionName)) {
     throw new Error(`Invalid function name: ${functionName}. Must be a valid JavaScript identifier.`);
+  }
+
+  // Enforce args size limits to prevent resource exhaustion
+  if (args.length > MAX_PROFILE_ARGS) {
+    throw new Error(`Too many arguments: ${args.length} (max ${MAX_PROFILE_ARGS})`);
+  }
+  const serializedArgs = JSON.stringify(args);
+  if (Buffer.byteLength(serializedArgs, 'utf-8') > MAX_PROFILE_ARGS_BYTES) {
+    throw new Error(
+      `Serialized arguments exceed size limit (max ${MAX_PROFILE_ARGS_BYTES} bytes)`
+    );
   }
 
   // Create a temporary script that imports and runs the function
@@ -247,7 +263,7 @@ console.log(JSON.stringify({
   try {
     await writeFile(wrapperPath, wrapperCode);
 
-    const result = await runCommand(`node --expose-gc ${wrapperPath}`, {
+    const result = await runCommand({ cmd: 'node', args: ['--expose-gc', wrapperPath] }, {
       timeout: 120000, // 2 minutes max
     });
 
@@ -284,70 +300,109 @@ console.log(JSON.stringify({
   }
 }
 
-/** Dangerous patterns that should not appear in benchmark code */
-const DANGEROUS_CODE_PATTERNS = [
-  /\brequire\s*\(/i,
-  /\bimport\s*\(/i,
-  /\bchild_process\b/i,
-  /\bexec\s*\(/i,
-  /\bexecSync\s*\(/i,
-  /\bspawn\s*\(/i,
-  /\bprocess\.exit/i,
-  /\bprocess\.env/i,
-  /\bprocess\.kill/i,
-  /\b__dirname\b/,
-  /\b__filename\b/,
-  /\bglobalThis\s*\.\s*process/i,
-  /\bfs\s*\.\s*(write|unlink|rm|mkdir|rename|chmod|chown)/i,
-  /\beval\s*\(/i,
-  /\bFunction\s*\(/i,
-  /\bnew\s+Function/i,
-];
-
-/** Validate benchmark code doesn't contain dangerous patterns */
-function validateBenchmarkCode(code: string): void {
-  for (const pattern of DANGEROUS_CODE_PATTERNS) {
-    if (pattern.test(code)) {
-      throw new Error(
-        `Benchmark code contains forbidden pattern: ${pattern.source}. ` +
-        `Only pure computation code is allowed for benchmarking.`
-      );
-    }
-  }
-}
-
 /**
- * Benchmark inline JavaScript code
+ * Benchmark a Node.js script file.
+ *
+ * Security note: executing raw, attacker-controlled code strings is
+ * fundamentally unsafe regardless of any pattern-based blocklist (easily
+ * bypassed via Unicode escapes, string concatenation, prototype chains, etc.).
+ * The API now accepts a `scriptPath` pointing to an existing file on disk
+ * and runs it directly via `node`.
+ *
+ * Raw-code execution is available only when the environment variable
+ * PERF_PROFILER_ALLOW_RAW_CODE=1 is explicitly set by the server operator.
+ * This opt-in must never be enabled in production or multi-tenant deployments.
  */
 export async function benchmarkCode(
-  code: string,
+  codeOrPath: string,
   iterations: number = 1000,
-  warmup: number = 100
+  warmup: number = 100,
+  /** When true, treat codeOrPath as a script path (default, safe). */
+  isScriptPath: boolean = true
 ): Promise<BenchmarkResult> {
-  validateBenchmarkCode(code);
+  if (isScriptPath) {
+    // --- Safe path: benchmark an existing script file ---
+    validateScriptPath(codeOrPath);
+
+    const configPath = join(await createTempDir('nodejs-bench-cfg'), 'config.json');
+    await writeFile(configPath, JSON.stringify({ iterations, warmup }));
+
+    // The target script is responsible for exporting timing logic.
+    // We simply execute it and measure wall-clock time.
+    const startTime = Date.now();
+    const result = await runCommand({ cmd: 'node', args: [codeOrPath] }, {
+      timeout: 300000,
+    });
+    const elapsed = Date.now() - startTime;
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Benchmark script failed: ${result.stderr.slice(0, 500)}`);
+    }
+
+    // If the script emits {"timings":[...]} JSON on stdout, parse it;
+    // otherwise report total elapsed time as a single measurement.
+    try {
+      const data = JSON.parse(result.stdout);
+      if (Array.isArray(data.timings)) {
+        const stats = calculateStats(data.timings);
+        return { iterations, warmupIterations: warmup, timing: stats };
+      }
+    } catch {
+      // Script does not emit structured timings — use elapsed time.
+    }
+    return {
+      iterations: 1,
+      warmupIterations: 0,
+      timing: calculateStats([elapsed]),
+    };
+  }
+
+  // --- Opt-in raw-code path (disabled by default) ---
+  const allowRaw = process.env['PERF_PROFILER_ALLOW_RAW_CODE'] === '1';
+  if (!allowRaw) {
+    throw new Error(
+      'Raw code execution is disabled. ' +
+      'Pass a scriptPath instead, or set PERF_PROFILER_ALLOW_RAW_CODE=1 ' +
+      'to opt-in (unsafe — only for trusted, single-user environments).'
+    );
+  }
+
+  // Warn loudly that this mode is insecure.
+  console.error(
+    '[SECURITY WARNING] PERF_PROFILER_ALLOW_RAW_CODE is enabled. ' +
+    'Raw code execution is unsafe in any multi-user or production environment.'
+  );
 
   const tempDir = await createTempDir('nodejs-benchmark');
   const benchmarkPath = join(tempDir, 'benchmark.mjs');
+  const benchmarkConfigPath = join(tempDir, 'bench-config.json');
 
+  await writeFile(benchmarkConfigPath, JSON.stringify({ iterations, warmup }));
+
+  // The raw code is written into a wrapper script.  The raw-code path still
+  // exists for backward compatibility when explicitly opted-in.
   const benchmarkScript = `
 import { performance } from 'perf_hooks';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const iterations = ${iterations};
-const warmupIterations = ${warmup};
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(readFileSync(join(__dirname, 'bench-config.json'), 'utf-8'));
+
+const iterations = config.warmup + config.iterations;
+const warmupIterations = config.warmup;
 const timings = [];
 
-// The code to benchmark
 const benchmarkFn = async () => {
-  ${code}
+  ${codeOrPath}
 };
 
-// Warmup phase
 for (let i = 0; i < warmupIterations; i++) {
   await benchmarkFn();
 }
 
-// Measurement phase
-for (let i = 0; i < iterations; i++) {
+for (let i = 0; i < config.iterations; i++) {
   const start = performance.now();
   await benchmarkFn();
   timings.push(performance.now() - start);
@@ -359,12 +414,12 @@ console.log(JSON.stringify({ timings }));
   try {
     await writeFile(benchmarkPath, benchmarkScript);
 
-    const result = await runCommand(`node ${benchmarkPath}`, {
-      timeout: 300000, // 5 minutes max for large iteration counts
+    const result = await runCommand({ cmd: 'node', args: [benchmarkPath] }, {
+      timeout: 300000,
     });
 
     if (result.exitCode !== 0) {
-      throw new Error(`Benchmark failed: ${result.stderr}`);
+      throw new Error(`Benchmark failed: ${result.stderr.slice(0, 500)}`);
     }
 
     const data = JSON.parse(result.stdout);
@@ -450,7 +505,7 @@ child.on('exit', () => {
   try {
     await writeFile(wrapperPath, wrapperCode);
 
-    const result = await runCommand(`node ${wrapperPath}`, {
+    const result = await runCommand({ cmd: 'node', args: [wrapperPath] }, {
       timeout: (duration + 5) * 1000,
     });
 

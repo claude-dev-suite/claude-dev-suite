@@ -7,6 +7,70 @@ import type { ScanResult, SecurityFinding, ScanSecretsInput, SecretPattern } fro
 import { isToolAvailable, getInstallCommand } from '../utils/tool-checker.js';
 import { createEmptyResult, calculateSummary } from '../utils/normalizer.js';
 
+// ---------------------------------------------------------------------------
+// ReDoS-safe regex compilation (adapted from log-analyzer/src/utils.ts)
+// ---------------------------------------------------------------------------
+
+const REDOS_PATTERNS: RegExp[] = [
+  /\([^)]*[+*][^)]*\)[+*]/,
+  /\([^)]*\|[^)]*\)[+*]\+/,
+  /\{[0-9,]+\}\{[0-9,]+\}/,
+  /[+*]\{[0-9]/,
+];
+
+/**
+ * Safely compile a user-supplied glob/regex pattern.
+ * Rejects patterns that contain known ReDoS structures or exceed 500 chars.
+ */
+function safeGlobToRegex(pattern: string): RegExp {
+  if (pattern.length > 500) {
+    throw new Error(
+      `excludePaths pattern too long (max 500 characters): ${pattern.length} characters`
+    );
+  }
+
+  // Check raw pattern for known ReDoS structures before any transformation
+  for (const dangerous of REDOS_PATTERNS) {
+    if (dangerous.test(pattern)) {
+      throw new Error(
+        `Unsafe excludePaths pattern rejected (potential ReDoS): ${pattern}`
+      );
+    }
+  }
+
+  // Convert glob wildcard to a simple regex — only handle '*' as the glob meta
+  const regexSource = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+
+  // Check the converted regex source too
+  for (const dangerous of REDOS_PATTERNS) {
+    if (dangerous.test(regexSource)) {
+      throw new Error(
+        `Unsafe excludePaths pattern (post-conversion) rejected (potential ReDoS): ${pattern}`
+      );
+    }
+  }
+
+  let compiled: RegExp;
+  try {
+    compiled = new RegExp(regexSource);
+  } catch (err) {
+    throw new Error(
+      `Invalid excludePaths pattern "${pattern}": ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  // Quick execution guard
+  const testStart = Date.now();
+  compiled.test('');
+  if (Date.now() - testStart > 5) {
+    throw new Error(
+      `excludePaths pattern rejected: execution against empty string took too long`
+    );
+  }
+
+  return compiled;
+}
+
 const execFileAsync = promisify(execFile);
 
 // Built-in secret patterns for fallback
@@ -211,11 +275,25 @@ async function scanWithBuiltin(path: string, excludePaths: string[]): Promise<Sc
 
   const allExcludes = [...DEFAULT_EXCLUDE, ...excludePaths];
 
+  // Pre-compile glob patterns once (raises on dangerous patterns)
+  const compiledExcludePatterns: Array<{ pattern: string; regex: RegExp | null }> =
+    allExcludes.map((pattern) => {
+      if (pattern.includes('*')) {
+        try {
+          return { pattern, regex: safeGlobToRegex(pattern) };
+        } catch (err) {
+          // Log and skip unsafe patterns rather than crashing the whole scan
+          console.error(`[security-scanner] Skipping unsafe excludePaths pattern: ${err instanceof Error ? err.message : String(err)}`);
+          return { pattern, regex: null };
+        }
+      }
+      return { pattern, regex: null };
+    });
+
   async function shouldExclude(filePath: string): Promise<boolean> {
     const relativePath = relative(path, filePath);
-    return allExcludes.some(pattern => {
-      if (pattern.includes('*')) {
-        const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+    return compiledExcludePatterns.some(({ pattern, regex }) => {
+      if (regex !== null) {
         return regex.test(relativePath);
       }
       return relativePath.includes(pattern);

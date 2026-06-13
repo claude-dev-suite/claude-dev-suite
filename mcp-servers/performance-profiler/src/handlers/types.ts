@@ -71,11 +71,32 @@ export const ProfileFunctionSchema = z.object({
 });
 
 export const BenchmarkCodeSchema = z.object({
-  code: z.string().describe("Code snippet to benchmark"),
+  /**
+   * Path to an existing script file to benchmark (recommended, safe).
+   * Mutually exclusive with `code`.
+   */
+  scriptPath: z.string().optional().describe(
+    "Absolute path to a script file to benchmark. " +
+    "The script should output JSON { timings: number[] } for best results, " +
+    "or simply run its workload and total elapsed time is reported."
+  ),
+  /**
+   * Raw code string to benchmark.
+   * UNSAFE: only accepted when PERF_PROFILER_ALLOW_RAW_CODE=1 is set server-side.
+   * Prefer scriptPath in all environments.
+   * @deprecated use scriptPath instead
+   */
+  code: z.string().optional().describe(
+    "Raw code snippet to benchmark (UNSAFE — disabled by default; " +
+    "use scriptPath instead)."
+  ),
   runtime: RuntimeEnum.describe("Runtime to use"),
   iterations: z.number().optional().default(1000).describe("Number of iterations to run"),
   warmup: z.number().optional().default(100).describe("Number of warmup iterations"),
-});
+}).refine(
+  (data) => data.scriptPath !== undefined || data.code !== undefined,
+  { message: "Either scriptPath or code must be provided" }
+);
 
 export const AnalyzeMemorySchema = z.object({
   scriptPath: z.string().describe("Absolute path to the script to analyze"),

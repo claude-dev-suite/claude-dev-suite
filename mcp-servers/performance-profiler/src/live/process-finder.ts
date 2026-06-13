@@ -48,9 +48,12 @@ export async function findJavaProcessByPort(port: number): Promise<ProcessInfo |
  * Find any process by port number
  */
 export async function findPidByPort(port: number): Promise<number | null> {
+  // port is an integer validated by the Zod schema — safe to interpolate
+  // These commands use shell pipelines (|, 2>/dev/null) so shell:true is required.
   // Try lsof first (Linux/macOS)
   const lsofResult = await runCommand(`lsof -i :${port} -t 2>/dev/null | head -1`, {
     timeout: 5000,
+    shell: true,
   });
 
   if (lsofResult.exitCode === 0 && lsofResult.stdout.trim()) {
@@ -61,7 +64,7 @@ export async function findPidByPort(port: number): Promise<number | null> {
   // Try ss (Linux)
   const ssResult = await runCommand(
     `ss -tlnp 2>/dev/null | grep :${port} | grep -oP 'pid=\\K\\d+'`,
-    { timeout: 5000 }
+    { timeout: 5000, shell: true }
   );
 
   if (ssResult.exitCode === 0 && ssResult.stdout.trim()) {
@@ -72,7 +75,7 @@ export async function findPidByPort(port: number): Promise<number | null> {
   // Try netstat (fallback)
   const netstatResult = await runCommand(
     `netstat -tlnp 2>/dev/null | grep :${port} | awk '{print $7}' | cut -d'/' -f1`,
-    { timeout: 5000 }
+    { timeout: 5000, shell: true }
   );
 
   if (netstatResult.exitCode === 0 && netstatResult.stdout.trim()) {
@@ -147,13 +150,13 @@ export async function findNodeProcessByPort(port: number): Promise<ProcessInfo |
   const pid = await findPidByPort(port);
   if (!pid) return null;
 
-  // Verify it's a Node.js process
-  const psResult = await runCommand(`ps -p ${pid} -o comm=`, { timeout: 5000 });
+  // Verify it's a Node.js process — pid is an integer, use structured argv
+  const psResult = await runCommand({ cmd: 'ps', args: ['-p', String(pid), '-o', 'comm='] }, { timeout: 5000 });
   if (psResult.exitCode === 0) {
     const comm = psResult.stdout.trim();
     if (comm.includes('node') || comm.includes('nodejs')) {
       // Get full command line
-      const cmdResult = await runCommand(`ps -p ${pid} -o args=`, { timeout: 5000 });
+      const cmdResult = await runCommand({ cmd: 'ps', args: ['-p', String(pid), '-o', 'args='] }, { timeout: 5000 });
       return {
         pid,
         name: 'node',
@@ -170,7 +173,8 @@ export async function findNodeProcessByPort(port: number): Promise<ProcessInfo |
  * Check if a process is still running
  */
 export async function isProcessRunning(pid: number): Promise<boolean> {
-  const result = await runCommand(`kill -0 ${pid} 2>/dev/null`, { timeout: 1000 });
+  // kill -0 checks existence without sending a signal; pid is integer-safe
+  const result = await runCommand(`kill -0 ${pid} 2>/dev/null`, { timeout: 1000, shell: true });
   return result.exitCode === 0;
 }
 
@@ -178,7 +182,7 @@ export async function isProcessRunning(pid: number): Promise<boolean> {
  * Get process info by PID
  */
 export async function getProcessInfo(pid: number): Promise<ProcessInfo | null> {
-  const psResult = await runCommand(`ps -p ${pid} -o comm=,args=`, { timeout: 5000 });
+  const psResult = await runCommand({ cmd: 'ps', args: ['-p', String(pid), '-o', 'comm=,args='] }, { timeout: 5000 });
   if (psResult.exitCode !== 0) return null;
 
   const output = psResult.stdout.trim();

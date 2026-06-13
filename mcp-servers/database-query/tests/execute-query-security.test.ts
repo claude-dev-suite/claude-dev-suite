@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 /**
- * Security regression tests for execute_query handler (finding H3).
+ * Security regression tests for execute_query and explain_query handlers.
  *
  * Tests cover:
- * 1. The SELECT prefix fast-fail check.
- * 2. Read-only transaction behaviour — we mock the pg client and verify that
- *    BEGIN + SET TRANSACTION READ ONLY are always issued before the user query,
- *    and that ROLLBACK is issued on errors.
+ * 1. The SELECT prefix fast-fail check (execute_query).
+ * 2. Read-only transaction behaviour for execute_query.
+ * 3. Read-only transaction wrapping in explain_query (BEGIN … SET TRANSACTION
+ *    READ ONLY … ROLLBACK) ensuring EXPLAIN ANALYZE cannot commit write side-effects.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -22,6 +22,7 @@ vi.mock('../src/handlers/db.js', () => {
 
 import { getPool } from '../src/handlers/db.js';
 import { handleExecuteQuery } from '../src/handlers/execute-query.js';
+import { handleExplainQuery } from '../src/handlers/explain-query.js';
 
 // Helper to build a mock pg.PoolClient
 function makeMockClient(queryImpl?: (sql: string, params?: unknown[]) => Promise<unknown>) {
@@ -161,5 +162,84 @@ describe('Read-only transaction wrapping', () => {
     expect(result.isError).toBeUndefined();
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.rows).toEqual([{ val: 42 }]);
+  });
+});
+
+// ── explain_query read-only transaction wrapping ──────────────────────────────
+// EXPLAIN ANALYZE actually executes the query, so it must also run inside a
+// read-only transaction that is rolled back, preventing write side-effects.
+
+describe('explain_query — read-only transaction wrapping', () => {
+  let client: ReturnType<typeof makeMockClient>;
+
+  beforeEach(() => {
+    client = makeMockClient(async (sql) => {
+      // Return a minimal EXPLAIN result
+      if (sql.toUpperCase().startsWith('EXPLAIN')) {
+        return { rows: [{ 'QUERY PLAN': 'Seq Scan on users' }], rowCount: 1, fields: [] };
+      }
+      return { rows: [], rowCount: 0, fields: [] };
+    });
+    (getPool as ReturnType<typeof vi.fn>).mockReturnValue(makeMockPool(client));
+  });
+
+  it('rejects non-SELECT queries early without reaching the DB', async () => {
+    const result = await handleExplainQuery({ sql: 'DELETE FROM users', verbose: false, format: 'text' });
+    expect(result.isError).toBe(true);
+    expect(client.query).not.toHaveBeenCalled();
+  });
+
+  it('issues BEGIN before the EXPLAIN query', async () => {
+    await handleExplainQuery({ sql: 'SELECT 1', verbose: false, format: 'text' });
+    const calls = client._queryCalls.map((c) => c.sql.toUpperCase());
+    const beginIdx = calls.indexOf('BEGIN');
+    expect(beginIdx).toBeGreaterThanOrEqual(0);
+    const explainIdx = calls.findIndex((c) => c.startsWith('EXPLAIN'));
+    expect(explainIdx).toBeGreaterThan(beginIdx);
+  });
+
+  it('issues SET TRANSACTION READ ONLY before the EXPLAIN query', async () => {
+    await handleExplainQuery({ sql: 'SELECT 1', verbose: false, format: 'text' });
+    const calls = client._queryCalls.map((c) => c.sql.toUpperCase());
+    const readOnlyIdx = calls.findIndex((c) => c.includes('READ ONLY'));
+    expect(readOnlyIdx).toBeGreaterThanOrEqual(0);
+    const explainIdx = calls.findIndex((c) => c.startsWith('EXPLAIN'));
+    expect(explainIdx).toBeGreaterThan(readOnlyIdx);
+  });
+
+  it('issues ROLLBACK (not COMMIT) after the EXPLAIN query', async () => {
+    await handleExplainQuery({ sql: 'SELECT 1', verbose: false, format: 'text' });
+    const calls = client._queryCalls.map((c) => c.sql.toUpperCase());
+    expect(calls).toContain('ROLLBACK');
+    expect(calls).not.toContain('COMMIT');
+  });
+
+  it('issues ROLLBACK and releases client when EXPLAIN throws', async () => {
+    const failingClient = makeMockClient(async (sql) => {
+      if (sql.toUpperCase() === 'BEGIN') return { rows: [], rowCount: 0, fields: [] };
+      if (sql.toUpperCase().includes('READ ONLY')) return { rows: [], rowCount: 0, fields: [] };
+      throw new Error('ERROR: cannot execute in read-only transaction');
+    });
+    (getPool as ReturnType<typeof vi.fn>).mockReturnValue(makeMockPool(failingClient));
+
+    await expect(
+      handleExplainQuery({ sql: 'SELECT 1', verbose: false, format: 'text' })
+    ).rejects.toThrow();
+
+    const calls = failingClient._queryCalls.map((c) => c.sql.toUpperCase());
+    expect(calls).toContain('ROLLBACK');
+    expect(failingClient.release).toHaveBeenCalled();
+  });
+
+  it('always releases the client even on error', async () => {
+    const failingClient = makeMockClient(async (sql) => {
+      if (sql.toUpperCase() === 'BEGIN') throw new Error('connection lost');
+    });
+    (getPool as ReturnType<typeof vi.fn>).mockReturnValue(makeMockPool(failingClient));
+
+    await expect(
+      handleExplainQuery({ sql: 'SELECT 1', verbose: false, format: 'text' })
+    ).rejects.toThrow();
+    expect(failingClient.release).toHaveBeenCalled();
   });
 });

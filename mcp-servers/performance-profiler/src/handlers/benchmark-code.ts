@@ -7,10 +7,17 @@ import { BenchmarkCodeSchema, jsonResponse, type Handler, type HandlerResult } f
 import { getProfiler } from "./utils.js";
 
 export const handleBenchmarkCode: Handler = async (args): Promise<HandlerResult> => {
-  const { code, runtime, iterations, warmup } = BenchmarkCodeSchema.parse(args);
+  const { scriptPath, code, runtime, iterations, warmup } = BenchmarkCodeSchema.parse(args);
 
   const profiler = getProfiler(runtime);
-  const result = await profiler.benchmarkCode(code, iterations, warmup);
 
+  if (scriptPath !== undefined) {
+    // Safe path: benchmark an existing file
+    const result = await profiler.benchmarkCode(scriptPath, iterations, warmup, true);
+    return jsonResponse(result);
+  }
+
+  // Raw-code path: gated behind PERF_PROFILER_ALLOW_RAW_CODE=1
+  const result = await profiler.benchmarkCode(code as string, iterations, warmup, false);
   return jsonResponse(result);
 };

@@ -8,6 +8,7 @@ import { importInsomniaWorkspace, toBatchFormat as insomniaToBatch } from "../im
 import { generateTests, generateTestCode, toBatchFormat as testsToBatch } from "../generators/test-generator.js";
 import { startMockServer, stopMockServer, listMockServers } from "../mock/server.js";
 import fs from "fs/promises";
+import { isAbsolute } from "path";
 import {
   HttpRequestSchema,
   HealthCheckSchema,
@@ -20,6 +21,25 @@ import {
   type Handler,
   type HandlerResult,
 } from "./types.js";
+
+/**
+ * Validate that a file path is safe to read.
+ *
+ * Rules:
+ *  - Must be an absolute path (prevents relative traversal)
+ *  - Must not contain null bytes (guard against null-byte injection)
+ */
+function validateFilePath(filePath: string): void {
+  if (!filePath || typeof filePath !== "string") {
+    throw new Error("File path must be a non-empty string");
+  }
+  if (filePath.includes("\0")) {
+    throw new Error("File path must not contain null bytes");
+  }
+  if (!isAbsolute(filePath)) {
+    throw new Error(`File path must be absolute, got: "${filePath}"`);
+  }
+}
 
 export const handleHttpRequest: Handler = async (args): Promise<HandlerResult> => {
   const { method, url, headers, body, timeout } = HttpRequestSchema.parse(args);
@@ -139,6 +159,9 @@ export const handleBatchRequest: Handler = async (args): Promise<HandlerResult> 
 export const handleImportCollection: Handler = async (args): Promise<HandlerResult> => {
   const { filePath, format, variables } = ImportCollectionSchema.parse(args);
 
+  // Security: validate path before reading
+  validateFilePath(filePath);
+
   // Auto-detect format if not specified
   let detectedFormat = format;
   if (!detectedFormat) {
@@ -189,6 +212,9 @@ export const handleImportCollection: Handler = async (args): Promise<HandlerResu
 export const handleGenerateTests: Handler = async (args): Promise<HandlerResult> => {
   const { specPath, baseUrl, outputFormat, filterTags, includeNegativeTests } = GenerateTestsSchema.parse(args);
 
+  // Security: validate path before reading the spec file
+  validateFilePath(specPath);
+
   const result = await generateTests(specPath, {
     baseUrl,
     filterTags,
@@ -224,6 +250,8 @@ export const handleMockServer: Handler = async (args): Promise<HandlerResult> =>
       if (!specPath) {
         throw new Error('specPath is required for start action');
       }
+      // Security: validate path before reading the spec file
+      validateFilePath(specPath);
       const result = await startMockServer(specPath, { port, delay });
       return jsonResponse({
         action: 'started',

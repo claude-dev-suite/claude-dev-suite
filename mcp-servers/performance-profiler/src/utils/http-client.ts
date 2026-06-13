@@ -4,6 +4,8 @@
  * Reusable HTTP client with variable substitution and response capture
  */
 
+import { validateUrl } from './ssrf.js';
+
 export interface HttpRequest {
   method: string;
   url: string;
@@ -33,14 +35,27 @@ export type HttpResult =
 
 /**
  * Make an HTTP request
+ * Includes SSRF protection via validateUrl.
+ *
+ * Redirect policy: redirects are NOT automatically followed.  Each Location
+ * hop is re-validated through validateUrl before the next request is issued.
+ * This prevents an attacker from redirecting a validated public URL to a
+ * private/metadata address mid-flight.
  */
 export async function httpRequest(request: HttpRequest): Promise<HttpResult> {
   const { method, url, headers = {}, body, timeoutMs = 30000 } = request;
+
+  // SSRF protection — throws for blocked private/metadata addresses
+  await validateUrl(url);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   const start = performance.now();
+
+  // Maximum redirect hops to follow (0 = no redirects by default is handled
+  // below via redirect:"manual" + manual hop logic).
+  const MAX_REDIRECTS = 5;
 
   try {
     const options: RequestInit = {
@@ -50,13 +65,40 @@ export async function httpRequest(request: HttpRequest): Promise<HttpResult> {
         ...headers,
       },
       signal: controller.signal,
+      // Do NOT follow redirects automatically — we re-validate each hop.
+      redirect: 'manual',
     };
 
     if (body && method !== 'GET' && method !== 'HEAD') {
       options.body = typeof body === 'string' ? body : JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    // Follow redirects manually so each Location is validated for SSRF.
+    let currentUrl = url;
+    let response!: Response;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      response = await fetch(currentUrl, { ...options, redirect: 'manual' });
+
+      const isRedirect =
+        response.status === 301 ||
+        response.status === 302 ||
+        response.status === 303 ||
+        response.status === 307 ||
+        response.status === 308;
+
+      if (!isRedirect) break;
+
+      const location = response.headers.get('location');
+      if (!location) break;
+
+      // Re-validate the redirect target before following
+      await validateUrl(location);
+      currentUrl = location;
+
+      if (hop === MAX_REDIRECTS) {
+        throw new Error(`Too many redirects (max ${MAX_REDIRECTS})`);
+      }
+    }
     const responseBody = await response.text();
     const latencyMs = performance.now() - start;
 
