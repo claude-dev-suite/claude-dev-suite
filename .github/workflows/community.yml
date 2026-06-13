@@ -1,5 +1,12 @@
 name: Community
 
+# SECURITY NOTE: This workflow uses pull_request_target which runs in the context of the BASE
+# branch with write permissions, even for PRs from forks. Jobs in this workflow MUST NEVER
+# checkout PR HEAD code (e.g. actions/checkout without explicit ref pointing to the base) as
+# that would allow untrusted code to execute with repository write access. The
+# `github.repository_owner` guard below limits execution to the canonical repo, preventing
+# fork copies from running these jobs with their own tokens.
+
 on:
   issues:
     types: [opened]
@@ -16,10 +23,10 @@ permissions:
 jobs:
   # Welcome first-time contributors with a helpful message
   welcome:
-    if: github.event_name == 'issues' || github.event_name == 'pull_request_target'
+    if: github.repository_owner == 'claude-dev-suite' && (github.event_name == 'issues' || github.event_name == 'pull_request_target')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/first-interaction@v1
+      - uses: actions/first-interaction@34f15e814fe48ac9312ccf29db4e74fa767cbab7 # v1.3.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           issue-message: |
@@ -43,19 +50,19 @@ jobs:
 
   # Auto-label issues and PRs based on content
   label:
-    if: github.event_name == 'issues' || github.event_name == 'pull_request_target'
+    if: github.repository_owner == 'claude-dev-suite' && (github.event_name == 'issues' || github.event_name == 'pull_request_target')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v5
+      - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
   # Mark stale issues and PRs, then close them after a grace period
   stale:
-    if: github.event_name == 'schedule'
+    if: github.repository_owner == 'claude-dev-suite' && github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: |
