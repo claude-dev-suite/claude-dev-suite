@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
 import * as https from 'https';
+import * as dns from 'dns';
 import { Router, type Request, type Response } from 'express';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import type { ApiResponse } from '../types.js';
@@ -52,6 +53,216 @@ function readConfig(projectPath: string): LiveConfig {
 function writeConfig(projectPath: string, config: LiveConfig): void {
   const configPath = getConfigPath(projectPath);
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+}
+
+// ============================================
+// SSRF HELPERS
+// ============================================
+
+/**
+ * Try to convert a potentially-numeric hostname string to a dotted-quad
+ * IPv4 address.  Handles:
+ *   - Decimal:  2852039166  → "169.254.169.254"
+ *   - Hex:      0xa9fea9fe  → "169.254.169.254"
+ *   - Octal:    0177.0.0.1  → "127.0.0.1"
+ *   - Mixed:    192.0x168.1.1  (treated as regular dotted form — no special decode needed)
+ *
+ * Returns the dotted-quad string when numeric, or null when the hostname is a
+ * regular DNS name (not parseable as a single integer or octal-dotted form).
+ */
+export function normalizeNumericIp(hostname: string): string | null {
+  // Already a dotted-quad IPv4?  Return as-is; the caller checks private ranges.
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return hostname;
+
+  // Reject if hostname contains letters that aren't hex digits (0-9 a-f A-F x X)
+  // — a plain DNS label like "localhost" should pass through as null.
+  if (/[g-wyzG-WYZ]/.test(hostname)) return null;
+
+  // Pure integer forms (decimal or 0x-prefixed hex): 2852039166 or 0xa9fea9fe
+  const asInt = Number(hostname);
+  if (!Number.isNaN(asInt) && Number.isInteger(asInt) && asInt >= 0 && asInt <= 0xFFFFFFFF) {
+    const n = asInt >>> 0;
+    return `${(n >>> 24) & 0xff}.${(n >>> 16) & 0xff}.${(n >>> 8) & 0xff}.${n & 0xff}`;
+  }
+
+  // Octal-dotted form: 0177.0.0.1
+  if (/^0\d+\./.test(hostname)) {
+    const parts = hostname.split('.');
+    if (parts.length === 4) {
+      try {
+        const octets = parts.map((p) => {
+          // Prefix "0" means octal; prefix "0x" means hex; else decimal
+          const v = p.startsWith('0x') || p.startsWith('0X')
+            ? parseInt(p, 16)
+            : p.startsWith('0') && p.length > 1
+              ? parseInt(p, 8)
+              : parseInt(p, 10);
+          if (Number.isNaN(v) || v < 0 || v > 255) throw new Error('bad octet');
+          return v;
+        });
+        return octets.join('.');
+      } catch {
+        // fall through
+      }
+    }
+  }
+
+  return null; // Regular DNS name
+}
+
+/**
+ * Returns true when a dotted-quad IPv4 address falls within a range that
+ * must not be reached by the SSRF guard:
+ *   - RFC1918 private: 10.x, 172.16-31.x, 192.168.x
+ *   - Link-local / AWS metadata: 169.254.x
+ *   - Unspecified / broadcast: 0.0.0.0
+ *   - Multicast: 224.0.0.0/4
+ *   - Loopback: 127.x  (intentionally ALLOWED by this tool — see comment below)
+ *
+ * Loopback (127.x) is excluded from blocking because this dashboard is a
+ * developer tool and devs routinely run their apps on loopback ports.
+ */
+export function isBlockedIpv4(dotted: string): boolean {
+  const parts = dotted.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p))) return false;
+  const [a, b] = parts as [number, number, number, number];
+
+  if (a === 10) return true;                                      // 10.0.0.0/8
+  if (a === 172 && b >= 16 && b <= 31) return true;              // 172.16.0.0/12
+  if (a === 192 && b === 168) return true;                        // 192.168.0.0/16
+  if (a === 169 && b === 254) return true;                        // 169.254.0.0/16 (link-local / metadata)
+  if (a === 0) return true;                                       // 0.0.0.0
+  if (a >= 224 && a <= 239) return true;                          // 224.0.0.0/4 multicast
+  if (a === 255) return true;                                     // 255.255.255.255 broadcast
+  // 100.64.0.0/10 — CGNAT shared address space
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  return false;
+}
+
+/**
+ * Resolves all A/AAAA records for a hostname and returns true if ANY resolved
+ * IP is in a blocked range.  This defeats DNS-rebinding: if the hostname
+ * currently resolves to a public IP but a later re-query could return a private
+ * one, the first-resolution check won't catch it — but the TOCTOU window is
+ * closed by pinning the connection to the validated IP via the `lookup` option
+ * in http.get (see checkUrl).
+ *
+ * Returns `{ blocked: false, resolvedIp: string }` on success (first A record),
+ * or `{ blocked: true, reason: string }` when blocked.
+ */
+/**
+ * Validate a literal IPv6 address against blocked ranges.
+ *
+ * Called when the hostname is already a bare IPv6 string (brackets stripped).
+ * Returns true if the address is in a blocked range.
+ *
+ * Node's URL parser normalises IPv4-in-IPv6 addresses to hex form before we
+ * see them.  For example:
+ *   http://[::ffff:10.0.0.1]/  → hostname [::ffff:a00:1]   (::ffff:a*b = 10.0.0.1)
+ *   http://[::ffff:192.168.1.1]/ → hostname [::ffff:c0a8:101]
+ *   http://[::ffff:169.254.1.1]/ → hostname [::ffff:a9fe:101]
+ *
+ * We therefore need to handle the compact hex form in addition to the dotted form.
+ */
+function isBlockedIPv6Literal(ip: string): boolean {
+  // IPv4-mapped dotted form: ::ffff:x.x.x.x
+  const mappedV4Dotted = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+  if (mappedV4Dotted?.[1] && isBlockedIpv4(mappedV4Dotted[1])) return true;
+
+  // IPv4-mapped hex form: ::ffff:HHHH:HHHH (Node normalises to this)
+  // Decode two 16-bit hex groups to a dotted-quad and check blocked ranges.
+  const mappedV4Hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ip);
+  if (mappedV4Hex?.[1] && mappedV4Hex?.[2]) {
+    const hi = parseInt(mappedV4Hex[1], 16); // e.g. 0xa00 = 2560
+    const lo = parseInt(mappedV4Hex[2], 16); // e.g. 0x1   = 1
+    const a = (hi >>> 8) & 0xff;
+    const b = hi & 0xff;
+    const c = (lo >>> 8) & 0xff;
+    const d = lo & 0xff;
+    const dotted = `${a}.${b}.${c}.${d}`;
+    if (isBlockedIpv4(dotted)) return true;
+  }
+
+  // ULA fc00::/7 — includes fc and fd prefixes
+  if (/^f[cd][0-9a-f]{2}:/i.test(ip)) return true;
+
+  // Link-local fe80::/10
+  if (/^fe[89ab][0-9a-f]:/i.test(ip)) return true;
+
+  // Unspecified :: and 0:0:0:0:0:0:0:0
+  if (ip === '::' || ip === '0:0:0:0:0:0:0:0') return true;
+
+  return false;
+}
+
+async function resolveAndValidate(hostname: string): Promise<
+  | { blocked: false; resolvedIp: string }
+  | { blocked: true; reason: string }
+> {
+  // First, try to normalise numeric IP forms to catch decimal/hex/octal before
+  // any DNS lookup (no DNS call needed for raw IPs).
+  const numericIp = normalizeNumericIp(hostname);
+  if (numericIp !== null && numericIp !== hostname) {
+    // The hostname was a numeric-encoded IP (not already a plain dotted quad).
+    // Check if it is blocked.
+    if (isBlockedIpv4(numericIp)) {
+      return { blocked: true, reason: 'URL host not allowed (numeric IP in blocked range)' };
+    }
+    // Not blocked — use the decoded IP for the actual connection.
+    return { blocked: false, resolvedIp: numericIp };
+  }
+
+  // For regular dotted-quad IPv4, validate directly.
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+    if (isBlockedIpv4(hostname)) {
+      return { blocked: true, reason: 'URL host not allowed' };
+    }
+    return { blocked: false, resolvedIp: hostname };
+  }
+
+  // For literal IPv6 addresses (contain ':'), validate directly without DNS.
+  // This handles IPv4-mapped (::ffff:x.x.x.x), ULA, link-local, and unspecified.
+  if (hostname.includes(':')) {
+    if (isBlockedIPv6Literal(hostname)) {
+      return { blocked: true, reason: 'URL host not allowed (blocked IPv6 address)' };
+    }
+    return { blocked: false, resolvedIp: hostname };
+  }
+
+  // For DNS names, resolve all records and block if any is in a restricted range.
+  try {
+    const addresses = await dns.promises.lookup(hostname, { all: true, family: 0 });
+    if (!addresses || addresses.length === 0) {
+      return { blocked: true, reason: 'Could not resolve hostname' };
+    }
+
+    for (const addr of addresses) {
+      const ip = addr.address;
+      if (addr.family === 4) {
+        if (isBlockedIpv4(ip)) {
+          return { blocked: true, reason: 'URL host resolves to a blocked IP address' };
+        }
+        // IPv4 loopback 127.x — intentionally allowed.
+      } else if (addr.family === 6) {
+        // Normalise IPv4-mapped IPv6 addresses (::ffff:x.x.x.x)
+        const mappedV4 = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+        if (mappedV4?.[1] && isBlockedIpv4(mappedV4[1])) {
+          return { blocked: true, reason: 'URL host resolves to a blocked IP address' };
+        }
+        if (isBlockedIPv6Literal(ip)) {
+          return { blocked: true, reason: 'URL host resolves to a blocked IP address' };
+        }
+      }
+    }
+
+    // All records are safe.  Return the first IPv4 address for connection pinning.
+    const firstV4 = addresses.find((a) => a.family === 4);
+    const firstAny = addresses[0];
+    return { blocked: false, resolvedIp: (firstV4 ?? firstAny)?.address ?? hostname };
+  } catch {
+    // DNS resolution failure — treat as unreachable rather than blocked.
+    return { blocked: false, resolvedIp: hostname };
+  }
 }
 
 function checkUrl(url: string): Promise<{ reachable: boolean; statusCode?: number; latencyMs?: number }> {
@@ -216,87 +427,39 @@ livePerformanceRoutes.get('/live-performance/status', async (req: Request, res: 
       return res.status(400).json({ success: false, error: 'Only http/https URLs allowed' });
     }
 
-    // SSRF protection: block link-local (AWS metadata, APIPA), private RFC1918
-    // ranges, and IPv6 private/unspecified ranges.
-    //
-    // INTENTIONAL LOOPBACK ALLOWANCE: localhost / 127.0.0.1 / ::1 are
-    // explicitly allowed because this dashboard is a developer tool and devs
-    // routinely run their apps on loopback ports.  The dashboard server itself
-    // already binds only to 127.0.0.1 so it can never be reached from the
-    // network, making SSRF via loopback a low-risk, high-value tradeoff.
+    // Node's URL parser wraps IPv6 in brackets; strip them to get the raw string.
     const rawHostname = parsedUrl.hostname;
     if (!rawHostname) {
       return res.status(400).json({ success: false, error: 'Invalid URL: missing hostname' });
     }
-
-    // Node's URL parser wraps IPv6 in brackets and may normalise the form, e.g.
-    // [::ffff:10.0.0.1] → hostname "[::ffff:a00:1]" (hex encoding).
-    // Strip the brackets to get the raw address string.
     const hostname = rawHostname.replace(/^\[|\]$/g, '');
 
-    // IPv4-mapped IPv6 (::ffff:xxxx:xxxx or ::ffff:d.d.d.d).
-    // Node's URL normalises the last 32 bits to hex (e.g. 10.0.0.1 → a00:1).
-    // Block ALL ::ffff: addresses except the IPv4-mapped loopback (::ffff:7f00:1
-    // = 127.0.0.1) which is equivalent to the loopback we intentionally allow.
-    const isIpv4Mapped = /^::ffff:/i.test(hostname);
-
-    // Attempt to recover a dotted-decimal IPv4 from the mapped address (both
-    // dotted-decimal and hex forms) for the private-range checks below.
-    let effectiveHostname: string = hostname;
-    if (isIpv4Mapped) {
-      // Dotted-decimal form: ::ffff:a.b.c.d
-      const dotted = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(hostname);
-      if (dotted && dotted[1]) {
-        effectiveHostname = dotted[1];
-      } else {
-        // Hex form: ::ffff:xxyy:zzww → convert to a.b.c.d
-        const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(hostname);
-        if (hex && hex[1] && hex[2]) {
-          const hi = parseInt(hex[1], 16);
-          const lo = parseInt(hex[2], 16);
-          effectiveHostname = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
-        }
-      }
-    }
-
-    // Loopback (intentionally allowed — see comment above).
+    // SSRF protection — multi-layer:
+    //
+    // 1. Numeric IP normalisation: decimal/hex/octal encodings (e.g.
+    //    http://2852039166/ = 169.254.169.254) are converted to dotted-quad
+    //    and checked against blocked ranges.
+    //
+    // 2. DNS resolution: for named hosts we resolve all A/AAAA records and
+    //    reject if any resolved address falls in a blocked range.
+    //
+    // 3. Connection pinning: the actual http(s).get call receives the validated
+    //    IP via a custom `lookup` function, closing the TOCTOU rebinding window.
+    //
+    // INTENTIONAL LOOPBACK ALLOWANCE: localhost / 127.x / ::1 are allowed
+    // because this is a developer tool and apps routinely run on loopback.
+    // The server binds only to 127.0.0.1 so it is never reachable from the
+    // network — SSRF via loopback is a low-risk, high-value tradeoff here.
     const isLoopback =
-      effectiveHostname === '127.0.0.1' ||
-      effectiveHostname === 'localhost' ||
-      effectiveHostname === '::1' ||
+      hostname === 'localhost' ||
       hostname === '::1' ||
-      /^127\.\d+\.\d+\.\d+$/.test(effectiveHostname);
+      /^127\.\d+\.\d+\.\d+$/.test(hostname);
 
-    // IPv4 link-local and unspecified.
-    const isLinkLocalV4 = /^169\.254\./.test(effectiveHostname);
-    const isUnspecifiedV4 = /^0\.0\.0\.0$/.test(effectiveHostname);
-
-    // RFC1918 private ranges.
-    const isPrivateV4 =
-      /^10\./.test(effectiveHostname) ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(effectiveHostname) ||
-      /^192\.168\./.test(effectiveHostname);
-
-    // Any ::ffff: mapped address that is not loopback must be blocked (it
-    // is equivalent to one of the IPv4 ranges we block above, or to some
-    // other non-routable address).
-    const isBlockedIpv4Mapped = isIpv4Mapped && !isLoopback;
-
-    // IPv6 ULA (fc00::/7 covers fc** and fd**) and unspecified (::).
-    const isUlaV6 = /^f[cd][0-9a-f]{2}:/i.test(hostname);
-    const isUnspecifiedV6 = /^::$/.test(hostname) || hostname === '0:0:0:0:0:0:0:0';
-
-    // Link-local IPv6 (fe80::/10).
-    const isLinkLocalV6 = /^fe[89ab][0-9a-f]:/i.test(hostname);
-
-    const isBlocked = !isLoopback && (
-      isLinkLocalV4 || isUnspecifiedV4 || isPrivateV4 ||
-      isBlockedIpv4Mapped ||
-      isUlaV6 || isUnspecifiedV6 || isLinkLocalV6
-    );
-
-    if (isBlocked) {
-      return res.status(400).json({ success: false, error: 'URL host not allowed' });
+    if (!isLoopback) {
+      const validation = await resolveAndValidate(hostname);
+      if (validation.blocked) {
+        return res.status(400).json({ success: false, error: validation.reason });
+      }
     }
 
     const result = await checkUrl(rawUrl);

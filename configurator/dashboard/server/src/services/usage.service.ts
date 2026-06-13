@@ -138,6 +138,10 @@ export class UsageService {
   /**
    * Load usage config from `.dev-suite/usage-config.json` inside the project.
    * Returns default config when the file does not exist or cannot be parsed.
+   *
+   * SECURITY: This returns the raw config including the plain-text adminApiKey
+   * for internal use only.  The route layer MUST call getMaskedConfig() when
+   * sending the response to the client.
    */
   getConfig(projectPath: string): UsageConfig {
     const resolved = resolveProjectPath(projectPath);
@@ -169,6 +173,35 @@ export class UsageService {
       });
       return { ...DEFAULT_CONFIG, alertThresholds: [...DEFAULT_THRESHOLDS] };
     }
+  }
+
+  /**
+   * Return the config with the admin API key masked.
+   *
+   * Instead of the raw key, the response includes:
+   *   - `hasApiKey: boolean`   — whether a key is configured
+   *   - `apiKeyPreview: string | undefined` — e.g. "sk-ant-...ab12" (first 8 + last 4 chars)
+   *
+   * The plain `adminApiKey` field is NEVER present in the returned object.
+   */
+  getMaskedConfig(
+    projectPath: string,
+  ): Omit<UsageConfig, 'adminApiKey'> & { hasApiKey: boolean; apiKeyPreview?: string } {
+    const config = this.getConfig(projectPath);
+    const { adminApiKey, ...rest } = config;
+
+    const hasApiKey = Boolean(adminApiKey);
+    let apiKeyPreview: string | undefined;
+    if (adminApiKey && adminApiKey.length >= 12) {
+      // Show first 8 + "..." + last 4 characters — enough to identify the key
+      // without leaking it.
+      apiKeyPreview = `${adminApiKey.slice(0, 8)}...${adminApiKey.slice(-4)}`;
+    } else if (adminApiKey && adminApiKey.length > 0) {
+      // Very short key — show only "****" to avoid partial leakage
+      apiKeyPreview = '****';
+    }
+
+    return { ...rest, hasApiKey, apiKeyPreview };
   }
 
   /**

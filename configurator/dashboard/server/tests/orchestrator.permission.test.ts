@@ -441,9 +441,11 @@ describe('PermissionService', () => {
       expect(service.resolveRequest('req-cleared', 'allow')).toBe(false);
     });
 
-    it('auto-resolves to allow on timeout', async () => {
+    it('auto-resolves to deny on timeout (fail-closed)', async () => {
+      // SECURITY: timeout must resolve to 'deny' (fail-closed), not 'allow'.
+      // Failing open would let connection drops bypass permission checks.
       const promise = service.createRequest('req-timeout', 50);
-      await expect(promise).resolves.toBe('allow');
+      await expect(promise).resolves.toBe('deny');
     }, 1000);
 
     it('hasPending is false after timeout elapses', async () => {

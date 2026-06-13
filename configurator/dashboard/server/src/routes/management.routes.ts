@@ -10,6 +10,13 @@ import { Router, type Request, type Response } from 'express';
 import { ManagementService } from '../services/management.service.js';
 import type { ApiResponse } from '../types.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
+import { validateBody } from '../middleware/validateRequest.js';
+import {
+  AddAgentRequestSchema,
+  RemoveAgentRequestSchema,
+  AddMcpServerRequestSchema,
+  RemoveMcpServerRequestSchema,
+} from '../validation/schemas.js';
 
 export const managementRoutes = Router();
 const managementService = new ManagementService();
@@ -37,7 +44,7 @@ managementRoutes.get('/installed-components', async (req: Request, res: Response
 });
 
 // Add agent to project
-managementRoutes.post('/add-agent', async (req: Request, res: Response) => {
+managementRoutes.post('/add-agent', validateBody(AddAgentRequestSchema), async (req: Request, res: Response) => {
   try {
     const { projectPath: rawPath, agentId } = req.body as { projectPath: string; agentId: string };
 
@@ -70,7 +77,7 @@ managementRoutes.post('/add-agent', async (req: Request, res: Response) => {
 });
 
 // Remove agent from project
-managementRoutes.post('/remove-agent', async (req: Request, res: Response) => {
+managementRoutes.post('/remove-agent', validateBody(RemoveAgentRequestSchema), async (req: Request, res: Response) => {
   try {
     const { projectPath: rawPath, agentId } = req.body as { projectPath: string; agentId: string };
 
@@ -103,7 +110,7 @@ managementRoutes.post('/remove-agent', async (req: Request, res: Response) => {
 });
 
 // Add MCP server to project
-managementRoutes.post('/add-mcp-server', async (req: Request, res: Response) => {
+managementRoutes.post('/add-mcp-server', validateBody(AddMcpServerRequestSchema), async (req: Request, res: Response) => {
   try {
     const { projectPath: rawPath, serverName, envVars } = req.body as {
       projectPath: string;
@@ -140,7 +147,7 @@ managementRoutes.post('/add-mcp-server', async (req: Request, res: Response) => 
 });
 
 // Remove MCP server from project
-managementRoutes.post('/remove-mcp-server', async (req: Request, res: Response) => {
+managementRoutes.post('/remove-mcp-server', validateBody(RemoveMcpServerRequestSchema), async (req: Request, res: Response) => {
   try {
     const { projectPath: rawPath, serverName } = req.body as { projectPath: string; serverName: string };
 

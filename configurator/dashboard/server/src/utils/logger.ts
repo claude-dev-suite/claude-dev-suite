@@ -30,24 +30,29 @@ export const LOG_LEVELS = {
 
 export type LogLevel = keyof typeof LOG_LEVELS;
 
-// Sensitive fields to redact
+// Sensitive fields to redact.
+// The redaction loop uses lowerKey.includes(field.toLowerCase()) so these
+// entries can be any case — but keep them lowercase for clarity.
+// IMPORTANT: add new secret field names here AND in requestLogger.ts.
 const SENSITIVE_FIELDS = [
   'password',
   'token',
-  'apiKey',
+  'apikey',       // matches apiKey, api_key, adminApiKey, etc. via includes()
   'api_key',
+  'adminapikey',
+  'admin_api_key',
   'secret',
   'authorization',
   'auth',
   'bearer',
   'jwt',
-  'sessionId',
+  'sessionid',
   'session_id',
-  'privateKey',
+  'privatekey',
   'private_key',
-  'accessToken',
+  'accesstoken',
   'access_token',
-  'refreshToken',
+  'refreshtoken',
   'refresh_token',
 ];
 

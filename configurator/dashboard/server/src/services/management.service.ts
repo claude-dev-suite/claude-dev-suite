@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import type { Agent } from '../types.js';
 import type { ExtendedManifest, TrackedFile, NewComponentsResult } from '../types/upgrade.js';
 import { AgentsService } from './agents.service.js';
@@ -275,10 +275,15 @@ export class ManagementService {
     this.copyDirSync(serverSource, serverDest);
 
     // Install dependencies
+    // SECURITY: execFileSync with shell:false and --ignore-scripts prevents
+    // malicious postinstall hooks in copied MCP server packages.
+    // On Windows npm is 'npm.cmd'; on POSIX it is 'npm'.
     if (fs.existsSync(path.join(serverDest, 'package.json'))) {
-      execSync('npm install --production', {
+      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      execFileSync(npmCmd, ['install', '--production', '--ignore-scripts'], {
         cwd: serverDest,
         stdio: 'pipe',
+        shell: false,
         timeout: TIMEOUTS.NPM_INSTALL,
       });
     }
@@ -404,21 +409,26 @@ export class ManagementService {
     const devSuiteDir = getDevSuiteDir();
 
     try {
-      execSync('git fetch origin', { cwd: devSuiteDir, stdio: 'pipe', timeout: TIMEOUTS.GIT_FETCH });
+      const fetchResult = spawnSync('git', ['fetch', 'origin'], {
+        cwd: devSuiteDir, stdio: 'pipe', timeout: TIMEOUTS.GIT_FETCH, shell: false,
+      });
+      if (fetchResult.status !== 0) throw new Error(fetchResult.stderr?.toString() || 'git fetch failed');
 
-      const behindCount = execSync('git rev-list --count HEAD..origin/main', {
-        cwd: devSuiteDir,
-        encoding: 'utf-8',
-      }).trim();
+      const behindCountResult = spawnSync('git', ['rev-list', '--count', 'HEAD..origin/main'], {
+        cwd: devSuiteDir, encoding: 'utf-8', shell: false,
+      });
+      if (behindCountResult.status !== 0) throw new Error('git rev-list failed');
+      const behindCount = (behindCountResult.stdout as string).trim();
 
       if (parseInt(behindCount) === 0) {
         return { hasUpdates: false };
       }
 
-      const diffOutput = execSync('git diff --name-only HEAD..origin/main', {
-        cwd: devSuiteDir,
-        encoding: 'utf-8',
+      const diffResult = spawnSync('git', ['diff', '--name-only', 'HEAD..origin/main'], {
+        cwd: devSuiteDir, encoding: 'utf-8', shell: false,
       });
+      if (diffResult.status !== 0) throw new Error('git diff failed');
+      const diffOutput = diffResult.stdout as string;
 
       const changes = diffOutput.trim().split('\n').filter((f) => f);
 
@@ -458,15 +468,18 @@ export class ManagementService {
     const devSuiteDir = getDevSuiteDir();
 
     try {
-      execSync('git stash', { cwd: devSuiteDir, stdio: 'pipe' });
+      const stashResult = spawnSync('git', ['stash'], { cwd: devSuiteDir, stdio: 'pipe', shell: false });
+      if (stashResult.status !== 0) throw new Error('git stash failed');
 
-      const output = execSync('git pull origin main', {
+      const pullResult = spawnSync('git', ['pull', 'origin', 'main'], {
         cwd: devSuiteDir,
         encoding: 'utf-8',
         timeout: TIMEOUTS.GIT_PULL,
+        shell: false,
       });
+      if (pullResult.status !== 0) throw new Error((pullResult.stderr as string) || 'git pull failed');
 
-      const changes = output.trim().split('\n').filter((l) => l);
+      const changes = (pullResult.stdout as string).trim().split('\n').filter((l) => l);
 
       return {
         updated: true,

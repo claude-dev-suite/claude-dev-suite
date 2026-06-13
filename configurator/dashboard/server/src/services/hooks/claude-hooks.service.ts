@@ -22,6 +22,36 @@ import {
   CLAUDE_OUTPUT_FILTER_HOOKS,
 } from './hooks.constants.js';
 
+// ============================================
+// SECURITY: Command validation
+// ============================================
+
+/**
+ * Pattern for safe Claude hook commands.
+ *
+ * Allows characters needed by typical hook invocations:
+ *   npm run X, npx X, node X, ./scripts/X, python X, etc.
+ *
+ * Explicitly rejects shell metacharacters that enable injection:
+ *   ; | & ` $ ( ) { } < > \n \r ! ~ #
+ *
+ * Trust model: Claude hooks are developer-controlled project configuration.
+ * This guard is a best-effort protection against accidental or supply-chain-
+ * injected payloads written to .claude/settings.json.  It mirrors the
+ * SAFE_SCRIPT_PATTERN used in git-hooks.service.ts.
+ */
+const SAFE_HOOK_COMMAND_PATTERN = /^[a-zA-Z0-9 _./@:=\-\[\]"',+]+$/;
+
+function validateHookCommand(command: string): void {
+  if (typeof command !== 'string') return;
+  if (!SAFE_HOOK_COMMAND_PATTERN.test(command)) {
+    throw new PathValidationError(
+      'Hook command contains disallowed shell metacharacters. ' +
+        'Only alphanumeric characters and _ . / @ : = - [ ] " \' , + are permitted.',
+    );
+  }
+}
+
 export class ClaudeHooksService {
   /**
    * Get the path to Claude settings.json
@@ -163,6 +193,12 @@ export class ClaudeHooksService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+
+    // SECURITY: validate every command string before writing to settings.json
+    for (const cmd of hookConfig.commands || []) {
+      validateHookCommand(cmd);
+    }
+
     const settings = this.readClaudeSettings(projectPath) || {};
 
     if (!settings.hooks) {

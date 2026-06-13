@@ -60,8 +60,10 @@ usageRoutes.get('/usage/summary', async (req: Request, res: Response) => {
  * GET /api/usage/config?path=<projectPath>
  *
  * Retrieve the usage monitor configuration (thresholds, polling interval).
- * The `adminApiKey` field is included so the UI can detect whether a key is set;
- * callers should treat it as write-only / masked on display.
+ *
+ * SECURITY: The raw adminApiKey is NEVER returned.  Instead the response
+ * contains `hasApiKey: boolean` and `apiKeyPreview` (first 8 + last 4 chars)
+ * so the UI can detect whether a key is configured without exposing the secret.
  */
 usageRoutes.get('/usage/config', (req: Request, res: Response) => {
   try {
@@ -71,7 +73,7 @@ usageRoutes.get('/usage/config', (req: Request, res: Response) => {
       throw new PathValidationError('Path must be rooted');
     }
 
-    const config = usageService.getConfig(projectPath);
+    const config = usageService.getMaskedConfig(projectPath);
     return res.json({ success: true, data: config });
   } catch (err) {
     logger.error('Failed to get usage config', {

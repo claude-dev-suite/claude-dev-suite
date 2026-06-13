@@ -11,11 +11,18 @@
 import { Router, type Request, type Response } from 'express';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { WorkflowsService } from '../services/workflows.service.js';
+import { validateBody, validateParams } from '../middleware/validateRequest.js';
+import { CreateWorkflowRequestSchema, McpSuggestionsRequestSchema } from '../validation/schemas.js';
+import { z } from 'zod';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import * as readline from 'readline';
 import { createReadStream } from 'fs';
+
+const WorkflowParamsSchema = z.object({
+  id: z.string().min(1, 'Workflow ID is required'),
+});
 
 export const orchestratorRoutes = Router();
 const workflowsService = new WorkflowsService();
@@ -47,8 +54,8 @@ const mcpSuggestionsHandler = async (req: Request, res: Response) => {
   }
 };
 
-orchestratorRoutes.post('/orchestrator/mcp-suggestions', mcpSuggestionsHandler);
-orchestratorRoutes.post('/orchestrator/analyze-mcp', mcpSuggestionsHandler);
+orchestratorRoutes.post('/orchestrator/mcp-suggestions', validateBody(McpSuggestionsRequestSchema), mcpSuggestionsHandler);
+orchestratorRoutes.post('/orchestrator/analyze-mcp', validateBody(McpSuggestionsRequestSchema), mcpSuggestionsHandler);
 
 // GET /api/orchestrator/workflows - Get all workflows (builtin + custom)
 orchestratorRoutes.get('/orchestrator/workflows', async (req: Request, res: Response) => {
@@ -68,7 +75,7 @@ orchestratorRoutes.get('/orchestrator/workflows', async (req: Request, res: Resp
 });
 
 // POST /api/orchestrator/workflows - Create/update custom workflow
-orchestratorRoutes.post('/orchestrator/workflows', async (req: Request, res: Response) => {
+orchestratorRoutes.post('/orchestrator/workflows', validateBody(CreateWorkflowRequestSchema), async (req: Request, res: Response) => {
   try {
     const { projectPath, workflow } = req.body as {
       projectPath?: string;
@@ -114,7 +121,7 @@ orchestratorRoutes.post('/orchestrator/workflows', async (req: Request, res: Res
 });
 
 // DELETE /api/orchestrator/workflows/:id - Delete custom workflow
-orchestratorRoutes.delete('/orchestrator/workflows/:id', async (req: Request, res: Response) => {
+orchestratorRoutes.delete('/orchestrator/workflows/:id', validateParams(WorkflowParamsSchema), async (req: Request, res: Response) => {
   try {
     const workflowId = req.params.id;
     const { projectPath } = req.body as { projectPath?: string };

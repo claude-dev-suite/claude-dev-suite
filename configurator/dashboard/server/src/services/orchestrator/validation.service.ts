@@ -93,7 +93,8 @@ export class ValidationService {
       const normalizedRoot = isWindows
         ? path.normalize(root).toLowerCase()
         : path.normalize(root);
-      return normalizedPath.startsWith(normalizedRoot);
+      const rootWithSep = normalizedRoot.endsWith(path.sep) ? normalizedRoot : normalizedRoot + path.sep;
+      return normalizedPath.startsWith(rootWithSep) || normalizedPath === normalizedRoot;
     });
   }
 
@@ -105,7 +106,8 @@ export class ValidationService {
 
     return BLOCKED_SYSTEM_PATHS.some(blocked => {
       const normalizedBlocked = path.normalize(blocked).toLowerCase();
-      return normalizedPath.startsWith(normalizedBlocked);
+      const blockedWithSep = normalizedBlocked.endsWith(path.sep) ? normalizedBlocked : normalizedBlocked + path.sep;
+      return normalizedPath.startsWith(blockedWithSep) || normalizedPath === normalizedBlocked;
     });
   }
 

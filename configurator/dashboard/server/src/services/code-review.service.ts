@@ -8,7 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import {
   // Types
@@ -84,12 +84,10 @@ export class CodeReviewService {
     if (!this.isValidPath(cwd)) return 'main';
 
     try {
-      const result = execSync('git symbolic-ref refs/remotes/origin/HEAD', {
-        cwd,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 5000,
-      }).trim();
+      const symRefResult = spawnSync('git', ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
+        cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 5000, shell: false,
+      });
+      const result = symRefResult.status === 0 ? (symRefResult.stdout as string).trim() : '';
 
       if (result) {
         const match = result.match(/refs\/remotes\/origin\/(.+)/);
@@ -102,17 +100,15 @@ export class CodeReviewService {
       // Failed to get symbolic ref - fallback to verifying branches
     }
 
-    try {
-      execSync('git rev-parse --verify main', { cwd, stdio: 'pipe', timeout: 5000 });
-      return 'main';
-    } catch {
-      try {
-        execSync('git rev-parse --verify master', { cwd, stdio: 'pipe', timeout: 5000 });
-        return 'master';
-      } catch {
-        return 'main';
-      }
+    {
+      const r = spawnSync('git', ['rev-parse', '--verify', 'main'], { cwd, stdio: 'pipe', timeout: 5000, shell: false });
+      if (r.status === 0) return 'main';
     }
+    {
+      const r = spawnSync('git', ['rev-parse', '--verify', 'master'], { cwd, stdio: 'pipe', timeout: 5000, shell: false });
+      if (r.status === 0) return 'master';
+    }
+    return 'main';
   }
 
   /**
@@ -165,12 +161,11 @@ export class CodeReviewService {
     }
 
     try {
-      const diff = execSync('git diff HEAD', {
-        cwd,
-        encoding: 'utf8',
-        maxBuffer: 10 * 1024 * 1024,
-        timeout: 30000,
+      const diffResult = spawnSync('git', ['diff', 'HEAD'], {
+        cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 30000, shell: false,
       });
+      if (diffResult.status !== 0) throw new Error((diffResult.stderr as string) || 'git diff failed');
+      const diff = diffResult.stdout as string;
 
       return {
         diff,

@@ -70,12 +70,17 @@ describe('WebSocket permission_response handling', () => {
 
     const connectionHandler = (wss as any)._events?.connection;
     if (connectionHandler) {
+      // URL no longer carries the token — auth is done via the first message
       const mockReq = {
-        url: '/?token=valid-token&clientId=test-client-permission',
+        url: '/',
         socket: { remoteAddress: '127.0.0.1' },
       };
       connectionHandler(mockWs, mockReq);
     }
+
+    // Authenticate the mock connection (required before any other messages)
+    const authMsg = JSON.stringify({ type: 'auth', token: 'valid-token', clientId: 'test-client-permission' });
+    messageHandler?.(Buffer.from(authMsg));
   }
 
   function sendMessage(payload: Record<string, unknown>) {

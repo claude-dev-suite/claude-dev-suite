@@ -65,6 +65,12 @@ function checkRateLimit(ws: WebSocket): boolean {
   return true;
 }
 
+/**
+ * Timeout (ms) for a newly-connected client to send its `auth` message.
+ * If no valid auth arrives within this window the connection is closed.
+ */
+const AUTH_TIMEOUT_MS = 5000;
+
 export function createWebSocketServer(port: number, host: string = config.websocket.host): WebSocketServer {
   const wss = new WebSocketServer({
     port,
@@ -72,45 +78,92 @@ export function createWebSocketServer(port: number, host: string = config.websoc
   });
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-    const url = new URL(req.url || '', `ws://localhost:${port}`);
-    const token = url.searchParams.get('token');
-    const clientId = url.searchParams.get('clientId') || generateCorrelationId();
+    // NOTE: We no longer read the token from the URL query string.
+    // The client is required to send { type: 'auth', token, clientId } as its
+    // very first message.  Until authentication succeeds we ignore all other
+    // messages and close the socket after AUTH_TIMEOUT_MS.
     const correlationId = generateCorrelationId();
     const clientIp = req.socket.remoteAddress;
 
-    // Store correlation ID on WebSocket for tracking
-    (ws as any).correlationId = correlationId;
-    (ws as any).clientId = clientId;
+    // Track whether this connection has been authenticated yet.
+    let authenticated = false;
 
-    // Validate token
-    if (!token || !validateWsToken(token)) {
-      wsLogger.warn('Connection rejected: invalid token', {
-        correlationId,
-        data: { clientId, ip: clientIp },
-      });
-      ws.close(4001, 'Invalid or missing token');
-      return;
-    }
-
-    wsLogger.info('Client connected', {
-      correlationId,
-      data: { clientId, ip: clientIp },
-    });
-
-    // Register client with orchestrator - use replaceClient if clientId provided
-    if (clientId) {
-      orchestratorService.replaceClient(clientId, ws);
-    } else {
-      orchestratorService.addClient(ws);
-    }
-
-    // Send initial status
-    orchestratorService.handleGetStatus(ws);
+    // Start an auth timeout — close the socket if no valid auth arrives.
+    const authTimer = setTimeout(() => {
+      if (!authenticated) {
+        wsLogger.warn('Connection closed: auth timeout', {
+          correlationId,
+          data: { ip: clientIp },
+        });
+        ws.close(4001, 'Authentication timeout');
+      }
+    }, AUTH_TIMEOUT_MS);
 
     // Handle messages
     ws.on('message', (data: Buffer) => {
       const msgCorrelationId = (ws as any).correlationId || correlationId;
-      const msgClientId = (ws as any).clientId || clientId;
+      const msgClientId = (ws as any).clientId || correlationId;
+
+      // ---------------------------------------------------------------
+      // AUTH GATE: the very first message MUST be { type: 'auth', token, clientId }
+      // Until authentication succeeds, all other messages are silently dropped.
+      // ---------------------------------------------------------------
+      if (!authenticated) {
+        try {
+          const raw = JSON.parse(data.toString());
+          if (raw.type === 'auth' && typeof raw.token === 'string') {
+            if (!validateWsToken(raw.token)) {
+              wsLogger.warn('Connection rejected: invalid auth token', {
+                correlationId,
+                data: { ip: clientIp },
+              });
+              clearTimeout(authTimer);
+              ws.close(4001, 'Invalid token');
+              return;
+            }
+
+            // Auth successful — wire up the client
+            clearTimeout(authTimer);
+            authenticated = true;
+            const resolvedClientId: string = (typeof raw.clientId === 'string' && raw.clientId)
+              ? raw.clientId
+              : generateCorrelationId();
+
+            (ws as any).correlationId = correlationId;
+            (ws as any).clientId = resolvedClientId;
+
+            wsLogger.info('Client authenticated', {
+              correlationId,
+              data: { clientId: resolvedClientId, ip: clientIp },
+            });
+
+            if (resolvedClientId) {
+              orchestratorService.replaceClient(resolvedClientId, ws);
+            } else {
+              orchestratorService.addClient(ws);
+            }
+
+            orchestratorService.handleGetStatus(ws);
+          } else {
+            // First message was not an auth message — reject
+            wsLogger.warn('Connection rejected: first message not auth', {
+              correlationId,
+              data: { ip: clientIp },
+            });
+            clearTimeout(authTimer);
+            ws.close(4001, 'First message must be auth');
+          }
+        } catch {
+          wsLogger.warn('Connection rejected: invalid JSON in auth', { correlationId });
+          clearTimeout(authTimer);
+          ws.close(4001, 'Invalid auth message');
+        }
+        return;
+      }
+
+      // ---------------------------------------------------------------
+      // Normal message processing (only reached after successful auth)
+      // ---------------------------------------------------------------
       const endTimer = wsLogger.time('Message processing', { correlationId: msgCorrelationId });
 
       // Check rate limit
@@ -202,8 +255,9 @@ export function createWebSocketServer(port: number, host: string = config.websoc
     });
 
     ws.on('close', (code: number, reason: Buffer) => {
+      clearTimeout(authTimer);
       const msgCorrelationId = (ws as any).correlationId || correlationId;
-      const msgClientId = (ws as any).clientId || clientId;
+      const msgClientId = (ws as any).clientId || correlationId;
 
       wsLogger.info('Client disconnected', {
         correlationId: msgCorrelationId,
@@ -221,8 +275,9 @@ export function createWebSocketServer(port: number, host: string = config.websoc
     });
 
     ws.on('error', (err: Error) => {
+      clearTimeout(authTimer);
       const msgCorrelationId = (ws as any).correlationId || correlationId;
-      const msgClientId = (ws as any).clientId || clientId;
+      const msgClientId = (ws as any).clientId || correlationId;
 
       wsLogger.error('Client error', {
         correlationId: msgCorrelationId,

@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { FileTreeNode, SourceFilesResult, DiffResult } from './types.js';
 import { SOURCE_EXTENSIONS, INCLUDE_FILES, EXCLUDED_DIRS } from './constants.js';
@@ -54,13 +54,15 @@ export function listSourceFiles(projectPath: string, isValidPath: (p: string) =>
   };
 
   try {
-    const output = execSync('git ls-files', {
+    const lsResult = spawnSync('git', ['ls-files'], {
       cwd: projectPath,
       encoding: 'utf8',
       maxBuffer: 5 * 1024 * 1024,
       timeout: 10000,
+      shell: false,
     });
-    const rawFiles = output.trim().split('\n').filter(Boolean);
+    if (lsResult.status !== 0) throw new Error('git ls-files failed');
+    const rawFiles = (lsResult.stdout as string).trim().split('\n').filter(Boolean);
 
     for (const relPath of rawFiles) {
       const absPath = path.join(projectPath, relPath);
@@ -214,13 +216,15 @@ export function getFullProjectCode(
   };
 
   try {
-    const output = execSync('git ls-files', {
+    const lsResult2 = spawnSync('git', ['ls-files'], {
       cwd: projectPath,
       encoding: 'utf8',
       maxBuffer: 5 * 1024 * 1024,
       timeout: 10000,
+      shell: false,
     });
-    allFiles = output.trim().split('\n').filter(Boolean);
+    if (lsResult2.status !== 0) throw new Error('git ls-files failed');
+    allFiles = (lsResult2.stdout as string).trim().split('\n').filter(Boolean);
 
     // git ls-files succeeded but returned nothing (e.g. no commits yet) - fallback to directory scan
     if (allFiles.length === 0) {

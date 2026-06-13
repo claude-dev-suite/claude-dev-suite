@@ -8,9 +8,37 @@
 import { Router, type Request, type Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import { z } from 'zod';
 import { getLogger, getLogDirectoryPath } from '../utils/logger.js';
+import { validateBody } from '../middleware/validateRequest.js';
 
 const logger = getLogger('Logging');
+
+// ============================================
+// VALIDATION SCHEMAS
+// ============================================
+
+/** Max allowed values for log message and metadata fields */
+const LOG_LIMITS = {
+  MESSAGE_MAX: 2000,
+  COMPONENT_MAX: 100,
+  BATCH_MAX: 100,
+} as const;
+
+const LogLevelSchema = z.enum(['error', 'warn', 'info', 'debug', 'http', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'HTTP']);
+
+const LogEntryInputSchema = z.object({
+  level: LogLevelSchema,
+  component: z.string().max(LOG_LIMITS.COMPONENT_MAX).optional(),
+  message: z.string().max(LOG_LIMITS.MESSAGE_MAX, `message must be ≤ ${LOG_LIMITS.MESSAGE_MAX} chars`),
+  data: z.unknown().optional(),
+});
+
+const LogBatchInputSchema = z.object({
+  entries: z
+    .array(LogEntryInputSchema)
+    .max(LOG_LIMITS.BATCH_MAX, `batch must contain ≤ ${LOG_LIMITS.BATCH_MAX} entries`),
+});
 
 export const loggingRoutes = Router();
 
@@ -135,18 +163,14 @@ function broadcastLogToClients(entry: LogEntry): void {
 }
 
 // POST /api/log - Receive log entries from frontend
-loggingRoutes.post('/log', (req: Request, res: Response) => {
+loggingRoutes.post('/log', validateBody(LogEntryInputSchema), (req: Request, res: Response) => {
   try {
     const { level, component, message, data } = req.body as {
       level: string;
-      component: string;
+      component?: string;
       message: string;
       data?: unknown;
     };
-
-    if (!level || !message) {
-      return res.status(400).json({ error: 'level and message are required' });
-    }
 
     writeLog(level, component || 'Frontend', message, data);
     return res.json({ success: true });
@@ -157,20 +181,16 @@ loggingRoutes.post('/log', (req: Request, res: Response) => {
 });
 
 // POST /api/log/batch - Receive multiple log entries
-loggingRoutes.post('/log/batch', (req: Request, res: Response) => {
+loggingRoutes.post('/log/batch', validateBody(LogBatchInputSchema), (req: Request, res: Response) => {
   try {
     const { entries } = req.body as {
       entries: Array<{
         level: string;
-        component: string;
+        component?: string;
         message: string;
         data?: unknown;
       }>;
     };
-
-    if (!entries || !Array.isArray(entries)) {
-      return res.status(400).json({ error: 'entries array is required' });
-    }
 
     for (const entry of entries) {
       writeLog(entry.level, entry.component || 'Frontend', entry.message, entry.data);
@@ -191,7 +211,7 @@ loggingRoutes.get('/logs', (req: Request, res: Response) => {
     const search = req.query.search as string | undefined;
     const from = req.query.from as string | undefined;
     const to = req.query.to as string | undefined;
-    const limit = parseInt(req.query.limit as string) || 500;
+    const limit = Math.min(parseInt(req.query.limit as string) || 500, 1000);
     const source = req.query.source as string || 'frontend'; // 'frontend', 'backend', or 'all'
 
     let allEntries: LogEntry[] = [];
@@ -360,7 +380,7 @@ loggingRoutes.get('/logs/stats', (req: Request, res: Response) => {
 // Legacy endpoint - Get recent log entries
 loggingRoutes.get('/log', (req: Request, res: Response) => {
   try {
-    const lines = parseInt(req.query.lines as string) || 100;
+    const lines = Math.min(parseInt(req.query.lines as string) || 100, 1000);
     const logFile = getLogFilePath();
 
     if (!fs.existsSync(logFile)) {

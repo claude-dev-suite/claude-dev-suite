@@ -190,7 +190,13 @@ export function escapeShellArg(arg: string): string {
 // ============================================
 
 /**
- * Execute a shell command synchronously
+ * Execute a shell command synchronously.
+ *
+ * @deprecated SECURITY — DO NOT pass user-controlled input to this function.
+ * `execSync` spawns a shell and is vulnerable to command injection.
+ * Use `spawnSync(executable, argArray, { shell: false })` instead for any
+ * call that incorporates user data.  This helper exists only for internal
+ * tooling where the full command string is fully static and reviewer-approved.
  */
 export function execCommand(
   command: string,
@@ -276,13 +282,23 @@ export function getDateString(date: Date = new Date()): string {
 // OBJECT UTILITIES
 // ============================================
 
+/** Keys that must never be merged to prevent prototype-pollution attacks. */
+const BLOCKED_MERGE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 /**
- * Deep merge two objects
+ * Deep merge two objects.
+ *
+ * SECURITY: Prototype-pollution guard — keys like `__proto__`, `constructor`,
+ * and `prototype` are silently skipped so that a malicious source object such
+ * as `{ "__proto__": { "isAdmin": true } }` cannot pollute Object.prototype.
  */
 export function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {
   const output = { ...target };
 
   for (const key in source) {
+    // Guard: skip prototype-pollution keys regardless of enumerable status
+    if (BLOCKED_MERGE_KEYS.has(key)) continue;
+
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       const sourceValue = source[key];
       const targetValue = target[key];

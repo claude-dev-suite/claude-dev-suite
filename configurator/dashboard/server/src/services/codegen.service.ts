@@ -1962,7 +1962,8 @@ export class CodeGenService {
           ? file.path
           : path.join(baseOutputDir, path.basename(file.path));
 
-        if (resolvedFilePath.includes('..') || !resolvedFilePath.startsWith(resolvedProject)) {
+        const rootWithSep = resolvedProject.endsWith(path.sep) ? resolvedProject : resolvedProject + path.sep;
+        if (resolvedFilePath.includes('..') || (!resolvedFilePath.startsWith(rootWithSep) && resolvedFilePath !== resolvedProject)) {
           logger.warn('Skipping file outside project boundary', { data: { filePath: resolvedFilePath } });
           skipped.push(file.path);
           continue;
