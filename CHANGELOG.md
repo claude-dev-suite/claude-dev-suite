@@ -8,6 +8,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **Second hardening round — gaps found re-auditing the first pass:**
+  - **`benchmark_code` Java runtime now honours the raw-code gate** (it had no
+    `PERF_PROFILER_ALLOW_RAW_CODE` check and ran arbitrary Java by default).
+  - **SSRF guards now block IPv6 and encoded-IP bypasses** (`::ffff:` IPv4-mapped,
+    `fc00::/7` ULA, `fe80::/10` link-local, and decimal/octal/hex IPv4 forms) across
+    performance-profiler, api-tester, database-query, and the dashboard
+    `live-performance` route; DB-URL validation now fails closed on DNS-resolution
+    failure, and redirects are re-validated per hop.
+  - **`explain_query` now runs inside a `READ ONLY` transaction** (EXPLAIN ANALYZE
+    previously executed statements with no read-only wrapper).
+  - **Dashboard server:** `/api/files/read` denies secret files
+    (`.dev-suite/usage-config.json`, `.env*`, `*.pem`, `*.key`, `id_*`); path
+    containment compares with a trailing separator (no sibling-dir escape);
+    git stage/unstage/discard use a `--` end-of-options separator; the permission
+    prompt times out to **deny** (was allow); `deepMerge` blocks prototype-pollution
+    keys; request-log redaction matches by substring incl. URL query params;
+    `mcp-suggestions`/`analyze-mcp` validate input; CSP drops `'unsafe-inline'`
+    from `script-src`; production server build emits no sourcemaps.
+  - **CI:** remaining workflows (`ci.yml`, `codeql.yml`, `e2e.yml`) pin all
+    third-party actions to commit SHAs.
+  - The misleading dead symlink-escape check in `validateScriptPath` was removed;
+    `security-scanner` container scans reject leading-dash targets.
+
+- **Hardening pass across MCP servers, dashboard server, frontend, Electron, and
+  CI** (follow-up to the June 2026 audit):
+  - **performance-profiler `benchmark_code` no longer executes attacker-controllable
+    raw code.** The bypassable regex blocklist was removed; the tool now takes a
+    validated `scriptPath` by default, with raw-code execution gated behind an
+    opt-in `PERF_PROFILER_ALLOW_RAW_CODE=1` flag. `runCommand` was converted from
+    `exec()` (shell) to `execFile`/argv (no shell) across all profilers.
+  - **SSRF guards added** to performance-profiler (`profile_endpoint`,
+    `replay_flow`, `stress_test`) and database-query (`compare_schemas`,
+    `generate_migration` reject private-range / metadata DB URLs and redact
+    credentials). `validateScriptPath` now requires absolute paths and resolves
+    symlinks; api-tester file-read tools validate paths.
+  - **security-scanner** ReDoS-guards user-supplied `excludePaths`; **docker-manager**
+    bounds the `tail` parameter.
+  - **Dashboard server:** Anthropic admin API key is masked in `GET /usage/config`
+    and added to log redaction; `Host`-header validation middleware blocks DNS
+    rebinding; the `gh auth` flow and code-review/management git calls use
+    `shell:false`; `addMcpServer` runs `npm install --ignore-scripts`; Zod
+    validation and size/limit caps applied to git, management, orchestrator, and
+    logging routes; Claude hook commands validated before write.
+  - **WebSocket auth** moved from the URL query string to a first-message `auth`
+    handshake (token no longer leaks to logs/history), with a 5s auth timeout.
+  - **Frontend:** production sourcemaps disabled; `window.open`/`openExternal`
+    gated behind an `https`-only allowlist helper.
+  - **Electron:** `shell.openExternal` restricted to an `https` host allowlist;
+    unused `versions` preload surface removed; CSP rationale documented.
+  - **CI:** bundled Node.js download verified against `SHASUMS256.txt`; all
+    third-party GitHub Actions pinned to commit SHAs; `community.yml`
+    `pull_request_target` jobs owner-guarded.
+
 ### Fixed
 
 - **Uninstalling from the full-screen Manage modal now returns to the install

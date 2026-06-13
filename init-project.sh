@@ -23,7 +23,7 @@ TARGET_DIR="${1:-.}"
 
 # Convert to absolute path
 if [[ "$TARGET_DIR" != /* ]]; then
-    TARGET_DIR="$(cd "$TARGET_DIR" 2>/dev/null && pwd)" || TARGET_DIR="$(pwd)/$1"
+    TARGET_DIR="$(cd "$TARGET_DIR" 2>/dev/null && pwd)" || TARGET_DIR="$(pwd)/${1}"
 fi
 
 # ================================================================
