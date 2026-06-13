@@ -88,6 +88,29 @@ function validateProjectPath(rawPath) {
 }
 
 /**
+ * Open an external URL in the system browser.
+ * Only allows HTTPS URLs whose hostname is in the explicit allowlist.
+ * Throws if the URL fails validation so callers can handle the error.
+ */
+const OPEN_EXTERNAL_ALLOWLIST = new Set(['nodejs.org', 'github.com', 'www.github.com']);
+
+function openExternalSafe(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`openExternalSafe: invalid URL: ${url}`);
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`openExternalSafe: blocked non-HTTPS URL: ${url}`);
+  }
+  if (!OPEN_EXTERNAL_ALLOWLIST.has(parsed.hostname)) {
+    throw new Error(`openExternalSafe: hostname not in allowlist: ${parsed.hostname}`);
+  }
+  return shell.openExternal(url);
+}
+
+/**
  * Sanitize an error before forwarding it to the renderer.
  * Returns only the message string — never the stack trace.
  */
@@ -152,6 +175,14 @@ function applyCSP(session) {
           [
             "default-src 'self'",
             scriptSrc,
+            // 'unsafe-inline' is required for style-src because TailwindCSS v3 and Vite inject
+            // inline <style> blocks at runtime (utility purging and HMR). Removing it breaks
+            // all styling. A nonce-based approach would require invasive changes to the Vite
+            // pipeline and Electron's header injection to thread the same nonce through both
+            // the CSP header and every injected style tag — not feasible without significant
+            // rework. Accepted risk: inline styles cannot execute code; only script-src
+            // 'unsafe-inline' carries meaningful XSS risk, and that is already locked to
+            // 'self' in production.
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             `connect-src 'self' http://localhost:${SERVER_PORT} ws://localhost:${WS_PORT} http://localhost:${VITE_DEV_PORT} ws://localhost:${VITE_DEV_PORT}`,
             "img-src 'self' data:",
@@ -276,7 +307,9 @@ async function warnIfNodeMissing() {
   });
 
   if (result.response === 0) {
-    shell.openExternal(downloadUrl);
+    openExternalSafe(downloadUrl).catch((err) => {
+      console.error('[Electron] openExternalSafe rejected:', err.message);
+    });
   }
 }
 

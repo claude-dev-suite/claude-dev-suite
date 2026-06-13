@@ -155,16 +155,27 @@ describe('useWebSocket', () => {
     expect(result.current.lastMessage).toBe(null);
   });
 
-  it('should connect to WebSocket with token in URL', async () => {
+  it('should connect without the token in the URL and authenticate via the first message', async () => {
     const url = 'ws://localhost:3457';
     const token = 'test-token';
 
     renderHook(() => useWebSocket(url, token));
 
-    // Verify the WebSocket was created with the correct URL
+    // Verify the WebSocket was created WITHOUT the token in the URL
+    // (the token must not leak into logs/history — it is sent as the first frame instead).
     expect(wsInstances.length).toBeGreaterThan(0);
     const lastInstance = wsInstances[wsInstances.length - 1];
-    expect(lastInstance?.url).toBe(`${url}?token=${encodeURIComponent(token)}`);
+    expect(lastInstance?.url).toBe(url);
+    expect(lastInstance?.url).not.toContain('token');
+
+    // After the socket opens, the first message sent must be the auth frame.
+    await act(async () => {
+      lastInstance?.simulateOpen();
+    });
+
+    expect(lastInstance?.sentMessages.length).toBeGreaterThan(0);
+    const firstFrame = JSON.parse(lastInstance!.sentMessages[0]);
+    expect(firstFrame).toMatchObject({ type: 'auth', token });
   });
 
   it('should update connected state when WebSocket opens', async () => {

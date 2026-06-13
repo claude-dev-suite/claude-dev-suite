@@ -28,13 +28,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
   platform: process.platform,
 
-  // Node/Electron versions
-  versions: {
-    node: process.versions.node,
-    chrome: process.versions.chrome,
-    electron: process.versions.electron,
-  },
-
   // Auto-updater API
   updater: {
     // Actions
