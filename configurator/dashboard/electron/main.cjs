@@ -92,7 +92,12 @@ function validateProjectPath(rawPath) {
  * Only allows HTTPS URLs whose hostname is in the explicit allowlist.
  * Throws if the URL fails validation so callers can handle the error.
  */
-const OPEN_EXTERNAL_ALLOWLIST = new Set(['nodejs.org', 'github.com', 'www.github.com']);
+const OPEN_EXTERNAL_ALLOWLIST = new Set([
+  'nodejs.org',
+  'github.com',
+  'www.github.com',
+  'console.anthropic.com',
+]);
 
 function openExternalSafe(url) {
   let parsed;
@@ -593,16 +598,19 @@ function createMainWindow() {
     }
   });
 
-  // Block new window / popup creation
+  // Block new window / popup creation; route allowlisted URLs to the system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     try {
       const parsed = new URL(url);
       const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
       if (!isLocalhost) {
-        console.warn('[Electron] Blocked new-window to external URL:', url);
+        Promise.resolve(openExternalSafe(url)).catch((err) => {
+          console.warn('[Electron] Blocked new-window to external URL:', sanitizeError(err));
+        });
       }
-    } catch {
-      // malformed URL — deny
+    } catch (err) {
+      // malformed or disallowed URL — deny
+      console.warn('[Electron] Blocked new-window to external URL:', sanitizeError(err));
     }
     return { action: 'deny' };
   });
@@ -741,6 +749,16 @@ ipcMain.handle('get-app-version', () => {
 
 ipcMain.handle('get-project-path', () => {
   return selectedProjectPath;
+});
+
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    await openExternalSafe(url);
+    return { success: true };
+  } catch (err) {
+    console.warn('[Electron] open-external rejected:', sanitizeError(err));
+    return { success: false, error: sanitizeError(err) };
+  }
 });
 
 // Splash window handlers

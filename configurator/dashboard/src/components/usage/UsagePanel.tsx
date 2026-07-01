@@ -746,7 +746,7 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
                 <p className="text-xs text-yellow-400/70 mt-0.5">
                   An Admin API key is required to access usage and billing data.{' '}
                   <button
-                    onClick={() => window.open('https://console.anthropic.com/settings/api-keys', '_blank', 'noopener,noreferrer')}
+                    onClick={() => safeOpenExternal('https://console.anthropic.com/settings/api-keys')}
                     className="underline hover:text-yellow-300 transition-colors"
                   >
                     Learn how to get one

@@ -323,6 +323,7 @@ declare global {
     electronAPI?: {
       getProjectPath?: () => Promise<string>;
       browseFolder?: () => Promise<string | null>;
+      openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **External links now work in the packaged Electron app.** The preload script
+  exposes `electronAPI.openExternal` (backed by a new `open-external` IPC handler
+  that validates URLs against the https allowlist), and `setWindowOpenHandler`
+  routes allowlisted URLs to the system browser instead of silently denying
+  everything. `console.anthropic.com` was added to the allowlist so the Usage
+  panel's "Add Credits" / "Enable Extra Usage" / API-key links open correctly.
+
 ### Security
 
 - **Second hardening round — gaps found re-auditing the first pass:**
