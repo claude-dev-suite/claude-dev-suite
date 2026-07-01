@@ -17,5 +17,13 @@
     "spring-boot-expert",
     "fastapi-expert",
     "smoke-test-expert"
+  ],
+  "detectedWhen": [
+    "openapi",
+    "swagger",
+    "express",
+    "nestjs",
+    "fastapi",
+    "spring-boot"
   ]
 }

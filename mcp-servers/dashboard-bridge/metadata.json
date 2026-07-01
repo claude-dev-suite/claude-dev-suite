@@ -28,5 +28,6 @@
       "required": false
     }
   ],
-  "recommendedFor": []
+  "recommendedFor": [],
+  "detectedWhen": []
 }

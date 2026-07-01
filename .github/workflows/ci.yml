@@ -40,6 +40,9 @@ jobs:
       - name: Audit MCP tool descriptions (token budget)
         run: node scripts/audit-mcp-descriptions.mjs
 
+      - name: Validate component catalog
+        run: node scripts/validate-catalog.mjs
+
       - name: Lint
         run: npm run lint
         working-directory: configurator/dashboard

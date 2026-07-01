@@ -17,6 +17,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   everything. `console.anthropic.com` was added to the allowlist so the Usage
   panel's "Add Credits" / "Enable Extra Usage" / API-key links open correctly.
 
+### Added
+
+- **`scripts/validate-catalog.mjs` — component-catalog consistency check, run
+  in CI.** Validates that every MCP workspace has a complete `metadata.json`
+  (including `detectedWhen`), that `package.json` versions match the
+  `new Server()` version literals, that `recommendedFor` / agent-frontmatter
+  `skills` / `mcp_servers` references resolve, and that `registry/*.json`
+  parses with existing `$schema` refs. It already caught and fixed: a broken
+  `frontend/react` skill reference in `code-reviewer`, version drift in 5 MCP
+  servers, missing `detectedWhen` in 6 metadata files, and the missing
+  `registry/features.schema.json`.
+
 ### Changed
 
 - **CI now enforces what it builds:** `ci.yml` typechecks and builds the

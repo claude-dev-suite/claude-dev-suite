@@ -17,7 +17,7 @@ skills:
   - quality/eslint
   - quality/typescript-eslint
   # Frontend review
-  - frontend/react
+  - frontend-frameworks/react
 ---
 
 # Code Reviewer Agent

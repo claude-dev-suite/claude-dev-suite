@@ -1,6 +1,6 @@
 {
   "name": "@dev-suite/documentation-server",
-  "version": "2.2.0",
+  "version": "2.4.0",
   "description": "MCP server for on-demand documentation fetching",
   "type": "module",
   "main": "dist/index.js",

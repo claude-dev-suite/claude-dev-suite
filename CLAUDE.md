@@ -101,6 +101,8 @@ Path: `configurator/dashboard/server/src/services/`
 | `workflows.service.ts` | Multi-step workflow orchestration |
 | `codegen.service.ts` | Spec-driven code generation pipeline with validation and AI refinement |
 | `rules.service.ts` | List available project rule templates from the `rules/` directory |
+| `usage.service.ts` | Fetch usage/billing data from the Anthropic Admin API for the Usage panel |
+| `agent-bundles.ts` | Expand `bundle:` skill references in agent frontmatter into concrete skill directory lists |
 
 Subdirectories with additional logic: `code-review/`, `detection/`, `git/`, `hooks/`, `installation/`, `orchestrator/`, `upgrade/`
 

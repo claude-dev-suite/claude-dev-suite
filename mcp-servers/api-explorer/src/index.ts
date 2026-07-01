@@ -32,7 +32,7 @@ try {
 // ============================================
 
 const server = new Server(
-  { name: "api-explorer", version: "1.0.0" },
+  { name: "api-explorer", version: "2.2.0" },
   { capabilities: { tools: {} } }
 );
 
