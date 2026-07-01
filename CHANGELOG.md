@@ -17,6 +17,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   everything. `console.anthropic.com` was added to the allowlist so the Usage
   panel's "Add Credits" / "Enable Extra Usage" / API-key links open correctly.
 
+### Changed
+
+- **CI now enforces what it builds:** `ci.yml` typechecks and builds the
+  frontend (`tsc && vite build`), runs the MCP-server workspace test suites
+  (previously local-only, including the SSRF/ReDoS security suites), and also
+  triggers on direct pushes to `main` (previously pull requests only).
+  `log-analyzer` uses `--passWithNoTests` until it gets its first suite.
+
 ### Removed
 
 - Repository housekeeping: removed the orphaned `mcp-servers/shared/` package

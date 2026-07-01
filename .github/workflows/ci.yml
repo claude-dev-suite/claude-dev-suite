@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   build-and-test:
@@ -42,6 +44,10 @@ jobs:
         run: npm run lint
         working-directory: configurator/dashboard
 
+      - name: Typecheck and build frontend
+        run: npm run build
+        working-directory: configurator/dashboard
+
       - name: Test (server)
         run: npx vitest run
         working-directory: configurator/dashboard/server
@@ -49,3 +55,7 @@ jobs:
       - name: Test (frontend)
         run: npx vitest run
         working-directory: configurator/dashboard
+
+      - name: Test (MCP servers)
+        run: npm run test
+        working-directory: mcp-servers
