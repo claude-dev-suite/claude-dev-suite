@@ -162,6 +162,12 @@ htmlcov/
 # ----------------------------------------------------------------
 configurator/dashboard/dist/
 configurator/dashboard/node/
+configurator/dashboard/node-x64/
+
+# ----------------------------------------------------------------
+# Agent test artifacts (ABB Freelance PRT exports and similar)
+# ----------------------------------------------------------------
+*.prt
 
 # ----------------------------------------------------------------
 # Build & Cache

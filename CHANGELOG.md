@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   everything. `console.anthropic.com` was added to the allowlist so the Usage
   panel's "Add Credits" / "Enable Extra Usage" / API-key links open correctly.
 
+### Removed
+
+- Repository housekeeping: removed the orphaned `mcp-servers/shared/` package
+  (never in the npm workspaces, imported by nothing, yet bundled into the
+  Electron build), dead files in `server/src/services/`
+  (`orchestrator.service.ts.old`, two leftover `.sh` scripts), and the tracked
+  runtime `.dev-suite.json` (forbidden by the repo rules). `.gitignore` now
+  covers `*.prt` agent-test artifacts and the bundled `node-x64/` runtime.
+
 ### Security
 
 - **Second hardening round — gaps found re-auditing the first pass:**
