@@ -31,6 +31,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **`codegen.service.ts` split by target-language family** (2,010 → ~500
+  lines). Code generators now live in
+  `server/src/services/codegen/` (`typescript.ts`, `java.ts`, `python.ts`,
+  `go.ts`, plus `spec-parser.ts`, `targets.ts`, `shared.ts`); the service file
+  keeps only the `CodeGenService` class with an unchanged public surface.
+  Pure move-refactor, no behaviour change.
+
+- **Shared API-contract types are now kept in sync and enforced in CI.** The
+  hand-maintained duplicate type files between `src/types/` (frontend) and
+  `server/src/types/` had drifted (stale `ChatMessagePayload`, missing
+  `isDefault` on `McpServer`, lost JSDoc, and more). Eight contract file pairs
+  (`agents`, `api`, `core`, `git`, `mcp`, `orchestrator`, `reinstall`,
+  `release`) are realigned to the runtime-verified shape, marked with a
+  `KEPT IN SYNC` header, and checked byte-for-byte (modulo ESM import
+  extensions) by the new `scripts/check-type-sync.mjs` in CI. Side-specific
+  files (`custom-agents`, `templates`, `upgrade`) are documented as
+  intentionally different.
+
+- **GitHub auth flow extracted into `GitAuthService`**
+  (`configurator/dashboard/server/src/services/git/git-auth.service.ts`). The
+  ~126-line inline `/auth-login` handler and its module-level mutable state in
+  `git.routes.ts` now live in a dedicated, unit-tested service (process
+  lifecycle, one-time-code parsing, status polling, cancel/cleanup). Concurrent
+  `/auth-login` calls no longer race: a second call joins the in-flight login
+  and receives the same one-time code instead of killing and respawning the
+  `gh` process. Observable API behaviour is otherwise unchanged.
+
 - **CI now enforces what it builds:** `ci.yml` typechecks and builds the
   frontend (`tsc && vite build`), runs the MCP-server workspace test suites
   (previously local-only, including the SSRF/ReDoS security suites), and also

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// KEPT IN SYNC with configurator/dashboard/{src,server/src}/types/orchestrator.ts — verified by scripts/check-type-sync.mjs
 /**
  * Orchestrator Types for Dev-Suite Dashboard
  *
@@ -205,7 +206,8 @@ export type WsClientMessageType =
   | 'clear_queue'       // Clear all jobs from queue
   | 'remove_from_queue' // Remove specific job from queue
   | 'force_unstick'     // Force-clear stuck job
-  | 'permission_response'; // User response to a permission request
+  | 'permission_response' // User response to a permission request
+  | 'user_input';       // LEGACY: still sent by the frontend, ignored by the current server
 
 /**
  * WebSocket message types - Server to Client
@@ -237,7 +239,17 @@ export type WsServerMessageType =
   | 'queue_cleared'     // Queue was cleared
   | 'job_removed'       // Job removed from queue
   | 'queue_unstuck'     // Queue was force-unstuck
-  | 'permission_request'; // Permission required for a tool operation
+  | 'permission_request' // Permission required for a tool operation
+  // LEGACY members below are never emitted by the current server, but the
+  // frontend still has handlers for them. Kept so both sides compile against
+  // a single wire union.
+  | 'job_progress'      // LEGACY: job progress update
+  | 'agent_started'     // LEGACY: agent started execution
+  | 'agent_completed'   // LEGACY: agent completed execution
+  | 'tool_use'          // LEGACY: tool use (now embedded in job_output/chat_output)
+  | 'warning'           // LEGACY: warning message
+  | 'input_required'    // LEGACY: Claude needs user input
+  | 'permission_required'; // LEGACY: replaced by permission_request
 
 /**
  * All WebSocket message types
@@ -265,6 +277,8 @@ export interface ChatMessagePayload {
   };
   /** Job context for token-efficient continuity (preferred over resumeSession) */
   jobContext?: JobContextSummary;
+  /** Optional tool allowlist forwarded to the Agent SDK session */
+  allowedTools?: string[];
 }
 
 /**
@@ -519,6 +533,63 @@ export interface PermissionResponsePayload {
   requestId: string;
   /** User decision */
   decision: 'allow' | 'deny';
+}
+
+// ============================================
+// QUEUE MANAGEMENT PAYLOADS
+// ============================================
+
+/**
+ * Queue status response payload (server to client)
+ */
+export interface QueueStatusPayload {
+  /** Currently running job, if any */
+  currentJob: {
+    id: string;
+    title: string;
+    status: string;
+  } | null;
+  /** Jobs waiting in queue */
+  queuedJobs: Array<{
+    id: string;
+    title: string;
+    status: string;
+    createdAt: string;
+  }>;
+  /** Total number of jobs in queue */
+  queueLength: number;
+}
+
+/**
+ * Queue cleared payload (server to client)
+ */
+export interface QueueClearedPayload {
+  /** Number of jobs cleared */
+  clearedCount: number;
+  /** IDs of cleared jobs */
+  clearedIds: string[];
+}
+
+/**
+ * Job removed from queue payload (server to client)
+ */
+export interface JobRemovedPayload {
+  /** ID of removed job */
+  jobId: string;
+  /** Remaining jobs in queue */
+  remainingInQueue: number;
+}
+
+/**
+ * Queue unstuck payload (server to client)
+ */
+export interface QueueUnstuckPayload {
+  /** ID of the job that was force-cleared */
+  previousJobId?: string;
+  /** Title of the job that was force-cleared */
+  previousJobTitle?: string;
+  /** Status message */
+  message: string;
 }
 
 // ============================================

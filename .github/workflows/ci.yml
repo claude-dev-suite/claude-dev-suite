@@ -43,6 +43,9 @@ jobs:
       - name: Validate component catalog
         run: node scripts/validate-catalog.mjs
 
+      - name: Check shared type sync
+        run: node scripts/check-type-sync.mjs
+
       - name: Lint
         run: npm run lint
         working-directory: configurator/dashboard

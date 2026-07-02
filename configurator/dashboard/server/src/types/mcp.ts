@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// KEPT IN SYNC with configurator/dashboard/{src,server/src}/types/mcp.ts — verified by scripts/check-type-sync.mjs
 /**
  * MCP Server Types for Dev-Suite Dashboard
  *
@@ -82,6 +83,8 @@ export interface McpServer {
   recommendedFor: string[];
   /** Technologies that should trigger auto-selection */
   detectedWhen: string[];
+  /** Built-in capability of dev-suite: always installed, hidden from the wizard. */
+  isDefault?: boolean;
 }
 
 /**

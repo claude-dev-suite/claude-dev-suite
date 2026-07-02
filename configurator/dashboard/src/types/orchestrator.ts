@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// KEPT IN SYNC with configurator/dashboard/{src,server/src}/types/orchestrator.ts — verified by scripts/check-type-sync.mjs
 /**
  * Orchestrator Types for Dev-Suite Dashboard
  *
@@ -196,16 +197,17 @@ export type WsClientMessageType =
   | 'chat_message'      // Send a chat message
   | 'submit_job'        // Submit a new job
   | 'cancel_job'        // Cancel a running job
+  | 'cancel_chat'       // Cancel running chat
   | 'get_status'        // Request current status
   | 'new_chat'          // Start new chat session
   | 'end_chat'          // End current chat session
   | 'clear_history'     // Clear chat history
-  | 'user_input'        // Send user input response
-  | 'permission_response' // Send permission response
   | 'get_queue_status'  // Get detailed queue status
   | 'clear_queue'       // Clear all jobs from queue
   | 'remove_from_queue' // Remove specific job from queue
-  | 'force_unstick';    // Force-clear stuck job
+  | 'force_unstick'     // Force-clear stuck job
+  | 'permission_response' // User response to a permission request
+  | 'user_input';       // LEGACY: still sent by the frontend, ignored by the current server
 
 /**
  * WebSocket message types - Server to Client
@@ -214,13 +216,12 @@ export type WsServerMessageType =
   | 'job_queued'        // Job added to queue
   | 'job_started'       // Job execution started
   | 'job_output'        // Job output chunk
-  | 'job_progress'      // Job progress update
   | 'job_complete'      // Job finished successfully
   | 'job_error'         // Job encountered error
   | 'job_cancelled'     // Job was cancelled
+  | 'subtask_started'   // Subtask execution started (multi-agent jobs)
+  | 'subtask_complete'  // Subtask finished (multi-agent jobs)
   | 'batch_complete'    // Batch of jobs completed
-  | 'agent_started'     // Agent started execution
-  | 'agent_completed'   // Agent completed execution
   | 'chat_started'      // Chat session started
   | 'chat_output'       // Chat output chunk
   | 'chat_complete'     // Chat finished
@@ -232,17 +233,23 @@ export type WsServerMessageType =
   | 'chat_cleared'      // Chat session cleared
   | 'chat_response_complete' // Legacy compatibility
   | 'history_cleared'   // History was cleared
-  | 'tool_use'          // Tool being used
-  | 'warning'           // Warning message
   | 'status'            // Status update
   | 'error'             // General error
-  | 'input_required'    // Claude needs user input
-  | 'permission_required' // Claude needs permission (legacy)
-  | 'permission_request' // Interactive permission request
   | 'queue_status'      // Queue status response
   | 'queue_cleared'     // Queue was cleared
   | 'job_removed'       // Job removed from queue
-  | 'queue_unstuck';    // Queue was force-unstuck
+  | 'queue_unstuck'     // Queue was force-unstuck
+  | 'permission_request' // Permission required for a tool operation
+  // LEGACY members below are never emitted by the current server, but the
+  // frontend still has handlers for them. Kept so both sides compile against
+  // a single wire union.
+  | 'job_progress'      // LEGACY: job progress update
+  | 'agent_started'     // LEGACY: agent started execution
+  | 'agent_completed'   // LEGACY: agent completed execution
+  | 'tool_use'          // LEGACY: tool use (now embedded in job_output/chat_output)
+  | 'warning'           // LEGACY: warning message
+  | 'input_required'    // LEGACY: Claude needs user input
+  | 'permission_required'; // LEGACY: replaced by permission_request
 
 /**
  * All WebSocket message types
@@ -258,9 +265,20 @@ export type WsMessageType = WsClientMessageType | WsServerMessageType;
  */
 export interface ChatMessagePayload {
   /** Message text */
-  text: string;
-  /** Optional project path override */
-  projectPath?: string;
+  message: string;
+  /** Optional session ID to resume */
+  sessionId?: string;
+  /** Whether to resume session (replay full history - expensive!) */
+  resumeSession?: boolean;
+  /** Optional context object */
+  context?: {
+    /** Project path override */
+    projectPath?: string;
+  };
+  /** Job context for token-efficient continuity (preferred over resumeSession) */
+  jobContext?: JobContextSummary;
+  /** Optional tool allowlist forwarded to the Agent SDK session */
+  allowedTools?: string[];
 }
 
 /**
@@ -403,7 +421,7 @@ export interface ChatOutputPayload {
   /** Whether text is raw (contains ANSI) */
   raw?: boolean;
   /** Content type hint */
-  contentType?: 'text' | 'tool' | 'result';
+  contentType?: 'text' | 'tool' | 'result' | 'error';
 }
 
 /**
@@ -430,6 +448,19 @@ export interface ChatCompletePayload {
 export interface ChatSessionPayload {
   /** Session ID */
   sessionId: string;
+}
+
+/**
+ * Sent when a resume attempt fails because the session ID no longer
+ * exists for the current project's CWD (cross-project resume, or the
+ * SDK session file was deleted/expired). The client should clear its
+ * stored session ID and retry on a fresh session.
+ */
+export interface ChatSessionInvalidatedPayload {
+  /** The session ID that failed to resume */
+  sessionId: string;
+  /** Human-readable reason from the SDK */
+  reason: string;
 }
 
 /**
@@ -469,6 +500,99 @@ export interface WsMessage<T = unknown> {
 }
 
 // ============================================
+// PERMISSION PAYLOADS
+// ============================================
+
+/**
+ * Permission request payload (server to client)
+ */
+export interface PermissionRequestPayload {
+  /** Unique request ID */
+  requestId: string;
+  /** Job ID this request belongs to */
+  jobId: string;
+  /** Tool being requested */
+  toolName: string;
+  /** Tool input arguments */
+  input: Record<string, unknown>;
+  /** Risk classification */
+  risk: 'low' | 'medium' | 'high' | 'critical';
+  /** Human-readable risk category */
+  category: string;
+  /** Human-readable description of the operation */
+  description: string;
+  /** How long (ms) before auto-allow */
+  timeoutMs: number;
+}
+
+/**
+ * Permission response payload (client to server)
+ */
+export interface PermissionResponsePayload {
+  /** Request ID to resolve */
+  requestId: string;
+  /** User decision */
+  decision: 'allow' | 'deny';
+}
+
+// ============================================
+// QUEUE MANAGEMENT PAYLOADS
+// ============================================
+
+/**
+ * Queue status response payload (server to client)
+ */
+export interface QueueStatusPayload {
+  /** Currently running job, if any */
+  currentJob: {
+    id: string;
+    title: string;
+    status: string;
+  } | null;
+  /** Jobs waiting in queue */
+  queuedJobs: Array<{
+    id: string;
+    title: string;
+    status: string;
+    createdAt: string;
+  }>;
+  /** Total number of jobs in queue */
+  queueLength: number;
+}
+
+/**
+ * Queue cleared payload (server to client)
+ */
+export interface QueueClearedPayload {
+  /** Number of jobs cleared */
+  clearedCount: number;
+  /** IDs of cleared jobs */
+  clearedIds: string[];
+}
+
+/**
+ * Job removed from queue payload (server to client)
+ */
+export interface JobRemovedPayload {
+  /** ID of removed job */
+  jobId: string;
+  /** Remaining jobs in queue */
+  remainingInQueue: number;
+}
+
+/**
+ * Queue unstuck payload (server to client)
+ */
+export interface QueueUnstuckPayload {
+  /** ID of the job that was force-cleared */
+  previousJobId?: string;
+  /** Title of the job that was force-cleared */
+  previousJobTitle?: string;
+  /** Status message */
+  message: string;
+}
+
+// ============================================
 // TYPE GUARDS
 // ============================================
 
@@ -505,87 +629,4 @@ export function isWsMessage(value: unknown): value is WsMessage {
   if (typeof value !== 'object' || value === null) return false;
   const obj = value as Record<string, unknown>;
   return typeof obj.type === 'string' && 'payload' in obj;
-}
-
-// ============================================
-// PERMISSION TYPES
-// ============================================
-
-/**
- * Permission request payload (server to client)
- */
-export interface PermissionRequestPayload {
-  requestId: string;
-  jobId: string;
-  toolName: string;
-  input: Record<string, unknown>;
-  risk: 'low' | 'medium' | 'high' | 'critical';
-  category: string;
-  description: string;
-  timeoutMs: number;
-}
-
-/**
- * Permission response payload (client to server)
- */
-export interface PermissionResponsePayload {
-  requestId: string;
-  decision: 'allow' | 'deny';
-}
-
-// ============================================
-// QUEUE MANAGEMENT TYPES
-// ============================================
-
-/**
- * Queue status response payload
- */
-export interface QueueStatusPayload {
-  /** Currently running job, if any */
-  currentJob: {
-    id: string;
-    title: string;
-    status: string;
-  } | null;
-  /** Jobs waiting in queue */
-  queuedJobs: Array<{
-    id: string;
-    title: string;
-    status: string;
-    createdAt: string;
-  }>;
-  /** Total number of jobs in queue */
-  queueLength: number;
-}
-
-/**
- * Queue cleared payload
- */
-export interface QueueClearedPayload {
-  /** Number of jobs cleared */
-  clearedCount: number;
-  /** IDs of cleared jobs */
-  clearedIds: string[];
-}
-
-/**
- * Job removed from queue payload
- */
-export interface JobRemovedPayload {
-  /** ID of removed job */
-  jobId: string;
-  /** Remaining jobs in queue */
-  remainingInQueue: number;
-}
-
-/**
- * Queue unstuck payload
- */
-export interface QueueUnstuckPayload {
-  /** ID of the job that was force-cleared */
-  previousJobId?: string;
-  /** Title of the job that was force-cleared */
-  previousJobTitle?: string;
-  /** Status message */
-  message: string;
 }
