@@ -148,11 +148,18 @@ export class CodeReviewService {
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     let cwd = projectPath;
     if (repoPath) {
-      if (repoPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
-      cwd = path.resolve(projectPath, repoPath);
-      if (cwd !== projectPath && !cwd.startsWith(projectPath + path.sep)) {
+      // repoPath is user-provided: enforce string type (Express query params
+      // may be arrays), reject traversal segments, and verify containment
+      // after resolution — same pattern as files.routes.ts.
+      if (typeof repoPath !== 'string' || repoPath.includes('..')) {
+        throw new PathValidationError('Path traversal not allowed');
+      }
+      const resolved = path.resolve(projectPath, repoPath);
+      const rootWithSep = projectPath.endsWith(path.sep) ? projectPath : projectPath + path.sep;
+      if (!resolved.startsWith(rootWithSep) && resolved !== projectPath) {
         throw new PathValidationError('repoPath must resolve inside the project');
       }
+      cwd = resolved;
     }
 
     if (!this.isValidPath(cwd)) {
