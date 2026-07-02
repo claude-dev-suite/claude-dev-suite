@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// KEPT IN SYNC with configurator/dashboard/{src,server/src}/types/api.ts — verified by scripts/check-type-sync.mjs
 /**
  * API Response Types for Dev-Suite Dashboard
  *

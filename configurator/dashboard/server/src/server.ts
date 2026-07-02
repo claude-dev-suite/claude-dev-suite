@@ -7,7 +7,7 @@
  * CSRF protection is not needed for localhost-only tools.
  */
 
-import express, { type Express, type Request, type Response } from 'express';
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -40,18 +40,62 @@ setInterval(() => {
   }
 }, config.security.tokenCleanupInterval);
 
+/**
+ * DNS rebinding protection middleware.
+ *
+ * Validates the HTTP Host header against an explicit allowlist of
+ * `localhost:<port>`, `127.0.0.1:<port>`, and `[::1]:<port>`.
+ *
+ * A browser-based DNS-rebinding attack lets an attacker's script reach the
+ * server by mapping their domain to 127.0.0.1; the forged Host header is the
+ * only reliable server-side signal that the request is illegitimate.
+ *
+ * Missing Host (e.g. direct curl with -H '' or HTTP/1.0) is also rejected to
+ * keep the check strict.
+ */
+function buildHostAllowlist(port: number): Set<string> {
+  return new Set([
+    `localhost:${port}`,
+    `127.0.0.1:${port}`,
+    `[::1]:${port}`,
+  ]);
+}
+
+function hostValidationMiddleware(allowedHosts: Set<string>) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const host = req.headers['host'];
+    if (!host || !allowedHosts.has(host)) {
+      res.status(400).json({ success: false, error: 'Invalid Host header' });
+      return;
+    }
+    next();
+  };
+}
+
 export function createServer(): Express {
   const app = express();
+
+  // DNS rebinding protection — validate Host header before ANY other processing
+  const allowedHosts = buildHostAllowlist(config.server.port);
+  app.use(hostValidationMiddleware(allowedHosts));
 
   // Request logging middleware (MUST be first to track all requests)
   app.use(requestLogger);
 
   // Security middleware
+  //
+  // CSP note: this server is a JSON API — it never serves HTML or inline scripts.
+  // 'unsafe-inline' has been deliberately removed from script-src; there is no
+  // legitimate need for it here and its presence would weaken the policy for any
+  // browser that inspects the CSP header on API responses.
+  // style-src retains 'unsafe-inline' because the /health endpoint returns a
+  // plain JSON body — this directive has no practical effect, but is kept for
+  // forward-compatibility if a lightweight HTML error page is ever added.
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],        // 'unsafe-inline' removed — pure API server
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:"],
         connectSrc: ["'self'", "ws://localhost:*", "ws://127.0.0.1:*"],

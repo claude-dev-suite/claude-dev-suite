@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Ensure release exists, then strip old assets
         shell: bash
@@ -82,10 +82,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -105,7 +105,9 @@ jobs:
 
       - name: Build server
         working-directory: configurator/dashboard/server
-        run: npm run build
+        # build:prod uses tsconfig.build.json (sourceMap:false) so shipped server
+        # bundles do not leak original TS source / paths via .map files.
+        run: npm run build:prod
 
       - name: Install MCP servers dependencies
         working-directory: mcp-servers
@@ -121,8 +123,15 @@ jobs:
         shell: bash
         run: |
           NODE_VERSION="20.11.1"
+          FILENAME="node-v${NODE_VERSION}-win-x64.zip"
           curl -fL --retry 5 --retry-delay 10 --retry-connrefused -o node.zip \
-            "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x64.zip"
+            "https://nodejs.org/dist/v${NODE_VERSION}/${FILENAME}"
+          # Verify integrity: fetch the official SHASUMS256.txt and check our download
+          curl -fL --retry 3 -o SHASUMS256.txt \
+            "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"
+          # grep for the exact filename line and verify (sha256sum -c checks <hash>  <file> format)
+          grep " ${FILENAME}$" SHASUMS256.txt | sed "s/${FILENAME}/node.zip/" | sha256sum -c -
+          rm SHASUMS256.txt
           unzip -q node.zip
           rm -rf node-x64
           mv "node-v${NODE_VERSION}-win-x64" node-x64
@@ -148,25 +157,39 @@ jobs:
         working-directory: configurator/dashboard
         run: |
           NODE_VERSION="20.11.1"
+          # Fetch the official checksum file once for both architectures
+          curl -fL --retry 3 -o SHASUMS256.txt \
+            "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"
           for ARCH in arm64 x64; do
+            FILENAME="node-v${NODE_VERSION}-darwin-${ARCH}.tar.gz"
+            LOCALFILE="node-darwin-${ARCH}.tar.gz"
             curl -fL --retry 5 --retry-delay 10 --retry-connrefused \
-              -o "node-darwin-${ARCH}.tar.gz" \
-              "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-${ARCH}.tar.gz"
-            tar -xf "node-darwin-${ARCH}.tar.gz"
+              -o "${LOCALFILE}" \
+              "https://nodejs.org/dist/v${NODE_VERSION}/${FILENAME}"
+            # Verify integrity using macOS shasum (shasum -a 256 -c)
+            grep " ${FILENAME}$" SHASUMS256.txt | sed "s/${FILENAME}/${LOCALFILE}/" | shasum -a 256 -c -
+            tar -xf "${LOCALFILE}"
             rm -rf "node-${ARCH}"
             mv "node-v${NODE_VERSION}-darwin-${ARCH}" "node-${ARCH}"
-            rm "node-darwin-${ARCH}.tar.gz"
+            rm "${LOCALFILE}"
             test -x "node-${ARCH}/bin/node" || { echo "missing node binary for ${ARCH}"; exit 1; }
           done
+          rm SHASUMS256.txt
 
       - name: Download bundled Node.js (Linux x64)
         if: matrix.os == 'ubuntu-latest'
         working-directory: configurator/dashboard
         run: |
           NODE_VERSION="20.11.1"
+          FILENAME="node-v${NODE_VERSION}-linux-x64.tar.xz"
           curl -fL --retry 5 --retry-delay 10 --retry-connrefused \
             -o node-linux-x64.tar.xz \
-            "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+            "https://nodejs.org/dist/v${NODE_VERSION}/${FILENAME}"
+          # Verify integrity: fetch SHASUMS256.txt and check with sha256sum
+          curl -fL --retry 3 -o SHASUMS256.txt \
+            "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"
+          grep " ${FILENAME}$" SHASUMS256.txt | sed "s/${FILENAME}/node-linux-x64.tar.xz/" | sha256sum -c -
+          rm SHASUMS256.txt
           tar -xf node-linux-x64.tar.xz
           rm -rf node-x64
           mv "node-v${NODE_VERSION}-linux-x64" node-x64

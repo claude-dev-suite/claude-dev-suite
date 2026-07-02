@@ -7,11 +7,29 @@ import path from 'node:path';
  */
 
 import { Router, type Request, type Response } from 'express';
-import { execFile, spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { GitService } from '../services/git.service.js';
+import { gitAuthService } from '../services/git/git-auth.service.js';
 import { DetectionService } from '../services/detection.service.js';
 import type { ApiResponse } from '../types.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
+import { validateBody } from '../middleware/validateRequest.js';
+import {
+  StageFilesRequestSchema,
+  StageAllRequestSchema,
+  UnstageFilesRequestSchema,
+  UnstageAllRequestSchema,
+  DiscardChangesRequestSchema,
+  CreateCommitRequestSchema,
+  CherryPickRequestSchema,
+  RevertRequestSchema,
+  CreateBranchRequestSchema,
+  CheckoutBranchRequestSchema,
+  DeleteBranchRequestSchema,
+  MergeBranchRequestSchema,
+  FetchRequestSchema,
+  PullRequestSchema,
+  PushRequestSchema,
+} from '../validation/schemas.js';
 import type {
   StageFilesRequest,
   DiscardChangesRequest,
@@ -29,11 +47,6 @@ import type {
 
 export const gitRoutes = Router();
 const detectionService = new DetectionService();
-
-// Module-level state for GitHub auth flow
-let authProcess: ChildProcess | null = null;
-let authStatus: 'none' | 'pending' | 'authenticated' | 'failed' = 'none';
-let authAccount: string | null = null;
 
 // ============================================
 // REPOSITORY STATUS
@@ -190,7 +203,7 @@ gitRoutes.get('/diff', async (req: Request, res: Response) => {
  * POST /api/git/stage
  * Stage files
  */
-gitRoutes.post('/stage', async (req: Request, res: Response) => {
+gitRoutes.post('/stage', validateBody(StageFilesRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -221,7 +234,7 @@ gitRoutes.post('/stage', async (req: Request, res: Response) => {
  * POST /api/git/stage-all
  * Stage all files
  */
-gitRoutes.post('/stage-all', async (req: Request, res: Response) => {
+gitRoutes.post('/stage-all', validateBody(StageAllRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -252,7 +265,7 @@ gitRoutes.post('/stage-all', async (req: Request, res: Response) => {
  * POST /api/git/unstage
  * Unstage files
  */
-gitRoutes.post('/unstage', async (req: Request, res: Response) => {
+gitRoutes.post('/unstage', validateBody(UnstageFilesRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -283,7 +296,7 @@ gitRoutes.post('/unstage', async (req: Request, res: Response) => {
  * POST /api/git/unstage-all
  * Unstage all files
  */
-gitRoutes.post('/unstage-all', async (req: Request, res: Response) => {
+gitRoutes.post('/unstage-all', validateBody(UnstageAllRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -314,7 +327,7 @@ gitRoutes.post('/unstage-all', async (req: Request, res: Response) => {
  * POST /api/git/discard
  * Discard changes in files
  */
-gitRoutes.post('/discard', async (req: Request, res: Response) => {
+gitRoutes.post('/discard', validateBody(DiscardChangesRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -349,7 +362,7 @@ gitRoutes.post('/discard', async (req: Request, res: Response) => {
  * POST /api/git/commit
  * Create a commit
  */
-gitRoutes.post('/commit', async (req: Request, res: Response) => {
+gitRoutes.post('/commit', validateBody(CreateCommitRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -386,7 +399,7 @@ gitRoutes.get('/log', async (req: Request, res: Response) => {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const repoPath = req.query.repo as string;
-    const limit = parseInt(req.query.limit as string) || 50;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 1000);
     const from = req.query.from as string;
     const to = req.query.to as string;
 
@@ -447,7 +460,7 @@ gitRoutes.get('/commit/:hash', async (req: Request, res: Response) => {
  * POST /api/git/cherry-pick
  * Cherry-pick commits
  */
-gitRoutes.post('/cherry-pick', async (req: Request, res: Response) => {
+gitRoutes.post('/cherry-pick', validateBody(CherryPickRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -478,7 +491,7 @@ gitRoutes.post('/cherry-pick', async (req: Request, res: Response) => {
  * POST /api/git/revert
  * Revert a commit
  */
-gitRoutes.post('/revert', async (req: Request, res: Response) => {
+gitRoutes.post('/revert', validateBody(RevertRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -544,7 +557,7 @@ gitRoutes.get('/branches', async (req: Request, res: Response) => {
  * POST /api/git/branch/create
  * Create a new branch
  */
-gitRoutes.post('/branch/create', async (req: Request, res: Response) => {
+gitRoutes.post('/branch/create', validateBody(CreateBranchRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -576,7 +589,7 @@ gitRoutes.post('/branch/create', async (req: Request, res: Response) => {
  * POST /api/git/branch/checkout
  * Checkout a branch
  */
-gitRoutes.post('/branch/checkout', async (req: Request, res: Response) => {
+gitRoutes.post('/branch/checkout', validateBody(CheckoutBranchRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -607,7 +620,7 @@ gitRoutes.post('/branch/checkout', async (req: Request, res: Response) => {
  * POST /api/git/branch/delete
  * Delete a branch
  */
-gitRoutes.post('/branch/delete', async (req: Request, res: Response) => {
+gitRoutes.post('/branch/delete', validateBody(DeleteBranchRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -638,7 +651,7 @@ gitRoutes.post('/branch/delete', async (req: Request, res: Response) => {
  * POST /api/git/branch/merge
  * Merge a branch
  */
-gitRoutes.post('/branch/merge', async (req: Request, res: Response) => {
+gitRoutes.post('/branch/merge', validateBody(MergeBranchRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -743,7 +756,7 @@ gitRoutes.get('/remotes', async (req: Request, res: Response) => {
  * POST /api/git/fetch
  * Fetch from remote
  */
-gitRoutes.post('/fetch', async (req: Request, res: Response) => {
+gitRoutes.post('/fetch', validateBody(FetchRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -774,7 +787,7 @@ gitRoutes.post('/fetch', async (req: Request, res: Response) => {
  * POST /api/git/pull
  * Pull from remote
  */
-gitRoutes.post('/pull', async (req: Request, res: Response) => {
+gitRoutes.post('/pull', validateBody(PullRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -805,7 +818,7 @@ gitRoutes.post('/pull', async (req: Request, res: Response) => {
  * POST /api/git/push
  * Push to remote
  */
-gitRoutes.post('/push', async (req: Request, res: Response) => {
+gitRoutes.post('/push', validateBody(PushRequestSchema), async (req: Request, res: Response) => {
   try {
     const projectPath = resolveProjectPath(req.query.path);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -847,124 +860,28 @@ gitRoutes.post('/push', async (req: Request, res: Response) => {
 
 /**
  * POST /api/git/auth-login
- * Start GitHub CLI authentication flow (gh auth login --web)
+ * Start GitHub CLI authentication flow (gh auth login --web).
+ *
+ * Process lifecycle and state live in GitAuthService. Concurrent calls are
+ * guarded there: if a login is already in progress the existing flow (and
+ * its one-time code) is returned instead of spawning a second process.
  */
 gitRoutes.post('/auth-login', async (_req: Request, res: Response) => {
   try {
-    // Check if gh CLI is available
-    const ghCheck = spawnSync('gh', ['--version'], { encoding: 'utf-8', shell: true });
-    if (ghCheck.status !== 0) {
+    const result = await gitAuthService.startLogin();
+
+    if (!result.ok) {
       return res.json({
         success: false,
-        error: 'GitHub CLI (gh) is not installed. Install it from https://cli.github.com',
-      } as ApiResponse);
-    }
-
-    // Kill any existing auth process
-    if (authProcess && !authProcess.killed) {
-      authProcess.kill();
-    }
-
-    authStatus = 'pending';
-    authAccount = null;
-
-    // Spawn gh auth login --web
-    const proc = spawn('gh', ['auth', 'login', '--web', '--git-protocol', 'https'], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true,
-    });
-
-    authProcess = proc;
-
-    let oneTimeCode: string | null = null;
-    let outputBuffer = '';
-
-    const codePattern = /([A-Z0-9]{4}-[A-Z0-9]{4})/;
-
-    // Wait for the one-time code to appear in output
-    const codePromise = new Promise<string | null>((resolve) => {
-      const timeout = setTimeout(() => resolve(null), 30000);
-
-      const handleData = (chunk: Buffer) => {
-        outputBuffer += chunk.toString();
-
-        const match = outputBuffer.match(codePattern);
-        if (match?.[1] && !oneTimeCode) {
-          oneTimeCode = match[1];
-          clearTimeout(timeout);
-
-          // Send Enter to gh and open the browser ourselves
-          setTimeout(() => {
-            try {
-              proc.stdin?.write('\n');
-            } catch {
-              // stdin may already be closed
-            }
-            // Open browser manually as fallback (gh stdin write may not work on Windows)
-            // SECURITY: Use execFile with argument array to prevent command injection
-            const openCmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
-            const openArgs = process.platform === 'win32'
-              ? ['/c', 'start', '', 'https://github.com/login/device']
-              : ['https://github.com/login/device'];
-            execFile(openCmd, openArgs, { shell: false }, () => { /* ignore result */ });
-          }, 500);
-
-          resolve(oneTimeCode);
-        }
-      };
-
-      proc.stdout?.on('data', handleData);
-      proc.stderr?.on('data', handleData);
-
-      proc.on('error', () => {
-        clearTimeout(timeout);
-        resolve(null);
-      });
-    });
-
-    // Handle process exit
-    proc.on('close', (code) => {
-      if (code === 0) {
-        authStatus = 'authenticated';
-
-        // Configure git credentials
-        spawnSync('gh', ['auth', 'setup-git'], { shell: true });
-
-        // Get the authenticated account
-        const whoami = spawnSync('gh', ['auth', 'status'], { encoding: 'utf-8', shell: true });
-        const accountMatch = (whoami.stdout + whoami.stderr).match(/Logged in to [^ ]+ account (\S+)/i)
-          || (whoami.stdout + whoami.stderr).match(/Logged in to [^ ]+ as (\S+)/i);
-        authAccount = accountMatch?.[1] || 'unknown';
-      } else {
-        authStatus = 'failed';
-      }
-      authProcess = null;
-    });
-
-    // Wait for code (up to 30s)
-    const code = await codePromise;
-
-    if (!code) {
-      // Process may have exited or timed out
-      if (authProcess && !authProcess.killed) {
-        authProcess.kill();
-      }
-      authProcess = null;
-      authStatus = 'none';
-
-      return res.json({
-        success: false,
-        error: 'Failed to get one-time code from GitHub CLI',
+        error: result.error,
       } as ApiResponse);
     }
 
     return res.json({
       success: true,
-      data: { code },
+      data: { code: result.code },
     } as ApiResponse);
   } catch (err) {
-    authStatus = 'none';
-    authProcess = null;
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to start auth',
@@ -979,9 +896,6 @@ gitRoutes.post('/auth-login', async (_req: Request, res: Response) => {
 gitRoutes.get('/auth-status', (_req: Request, res: Response) => {
   return res.json({
     success: true,
-    data: {
-      status: authStatus,
-      account: authAccount,
-    },
+    data: gitAuthService.getState(),
   } as ApiResponse);
 });

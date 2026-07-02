@@ -30,6 +30,43 @@ const SKIP_DIRS = new Set([
   'out', '.turbo', '.svelte-kit', '.nuxt',
 ]);
 
+/**
+ * Secret-file deny-list for /api/files/read.
+ *
+ * These patterns are matched against the *relative* path of the requested file
+ * (resolved inside the project root, forward-slash normalised).  If any pattern
+ * matches, the request is rejected with 403 so that sensitive credentials can
+ * never be exfiltrated even though the file technically lives inside the project
+ * tree.
+ *
+ * Rationale:
+ *   - .dev-suite/usage-config.json  — stores the plaintext Anthropic admin API key
+ *   - .env / .env.* variants        — hold application secrets (DB passwords, tokens…)
+ *   - *.pem / *.key / *.p12 / *.pfx — TLS private-key material
+ *   - id_rsa, id_ed25519 …          — SSH private keys
+ */
+const SECRET_FILE_PATTERNS: Array<RegExp> = [
+  // Dev-suite config that contains the plaintext admin API key
+  /^\.dev-suite\/usage-config\.json$/i,
+  // .env files with secrets (allow .env.example which is safe by convention)
+  /^\.env(\.local|\.development|\.staging|\.production|\.prod|\.test)?$/i,
+  // TLS/PKI private-key material
+  /\.(pem|key|p12|pfx|jks)$/i,
+  // SSH private keys (id_rsa, id_ed25519, id_ecdsa, id_dsa, etc.)
+  /(?:^|\/)id_(?:rsa|ed25519|ecdsa|dsa|xmss)(?:\.pub)?$/i,
+  // Generic *.secret / *.secrets files
+  /\.secrets?$/i,
+];
+
+/**
+ * Returns true when the relative path (forward-slash normalised) matches any
+ * entry in the secret-file deny-list.
+ */
+export function isSecretFile(relPath: string): boolean {
+  const normalised = relPath.replace(/\\/g, '/').toLowerCase();
+  return SECRET_FILE_PATTERNS.some((re) => re.test(normalised));
+}
+
 /** Hidden entries to include even though they start with '.' */
 const ALLOWED_HIDDEN = new Set([
   '.env', '.env.local', '.env.example', '.gitignore', '.gitattributes',
@@ -173,6 +210,14 @@ filesRoutes.get('/read', async (req: Request, res: Response) => {
 
     if (!stat.isFile()) {
       res.status(400).json({ success: false, error: 'Path is not a file' });
+      return;
+    }
+
+    // Secret-file deny-list: block access to credential/key files even when
+    // they reside legitimately inside the project root.
+    const relFromRoot = path.relative(projectRoot, absFile).replace(/\\/g, '/');
+    if (isSecretFile(relFromRoot)) {
+      res.status(403).json({ success: false, error: 'Access to secret files is not allowed' });
       return;
     }
 

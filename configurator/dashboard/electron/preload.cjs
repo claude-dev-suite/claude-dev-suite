@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Open folder dialog
   browseFolder: () => ipcRenderer.invoke('browse-folder'),
 
+  // Open an https URL in the system browser (validated against an allowlist in main)
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+
   // Listen for project changes from menu
   onProjectSelected: (callback) => {
     ipcRenderer.on('project-selected', (event, path) => callback(path));
@@ -27,13 +30,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Platform info
   platform: process.platform,
-
-  // Node/Electron versions
-  versions: {
-    node: process.versions.node,
-    chrome: process.versions.chrome,
-    electron: process.versions.electron,
-  },
 
   // Auto-updater API
   updater: {

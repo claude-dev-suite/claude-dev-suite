@@ -28,36 +28,10 @@ import {
 } from '../utils/process.js';
 import { calculateStats, round, formatBytes } from '../utils/statistics.js';
 
-/** Dangerous patterns for Python benchmark code */
-const DANGEROUS_PYTHON_PATTERNS = [
-  /\bimport\s+os\b/,
-  /\bimport\s+subprocess\b/,
-  /\bimport\s+shutil\b/,
-  /\bfrom\s+os\b/,
-  /\bfrom\s+subprocess\b/,
-  /\b__import__\s*\(/,
-  /\bexec\s*\(/,
-  /\beval\s*\(/,
-  /\bos\.system\s*\(/,
-  /\bos\.popen\s*\(/,
-  /\bos\.exec/,
-  /\bos\.remove/,
-  /\bos\.unlink/,
-  /\bsubprocess\./,
-  /\bopen\s*\(.*,\s*['"]w/,
-];
-
-/** Validate Python benchmark code doesn't contain dangerous patterns */
-function validatePythonCode(code: string): void {
-  for (const pattern of DANGEROUS_PYTHON_PATTERNS) {
-    if (pattern.test(code)) {
-      throw new Error(
-        `Benchmark code contains forbidden pattern: ${pattern.source}. ` +
-        `Only pure computation code is allowed for benchmarking.`
-      );
-    }
-  }
-}
+// NOTE: The raw-code blocklist approach was intentionally removed.
+// Python benchmarkCode now accepts a scriptPath (safe) or an opt-in raw-code
+// string gated behind PERF_PROFILER_ALLOW_RAW_CODE=1.
+// See nodejs.ts for the same pattern and security rationale.
 
 /** Validate a Python identifier */
 function validatePythonIdentifier(name: string): void {
@@ -142,7 +116,7 @@ print(json.dumps({
   try {
     await writeFile(analyzerPath, analyzerScript);
 
-    const result = await runCommand(`python3 ${analyzerPath}`, {
+    const result = await runCommand({ cmd: 'python3', args: [analyzerPath] }, {
       timeout: duration * 1000 + 10000,
       cwd: tempDir,
     });
@@ -277,7 +251,7 @@ print(json.dumps({
   try {
     await writeFile(wrapperPath, wrapperCode);
 
-    const result = await runCommand(`python3 ${wrapperPath}`, {
+    const result = await runCommand({ cmd: 'python3', args: [wrapperPath] }, {
       timeout: 120000,
     });
 
@@ -315,39 +289,90 @@ print(json.dumps({
 }
 
 /**
- * Benchmark inline Python code
+ * Benchmark a Python script file (safe) or raw inline code (opt-in only).
+ *
+ * Security: the raw-code blocklist approach is trivially bypassable via
+ * importlib.import_module(), __builtins__['__import__'](), codec tricks, etc.
+ * Default behavior requires a scriptPath pointing to an existing file.
+ * Raw-code execution requires PERF_PROFILER_ALLOW_RAW_CODE=1.
  */
 export async function benchmarkCode(
-  code: string,
+  codeOrPath: string,
   iterations: number = 1000,
-  warmup: number = 100
+  warmup: number = 100,
+  isScriptPath: boolean = true
 ): Promise<BenchmarkResult> {
-  validatePythonCode(code);
+  if (isScriptPath) {
+    // Safe path: run the supplied script file directly
+    validateScriptPath(codeOrPath);
+
+    const startTime = Date.now();
+    const result = await runCommand({ cmd: 'python3', args: [codeOrPath] }, {
+      timeout: 300000,
+    });
+    const elapsed = Date.now() - startTime;
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Benchmark script failed: ${result.stderr.slice(0, 500)}`);
+    }
+
+    try {
+      const data = JSON.parse(result.stdout);
+      if (Array.isArray(data.timings)) {
+        const stats = calculateStats(data.timings);
+        return { iterations, warmupIterations: warmup, timing: stats };
+      }
+    } catch {
+      // Script does not emit structured timings — use elapsed time.
+    }
+    return {
+      iterations: 1,
+      warmupIterations: 0,
+      timing: calculateStats([elapsed]),
+    };
+  }
+
+  // --- Opt-in raw-code path ---
+  const allowRaw = process.env['PERF_PROFILER_ALLOW_RAW_CODE'] === '1';
+  if (!allowRaw) {
+    throw new Error(
+      'Raw code execution is disabled. ' +
+      'Pass a scriptPath instead, or set PERF_PROFILER_ALLOW_RAW_CODE=1 ' +
+      'to opt-in (unsafe — only for trusted, single-user environments).'
+    );
+  }
+
+  console.error(
+    '[SECURITY WARNING] PERF_PROFILER_ALLOW_RAW_CODE is enabled. ' +
+    'Raw code execution is unsafe in any multi-user or production environment.'
+  );
 
   const tempDir = await createTempDir('python-benchmark');
   const benchmarkPath = join(tempDir, 'benchmark.py');
+  const benchConfigPath = join(tempDir, 'bench-config.json');
+
+  await writeFile(benchConfigPath, JSON.stringify({ iterations, warmup }));
 
   const benchmarkScript = `
 import time
 import json
+import os
 
-iterations = ${iterations}
-warmup_iterations = ${warmup}
+config = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bench-config.json')))
+iterations = config['iterations']
+warmup_iterations = config['warmup']
 timings = []
 
-# The code to benchmark
 def benchmark_fn():
-    ${code.split('\n').join('\n    ')}
+    ${codeOrPath.split('\n').join('\n    ')}
 
-# Warmup phase
 for _ in range(warmup_iterations):
     benchmark_fn()
 
-# Measurement phase
 for _ in range(iterations):
     start = time.perf_counter()
     benchmark_fn()
-    timings.append((time.perf_counter() - start) * 1000)  # ms
+    timings.append((time.perf_counter() - start) * 1000)
 
 print(json.dumps({"timings": timings}))
 `;
@@ -355,12 +380,12 @@ print(json.dumps({"timings": timings}))
   try {
     await writeFile(benchmarkPath, benchmarkScript);
 
-    const result = await runCommand(`python3 ${benchmarkPath}`, {
+    const result = await runCommand({ cmd: 'python3', args: [benchmarkPath] }, {
       timeout: 300000,
     });
 
     if (result.exitCode !== 0) {
-      throw new Error(`Benchmark failed: ${result.stderr}`);
+      throw new Error(`Benchmark failed: ${result.stderr.slice(0, 500)}`);
     }
 
     const data = JSON.parse(result.stdout);
@@ -442,7 +467,7 @@ print(json.dumps({"snapshots": snapshots}))
   try {
     await writeFile(wrapperPath, wrapperCode);
 
-    const result = await runCommand(`python3 ${wrapperPath}`, {
+    const result = await runCommand({ cmd: 'python3', args: [wrapperPath] }, {
       timeout: (duration + 10) * 1000,
     });
 

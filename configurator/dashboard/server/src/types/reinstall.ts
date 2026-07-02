@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// KEPT IN SYNC with configurator/dashboard/{src,server/src}/types/reinstall.ts — verified by scripts/check-type-sync.mjs
 /**
  * Reinstall (erase-and-replace) Types
  *

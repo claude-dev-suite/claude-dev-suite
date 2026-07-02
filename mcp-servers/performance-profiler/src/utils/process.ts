@@ -3,29 +3,83 @@
  * Process execution utilities for running external commands
  */
 
-import { exec, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
-import { existsSync } from 'fs';
-import { extname } from 'path';
+import { existsSync, realpathSync } from 'fs';
+import { extname, isAbsolute } from 'path';
 import type { ProcessResult, Runtime } from '../types.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
- * Execute a command and return stdout, stderr, and exit code
+ * Execute a command and return stdout, stderr, and exit code.
+ *
+ * Preferred form: { cmd, args } — uses execFile (no shell), safe for any input.
+ *
+ * Legacy string form: the command string is split on whitespace and run via
+ * execFile (no shell).  Only safe when no user-controlled data appears in the
+ * command string.  Commands that require shell pipelines (|, >, 2>/dev/null)
+ * must pass shell:true in options and take responsibility for input sanitisation.
+ *
+ * Security: never pass user-supplied strings through the legacy string path
+ * without shell:false (the default).
  */
 export async function runCommand(
-  command: string,
+  command: string | { cmd: string; args: string[] },
   options: {
     timeout?: number;
     cwd?: string;
     env?: Record<string, string>;
+    /** Allow shell pipelines (|, >, etc.).  Only set for trusted internal commands. */
+    shell?: boolean;
   } = {}
 ): Promise<ProcessResult> {
   const startTime = Date.now();
 
+  // Shell pipeline path: trusted internal commands that need shell features
+  if (options.shell === true && typeof command === 'string') {
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+    try {
+      const { stdout, stderr } = await execAsync(command, {
+        maxBuffer: 50 * 1024 * 1024,
+        timeout: options.timeout || 60000,
+        cwd: options.cwd,
+        env: { ...process.env, ...options.env },
+      });
+      return { stdout, stderr, exitCode: 0, duration: Date.now() - startTime };
+    } catch (error: unknown) {
+      const duration = Date.now() - startTime;
+      if (error && typeof error === 'object') {
+        const e = error as { stdout?: string; stderr?: string; code?: number; message?: string };
+        return {
+          stdout: e.stdout || '',
+          stderr: e.stderr || e.message || 'Command failed',
+          exitCode: e.code || 1,
+          duration,
+        };
+      }
+      return { stdout: '', stderr: String(error), exitCode: 1, duration };
+    }
+  }
+
+  // Resolve cmd + args for execFile (no shell)
+  let cmd: string;
+  let args: string[];
+  if (typeof command === 'object' && 'cmd' in command) {
+    cmd = command.cmd;
+    args = command.args;
+  } else {
+    // Legacy string path: split on whitespace.  Only safe for trusted
+    // internal commands where no user data reaches the argument list.
+    const parts = (command as string).split(/\s+/);
+    cmd = parts[0];
+    args = parts.slice(1);
+  }
+
   try {
-    const { stdout, stderr } = await execAsync(command, {
+    const { stdout, stderr } = await execFileAsync(cmd, args, {
       maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large profiles
       timeout: options.timeout || 60000, // 60s default
       cwd: options.cwd,
@@ -153,10 +207,11 @@ export function detectRuntime(filePath: string): Runtime {
  * Check if a runtime is available on the system
  */
 export async function checkRuntimeAvailable(runtime: Runtime): Promise<boolean> {
-  const commands: Record<Runtime, string> = {
-    nodejs: 'node --version',
-    java: 'java -version',
-    python: 'python3 --version || python --version',
+  // Use structured argv to avoid shell invocation
+  const commands: Record<Runtime, { cmd: string; args: string[] }> = {
+    nodejs: { cmd: 'node', args: ['--version'] },
+    java:   { cmd: 'java', args: ['-version'] },
+    python: { cmd: 'python3', args: ['--version'] },
   };
 
   const result = await runCommand(commands[runtime], { timeout: 5000 });
@@ -199,11 +254,45 @@ export function getRunCommand(runtime: Runtime, scriptPath: string, args: string
 }
 
 /**
- * Validate that a script file exists
+ * Validate that a script file path is safe and the file exists.
+ *
+ * Hardened checks:
+ *  - Must be an absolute path (no relative traversal)
+ *  - Must not contain null bytes (guard against CVE-style tricks)
+ *  - File must exist and be accessible (realpathSync succeeds)
+ *
+ * Note on symlink confinement: this function does NOT enforce confinement
+ * to a particular allowed root directory.  The tool is designed for
+ * single-user local profiling where the operator controls what files are
+ * passed.  realpathSync is called only to verify accessibility; no
+ * symlink-escape rejection is performed (a hollow check was previously
+ * present and has been removed to avoid false security claims).
  */
 export function validateScriptPath(scriptPath: string): void {
+  if (!scriptPath || typeof scriptPath !== 'string') {
+    throw new Error('Script path must be a non-empty string');
+  }
+
+  // Reject null bytes
+  if (scriptPath.includes('\0')) {
+    throw new Error('Script path must not contain null bytes');
+  }
+
+  // Require absolute path
+  if (!isAbsolute(scriptPath)) {
+    throw new Error(`Script path must be absolute, got: "${scriptPath}"`);
+  }
+
+  // File must exist
   if (!existsSync(scriptPath)) {
     throw new Error(`Script not found: ${scriptPath}`);
+  }
+
+  // Verify the file is accessible (resolves without error)
+  try {
+    realpathSync(scriptPath);
+  } catch {
+    throw new Error(`Script path is not accessible: "${scriptPath}"`);
   }
 }
 

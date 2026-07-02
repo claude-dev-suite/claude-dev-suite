@@ -25,7 +25,10 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // Do not emit extractable sourcemaps in the production build; full TS source
+    // must not be shipped inside the Electron asar archive.
+    // Use 'hidden' here instead of false if crash-reporting symbols are needed.
+    sourcemap: false,
   },
   test: {
     globals: true,

@@ -28,7 +28,9 @@ declare global {
 }
 
 /**
- * List of sensitive field names to redact from logs
+ * List of sensitive field names to redact from logs.
+ * All comparisons are done case-insensitively (the redaction loop lowercases
+ * the key before looking it up here, so entries must also be lowercase).
  */
 const SENSITIVE_FIELDS = new Set([
   'password',
@@ -38,28 +40,62 @@ const SENSITIVE_FIELDS = new Set([
   'token',
   'apikey',
   'api_key',
-  'apiKey',
+  'apikey',           // camelCase variant lowercased
+  'adminapikey',      // adminApiKey lowercased
+  'admin_api_key',
   'accesstoken',
   'access_token',
-  'accessToken',
   'refreshtoken',
   'refresh_token',
-  'refreshToken',
   'auth',
   'authorization',
   'private_key',
-  'privateKey',
+  'privatekey',
   'client_secret',
-  'clientSecret',
+  'clientsecret',
   'sessionid',
   'session_id',
-  'sessionId',
   'cookie',
   'creditcard',
   'credit_card',
   'cvv',
   'ssn',
 ]);
+
+/**
+ * Redact sensitive query-string parameters from a URL string.
+ *
+ * Any query parameter whose lowercased name appears in SENSITIVE_FIELDS has its
+ * value replaced with '[REDACTED]'.  This mirrors the same strategy used by
+ * redactSensitiveData() for body/query objects.
+ *
+ * The path and fragment portions of the URL are preserved unchanged so that
+ * log messages remain useful for debugging while not leaking secrets.
+ *
+ * @param rawUrl - The full URL (or path + query string) as recorded in the log.
+ * @returns The same URL with sensitive query-parameter values replaced.
+ */
+export function redactUrlQueryParams(rawUrl: string): string {
+  // Fast path: no query string present.
+  const qIdx = rawUrl.indexOf('?');
+  if (qIdx === -1) return rawUrl;
+
+  const basePart = rawUrl.slice(0, qIdx);
+  const queryPart = rawUrl.slice(qIdx + 1);
+
+  // Rebuild query string manually to avoid URLSearchParams.toString() URL-encoding
+  // the '[REDACTED]' sentinel value (which would produce '%5BREDACTED%5D').
+  const pairs = queryPart.split('&').map((pair) => {
+    const eqIdx = pair.indexOf('=');
+    if (eqIdx === -1) return pair; // bare key without value — pass through
+    const key = pair.slice(0, eqIdx);
+    const value = pair.slice(eqIdx + 1);
+    return SENSITIVE_FIELDS.has(key.toLowerCase()) ? `${key}=[REDACTED]` : `${key}=${value}`;
+  });
+
+  const redactedQuery = pairs.join('&');
+  return redactedQuery ? `${basePart}?${redactedQuery}` : basePart;
+}
 
 /**
  * Redact sensitive data from an object
@@ -148,13 +184,15 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   // Set correlation ID in response headers
   res.setHeader('X-Correlation-ID', correlationId);
 
+  const safeUrl = redactUrlQueryParams(req.originalUrl || req.url);
+
   // Build request log context
   const requestContext: LogContext = {
     correlationId,
     data: {
       method: req.method,
-      url: req.originalUrl || req.url,
-      query: Object.keys(req.query).length > 0 ? req.query : undefined,
+      url: safeUrl,
+      query: Object.keys(req.query).length > 0 ? redactSensitiveData(req.query) : undefined,
       body: req.body && Object.keys(req.body).length > 0 ? redactSensitiveData(req.body) : undefined,
       headers: redactHeaders(selectHeaders(req.headers as Record<string, unknown>)),
       ip: req.ip || req.socket.remoteAddress,
@@ -162,7 +200,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   };
 
   // Log incoming request
-  apiLogger.http(`→ ${req.method} ${req.originalUrl || req.url}`, requestContext);
+  apiLogger.http(`→ ${req.method} ${safeUrl}`, requestContext);
 
   // Hook into response finish event
   const cleanup = () => {
@@ -184,12 +222,14 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
       logLevel = 'warn';
     }
 
+    const safeResponseUrl = redactUrlQueryParams(req.originalUrl || req.url);
+
     // Build response log context
     const responseContext: LogContext = {
       correlationId,
       data: {
         method: req.method,
-        url: req.originalUrl || req.url,
+        url: safeResponseUrl,
         statusCode,
         responseTime,
         contentLength: res.get('content-length'),
@@ -198,7 +238,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
     };
 
     // Build log message
-    let message = `← ${statusCode} ${req.method} ${req.originalUrl || req.url}`;
+    let message = `← ${statusCode} ${req.method} ${safeResponseUrl}`;
     if (responseTime > 1000) {
       message += ' [SLOW]';
     }
@@ -234,16 +274,18 @@ export function errorLogger(
   const correlationId = req.correlationId || 'unknown';
   const statusCode = err.status || err.statusCode || 500;
 
+  const safeErrorUrl = redactUrlQueryParams(req.originalUrl || req.url);
+
   // Build error log context
   const errorContext: LogContext = {
     correlationId,
     data: {
       method: req.method,
-      url: req.originalUrl || req.url,
+      url: safeErrorUrl,
       statusCode,
       errorName: err.name,
       errorMessage: err.message,
-      query: Object.keys(req.query).length > 0 ? req.query : undefined,
+      query: Object.keys(req.query).length > 0 ? redactSensitiveData(req.query) : undefined,
       body: req.body && Object.keys(req.body).length > 0 ? redactSensitiveData(req.body) : undefined,
     },
     error: {
@@ -255,7 +297,7 @@ export function errorLogger(
 
   // Log error with full context
   apiLogger.error(
-    `✖ ${statusCode} ${req.method} ${req.originalUrl || req.url} - ${err.message}`,
+    `✖ ${statusCode} ${req.method} ${safeErrorUrl} - ${err.message}`,
     errorContext
   );
 

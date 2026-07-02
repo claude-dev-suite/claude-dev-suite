@@ -79,13 +79,16 @@ export class PermissionService {
   /**
    * Register a pending permission request and return a Promise
    * that resolves to the user's decision.
-   * Automatically resolves to 'allow' after timeoutMs if no decision is made.
+   *
+   * SECURITY: Automatically resolves to 'deny' (fail-closed) after timeoutMs
+   * if no explicit user decision is made.  Failing open ('allow') would let an
+   * attacker exploit connection drops or network delays to bypass approval.
    */
   createRequest(requestId: string, timeoutMs = 30_000): Promise<PermissionDecision> {
     return new Promise<PermissionDecision>((resolve) => {
       const timeout = setTimeout(() => {
         this.pending.delete(requestId);
-        resolve('allow');
+        resolve('deny'); // fail-closed: no decision = deny
       }, timeoutMs);
       this.pending.set(requestId, { requestId, resolve, timeout });
     });

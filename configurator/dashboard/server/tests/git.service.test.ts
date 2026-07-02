@@ -184,12 +184,12 @@ describe('GitService.getFileDiff', () => {
 // stageFiles / stageAll / unstageFiles / unstageAll
 // ----------------------------------------------------------------
 describe('GitService staging', () => {
-  it('stageFiles should call execGit with add and files', () => {
+  it('stageFiles should call execGit with add -- and files', () => {
     execGitMock.mockReturnValueOnce('');
     GitService.stageFiles(REPO, PROJECT, ['src/a.ts', 'src/b.ts']);
 
     expect(execGitMock).toHaveBeenCalledWith(
-      ['add', 'src/a.ts', 'src/b.ts'],
+      ['add', '--', 'src/a.ts', 'src/b.ts'],
       PROJECT
     );
   });
@@ -201,12 +201,12 @@ describe('GitService staging', () => {
     expect(execGitMock).toHaveBeenCalledWith(['add', '-A'], PROJECT);
   });
 
-  it('unstageFiles should call execGit with restore --staged', () => {
+  it('unstageFiles should call execGit with restore --staged --', () => {
     execGitMock.mockReturnValueOnce('');
     GitService.unstageFiles(REPO, PROJECT, ['src/a.ts']);
 
     expect(execGitMock).toHaveBeenCalledWith(
-      ['restore', '--staged', 'src/a.ts'],
+      ['restore', '--staged', '--', 'src/a.ts'],
       PROJECT
     );
   });
@@ -222,10 +222,10 @@ describe('GitService staging', () => {
     execGitMock.mockReturnValue('');
     GitService.discardChanges(REPO, PROJECT, ['src/a.ts'], true);
 
-    // First call: restore --staged (unstage)
-    expect(execGitMock).toHaveBeenNthCalledWith(1, ['restore', '--staged', 'src/a.ts'], PROJECT);
-    // Second call: restore
-    expect(execGitMock).toHaveBeenNthCalledWith(2, ['restore', 'src/a.ts'], PROJECT);
+    // First call: restore --staged -- (unstage)
+    expect(execGitMock).toHaveBeenNthCalledWith(1, ['restore', '--staged', '--', 'src/a.ts'], PROJECT);
+    // Second call: restore --
+    expect(execGitMock).toHaveBeenNthCalledWith(2, ['restore', '--', 'src/a.ts'], PROJECT);
   });
 
   it('discardChanges with staged=false should only restore', () => {
@@ -233,7 +233,7 @@ describe('GitService staging', () => {
     GitService.discardChanges(REPO, PROJECT, ['src/a.ts'], false);
 
     expect(execGitMock).toHaveBeenCalledTimes(1);
-    expect(execGitMock).toHaveBeenCalledWith(['restore', 'src/a.ts'], PROJECT);
+    expect(execGitMock).toHaveBeenCalledWith(['restore', '--', 'src/a.ts'], PROJECT);
   });
 });
 

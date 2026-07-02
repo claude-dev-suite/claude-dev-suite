@@ -15,5 +15,9 @@
   "recommendedFor": [
     "security-expert",
     "devops-expert"
+  ],
+  "detectedWhen": [
+    "docker",
+    "kubernetes"
   ]
 }

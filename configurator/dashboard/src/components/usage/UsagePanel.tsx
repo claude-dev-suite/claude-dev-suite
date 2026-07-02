@@ -7,6 +7,7 @@ import {
 } from 'react';
 import clsx from 'clsx';
 import { useUsageStore } from '../../stores/usage.store';
+import { safeOpenExternal } from '../../utils/releaseUrl';
 import type {
   AlertThreshold,
   AlertSeverity,
@@ -474,13 +475,9 @@ interface DeepLinksGridProps {
 }
 
 function DeepLinksGrid({ links }: DeepLinksGridProps) {
-  const openLink = (url: string) => {
-    if (window.electronAPI && 'openExternal' in window.electronAPI) {
-      (window.electronAPI as Record<string, unknown> & { openExternal: (url: string) => void }).openExternal(url);
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
-  };
+  // safeOpenExternal validates the scheme (https: only) before opening, guarding
+  // against javascript:, data:, file:, etc. coming from API-sourced DeepLink data.
+  const openLink = (url: string) => safeOpenExternal(url);
 
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -749,7 +746,7 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
                 <p className="text-xs text-yellow-400/70 mt-0.5">
                   An Admin API key is required to access usage and billing data.{' '}
                   <button
-                    onClick={() => window.open('https://console.anthropic.com/settings/api-keys', '_blank', 'noopener,noreferrer')}
+                    onClick={() => safeOpenExternal('https://console.anthropic.com/settings/api-keys')}
                     className="underline hover:text-yellow-300 transition-colors"
                   >
                     Learn how to get one

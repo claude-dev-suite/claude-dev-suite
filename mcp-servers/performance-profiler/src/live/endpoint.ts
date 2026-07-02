@@ -5,6 +5,9 @@
  */
 
 import { mean, stdDev, percentile, round } from '../utils/statistics.js';
+import { validateUrl } from '../utils/ssrf.js';
+
+const MAX_REDIRECTS = 5;
 
 export interface EndpointProfileInput {
   url: string;
@@ -67,12 +70,8 @@ export async function profileEndpoint(input: EndpointProfileInput): Promise<Endp
     timeoutMs = 30000,
   } = input;
 
-  // Validate URL
-  try {
-    new URL(url);
-  } catch {
-    throw new Error(`Invalid URL: ${url}`);
-  }
+  // Validate URL — includes SSRF protection
+  await validateUrl(url);
 
   // Warmup phase
   if (warmupIterations > 0) {
@@ -172,7 +171,10 @@ interface RequestResult {
 }
 
 /**
- * Make a single HTTP request (no timing)
+ * Make a single HTTP request (no timing), manually following redirects
+ * so each Location hop is re-validated through validateUrl before following.
+ * This prevents an open redirect on the profiled server from pivoting
+ * into a private/metadata address.
  */
 async function makeRequest(
   url: string,
@@ -192,13 +194,29 @@ async function makeRequest(
         ...headers,
       },
       signal: controller.signal,
+      redirect: 'manual',
     };
 
     if (body && method !== 'GET') {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    let currentUrl = url;
+    let response!: Response;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      response = await fetch(currentUrl, { ...options, redirect: 'manual' });
+
+      const isRedirect = [301, 302, 303, 307, 308].includes(response.status);
+      if (!isRedirect) break;
+
+      const location = response.headers.get('location');
+      if (!location) break;
+
+      await validateUrl(location);
+      currentUrl = location;
+
+      if (hop === MAX_REDIRECTS) break;
+    }
     return response;
   } catch {
     return null;
@@ -208,7 +226,8 @@ async function makeRequest(
 }
 
 /**
- * Make a single HTTP request and measure latency
+ * Make a single HTTP request and measure latency.
+ * Redirects are followed manually with SSRF re-validation at each hop.
  */
 async function measureRequest(
   url: string,
@@ -230,13 +249,30 @@ async function measureRequest(
         ...headers,
       },
       signal: controller.signal,
+      redirect: 'manual',
     };
 
     if (body && method !== 'GET') {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    let currentUrl = url;
+    let response!: Response;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      response = await fetch(currentUrl, { ...options, redirect: 'manual' });
+
+      const isRedirect = [301, 302, 303, 307, 308].includes(response.status);
+      if (!isRedirect) break;
+
+      const location = response.headers.get('location');
+      if (!location) break;
+
+      await validateUrl(location);
+      currentUrl = location;
+
+      if (hop === MAX_REDIRECTS) break;
+    }
+
     const latencyMs = performance.now() - start;
 
     // Consume body to complete the request

@@ -221,16 +221,22 @@ export function useWebSocket(
       return;
     }
 
-    const wsUrl = `${url}?token=${encodeURIComponent(token)}`;
+    // SECURITY: Do NOT include the token in the URL query string (it appears
+    // in server access logs and browser history).  Open the socket without
+    // credentials and send an auth message as the first WebSocket frame.
     const connectStartTime = Date.now();
 
     logger.info('Connecting to WebSocket', { url });
 
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(url);
     wsRef.current = ws;
 
     ws.onopen = () => {
       const latency = Date.now() - connectStartTime;
+
+      // Send auth as the very first message — the server gates all other
+      // messages on successful receipt of this frame.
+      ws.send(JSON.stringify({ type: 'auth', token }));
 
       logger.info('Connected to WebSocket', {
         latency,

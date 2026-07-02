@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// KEPT IN SYNC with configurator/dashboard/{src,server/src}/types/mcp.ts — verified by scripts/check-type-sync.mjs
 /**
  * MCP Server Types for Dev-Suite Dashboard
  *

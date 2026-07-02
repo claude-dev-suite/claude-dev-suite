@@ -242,8 +242,9 @@ describe('Path validation helper (null bytes and relative paths)', () => {
     expect(() => validateFilePath('/usr/src/project/file.ts')).not.toThrow();
   });
 
-  it('accepts a Windows absolute path', () => {
-    // On all platforms normalize() preserves absolute Windows-style paths
+  it.runIf(process.platform === 'win32')('accepts a Windows absolute path', () => {
+    // path.isAbsolute() only recognises drive-letter paths on Windows,
+    // so this assertion is meaningful (and true) only there
     expect(() => validateFilePath('C:\\Users\\project\\file.ts')).not.toThrow();
   });
 });

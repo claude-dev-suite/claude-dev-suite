@@ -340,10 +340,21 @@ export function useOrchestratorWebSocket(
         }
       }
 
-      const wsUrl = `ws://localhost:${wsPortRef.current}?token=${wsTokenRef.current}&clientId=${clientIdRef.current}`;
+      // SECURITY: Do NOT include the token in the URL query string (it appears
+      // in server access logs and browser history).  Instead, open the socket
+      // without credentials and immediately send an auth message as the first
+      // WebSocket frame.
+      const wsUrl = `ws://localhost:${wsPortRef.current}`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
+        // Send auth as the very first message — the server gates all other
+        // messages on successful receipt of this frame.
+        ws.send(JSON.stringify({
+          type: 'auth',
+          token: wsTokenRef.current,
+          clientId: clientIdRef.current,
+        }));
         setConnected(true);
         setWsStatusText('Connected to orchestrator bridge');
       };

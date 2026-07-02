@@ -53,6 +53,15 @@ describe('WebSocket Rate Limiting', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Simulate the message-based auth handshake.
+   * Must be called after the connection handler has set up messageHandler.
+   */
+  function authenticate() {
+    const authMsg = JSON.stringify({ type: 'auth', token: 'valid-token', clientId: 'test-client' });
+    messageHandler?.(Buffer.from(authMsg));
+  }
+
   afterEach(() => {
     if (wss) {
       wss.close();
@@ -86,11 +95,14 @@ describe('WebSocket Rate Limiting', () => {
       const connectionHandler = (wss as any)._events.connection;
       if (connectionHandler) {
         const mockReq = {
-          url: '/?token=valid-token&clientId=test-client',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         connectionHandler(mockWs, mockReq);
       }
+
+      // Authenticate first (required by new message-based auth flow)
+      authenticate();
 
       // Send messages within limit (10 messages, well below 60)
       for (let i = 0; i < 10; i++) {
@@ -124,11 +136,14 @@ describe('WebSocket Rate Limiting', () => {
       const connectionHandler = (wss as any)._events.connection;
       if (connectionHandler) {
         const mockReq = {
-          url: '/?token=valid-token&clientId=test-client',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         connectionHandler(mockWs, mockReq);
       }
+
+      // Authenticate first (required by new message-based auth flow)
+      authenticate();
 
       // Send messages exceeding limit (61 messages, above 60)
       for (let i = 0; i <= WS_RATE_LIMIT.MAX_MESSAGES; i++) {
@@ -162,11 +177,14 @@ describe('WebSocket Rate Limiting', () => {
       const connectionHandler = (wss as any)._events.connection;
       if (connectionHandler) {
         const mockReq = {
-          url: '/?token=valid-token&clientId=test-client',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         connectionHandler(mockWs, mockReq);
       }
+
+      // Authenticate first (required by new message-based auth flow)
+      authenticate();
 
       // Send messages near limit
       for (let i = 0; i < WS_RATE_LIMIT.MAX_MESSAGES; i++) {
@@ -214,11 +232,11 @@ describe('WebSocket Rate Limiting', () => {
       const connectionHandler = (wss as any)._events.connection;
       if (connectionHandler) {
         const mockReq1 = {
-          url: '/?token=valid-token&clientId=client-1',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         const mockReq2 = {
-          url: '/?token=valid-token&clientId=client-2',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         connectionHandler(mockWs1, mockReq1);
@@ -243,11 +261,14 @@ describe('WebSocket Rate Limiting', () => {
       const connectionHandler = (wss as any)._events.connection;
       if (connectionHandler) {
         const mockReq = {
-          url: '/?token=valid-token&clientId=test-client',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         connectionHandler(mockWs, mockReq);
       }
+
+      // Authenticate first (required by new message-based auth flow)
+      authenticate();
 
       // Send messages exceeding limit
       for (let i = 0; i <= WS_RATE_LIMIT.MAX_MESSAGES; i++) {
@@ -287,7 +308,7 @@ describe('WebSocket Rate Limiting', () => {
       const connectionHandler = (wss as any)._events.connection;
       if (connectionHandler) {
         const mockReq = {
-          url: '/?token=valid-token&clientId=test-client',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         connectionHandler(mockWs, mockReq);
@@ -317,7 +338,7 @@ describe('WebSocket Rate Limiting', () => {
       const connectionHandler = (wss as any)._events.connection;
       if (connectionHandler) {
         const mockReq = {
-          url: '/?token=valid-token&clientId=test-client',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         connectionHandler(mockWs, mockReq);
@@ -345,11 +366,14 @@ describe('WebSocket Rate Limiting', () => {
       const connectionHandler = (wss as any)._events.connection;
       if (connectionHandler) {
         const mockReq = {
-          url: '/?token=valid-token&clientId=test-client',
+          url: '/',
           socket: { remoteAddress: '127.0.0.1' },
         };
         connectionHandler(mockWs, mockReq);
       }
+
+      // Authenticate first (required by new message-based auth flow)
+      authenticate();
 
       // Exceed rate limit
       for (let i = 0; i <= WS_RATE_LIMIT.MAX_MESSAGES; i++) {

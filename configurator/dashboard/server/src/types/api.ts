@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// KEPT IN SYNC with configurator/dashboard/{src,server/src}/types/api.ts — verified by scripts/check-type-sync.mjs
 /**
  * API Response Types for Dev-Suite Dashboard
  *
@@ -70,7 +71,7 @@ export interface PaginatedResponse<T> {
 export interface SecurityTokensResponse {
   /** WebSocket authentication token */
   wsToken: string;
-  /** WebSocket port for orchestrator */
+  /** WebSocket server port */
   wsPort: number;
 }
 
@@ -283,6 +284,25 @@ export interface InstalledComponentsResponse {
 }
 
 /**
+ * New component discovered since project installation
+ */
+export interface NewComponent {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+}
+
+/**
+ * New components API response
+ * GET /api/management/new-components
+ */
+export interface NewComponentsResponse {
+  newAgents: NewComponent[];
+  newMcpServers: NewComponent[];
+}
+
+/**
  * Add agent API request
  * POST /api/add-agent
  */
@@ -349,8 +369,10 @@ export interface ComponentOperationResponse {
  */
 export type HookType =
   | 'pre-commit'
+  | 'prepare-commit-msg'
   | 'commit-msg'
   | 'post-commit'
+  | 'pre-merge-commit'
   | 'pre-push'
   | 'post-merge'
   | 'post-checkout';
@@ -432,14 +454,45 @@ export interface ClaudeHookAction {
 }
 
 /**
+ * Prompt hook configuration (for SubagentStop with prompt-based decision)
+ */
+export interface ClaudePromptHook {
+  type: 'prompt';
+  prompt: string;
+  timeout?: number;
+}
+
+/**
+ * Hook command - can be a string (shell command) or a prompt hook object
+ */
+export type ClaudeHookCommand = string | ClaudePromptHook;
+
+/**
+ * Claude hook as returned by the API for UI display
+ * This is the parsed format from the backend's parseClaudeHooksForUI
+ */
+export interface ClaudeHookUI {
+  /** Unique ID (format: "Event-index", e.g., "PreToolUse-0") */
+  id: string;
+  /** Event type */
+  event: string;
+  /** Matcher pattern (tool name or regex) */
+  matcher: string;
+  /** Commands to execute - can be strings or prompt hook objects */
+  commands: ClaudeHookCommand[];
+  /** Optional timeout in milliseconds */
+  timeout?: number;
+}
+
+/**
  * Claude hooks status API response
  * GET /api/claude-hooks/status
  */
 export interface ClaudeHooksStatusResponse {
   /** Whether claude hooks are configured */
   configured: boolean;
-  /** Current hooks configuration */
-  hooks: ClaudeHookConfig[];
+  /** Current hooks configuration (UI format) */
+  hooks: ClaudeHookUI[];
   /** Available templates */
   templates: ClaudeHookTemplate[];
 }
@@ -602,6 +655,40 @@ export interface KBUsageRequest {
 export interface KBUsageResponse extends PaginatedResponse<KBUsageEntry> {
   /** Stats summary */
   stats: KBUsageStats;
+}
+
+// ============================================
+// TOKEN USAGE ANALYTICS TYPES (opt-in)
+// ============================================
+
+/**
+ * A single token-usage event (mirrors backend TokenUsageEntry).
+ * No prompt content is stored — only counts and metadata.
+ */
+export interface TokenUsageEntry {
+  id: string;
+  timestamp: string;
+  agentId?: string;
+  skillPath?: string;
+  mcpTool?: string;
+  sessionId?: string;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
+  model?: string;
+  success: boolean;
+  durationMs?: number;
+}
+
+/**
+ * Aggregated row returned by GET /api/analytics/token-usage/aggregate
+ */
+export interface TokenAggregatedRow {
+  key: string;
+  totalTokens: number;
+  totalCostUsd: number;
+  callCount: number;
+  avgTokensPerCall: number;
 }
 
 // ============================================

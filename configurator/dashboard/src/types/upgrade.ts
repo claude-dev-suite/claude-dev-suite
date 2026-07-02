@@ -111,6 +111,22 @@ export interface UpgradeHistoryEntry {
 }
 
 /**
+ * A file tracked in the installation manifest.
+ * Shared with the reinstall contract (reinstall.ts) — matches the server's
+ * TrackedFile in server/src/types/upgrade.ts.
+ */
+export interface TrackedFile {
+  /** Relative path from project root */
+  path: string;
+  /** SHA256 hash of file content at installation */
+  hash: string;
+  /** File type */
+  type: 'agent' | 'skill' | 'mcp-server' | 'config' | 'generated';
+  /** Source path in dev-suite (for agent/skill) */
+  source?: string;
+}
+
+/**
  * Extended manifest (simplified for frontend)
  */
 export interface ExtendedManifest {

@@ -20,5 +20,11 @@
     "devops-expert",
     "qa-expert",
     "smoke-test-expert"
+  ],
+  "detectedWhen": [
+    "nginx",
+    "apache",
+    "kubernetes",
+    "spring-boot"
   ]
 }

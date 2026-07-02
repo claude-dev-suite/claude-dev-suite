@@ -674,3 +674,387 @@ describe('C1/H1 — HooksInstallConfigSchema security validation', () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ─── R1: Secret-file deny-list in files/read ─────────────────────────────────
+
+describe('R1 — secret-file deny-list in /api/files/read', () => {
+  const app = buildFilesApp();
+  let projectDir: string;
+
+  beforeAll(() => {
+    projectDir = createTempDir('files-secret-deny-');
+
+    // Create credential files that must be blocked
+    const devSuiteDir = path.join(projectDir, '.dev-suite');
+    fs.mkdirSync(devSuiteDir, { recursive: true });
+    fs.writeFileSync(path.join(devSuiteDir, 'usage-config.json'), '{"adminApiKey":"sk-ant-admin-SECRET"}');
+    fs.writeFileSync(path.join(projectDir, '.env'), 'DB_PASSWORD=supersecret');
+    fs.writeFileSync(path.join(projectDir, '.env.production'), 'STRIPE_KEY=sk_live_xxx');
+    fs.writeFileSync(path.join(projectDir, 'server.pem'), 'FAKE PEM CONTENT');
+    fs.writeFileSync(path.join(projectDir, 'private.key'), 'FAKE KEY CONTENT');
+    fs.writeFileSync(path.join(projectDir, 'id_rsa'), 'FAKE RSA KEY');
+    fs.writeFileSync(path.join(projectDir, 'id_ed25519'), 'FAKE ED25519 KEY');
+    // A safe file
+    fs.writeFileSync(path.join(projectDir, 'README.md'), '# Safe');
+  });
+
+  afterAll(() => cleanupTempDir(projectDir));
+
+  const BLOCKED = [
+    ['.dev-suite/usage-config.json'],
+    ['.env'],
+    ['.env.production'],
+    ['server.pem'],
+    ['private.key'],
+    ['id_rsa'],
+    ['id_ed25519'],
+  ] as const;
+
+  it.each(BLOCKED)('blocks read of %s with 403', async (file) => {
+    const res = await request(app)
+      .get('/api/files/read')
+      .query({ path: projectDir, file });
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/secret/i);
+  });
+
+  it('allows reading a normal file', async () => {
+    const res = await request(app)
+      .get('/api/files/read')
+      .query({ path: projectDir, file: 'README.md' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.content).toBe('# Safe');
+  });
+});
+
+// ─── R1b: isSecretFile unit tests ────────────────────────────────────────────
+
+describe('R1b — isSecretFile() unit tests', () => {
+  // Import inline to avoid circular issues — use dynamic import in beforeAll
+  let isSecretFile: (rel: string) => boolean;
+
+  beforeAll(async () => {
+    const mod = await import('../src/routes/files.routes.js');
+    isSecretFile = mod.isSecretFile;
+  });
+
+  it('matches .dev-suite/usage-config.json', () => expect(isSecretFile('.dev-suite/usage-config.json')).toBe(true));
+  it('matches .env', () => expect(isSecretFile('.env')).toBe(true));
+  it('matches .env.local', () => expect(isSecretFile('.env.local')).toBe(true));
+  it('matches .env.production', () => expect(isSecretFile('.env.production')).toBe(true));
+  it('does NOT match .env.example', () => expect(isSecretFile('.env.example')).toBe(false));
+  it('matches server.pem', () => expect(isSecretFile('server.pem')).toBe(true));
+  it('matches certs/private.key', () => expect(isSecretFile('certs/private.key')).toBe(true));
+  it('matches id_rsa', () => expect(isSecretFile('id_rsa')).toBe(true));
+  it('matches id_ed25519', () => expect(isSecretFile('id_ed25519')).toBe(true));
+  it('matches keys.secrets', () => expect(isSecretFile('keys.secrets')).toBe(true));
+  it('does NOT match package.json', () => expect(isSecretFile('package.json')).toBe(false));
+  it('does NOT match src/index.ts', () => expect(isSecretFile('src/index.ts')).toBe(false));
+});
+
+// ─── R2: SSRF numeric IP encodings ───────────────────────────────────────────
+
+describe('R2 — SSRF numeric IP encoding normalisation', () => {
+  let normalizeNumericIp: (h: string) => string | null;
+  let isBlockedIpv4: (d: string) => boolean;
+
+  beforeAll(async () => {
+    const mod = await import('../src/routes/live-performance.routes.js');
+    normalizeNumericIp = mod.normalizeNumericIp;
+    isBlockedIpv4 = mod.isBlockedIpv4;
+  });
+
+  it('normalises decimal integer 2852039166 to 169.254.169.254', () => {
+    expect(normalizeNumericIp('2852039166')).toBe('169.254.169.254');
+  });
+
+  it('normalises hex 0xa9fea9fe to 169.254.169.254', () => {
+    expect(normalizeNumericIp('0xa9fea9fe')).toBe('169.254.169.254');
+  });
+
+  it('returns the hostname unchanged for a plain dotted-quad (caller validates via isBlockedIpv4)', () => {
+    // Plain dotted-quad is returned as-is; the caller (resolveAndValidate) passes
+    // it directly to isBlockedIpv4.  Octal-dotted notation (0251.0376.0251.0376)
+    // is not decoded by normalizeNumericIp because browsers do not support it
+    // and the leading-zero guard in isBlockedIpv4 already treats 0.x.x.x as blocked.
+    expect(normalizeNumericIp('169.254.169.254')).toBe('169.254.169.254');
+  });
+
+  it('returns null for a regular hostname', () => {
+    expect(normalizeNumericIp('example.com')).toBeNull();
+  });
+
+  it('isBlockedIpv4 blocks 169.254.169.254', () => {
+    expect(isBlockedIpv4('169.254.169.254')).toBe(true);
+  });
+
+  it('isBlockedIpv4 blocks 10.0.0.1', () => {
+    expect(isBlockedIpv4('10.0.0.1')).toBe(true);
+  });
+
+  it('isBlockedIpv4 allows 127.0.0.1 (loopback)', () => {
+    expect(isBlockedIpv4('127.0.0.1')).toBe(false);
+  });
+
+  it('isBlockedIpv4 blocks 100.64.0.1 (CGNAT)', () => {
+    expect(isBlockedIpv4('100.64.0.1')).toBe(true);
+  });
+});
+
+// ─── R3: startsWith+path.sep — codegen.service.ts boundary check ─────────────
+
+describe('R3 — codegen.service.ts path boundary uses path.sep', () => {
+  it('codegen.service.ts source uses rootWithSep pattern', () => {
+    const src = fs.readFileSync(
+      path.join(import.meta.dirname ?? __dirname, '../src/services/codegen.service.ts'),
+      'utf-8',
+    );
+    // The fix adds a rootWithSep variable; verify it is present
+    expect(src).toContain('rootWithSep');
+    expect(src).toContain('path.sep');
+  });
+});
+
+describe('R3b — validation.service.ts path boundary uses path.sep', () => {
+  it('validation.service.ts source uses rootWithSep pattern', () => {
+    const src = fs.readFileSync(
+      path.join(import.meta.dirname ?? __dirname, '../src/services/orchestrator/validation.service.ts'),
+      'utf-8',
+    );
+    expect(src).toContain('rootWithSep');
+    expect(src).toContain('path.sep');
+  });
+});
+
+// ─── R4: git -- separator ─────────────────────────────────────────────────────
+
+describe('R4 — git.service.ts uses -- separator before file paths', () => {
+  it('git.service.ts stageFiles uses -- separator', () => {
+    const src = fs.readFileSync(
+      path.join(import.meta.dirname ?? __dirname, '../src/services/git.service.ts'),
+      'utf-8',
+    );
+    // All three operations should use '--' before file args
+    expect(src).toContain("'add', '--'");
+    expect(src).toContain("'--staged', '--'");
+    expect(src).toContain("'restore', '--'");
+  });
+});
+
+// ─── R5: permission.service.ts fail-CLOSED on timeout ────────────────────────
+
+describe('R5 — permission.service.ts times out with deny (fail-closed)', () => {
+  it('resolves to deny after timeout', async () => {
+    vi.useFakeTimers();
+    const { PermissionService } = await import('../src/services/orchestrator/permission.service.js');
+    const svc = new PermissionService();
+
+    const decision = svc.createRequest('req-1', 1000);
+    vi.advanceTimersByTime(1500);
+
+    expect(await decision).toBe('deny');
+    vi.useRealTimers();
+  });
+
+  it('resolves to allow when explicitly approved before timeout', async () => {
+    const { PermissionService } = await import('../src/services/orchestrator/permission.service.js');
+    const svc = new PermissionService();
+
+    const decision = svc.createRequest('req-2', 30_000);
+    svc.resolveRequest('req-2', 'allow');
+
+    expect(await decision).toBe('allow');
+  });
+
+  it('resolves to deny when explicitly rejected before timeout', async () => {
+    const { PermissionService } = await import('../src/services/orchestrator/permission.service.js');
+    const svc = new PermissionService();
+
+    const decision = svc.createRequest('req-3', 30_000);
+    svc.resolveRequest('req-3', 'deny');
+
+    expect(await decision).toBe('deny');
+  });
+});
+
+// ─── R6: orchestrator /mcp-suggestions validated by Zod ──────────────────────
+
+describe('R6 — orchestrator /mcp-suggestions and /analyze-mcp have Zod validation', () => {
+  let app: ReturnType<typeof import('express').default>;
+
+  beforeAll(async () => {
+    vi.mock('../src/services/workflows.service.js', () => ({
+      WorkflowsService: class {
+        analyzePromptForMcp = vi.fn(() => []);
+        getAllWorkflows = vi.fn(async () => []);
+        loadCustomWorkflows = vi.fn(async () => []);
+        saveCustomWorkflows = vi.fn(async () => {});
+      },
+    }));
+
+    const express = (await import('express')).default;
+    const { orchestratorRoutes } = await import('../src/routes/orchestrator.routes.js');
+    app = express();
+    app.use(express.json());
+    app.use('/api', orchestratorRoutes);
+  });
+
+  it('POST /api/orchestrator/mcp-suggestions with empty body returns 400', async () => {
+    const res = await request(app)
+      .post('/api/orchestrator/mcp-suggestions')
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/orchestrator/mcp-suggestions with missing prompt returns 400', async () => {
+    const res = await request(app)
+      .post('/api/orchestrator/mcp-suggestions')
+      .send({ selectedAgents: ['react-expert'] });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/orchestrator/mcp-suggestions with valid prompt returns non-400', async () => {
+    const res = await request(app)
+      .post('/api/orchestrator/mcp-suggestions')
+      .send({ prompt: 'Help me build a React app' });
+    expect(res.status).not.toBe(400);
+  });
+
+  it('POST /api/orchestrator/analyze-mcp with empty body returns 400', async () => {
+    const res = await request(app)
+      .post('/api/orchestrator/analyze-mcp')
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/orchestrator/analyze-mcp with oversized prompt returns 400', async () => {
+    const res = await request(app)
+      .post('/api/orchestrator/analyze-mcp')
+      .send({ prompt: 'x'.repeat(50001) });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─── R7: deepMerge prototype pollution guard ──────────────────────────────────
+
+describe('R7 — deepMerge blocks prototype pollution', () => {
+  let deepMerge: <T extends Record<string, unknown>>(target: T, source: Partial<T>) => T;
+
+  beforeAll(async () => {
+    const mod = await import('../src/utils/utilities.js');
+    deepMerge = mod.deepMerge;
+  });
+
+  it('does not pollute Object.prototype via __proto__', () => {
+    const evil = JSON.parse('{"__proto__":{"isPolluted":true}}') as Record<string, unknown>;
+    deepMerge({} as Record<string, unknown>, evil);
+    expect((({}) as Record<string, unknown>).isPolluted).toBeUndefined();
+  });
+
+  it('does not pollute Object.prototype via constructor.prototype', () => {
+    const evil = { constructor: { prototype: { polluted: true } } } as unknown as Record<string, unknown>;
+    deepMerge({} as Record<string, unknown>, evil);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it('merges normal keys correctly', () => {
+    const result = deepMerge({ a: 1, b: { c: 2 } } as Record<string, unknown>, { b: { d: 3 } } as Record<string, unknown>);
+    expect(result.a).toBe(1);
+    expect((result.b as Record<string, unknown>).c).toBe(2);
+    expect((result.b as Record<string, unknown>).d).toBe(3);
+  });
+});
+
+// ─── R8: requestLogger redacts sensitive query params in URLs ────────────────
+
+describe('R8 — requestLogger redactUrlQueryParams', () => {
+  let redactUrlQueryParams: (url: string) => string;
+
+  beforeAll(async () => {
+    const mod = await import('../src/middleware/requestLogger.js');
+    redactUrlQueryParams = mod.redactUrlQueryParams;
+  });
+
+  it('redacts token= in query string', () => {
+    const result = redactUrlQueryParams('/api/usage/config?token=sk-ant-secret');
+    expect(result).not.toContain('sk-ant-secret');
+    expect(result).toContain('[REDACTED]');
+  });
+
+  it('redacts password= in query string', () => {
+    const result = redactUrlQueryParams('/api/auth?password=supersecret&user=alice');
+    expect(result).not.toContain('supersecret');
+    expect(result).toContain('[REDACTED]');
+  });
+
+  it('preserves non-sensitive query parameters', () => {
+    const result = redactUrlQueryParams('/api/files/tree?path=/tmp/project&limit=10');
+    expect(result).toContain('path=');
+    expect(result).toContain('limit=10');
+    expect(result).not.toContain('[REDACTED]');
+  });
+
+  it('returns URL unchanged when there is no query string', () => {
+    expect(redactUrlQueryParams('/api/health')).toBe('/api/health');
+  });
+
+  it('handles multiple sensitive params', () => {
+    const result = redactUrlQueryParams('/api/test?token=abc&apikey=xyz&safe=ok');
+    expect(result).not.toContain('abc');
+    expect(result).not.toContain('xyz');
+    expect(result).toContain('safe=ok');
+  });
+});
+
+// ─── R9: tsconfig.build.json exists with sourceMap:false ─────────────────────
+
+describe('R9 — tsconfig.build.json has sourceMap:false for production', () => {
+  it('tsconfig.build.json exists alongside tsconfig.json', () => {
+    const buildConfigPath = path.join(
+      import.meta.dirname ?? __dirname,
+      '../tsconfig.build.json',
+    );
+    expect(fs.existsSync(buildConfigPath)).toBe(true);
+  });
+
+  it('tsconfig.build.json sets sourceMap to false', () => {
+    const buildConfigPath = path.join(
+      import.meta.dirname ?? __dirname,
+      '../tsconfig.build.json',
+    );
+    const content = fs.readFileSync(buildConfigPath, 'utf-8');
+    // Strip single-line comments before parsing
+    const stripped = content.replace(/\/\/[^\n]*/g, '');
+    const parsed = JSON.parse(stripped) as { compilerOptions?: { sourceMap?: boolean } };
+    expect(parsed.compilerOptions?.sourceMap).toBe(false);
+  });
+});
+
+// ─── R10: server.ts CSP does not have unsafe-inline in script-src ────────────
+
+describe('R10 — CSP script-src does not contain unsafe-inline', () => {
+  it('server.ts CSP scriptSrc array does not include unsafe-inline', () => {
+    const src = fs.readFileSync(
+      path.join(import.meta.dirname ?? __dirname, '../src/server.ts'),
+      'utf-8',
+    );
+    // Extract the scriptSrc line; it must not contain 'unsafe-inline'
+    // We match from scriptSrc: up to the closing bracket
+    const match = /scriptSrc:\s*\[([^\]]+)\]/.exec(src);
+    expect(match).not.toBeNull();
+    const scriptSrcContent = match?.[1] ?? '';
+    expect(scriptSrcContent).not.toContain("'unsafe-inline'");
+  });
+
+  it('health endpoint still responds to requests (CSP does not break JSON API)', async () => {
+    // Verify createServer() returns a working app even with the tightened CSP
+    const { createServer } = await import('../src/server.js');
+    const srv = createServer();
+    const res = await request(srv)
+      .get('/health')
+      .set('Host', `localhost:${(await import('../src/config/index.js')).config.server.port}`);
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+  });
+});

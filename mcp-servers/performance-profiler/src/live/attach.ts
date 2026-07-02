@@ -65,7 +65,16 @@ export async function attachProfiler(input: AttachProfilerInput): Promise<Attach
     console.error(`Attaching JFR to process ${process.pid} (${process.name}) for ${duration}s...`);
 
     const startResult = await runCommand(
-      `jcmd ${process.pid} JFR.start duration=${duration}s filename=${jfrPath} settings=profile`,
+      {
+        cmd: 'jcmd',
+        args: [
+          String(process.pid),
+          'JFR.start',
+          `duration=${duration}s`,
+          `filename=${jfrPath}`,
+          'settings=profile',
+        ],
+      },
       { timeout: 10000 }
     );
 
@@ -78,7 +87,10 @@ export async function attachProfiler(input: AttachProfilerInput): Promise<Attach
     await sleep(duration * 1000 + 2000); // Add 2s buffer
 
     // Check if recording finished
-    const checkResult = await runCommand(`jcmd ${process.pid} JFR.check`, { timeout: 5000 });
+    const checkResult = await runCommand(
+      { cmd: 'jcmd', args: [String(process.pid), 'JFR.check'] },
+      { timeout: 5000 }
+    );
     console.error(`JFR status: ${checkResult.stdout}`);
 
     // Parse the JFR file
@@ -97,7 +109,7 @@ export async function attachProfiler(input: AttachProfilerInput): Promise<Attach
     };
   } catch (error) {
     // Try to stop any running recording
-    await runCommand(`jcmd ${process.pid} JFR.stop`, { timeout: 5000 }).catch(() => {});
+    await runCommand({ cmd: 'jcmd', args: [String(process.pid), 'JFR.stop'] }, { timeout: 5000 }).catch(() => {});
 
     throw error;
   } finally {
@@ -112,7 +124,7 @@ export async function attachProfiler(input: AttachProfilerInput): Promise<Attach
 async function parseJfrFile(jfrPath: string): Promise<FunctionProfile[]> {
   // Use jfr print to get execution samples
   const result = await runCommand(
-    `jfr print --json --events jdk.ExecutionSample "${jfrPath}"`,
+    { cmd: 'jfr', args: ['print', '--json', '--events', 'jdk.ExecutionSample', jfrPath] },
     { timeout: 60000 }
   );
 

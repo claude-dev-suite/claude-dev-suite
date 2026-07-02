@@ -28,28 +28,17 @@ import {
 } from '../utils/process.js';
 import { calculateStats, round, formatBytes } from '../utils/statistics.js';
 
-/** Dangerous patterns for Java benchmark code */
-const DANGEROUS_JAVA_PATTERNS = [
-  /Runtime\s*\.\s*getRuntime\s*\(\s*\)\s*\.\s*exec/,
-  /ProcessBuilder/,
-  /System\s*\.\s*exit/,
-  /\bnew\s+File\b.*\.\s*delete/,
-  /Files\s*\.\s*delete/,
-  /FileOutputStream/,
-  /\bexec\s*\(/,
-];
-
-/** Validate Java benchmark code */
-function validateJavaCode(code: string): void {
-  for (const pattern of DANGEROUS_JAVA_PATTERNS) {
-    if (pattern.test(code)) {
-      throw new Error(
-        `Benchmark code contains forbidden pattern: ${pattern.source}. ` +
-        `Only pure computation code is allowed for benchmarking.`
-      );
-    }
-  }
-}
+/**
+ * NOTE: The regex-blocklist approach for validating raw Java code has been
+ * intentionally removed.  A pattern-based blocklist cannot reliably prevent
+ * arbitrary code execution in Java (Unicode escapes, string concatenation,
+ * reflection, etc. all provide bypass paths).
+ *
+ * benchmarkCode() now defaults to scriptPath mode (safe).  Raw-code execution
+ * is available only when PERF_PROFILER_ALLOW_RAW_CODE=1 is explicitly set by
+ * the server operator — the same gating used by nodejs.ts and python.ts.
+ * This opt-in must never be enabled in production or multi-tenant deployments.
+ */
 
 /** Validate a Java identifier (class or method name) */
 function validateJavaIdentifier(name: string): void {
@@ -111,9 +100,10 @@ export async function profileScript(
     });
 
     // Parse JFR file using jfr command (JDK 11+)
-    const jfrPrint = await runCommand(`jfr print --json --events jdk.ExecutionSample ${jfrPath}`, {
-      timeout: 30000,
-    });
+    const jfrPrint = await runCommand(
+      { cmd: 'jfr', args: ['print', '--json', '--events', 'jdk.ExecutionSample', jfrPath] },
+      { timeout: 30000 }
+    );
 
     // If jfr print fails, try alternative approach
     if (jfrPrint.exitCode !== 0) {
@@ -284,20 +274,20 @@ public class Benchmark {
     await writeFile(benchmarkPath, benchmarkCodeStr);
 
     // Compile
-    const compileResult = await runCommand(`javac -cp "${modulePath}" ${benchmarkPath}`, {
-      timeout: 30000,
-      cwd: tempDir,
-    });
+    const compileResult = await runCommand(
+      { cmd: 'javac', args: ['-cp', modulePath, benchmarkPath] },
+      { timeout: 30000, cwd: tempDir }
+    );
 
     if (compileResult.exitCode !== 0) {
       throw new Error(`Compilation failed: ${compileResult.stderr}`);
     }
 
     // Run
-    const runResult = await runCommand(`java -cp "${modulePath}:${tempDir}" Benchmark`, {
-      timeout: 120000,
-      cwd: tempDir,
-    });
+    const runResult = await runCommand(
+      { cmd: 'java', args: ['-cp', `${modulePath}:${tempDir}`, 'Benchmark'] },
+      { timeout: 120000, cwd: tempDir }
+    );
 
     if (runResult.exitCode !== 0) {
       throw new Error(`Benchmark failed: ${runResult.stderr}`);
@@ -328,24 +318,87 @@ public class Benchmark {
 }
 
 /**
- * Benchmark inline Java code
+ * Benchmark a Java script/jar file, or optionally inline Java code.
+ *
+ * Security note: executing raw, attacker-controlled Java code strings is
+ * fundamentally unsafe regardless of any pattern-based blocklist (easily
+ * bypassed via reflection, class-loading, Unicode escapes, etc.).
+ * The API now accepts a `codeOrPath` pointing to an existing file on disk
+ * (scriptPath mode, safe) and runs it directly via `java`.
+ *
+ * Raw-code execution is available only when the environment variable
+ * PERF_PROFILER_ALLOW_RAW_CODE=1 is explicitly set by the server operator.
+ * This opt-in must never be enabled in production or multi-tenant deployments.
  */
 export async function benchmarkCode(
-  code: string,
+  codeOrPath: string,
   iterations: number = 1000,
-  warmup: number = 100
+  warmup: number = 100,
+  /** When true, treat codeOrPath as a script path (default, safe). */
+  isScriptPath: boolean = true
 ): Promise<BenchmarkResult> {
-  validateJavaCode(code);
+  if (isScriptPath) {
+    // --- Safe path: benchmark an existing Java file/jar ---
+    validateScriptPath(codeOrPath);
+
+    const isJar = codeOrPath.endsWith('.jar');
+    const javaArgs = isJar
+      ? ['-jar', codeOrPath]
+      : [codeOrPath];
+
+    const startTime = Date.now();
+    const result = await runCommand({ cmd: 'java', args: javaArgs }, {
+      timeout: 300000,
+    });
+    const elapsed = Date.now() - startTime;
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Benchmark script failed: ${result.stderr.slice(0, 500)}`);
+    }
+
+    // If the script emits {"timings":[...]} JSON on stdout, parse it;
+    // otherwise report total elapsed time as a single measurement.
+    try {
+      const data = JSON.parse(result.stdout);
+      if (Array.isArray(data.timings)) {
+        const stats = calculateStats(data.timings);
+        return { iterations, warmupIterations: warmup, timing: stats };
+      }
+    } catch {
+      // Script does not emit structured timings — use elapsed time.
+    }
+    return {
+      iterations: 1,
+      warmupIterations: 0,
+      timing: calculateStats([elapsed]),
+    };
+  }
+
+  // --- Opt-in raw-code path (disabled by default) ---
+  const allowRaw = process.env['PERF_PROFILER_ALLOW_RAW_CODE'] === '1';
+  if (!allowRaw) {
+    throw new Error(
+      'Raw code execution is disabled. ' +
+      'Pass a scriptPath instead, or set PERF_PROFILER_ALLOW_RAW_CODE=1 ' +
+      'to opt-in (unsafe — only for trusted, single-user environments).'
+    );
+  }
+
+  // Warn loudly that this mode is insecure.
+  console.error(
+    '[SECURITY WARNING] PERF_PROFILER_ALLOW_RAW_CODE is enabled. ' +
+    'Raw Java code execution is unsafe in any multi-user or production environment.'
+  );
 
   const tempDir = await createTempDir('java-benchmark');
 
-  const benchmarkCode = `
+  const benchmarkJavaCode = `
 import java.util.ArrayList;
 import java.util.List;
 
 public class Benchmark {
     public static void benchmark() {
-        ${code}
+        ${codeOrPath}
     }
 
     public static void main(String[] args) {
@@ -381,18 +434,19 @@ public class Benchmark {
   const benchmarkPath = join(tempDir, 'Benchmark.java');
 
   try {
-    await writeFile(benchmarkPath, benchmarkCode);
+    await writeFile(benchmarkPath, benchmarkJavaCode);
 
     // Compile
-    await runCommand(`javac ${benchmarkPath}`, {
-      timeout: 30000,
-      cwd: tempDir,
-    });
+    await runCommand(
+      { cmd: 'javac', args: [benchmarkPath] },
+      { timeout: 30000, cwd: tempDir }
+    );
 
     // Run
-    const result = await runCommand(`java -cp ${tempDir} Benchmark`, {
-      timeout: 300000,
-    });
+    const result = await runCommand(
+      { cmd: 'java', args: ['-cp', tempDir, 'Benchmark'] },
+      { timeout: 300000 }
+    );
 
     if (result.exitCode !== 0) {
       throw new Error(`Benchmark failed: ${result.stderr}`);
@@ -439,13 +493,15 @@ export async function analyzeMemory(
     // Use jcmd to get heap info if process is still running
     const jcmdResult = await runCommand('jcmd | head -1 | cut -d " " -f 1', {
       timeout: 1000,
+      shell: true, // needs shell pipe
     });
 
     if (jcmdResult.stdout.trim()) {
       const pid = jcmdResult.stdout.trim();
-      const heapInfo = await runCommand(`jcmd ${pid} GC.heap_info`, {
-        timeout: 5000,
-      });
+      const heapInfo = await runCommand(
+        { cmd: 'jcmd', args: [pid, 'GC.heap_info'] },
+        { timeout: 5000 }
+      );
 
       // Parse heap info
       const heapMatch = heapInfo.stdout.match(/used\s+(\d+)/);

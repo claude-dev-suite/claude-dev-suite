@@ -16,11 +16,20 @@ export async function scanContainer(input: ScanContainerInput): Promise<ScanResu
     return createEmptyResult(scanner, false, `trivy not installed. ${getInstallCommand('trivy')}`);
   }
 
+  // Guard against a target that starts with a dash, which would be interpreted
+  // as a trivy CLI flag (leading-dash injection).  The '--' separator stops
+  // option parsing for the trivy sub-command.
+  if (target.startsWith('-')) {
+    return createEmptyResult(scanner, true, `Invalid target: "${target}" — target must not start with a dash`);
+  }
+
   try {
     const scanType = type === 'image' ? 'image' : 'fs';
     const { stdout } = await execFileAsync(
       'trivy',
-      [scanType, '--format', 'json', target],
+      // '--' ensures trivy treats everything after it as positional arguments,
+      // not flags.  This prevents any residual leading-dash bypass.
+      [scanType, '--format', 'json', '--', target],
       {
         maxBuffer: 50 * 1024 * 1024,
         timeout: 600000, // 10 minute timeout for large images

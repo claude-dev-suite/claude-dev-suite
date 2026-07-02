@@ -1,0 +1,17 @@
+{
+  // Production build configuration — extends tsconfig.json with security-hardened settings.
+  // Use: tsc --project tsconfig.build.json
+  //
+  // SECURITY: sourceMap is disabled so that compiled .js.map files are NOT
+  // included in the production artifact.  Source maps expose internal file
+  // paths and original TypeScript source to anyone who can read the dist/
+  // directory, which widens the attack surface if the server is ever
+  // compromised.  During development, use tsconfig.json (sourceMap:true) for
+  // full debuggability.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "sourceMap": false,
+    "declarationMap": false
+  },
+  "exclude": ["node_modules", "dist", "src/**/*.example.ts", "tests/**/*"]
+}

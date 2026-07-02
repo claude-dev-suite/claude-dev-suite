@@ -118,7 +118,7 @@ export const GitService = {
   stageFiles(repoPath: string, projectPath: string, files: string[]): void {
     const absolutePath = getAbsolutePath(repoPath, projectPath);
     const sanitizedFiles = files.map((f) => sanitizeFilePath(f));
-    execGit(['add', ...sanitizedFiles], absolutePath);
+    execGit(['add', '--', ...sanitizedFiles], absolutePath);
   },
 
   stageAll(repoPath: string, projectPath: string): void {
@@ -129,7 +129,7 @@ export const GitService = {
   unstageFiles(repoPath: string, projectPath: string, files: string[]): void {
     const absolutePath = getAbsolutePath(repoPath, projectPath);
     const sanitizedFiles = files.map((f) => sanitizeFilePath(f));
-    execGit(['restore', '--staged', ...sanitizedFiles], absolutePath);
+    execGit(['restore', '--staged', '--', ...sanitizedFiles], absolutePath);
   },
 
   unstageAll(repoPath: string, projectPath: string): void {
@@ -143,7 +143,7 @@ export const GitService = {
       this.unstageFiles(repoPath, projectPath, files);
     }
     const sanitizedFiles = files.map((f) => sanitizeFilePath(f));
-    execGit(['restore', ...sanitizedFiles], absolutePath);
+    execGit(['restore', '--', ...sanitizedFiles], absolutePath);
   },
 
   // ============================================

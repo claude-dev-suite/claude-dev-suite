@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// KEPT IN SYNC with configurator/dashboard/{src,server/src}/types/agents.ts — verified by scripts/check-type-sync.mjs
 /**
  * Agent Types for Dev-Suite Dashboard
  *

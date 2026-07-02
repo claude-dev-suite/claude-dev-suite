@@ -44,7 +44,9 @@ export const DockerPsSchema = z.object({
 export const ContainerActionSchema = z.object({
   container: z.string().describe("Container name or ID"),
   action: z.enum(["start", "stop", "restart", "logs", "inspect"]),
-  tail: z.number().optional().default(100).describe("Number of log lines (for logs action)"),
+  tail: z.number().int().min(1).max(10000).optional().default(100).describe(
+    "Number of log lines to return (for logs action). Min 1, max 10000."
+  ),
 });
 
 export const ComposeActionSchema = z.object({

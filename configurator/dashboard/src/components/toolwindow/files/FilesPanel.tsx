@@ -314,7 +314,17 @@ export function FilesPanel() {
             </div>
             {/* Shiki output — background already set by github-dark theme */}
             {/* DOMPurify sanitizes as defense-in-depth; Shiki itself escapes code
-                content, but sanitization guards against any unexpected output. */}
+                content, but sanitization guards against any unexpected output.
+                SECURITY NOTE (Shiki/DOMPurify `style` attribute):
+                Shiki v4 with named themes (github-dark) emits inline `style` attributes
+                carrying only color/font values on <span> elements — there is no network
+                fetch, no script, and no external resource reference in these values.
+                Switching to class-based theming (defaultColor: false / CSS variables)
+                would require injecting a matching <style> block that DOMPurify would
+                strip, breaking highlighting entirely. The `style` attribute is therefore
+                intentionally allowed. The risk surface is minimal: DOMPurify already
+                blocks url(), expression(), and other dangerous CSS constructs even when
+                `style` is in ALLOWED_ATTR. Re-evaluate if upgrading to Shiki v5+. */}
             <div
               className="text-xs [&_pre]:p-4 [&_pre]:min-h-full [&_pre]:!bg-transparent
                 [&_.shiki]:!bg-transparent [&_code]:font-mono [&_code]:text-xs [&_code]:leading-5"
