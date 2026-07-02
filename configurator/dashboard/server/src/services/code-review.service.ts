@@ -159,7 +159,9 @@ export class CodeReviewService {
       if (!resolved.startsWith(rootWithSep) && resolved !== projectPath) {
         throw new PathValidationError('repoPath must resolve inside the project');
       }
-      cwd = resolved;
+      // Canonicalize (realpath + existence + rootedness) like every other
+      // spawn cwd in the codebase.
+      cwd = resolveProjectPath(resolved);
     }
 
     if (!this.isValidPath(cwd)) {
