@@ -77,9 +77,10 @@ function parseOpenApiSpec(content: string): Pick<SpecInfo, 'title' | 'version' |
     }
   } catch {
     // YAML fallback — regex-based extraction (no YAML parser dependency).
-    // The capture is a single greedy class with quote-stripping done in JS
-    // to keep the regex linear-time on untrusted spec content.
-    const titleMatch = content.match(/^[ \t]*title:[ \t]*(.+)$/m);
+    // The capture starts with a non-blank char so it cannot overlap the
+    // preceding [ \t]* (linear-time on untrusted spec content); quotes are
+    // stripped in JS.
+    const titleMatch = content.match(/^[ \t]*title:[ \t]*([^ \t\r\n][^\r\n]*)$/m);
     if (titleMatch?.[1]) title = stripYamlScalar(titleMatch[1]);
     const versionMatch = content.match(/(?:openapi|swagger):\s*["']?([0-9.]+)["']?/i);
     if (versionMatch?.[1]) version = versionMatch[1];
@@ -143,7 +144,7 @@ function parseAsyncApiSpec(content: string): Pick<SpecInfo, 'title' | 'version' 
       channels.push({ name: channelName, operationId, messageType });
     }
   } catch {
-    const titleMatch = content.match(/^[ \t]*title:[ \t]*(.+)$/m);
+    const titleMatch = content.match(/^[ \t]*title:[ \t]*([^ \t\r\n][^\r\n]*)$/m);
     if (titleMatch?.[1]) title = stripYamlScalar(titleMatch[1]);
     const versionMatch = content.match(/asyncapi:\s*["']?([0-9.]+)["']?/i);
     if (versionMatch?.[1]) version = versionMatch[1];

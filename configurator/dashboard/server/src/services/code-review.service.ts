@@ -148,6 +148,7 @@ export class CodeReviewService {
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     let cwd = projectPath;
     if (repoPath) {
+      if (repoPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
       cwd = path.resolve(projectPath, repoPath);
       if (cwd !== projectPath && !cwd.startsWith(projectPath + path.sep)) {
         throw new PathValidationError('repoPath must resolve inside the project');
