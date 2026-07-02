@@ -7,6 +7,15 @@
 
 export { GitService } from '../git.service.js';
 
+// GitHub CLI auth flow (gh auth login --web) — state + process management
+export { GitAuthService, gitAuthService } from './git-auth.service.js';
+export type {
+  GitAuthStatus,
+  GitAuthState,
+  StartLoginResult,
+  GitAuthServiceOptions,
+} from './git-auth.service.js';
+
 // Re-export types for convenience
 export type {
   GitRepoStatus,
