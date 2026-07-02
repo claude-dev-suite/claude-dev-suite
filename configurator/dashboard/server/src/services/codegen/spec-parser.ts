@@ -22,6 +22,15 @@ import {
 // SPEC PARSING
 // ============================================
 
+/**
+ * Trim a YAML-fallback scalar and strip one pair of surrounding quotes.
+ * Done in JS (not in the regex) to keep the extraction regexes linear-time
+ * on untrusted spec content.
+ */
+function stripYamlScalar(raw: string): string {
+  return raw.trim().replace(/^["']/, '').replace(/["']$/, '');
+}
+
 function parseOpenApiSpec(content: string): Pick<SpecInfo, 'title' | 'version' | 'models' | 'endpoints'> {
   const models: ModelDef[] = [];
   const endpoints: EndpointDef[] = [];
@@ -67,9 +76,11 @@ function parseOpenApiSpec(content: string): Pick<SpecInfo, 'title' | 'version' |
       }
     }
   } catch {
-    // YAML fallback — regex-based extraction (no YAML parser dependency)
-    const titleMatch = content.match(/^\s*title:[ \t]*["']?([^"'\r\n]+)["']?[ \t]*$/m);
-    if (titleMatch?.[1]) title = titleMatch[1].trim();
+    // YAML fallback — regex-based extraction (no YAML parser dependency).
+    // The capture is a single greedy class with quote-stripping done in JS
+    // to keep the regex linear-time on untrusted spec content.
+    const titleMatch = content.match(/^[ \t]*title:[ \t]*(.+)$/m);
+    if (titleMatch?.[1]) title = stripYamlScalar(titleMatch[1]);
     const versionMatch = content.match(/(?:openapi|swagger):\s*["']?([0-9.]+)["']?/i);
     if (versionMatch?.[1]) version = versionMatch[1];
 
@@ -132,8 +143,8 @@ function parseAsyncApiSpec(content: string): Pick<SpecInfo, 'title' | 'version' 
       channels.push({ name: channelName, operationId, messageType });
     }
   } catch {
-    const titleMatch = content.match(/^\s*title:[ \t]*["']?([^"'\r\n]+)["']?[ \t]*$/m);
-    if (titleMatch?.[1]) title = titleMatch[1].trim();
+    const titleMatch = content.match(/^[ \t]*title:[ \t]*(.+)$/m);
+    if (titleMatch?.[1]) title = stripYamlScalar(titleMatch[1]);
     const versionMatch = content.match(/asyncapi:\s*["']?([0-9.]+)["']?/i);
     if (versionMatch?.[1]) version = versionMatch[1];
     const channelRe = /^(\s{0,2})([\w./{}:-]+):[ \t]*$/gm;
@@ -157,7 +168,8 @@ function parseTypeSpecContent(content: string): Pick<SpecInfo, 'title' | 'versio
   const nsMatch = content.match(/namespace\s+([\w.]+)/);
   const title = nsMatch?.[1] ?? 'TypeSpec';
 
-  const modelRe = /model\s+(\w+)\s*\{([^}]*)\}/g;
+  // [^{}]* (not [^}]*) keeps the scan linear on unbalanced braces (CodeQL js/polynomial-redos)
+  const modelRe = /model\s+(\w+)\s*\{([^{}]*)\}/g;
   let m: RegExpExecArray | null;
   while ((m = modelRe.exec(content)) !== null) {
     const name = m[1] ?? '';
@@ -195,7 +207,8 @@ function parseProtobufContent(content: string): Pick<SpecInfo, 'title' | 'versio
   const pkgMatch = content.match(/package\s+([\w.]+)\s*;/);
   const title = pkgMatch?.[1] ?? 'proto';
 
-  const msgRe = /message\s+(\w+)\s*\{([^}]*)\}/g;
+  // [^{}]* (not [^}]*) keeps the scan linear on unbalanced braces (CodeQL js/polynomial-redos)
+  const msgRe = /message\s+(\w+)\s*\{([^{}]*)\}/g;
   let m: RegExpExecArray | null;
   while ((m = msgRe.exec(content)) !== null) {
     const name = m[1] ?? '';
@@ -209,7 +222,7 @@ function parseProtobufContent(content: string): Pick<SpecInfo, 'title' | 'versio
     protoMessages.push({ name, fields });
   }
 
-  const svcRe = /service\s+(\w+)\s*\{([^}]*)\}/g;
+  const svcRe = /service\s+(\w+)\s*\{([^{}]*)\}/g;
   while ((m = svcRe.exec(content)) !== null) {
     const name = m[1] ?? '';
     const body = m[2] ?? '';
