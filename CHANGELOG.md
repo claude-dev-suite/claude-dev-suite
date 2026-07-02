@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-07-02
+
 ### Fixed
 
 - **External links now work in the packaged Electron app.** The preload script
@@ -74,6 +76,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   covers `*.prt` agent-test artifacts and the bundled `node-x64/` runtime.
 
 ### Security
+
+- **PR-CI-surfaced fixes** (first run of MCP tests + CodeQL over the moved
+  codegen code): `getDiffForReview` now enforces string type, `..` barrier,
+  containment, and realpath canonicalization on `repoPath` before using it as
+  a spawn cwd; the codegen YAML-fallback regexes were rewritten linear-time
+  (polynomial backtracking on untrusted spec content).
 
 - **Second hardening round — gaps found re-auditing the first pass:**
   - **`benchmark_code` Java runtime now honours the raw-code gate** (it had no
