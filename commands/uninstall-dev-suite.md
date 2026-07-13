@@ -2,7 +2,7 @@
 name: uninstall-dev-suite
 description: Remove dev-suite components from a project. Only removes tracked components, preserves user content.
 allowed-tools: Bash, Read, Glob, AskUserQuestion
-argument-hint: [project-path]
+argument-hint: "[project-path]"
 ---
 
 # Uninstall Dev-Suite Command
