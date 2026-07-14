@@ -2,7 +2,7 @@
 name: health-check
 description: Run health checks on dev-suite installation
 allowed-tools: Bash
-argument-hint: [--quick] [--verbose]
+argument-hint: "[--quick] [--verbose]"
 ---
 
 # Health Check

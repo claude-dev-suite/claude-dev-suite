@@ -2,7 +2,7 @@
 name: init-project
 description: Initialize dev-suite for a project using the web dashboard.
 allowed-tools: Bash
-argument-hint: [project-path]
+argument-hint: "[project-path]"
 ---
 
 # /init-project - Initialize dev-suite

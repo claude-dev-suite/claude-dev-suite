@@ -2,7 +2,7 @@
 name: uninstall
 description: Alias for /uninstall-dev-suite. Removes dev-suite components preserving user content.
 allowed-tools: Bash, Read, Glob, AskUserQuestion
-argument-hint: [project-path]
+argument-hint: "[project-path]"
 ---
 
 # Uninstall Dev-Suite

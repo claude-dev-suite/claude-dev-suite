@@ -2,7 +2,7 @@
 name: release-promote
 description: Generate all promotional content for a new dev-suite release across every channel
 allowed-tools: Read, Write, Bash, Glob
-argument-hint: [version] — e.g. /release-promote v1.2.0
+argument-hint: "[version] — e.g. /release-promote v1.2.0"
 ---
 
 # Release Promote
