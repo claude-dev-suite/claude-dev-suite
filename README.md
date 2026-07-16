@@ -52,7 +52,7 @@ Dev-Suite transforms Claude Code into a full-stack development powerhouse by pro
 - **Custom Agents Builder** - Create and edit custom agents directly from the dashboard
 - **Recipes & Automations** - Pre-built automation workflows for common development tasks
 - **Hooks Management** - Configure Git hooks and Claude Code hooks from the dashboard
-- **Upgrade System** - Update dev-suite components with intelligent conflict detection
+- **Update System** - Version visibility (installed vs. available) plus a transactional Reinstall / Sync that re-aligns a project to the current source
 - **Analytics Dashboard** - Track knowledge base usage and correlate with executed jobs
 - **121+ Technologies** - On-demand documentation via Git-based knowledge base
 
@@ -451,15 +451,15 @@ Configure Git hooks and Claude Code hooks from the dashboard:
 
 ---
 
-### Upgrade System
+### Update System
 
-Keep dev-suite components up to date with intelligent upgrade management:
+Keep dev-suite components up to date through the dashboard **Updates** tab:
 
-- **Version Detection** - Check for available updates to agents, skills, and MCP servers
+- **Version Visibility** - See the dev-suite version installed in your project alongside the version available from source, with an at-a-glance *Up to date* / *Update available* status
 - **New Component Discovery** - Proactively notifies when new agents or MCP servers are added to dev-suite after your installation, with one-click install
-- **Conflict Detection** - 3-way merge to identify conflicts with local customizations
-- **Upgrade History** - Track all upgrades with rollback capability
-- **Selective Updates** - Choose which components to upgrade
+- **Reinstall / Sync** - A single, transactional erase-and-replace that re-aligns a project to the current source: managed components are re-installed and orphaned ones removed, while your custom agents/skills, `CLAUDE.md` notes, and `settings.json` keys are preserved
+- **Per-file opt-out** - Locally modified managed files are previewed with an **Overwrite / Keep** choice
+- **Safe by default** - A backup is taken before any change and any failure rolls back automatically
 
 ---
 
@@ -1080,11 +1080,10 @@ The easiest way to upgrade is through the **Updates** tab in the dashboard:
 
 1. Open the dashboard: `./init-project.sh .`
 2. Navigate to the **Updates** tab
-3. Review available updates and select components to upgrade
-4. Click **Apply Updates** — dev-suite handles conflict detection automatically
+3. Check the version panel — it shows the version installed in your project vs the version available from source
+4. Click **Reinstall / Sync** to re-align the project to the current source
 
-For a clean, full resync (rather than incremental feature updates), use the
-**Reinstall / Sync** tab. It performs a transactional erase-and-replace: managed
+**Reinstall / Sync** performs a transactional erase-and-replace: managed
 components are re-installed from source and orphaned ones removed, while your
 custom agents/skills, `CLAUDE.md` notes, and `settings.json` keys are preserved.
 Locally modified files are previewed with an **Overwrite / Keep** choice, a backup
