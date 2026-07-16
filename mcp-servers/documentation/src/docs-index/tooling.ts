@@ -169,11 +169,11 @@ export const toolingDocs: DocsRecord = {
     },
     generators: {
       local: "nx/generators.md",
-      url: "https://nx.dev/extending-nx/recipes/local-generators",
+      url: "https://nx.dev/docs/extending-nx/local-generators",
     },
     executors: {
       local: "nx/executors.md",
-      url: "https://nx.dev/extending-nx/recipes/local-executors",
+      url: "https://nx.dev/docs/extending-nx/local-executors",
     },
     affected: {
       local: "nx/affected.md",

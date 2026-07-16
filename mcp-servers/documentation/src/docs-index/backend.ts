@@ -604,15 +604,15 @@ export const backendDocs: DocsRecord = {
   gin: {
     routing: {
       local: "gin/routing.md",
-      url: "https://gin-gonic.com/docs/examples/",
+      url: "https://gin-gonic.com/en/docs/",
     },
     middleware: {
       local: "gin/middleware.md",
-      url: "https://gin-gonic.com/docs/examples/custom-middleware/",
+      url: "https://gin-gonic.com/en/docs/middleware/using-middleware/",
     },
     binding: {
       local: "gin/binding.md",
-      url: "https://gin-gonic.com/docs/examples/binding-and-validation/",
+      url: "https://gin-gonic.com/en/docs/",
     },
   },
 
@@ -638,7 +638,7 @@ export const backendDocs: DocsRecord = {
     },
     middleware: {
       local: "echo/middleware.md",
-      url: "https://echo.labstack.com/docs/middleware",
+      url: "https://echo.labstack.com/docs/category/middleware",
     },
     binding: {
       local: "echo/binding.md",
@@ -669,15 +669,15 @@ export const backendDocs: DocsRecord = {
     },
     routes: {
       local: "fresh/routes.md",
-      url: "https://fresh.deno.dev/docs/concepts/routes",
+      url: "https://fresh.deno.dev/docs/concepts/routing",
     },
     handlers: {
       local: "fresh/handlers.md",
-      url: "https://fresh.deno.dev/docs/concepts/handlers",
+      url: "https://fresh.deno.dev/docs/concepts/routing",
     },
     signals: {
       local: "fresh/signals.md",
-      url: "https://fresh.deno.dev/docs/concepts/state-management",
+      url: "https://fresh.deno.dev/docs/concepts/islands",
     },
   },
 

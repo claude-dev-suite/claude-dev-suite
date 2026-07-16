@@ -8,6 +8,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Documentation MCP server: git-mode now reaches KB content that lives under a
+  different path than its record keys.** `fetch_docs`/`list_topics` previously
+  rebuilt the KB path from the `{technology}/{topic}` record keys, ignoring the
+  index `local` field. When the knowledge base stores a topic elsewhere (e.g.
+  technology `bitcoin-consensus` → `bitcoin/protocol/consensus/overview.md`),
+  git-mode looked in the wrong place, failed, and silently degraded to live HTML
+  scraping. Path resolution now derives the KB directory and file from `local`
+  (new `resolveKbCoords`/`resolveKbDir` helpers, with traversal guards), falling
+  back to the key-derived path when `local` is absent. This makes ~526 additional
+  (technology, topic) pairs — whole domains such as `bitcoin-*`, most `rag-*`,
+  and `gamedev-2d-art-*` — serveable from the KB instead of via live scraping,
+  raising git-mode reachability from ~40% to ~85% of indexed pairs.
+- **Documentation MCP server: repointed 10 dead upstream doc URLs** (the ones with
+  no KB fallback either — `gin`, `echo`, `fresh`, `nx`, and the OWASP JWT
+  cheatsheet used by `jwt`/`cryptography`) to their web-verified current pages, so
+  those live-only topics resolve again. Full audit in `docs/kb-audit-2026-07.md`.
+
+### Changed
+
+- **Updates tab simplified to a single update mechanism.** The incremental
+  feature-upgrade UI (available-updates list, 3-way conflict detection/resolution,
+  selective apply, and upgrade history) was retired in favour of a version panel
+  (installed-in-project vs. available-from-source) on top of the transactional
+  **Reinstall / Sync** flow, which fully re-aligns a project to the current source
+  (backup + rollback, orphan removal, per-file Overwrite/Keep opt-out). The
+  now-unused `UpdateCard`, `ConflictModal`, `UpgradeHistoryList`, and `DiffViewer`
+  components were removed.
+
 ## [1.12.0] - 2026-07-02
 
 ### Fixed

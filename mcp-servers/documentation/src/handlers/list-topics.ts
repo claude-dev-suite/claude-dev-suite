@@ -5,16 +5,23 @@
 
 import { ListTopicsSchema, jsonResponse, type Handler, type HandlerResult } from "./types.js";
 import { docsIndex } from "../docs-index.js";
+import { resolveKbDir } from "../kb-path.js";
 
 export const handleListTopics: Handler = async (args, ctx): Promise<HandlerResult> => {
   const { technology } = ListTopicsSchema.parse(args);
 
+  // Resolve the real KB directory from any topic's `local` path (they share the
+  // same first segment) so technologies whose key differs from the on-disk
+  // directory still list correctly.
+  const firstTopic = Object.keys(docsIndex[technology] || {})[0];
+  const kbDir = resolveKbDir(docsIndex[technology]?.[firstTopic]?.local, technology);
+
   // Git mode - fetch from cached KB
   if (ctx.kbMode === "git" && ctx.kbFetcher) {
     try {
-      const files = await ctx.kbFetcher.fetch(technology);
+      const files = await ctx.kbFetcher.fetch(kbDir);
       const versions = ctx.versionResolver
-        ? await ctx.versionResolver.listVersions(technology)
+        ? await ctx.versionResolver.listVersions(kbDir)
         : null;
 
       return jsonResponse({

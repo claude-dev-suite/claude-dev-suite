@@ -6,21 +6,30 @@
 import { FetchDocsSchema, jsonResponse, type Handler, type HandlerContext, type HandlerResult } from "./types.js";
 import { processContent } from "./utils.js";
 import { docsIndex } from "../docs-index.js";
+import { resolveKbCoords } from "../kb-path.js";
 import { fetchLiveDocs } from "../sources/live-fetcher.js";
 
 export const handleFetchDocs: Handler = async (args, ctx): Promise<HandlerResult> => {
   const { technology, topic, version, refresh, format, maxTokens, sections } = FetchDocsSchema.parse(args);
 
+  const entry = docsIndex[technology]?.[topic];
+
   // On-demand KB mode with versioning support
   if (ctx.kbMode === "git" && ctx.kbFetcher && ctx.versionResolver) {
     try {
-      // Fetch/cache technology files first
-      await ctx.kbFetcher.fetch(technology, refresh);
+      // Resolve the real KB location from the index `local` path (the record
+      // keys often differ from the on-disk layout, e.g. technology
+      // "bitcoin-consensus" → "bitcoin/protocol/consensus/overview.md"). Falls
+      // back to the key-derived path when `local` is missing.
+      const { dir, topicStem } = resolveKbCoords(entry?.local, technology, topic);
+
+      // Fetch/cache the KB directory first
+      await ctx.kbFetcher.fetch(dir, refresh);
 
       // Use version resolver for versioned requests
       const result = await ctx.versionResolver.fetchVersioned({
-        technology,
-        topic,
+        technology: dir,
+        topic: topicStem,
         version,
       });
 
@@ -54,8 +63,6 @@ export const handleFetchDocs: Handler = async (args, ctx): Promise<HandlerResult
   }
 
   // Live mode fallback (fetch from official docs URLs)
-  const entry = docsIndex[technology]?.[topic];
-
   if (!entry) {
     const availableTopics = Object.keys(docsIndex[technology] || {});
     return jsonResponse({
