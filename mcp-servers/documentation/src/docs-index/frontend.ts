@@ -22,6 +22,8 @@ export const FRONTEND_TECHNOLOGIES = [
   "shadcn",
   "skeleton",
   "ngrx",
+  "radix-ui",
+  "streamlit",
 ] as const;
 
 export const frontendDocs: DocsRecord = {
@@ -229,6 +231,71 @@ export const frontendDocs: DocsRecord = {
     "component-store": {
       local: "ngrx/component-store.md",
       url: "https://ngrx.io/guide/component-store",
+    },
+  },
+
+  // `svelte` was listed in FRONTEND_TECHNOLOGIES with no record: the KB's
+  // svelte/sveltekit.md is served under the separate `sveltekit` key, which
+  // left svelte/runes.md — a Svelte language feature, not a SvelteKit one —
+  // with no way to reach it.
+  svelte: {
+    runes: {
+      local: "svelte/runes.md",
+      url: "https://svelte.dev/docs/svelte/what-are-runes",
+    },
+  },
+
+  // `solid` was another record-less entry; no KB content, so live-only.
+  solid: {
+    signals: {
+      local: "solid/signals.md",
+      url: "https://docs.solidjs.com/concepts/signals",
+    },
+    effects: {
+      local: "solid/effects.md",
+      url: "https://docs.solidjs.com/concepts/effects",
+    },
+    stores: {
+      local: "solid/stores.md",
+      url: "https://docs.solidjs.com/concepts/stores",
+    },
+    routing: {
+      local: "solid/routing.md",
+      url: "https://docs.solidjs.com/guides/routing-and-navigation",
+    },
+    "data-fetching": {
+      local: "solid/data-fetching.md",
+      url: "https://docs.solidjs.com/guides/fetching-data",
+    },
+  },
+
+  "radix-ui": {
+    components: {
+      local: "radix-ui/quick-ref/components.md",
+      url: "https://www.radix-ui.com/primitives/docs/overview/introduction",
+    },
+    "accessibility-patterns": {
+      local: "radix-ui/deep-docs/accessibility-patterns.md",
+      url: "https://www.radix-ui.com/primitives/docs/overview/accessibility",
+    },
+  },
+
+  streamlit: {
+    basics: {
+      local: "streamlit/basics.md",
+      url: "https://docs.streamlit.io/get-started/fundamentals/main-concepts",
+    },
+    components: {
+      local: "streamlit/components.md",
+      url: "https://docs.streamlit.io/develop/api-reference",
+    },
+    pages: {
+      local: "streamlit/pages.md",
+      url: "https://docs.streamlit.io/develop/concepts/multipage-apps/overview",
+    },
+    state: {
+      local: "streamlit/state.md",
+      url: "https://docs.streamlit.io/develop/concepts/architecture/session-state",
     },
   },
 };

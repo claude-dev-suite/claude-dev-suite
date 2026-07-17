@@ -21,10 +21,12 @@ export const TOOLING_TECHNOLOGIES = [
   "biome",
   "eslint",
   "cpp-quality",
+  "ruff",
   // Validation
   "zod",
   "yup",
   "class-validator",
+  "pydantic",
   // Logging - Java
   "logback",
   "slf4j",
@@ -96,6 +98,48 @@ export const toolingDocs: DocsRecord = {
     plugins: {
       local: "vite/plugins.md",
       url: "https://vite.dev/plugins/",
+    },
+    optimization: {
+      local: "vite/deep-docs/optimization.md",
+      url: "https://vite.dev/guide/performance",
+    },
+  },
+
+  ruff: {
+    basics: {
+      local: "ruff/basics.md",
+      url: "https://docs.astral.sh/ruff/",
+    },
+    configuration: {
+      local: "ruff/configuration.md",
+      url: "https://docs.astral.sh/ruff/configuration/",
+    },
+    formatter: {
+      local: "ruff/formatter.md",
+      url: "https://docs.astral.sh/ruff/formatter/",
+    },
+    rules: {
+      local: "ruff/rules.md",
+      url: "https://docs.astral.sh/ruff/rules/",
+    },
+  },
+
+  pydantic: {
+    models: {
+      local: "pydantic/models.md",
+      url: "https://pydantic.dev/docs/validation/latest/concepts/models/",
+    },
+    validation: {
+      local: "pydantic/validation.md",
+      url: "https://pydantic.dev/docs/validation/latest/concepts/validators/",
+    },
+    types: {
+      local: "pydantic/types.md",
+      url: "https://pydantic.dev/docs/validation/latest/concepts/types/",
+    },
+    settings: {
+      local: "pydantic/settings.md",
+      url: "https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/",
     },
   },
 

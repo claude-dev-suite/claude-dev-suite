@@ -60,12 +60,15 @@ describe('docs-index', () => {
       });
     });
 
-    it('should give every topic a non-empty local and url', () => {
+    it('should give every topic a local, and a well-formed url when it has one', () => {
       Object.entries(docsIndex).forEach(([tech, topics]) => {
         Object.entries(topics).forEach(([topic, entry]) => {
           expect(entry.local, `${tech}/${topic} local`).toBeTruthy();
-          expect(entry.url, `${tech}/${topic} url`).toMatch(/^https?:\/\//);
           expect(entry.local, `${tech}/${topic} local`).toMatch(/\.md$/);
+          // `url` is optional: KB-only topics have no upstream page.
+          if (entry.url !== undefined) {
+            expect(entry.url, `${tech}/${topic} url`).toMatch(/^https?:\/\//);
+          }
         });
       });
     });
