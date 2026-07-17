@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Five commands are no longer dropped by strict frontmatter parsers.**
+  `argument-hint` was written with bare brackets, which YAML does not read as
+  the documented string: `[project-path]` parses as the array
+  `["project-path"]` (`init-project`, `uninstall`, `uninstall-dev-suite`),
+  while `[--quick] [--verbose]` and `[version] — e.g. ...` are a flow sequence
+  followed by trailing content — invalid YAML that makes the *entire*
+  frontmatter block throw, taking `name`, `description` and `allowed-tools`
+  down with it (`health-check`, `release-promote`). Claude Code tolerated both
+  shapes, so this stayed invisible until GitHub Copilot CLI ≥1.0.65 tightened
+  its type check and silently stopped listing the commands. All five values are
+  now quoted. Reported and fixed by @thejesh23 in #112 / #113.
 - **Documentation MCP server: git-mode now reaches KB content that lives under a
   different path than its record keys.** `fetch_docs`/`list_topics` previously
   rebuilt the KB path from the `{technology}/{topic}` record keys, ignoring the
@@ -26,6 +37,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   no KB fallback either — `gin`, `echo`, `fresh`, `nx`, and the OWASP JWT
   cheatsheet used by `jwt`/`cryptography`) to their web-verified current pages, so
   those live-only topics resolve again. Full audit in `docs/kb-audit-2026-07.md`.
+
+### Added
+
+- **`scripts/validate-frontmatter.mjs` — frontmatter validity check, run in
+  CI.** Parses every frontmatter block under `agents/`, `commands/` and
+  `skills/` with `gray-matter` (the same parser the dashboard uses at runtime),
+  and fails on YAML that does not parse, on missing `name` / `description`, and
+  on keys whose type doesn't match the documented one — the `argument-hint`
+  array above included. `scripts/validate-catalog.mjs` could not catch this
+  class of bug: it reads frontmatter with a line-oriented regex that accepts
+  YAML a real parser rejects, and it only walks `agents/`.
 
 ### Changed
 
