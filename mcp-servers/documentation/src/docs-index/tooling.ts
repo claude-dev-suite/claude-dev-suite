@@ -82,7 +82,7 @@ export const toolingDocs: DocsRecord = {
       url: "https://vite.dev/guide/",
     },
     config: {
-      local: "vite/config.md",
+      local: "vite/quick-ref/config.md",
       url: "https://vite.dev/config/",
     },
     "env-variables": {
@@ -169,11 +169,11 @@ export const toolingDocs: DocsRecord = {
     },
     generators: {
       local: "nx/generators.md",
-      url: "https://nx.dev/extending-nx/recipes/local-generators",
+      url: "https://nx.dev/docs/extending-nx/local-generators",
     },
     executors: {
       local: "nx/executors.md",
-      url: "https://nx.dev/extending-nx/recipes/local-executors",
+      url: "https://nx.dev/docs/extending-nx/local-executors",
     },
     affected: {
       local: "nx/affected.md",
@@ -208,11 +208,11 @@ export const toolingDocs: DocsRecord = {
       url: "https://zod.dev/?id=basic-usage",
     },
     schemas: {
-      local: "zod/schemas.md",
+      local: "zod/quick-ref/schemas.md",
       url: "https://zod.dev/?id=primitives",
     },
     validation: {
-      local: "zod/validation.md",
+      local: "zod/deep-docs/form-validation.md",
       url: "https://zod.dev/?id=parse",
     },
     transforms: {

@@ -32,7 +32,7 @@ export const securityDocs: DocsRecord = {
     },
     signing: {
       local: "cryptography/signing.md",
-      url: "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html",
+      url: "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html",
     },
   },
 

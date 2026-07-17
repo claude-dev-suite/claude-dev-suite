@@ -20,7 +20,7 @@ export const authDocs: DocsRecord = {
     },
     security: {
       local: "jwt/security.md",
-      url: "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html",
+      url: "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html",
     },
   },
 
