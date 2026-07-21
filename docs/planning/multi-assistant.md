@@ -24,16 +24,65 @@ Scope: make dev-suite generate configuration for multiple AI coding assistants, 
   - Gemini CLI: `.gemini/settings.json` key `mcpServers`; Codex: TOML `[mcp_servers.<n>]` in `.codex/config.toml` (trusted projects only); Windsurf/Cline: user-global config only
 - Codebase state: the installation pipeline is tool-neutral until serialization; Claude coupling is concentrated in `toInstalledAgentContent()` (installation/file-operations.ts), scattered `.claude`/`.mcp.json`/`CLAUDE.md` path literals across ~15 services (no central path module), a duplicated `generateDevSuiteSection` (installation/claude-md.service.ts vs management.service.ts), Claude hook events/env vars in `hooks.constants.ts` and `registry/features.json`, and ~230 "Claude" occurrences in 35 frontend files.
 
-## Target formats (Tier 1)
+## Target formats (Tier 1) — re-verified 2026-07-21 (slice 2.0)
+
+Verified against official docs (docs.github.com, code.visualstudio.com,
+cursor.com/docs) on 2026-07-21. Everything below is CONFIRMED by an official
+source unless marked otherwise.
 
 | Primitive | Copilot | Cursor |
 |---|---|---|
-| Instructions | `AGENTS.md` (native); `.github/instructions/*.instructions.md` with `applyTo:` for path-scoped rules | `AGENTS.md` (native, ≥1.6); `.cursor/rules/*.mdc` (`description`/`globs`/`alwaysApply`) for path-scoped rules |
-| Agents | `.github/agents/*.agent.md` (fm: `name`, `description`, `tools`, `model`, `mcp-servers`; body ≤30k chars); CLI also reads `.claude/agents/` | `.cursor/agents/*.md` (fm: `name`, `description`, `model`, `readonly`, `is_background`); also reads `.claude/agents/` |
-| Skills | reads `.claude/skills/` directly ✔ | reads `.claude/skills/` directly ✔ |
-| MCP | `.vscode/mcp.json` (`servers`); CLI `~/.copilot/mcp-config.json` (opt-in) | `.cursor/mcp.json` (`mcpServers`) |
-| Hooks | `.github/hooks/*.json` (v1 schema, command/http/prompt) | `.cursor/hooks.json` (camelCase events) |
-| Settings/permissions | `.github/copilot/settings.json`; `--allow-tool` syntax | `.cursor/cli.json` (`permissions.allow/deny`) |
+| Instructions | `AGENTS.md` native both surfaces. VS Code since **v1.104**, `chat.useAgentsMdFile` defaults to **`true`** (was thought off). CLI also reads `.github/copilot-instructions.md` **and `CLAUDE.md`**. Multiple files are *combined*, no precedence. | `AGENTS.md` native, root + nested (child wins). Introducing version *unconfirmed*. `.cursorrules` absent from current docs — do not write it. |
+| Path-scoped rules | `.github/instructions/*.instructions.md`, key **`applyTo`**, glob relative to workspace root, comma-separated multi-glob | `.cursor/rules/*.mdc`, keys exactly **`description` / `globs` / `alwaysApply`** — no `type` key; rule types are *derived* from which keys are present. Plain `.md` in that dir is ignored. |
+| Agents | `.github/agents/*.agent.md`; **VS Code also reads `.claude/agents/*.md` directly**. Keys: `name` (optional), `description` (required), `tools`, `model`, `mcp-servers`, `target`, … `infer` is retired. | `.cursor/agents/*.md`; **also reads `.claude/agents/` and `.codex/agents/` directly**, `.cursor/` wins on conflict. Keys `name`/`description`/`model`/`readonly`/`is_background`, all optional. |
+| Skills | reads **`.github/skills`, `.claude/skills` and `.agents/skills`** | reads `.cursor/skills/`, `.agents/skills/` and **`.claude/skills/`** (explicit compatibility). Recursive discovery. Skills landed in Cursor 2.4. |
+| MCP | VS Code `.vscode/mcp.json`, key **`servers`**, `type` must be **`"stdio"`**. CLI is a *different* file **and shape**: user `~/.copilot/mcp-config.json`, key `mcpServers`, `type: "local"`, plus a `tools` allowlist. CLI project-level is **`.mcp.json` or `.github/mcp.json`** (trust-gated). | `.cursor/mcp.json` (user: `~/.cursor/mcp.json`), key `mcpServers`, `type: "stdio"`. `${env:VAR}`, `${workspaceFolder}`, `${userHome}` all supported. |
+| Hooks | `.github/hooks/*.json`, `version: 1`, types `command`/`http`/`prompt`. **CLI + cloud agent only — not VS Code** project-level. camelCase vs PascalCase event names select different payload field casing. | `.cursor/hooks.json`, requires `version`, 21 camelCase events, optional `matcher`. |
+| Settings/permissions | `.github/copilot/settings.json` | `.cursor/cli.json` (`permissions.allow`/`deny`); global counterpart has a *different filename*, `~/.cursor/cli-config.json`. |
+
+### What 2.0 changed in the plan
+
+**The big one: agents and skills need no second write.** Both Copilot and Cursor
+read `.claude/agents/` and `.claude/skills/` directly. The planned agent writers
+and any skills dual-write drop out of Tier 1 — a dev-suite install is already
+discovered by both tools. What genuinely needs conversion is only **MCP config**
+and **path-scoped rules**, because those two formats have no cross-tool overlap.
+Fidelity caveat: our installed agent files carry Claude-native frontmatter
+(`tools:`, `mcpServers:`, `skills:`) that is not in either tool's schema, so tool
+restrictions and skill preload degrade to "ignored". Native per-target agent files
+would recover that, but are now clearly optional rather than core.
+
+**Corrections to earlier assumptions:**
+- `.copilot/mcp-config.json` as a repo-level path is **refuted** — it is
+  `.mcp.json` or `.github/mcp.json`. Notably that means Copilot CLI reads the very
+  file dev-suite already writes; whether our entries validate without a `type` key
+  is untested and is the first thing slice 2.2 should check.
+- `chat.useAgentsMdFile` defaults to **true**, not false. Sources saying otherwise
+  describe pre-1.104 behaviour.
+- Copilot's 30k character cap is real but **scoped to the cloud-agent context**;
+  VS Code documents no limit. Treat as a safe ceiling, not a hard constraint.
+- Cursor's `globs` is an **unquoted comma-separated string**, not a YAML list.
+  This is inferred from consistent doc examples rather than stated — and emitting
+  a YAML list is exactly the kind of thing that fails silently, so it needs a
+  golden-file test.
+
+**New finding that affects already-shipped Phase 0 work:** Copilot CLI reads
+`AGENTS.md` *and* `CLAUDE.md` natively and combines them without precedence. Our
+`CLAUDE.md` pointer contains `@AGENTS.md`, and the CLI also supports
+`@relative/path` includes — so on that surface the instructions may be loaded
+twice. Harmless for correctness, wasteful for tokens. Verify against the real CLI
+before the Phase 2 release; if confirmed, the fix is to make the pointer's import
+Claude-only (e.g. keep the marker section but drop the bare `@AGENTS.md` line for
+projects targeting Copilot CLI).
+
+### Still unconfirmed after 2.0 — do not encode assumptions
+- `${env:VAR}` interpolation in `.vscode/mcp.json` (the reference page lists only
+  `${input:id}` and `${workspaceFolder}`). Prefer literal values or `envFile`.
+- Whether Copilot CLI honours `.vscode/mcp.json` (assume it does not).
+- Which Cursor version introduced `AGENTS.md`, and its precedence against
+  `.cursorrules` / `.cursor/rules` when they coexist.
+- Skill/agent name-collision precedence between `.cursor/` and `.claude/`.
+- Whether nested `.cursor/rules/` directories in subfolders are honoured.
 
 ## Architecture
 
@@ -84,15 +133,11 @@ Sequenced so the risky, unknown part (file formats) is proven before anything is
 wired to users, and so nothing ships half-visible: the wizard only gains a target
 picker once the write path behind it actually works.
 
-**2.0 — Format re-verification gate** *(no code)*
-The plan's format table dates from July 2026 and the Risks section flags several
-items as third-party-sourced only. Before writing any adapter, re-verify against
-current official docs: Copilot CLI's repo-level MCP path, `.github/agents`
-frontmatter keys and the 30k body cap, VS Code's `servers` key and
-`chat.useAgentsMdFile` default, Cursor's `.mdc` frontmatter fields and
-`.cursor/agents` keys. Record findings in this doc; a format that can't be
-confirmed gets deferred rather than guessed. **Gate: no adapter code until this
-is done** — a wrong format is silent breakage in someone else's tool.
+**2.0 — Format re-verification gate** — **DONE 2026-07-21**
+Results folded into the Tier 1 table above. Outcome: agents and skills need no
+second write (both tools read `.claude/` directly), so Tier 1 conversion reduces
+to MCP config + path-scoped rules. Five items remain unconfirmed and are listed
+above as "do not encode assumptions".
 
 **2.1 — Adapter seam** *(pure refactor, no new targets, no user-visible change)*
 Split `install()` at its natural seam. Lines 141-198 are already pure decision
@@ -109,14 +154,22 @@ only implementation and reproduces current behaviour exactly.
   install produces a byte-identical tree.
 
 **2.2 — Copilot + Cursor writers** *(pure functions + golden files, not yet reachable)*
-The format knowledge, as pure `(input) => string` writers with fixture tests, so
-correctness is checkable without an install. Covers MCP config (`servers` vs
-`mcpServers`), path-scoped rules (`applyTo:` vs `globs:`), and agent files
-(`.agent.md` with the body cap, `.cursor/agents/*.md`). Skills need no writer —
-both tools read `.claude/skills/` directly (decision 4).
-Shipping both together rather than one at a time: the writers share structure, and
-Cursor is nearly copy-compatible for MCP so it costs little on top of Copilot,
-which carries the real divergence. They could split if 2.2 runs long.
+*Scope reduced by 2.0: agents and skills dropped — both tools read `.claude/`
+directly.* What remains is the two formats with no cross-tool overlap:
+- **MCP config**: `.vscode/mcp.json` (`servers`, `type: "stdio"`) and
+  `.cursor/mcp.json` (`mcpServers`, `type: "stdio"`). Copilot CLI is a third
+  shape (`type: "local"` + `tools` allowlist) at a user-scope path → opt-in,
+  decision 3. **First task of this slice**: test whether Copilot CLI accepts the
+  `.mcp.json` dev-suite already writes — if it does, that surface needs no writer
+  at all.
+- **Path-scoped rules**: `.github/instructions/*.instructions.md` (`applyTo`,
+  comma-separated globs) and `.cursor/rules/*.mdc` (`description`/`globs`/
+  `alwaysApply`). The `.mdc` `globs` value must be an unquoted comma-separated
+  string — golden-file test required, since a YAML list would fail silently.
+Both together rather than one at a time: what's left is small and shares structure.
+Optional stretch (not required to ship): native agent files per target, to recover
+the tool-restriction and skill-preload fidelity that Claude-native frontmatter
+loses when read by another tool.
 
 **2.3 — Multi-target plumbing + reinstall scoping** *(the load-bearing slice)*
 Thread `targets: TargetId[]` from request to manifest, and give reinstall/uninstall
@@ -185,12 +238,18 @@ CHANGELOG, capability matrix, and the MINOR bump per the release checklist.
 - Golden-file snapshots per writer per target; MCP converter fixtures per schema; multi-target coexistence tests (install Claude+Cursor → reinstall only Cursor → `.claude/` untouched).
 
 ## Risks / unverified items (re-verify at implementation time — conventions move fast)
-- Copilot CLI repo-level MCP path (`.copilot/mcp-config.json`) confirmed only by third-party sources.
+
+Tier 1 items were re-verified on 2026-07-21; see "Still unconfirmed after 2.0"
+above for what survived. Resolved since the original plan:
+- ~~Copilot CLI repo-level MCP path~~ → refuted, it is `.mcp.json` / `.github/mcp.json`.
+- ~~VS Code `chat.useAgentsMdFile` default unclear~~ → defaults to `true` since v1.104.
+
+Still open, mostly Tier 2/3 (verify when those phases start):
 - `.prompt.md` slash commands not shipped in Copilot CLI standalone (issues #618/#1113 open at v1.0.71).
 - Codex skills location inconsistency (`.agents/skills` documented vs `$CODEX_HOME/skills` in installers).
 - AGENTS.md nested semantics differ per tool (Codex concatenates root-down; others "closest wins") → generate a single root AGENTS.md only.
-- VS Code `chat.useAgentsMdFile` default is unclear across sources.
 - Claude Code may add `.agents/skills/` discovery later → would simplify decision 4.
+- Copilot CLI may double-load instructions via `AGENTS.md` + our `CLAUDE.md` pointer (see 2.0 findings).
 
 ## Out of scope
 - Orchestrator / chat / job-queue multi-runtime (stays on `@anthropic-ai/claude-agent-sdk`, preset `claude_code`).
