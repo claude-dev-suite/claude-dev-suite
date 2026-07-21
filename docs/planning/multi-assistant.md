@@ -78,6 +78,96 @@ Scope: make dev-suite generate configuration for multiple AI coding assistants, 
 - UI de-branding where generic (hooks section naming, wizard copy); orchestrator/chat stays Claude-branded.
 - Version bump: **MINOR**.
 
+#### Phase 2 breakdown (5 slices, each ends green + committed)
+
+Sequenced so the risky, unknown part (file formats) is proven before anything is
+wired to users, and so nothing ships half-visible: the wizard only gains a target
+picker once the write path behind it actually works.
+
+**2.0 — Format re-verification gate** *(no code)*
+The plan's format table dates from July 2026 and the Risks section flags several
+items as third-party-sourced only. Before writing any adapter, re-verify against
+current official docs: Copilot CLI's repo-level MCP path, `.github/agents`
+frontmatter keys and the 30k body cap, VS Code's `servers` key and
+`chat.useAgentsMdFile` default, Cursor's `.mdc` frontmatter fields and
+`.cursor/agents` keys. Record findings in this doc; a format that can't be
+confirmed gets deferred rather than guessed. **Gate: no adapter code until this
+is done** — a wrong format is silent breakage in someone else's tool.
+
+**2.1 — Adapter seam** *(pure refactor, no new targets, no user-visible change)*
+Split `install()` at its natural seam. Lines 141-198 are already pure decision
+making — nothing has touched disk — so they become an `InstallPlan`; everything
+from line 200 becomes `TargetAdapter.write(plan)`. `ClaudeCodeAdapter` is the
+only implementation and reproduces current behaviour exactly.
+- Stays *outside* the adapter (per-project, not per-target): `.dev-suite.json`,
+  `.dev-suite-manifest.json`, and the `.mcp-servers/<name>/` bundle copies —
+  bundles are plain node packages, only the config file referencing them differs.
+- Moves *into* the Claude adapter (Claude-specific, not general): `ensureSkillBudget`
+  (`skillListingBudgetFraction` is a Claude Code setting) and `toInstalledAgentContent`.
+- Everything else in `file-operations.ts` is tool-neutral and stays shared.
+- Done when: suite green with no test rewrites beyond import paths, and a real
+  install produces a byte-identical tree.
+
+**2.2 — Copilot + Cursor writers** *(pure functions + golden files, not yet reachable)*
+The format knowledge, as pure `(input) => string` writers with fixture tests, so
+correctness is checkable without an install. Covers MCP config (`servers` vs
+`mcpServers`), path-scoped rules (`applyTo:` vs `globs:`), and agent files
+(`.agent.md` with the body cap, `.cursor/agents/*.md`). Skills need no writer —
+both tools read `.claude/skills/` directly (decision 4).
+Shipping both together rather than one at a time: the writers share structure, and
+Cursor is nearly copy-compatible for MCP so it costs little on top of Copilot,
+which carries the real divergence. They could split if 2.2 runs long.
+
+**2.3 — Multi-target plumbing + reinstall scoping** *(the load-bearing slice)*
+Thread `targets: TargetId[]` from request to manifest, and give reinstall/uninstall
+a target dimension. Persistence needs no schema change — `ExtendedManifest.targets`,
+`TrackedFile.target` and `migrateManifestTargets` already exist from Phase 1, and
+`getManagedDirs`/`getSharedFiles`/`isCustomUserPath` were written for this and are
+still unused.
+Two real defects to fix here, both currently latent because only Claude Code has a
+write path:
+  - `componentName()` (reinstall.service.ts:400) basenames agent paths with a
+    hardcoded `'.md'`. Copilot's `.agent.md` would yield `foo.agent`, so orphan
+    detection and selection matching would silently miss every Copilot agent. Must
+    use the layout's `agentFileExtension`.
+  - `rootManagedFiles()` (reinstall.service.ts:80-92) drops any path containing `/`,
+    and its comment claims those are covered by the config-dir tree backup. **That
+    comment is wrong for Copilot**: backup copies `configDir` (`.github`), while the
+    MCP file lives at `.vscode/mcp.json` — covered by neither. A failed Copilot
+    reinstall would roll back without restoring its MCP config. Backup must collect
+    the union of each target's config dirs *and* the parent dir of any nested config
+    file. (Introduced in the Phase 1 sweep; comment is fixed as part of this slice.)
+Also here: `validation/schemas.ts` `InstallRequestSchema` is already out of sync
+with `InstallConfig` (missing `rules` and `skillLoadingMode`, carrying two legacy
+booleans the service ignores, with a blind `as InstallConfig` cast at the route).
+Fix that drift while adding `targets`, with the enum derived from `isImplemented()`
+so the API rejects targets whose adapter hasn't landed.
+Plus CLI `--target` (repeatable, mirroring `--keep`) and per-target result reporting.
+
+**2.4 — Assistant detection + wizard step** *(the user-visible slice)*
+- `detection/assistant-detection.service.ts` as a **standalone** sub-service returning
+  its own typed array — it is orthogonal to stack detection and `DetectionResult` has
+  no natural slot for it. Markers table in `detection.constants.ts` derived from
+  `TARGET_LAYOUTS` so it can't drift from the descriptors.
+- New wizard step (copy `StepRules.tsx` — the closest existing pattern for a small
+  fixed list) + home-dir opt-in checkbox for Copilot CLI's `~/.copilot/mcp-config.json`,
+  off by default per decision 3.
+- Non-obvious cost: the wizard hardcodes its bounds in ~8 places (`ui.store.ts` clamps
+  at 6 in three methods, `WizardContainer`'s `< 6` checks, step-indicator arrays,
+  `_getProgressInfo` totals), and the sidebar step labels are duplicated in
+  `Layout.tsx` and `Sidebar.tsx` — **both already stale at 5 entries for a 6-step
+  wizard**. Fix the duplication rather than adding a third copy.
+- `wizard/__tests__/WizardContainer.test.tsx` doesn't render the real container; it
+  mocks it and asserts "Step N of 5". It will break on the clamp change and should be
+  made to exercise the real component instead of re-mocking.
+
+**2.5 — De-branding, docs, release**
+Wizard copy is only ~3 strings. The manage UI is ~20 visible strings, most of them in
+the Claude-hooks subsystem, which is genuinely Claude-specific — the call there is to
+**gate it per selected target rather than rename it**. Orchestrator/chat stays
+Claude-branded (decision 5). Internal `ClaudeHook*` type names stay. Then README,
+CHANGELOG, capability matrix, and the MINOR bump per the release checklist.
+
 ### Phase 3 — Tier 2 (Codex CLI, Gemini CLI)
 - Codex: `.codex/agents/*.toml`, TOML `[mcp_servers.*]` (trusted-project caveat), AGENTS.md already covered.
 - Gemini: `.gemini/agents/*.md`, `mcpServers` in `.gemini/settings.json`, `context.fileName` setting for AGENTS.md, commands as TOML.
