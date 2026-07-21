@@ -11,6 +11,7 @@ import { spawn } from 'child_process';
 import { getLogger } from '../../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { TrackedFile, ExtendedManifest } from '../../types/index.js';
+import { targetPaths } from '../targets/target-paths.js';
 
 const logger = getLogger('PackageInstaller');
 
@@ -272,7 +273,8 @@ export class PackageInstallerService {
     }
 
     // Ensure target directory exists
-    const targetDir = path.join(projectPath, '.claude', 'agents');
+    const paths = targetPaths(projectPath);
+    const targetDir = paths.agentsDir;
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
     }
@@ -299,7 +301,7 @@ export class PackageInstallerService {
         }
         const trackedFile = createTrackedFile(
           projectPath,
-          `.claude/agents/${agentId}.md`,
+          paths.relAgentFile(agentId),
           'agent',
           sourceAgentPath
         );

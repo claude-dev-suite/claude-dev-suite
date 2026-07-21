@@ -16,6 +16,7 @@ import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { parseAgentSkills, flattenSkillName, toInstalledAgentContent } from './installation/file-operations.js';
 import { updateInstructions, type CustomAgentSummary } from './installation/claude-md.service.js';
 import { validatePathWithinBase } from './installation/index.js';
+import { targetPaths } from './targets/target-paths.js';
 import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 import { getLogger } from '../utils/logger.js';
 
@@ -93,7 +94,8 @@ export class ManagementService {
     }
 
     // Verify against file system
-    const agentsDir = path.join(projectPath, '.claude', 'agents');
+    const paths = targetPaths(projectPath);
+    const agentsDir = paths.agentsDir;
     if (fs.existsSync(agentsDir)) {
       const actualAgents = fs.readdirSync(agentsDir)
         .filter((f) => f.endsWith('.md'))
@@ -101,7 +103,7 @@ export class ManagementService {
       result.agents = actualAgents;
     }
 
-    const mcpServersDir = path.join(projectPath, '.mcp-servers');
+    const mcpServersDir = paths.mcpServersDir;
     if (fs.existsSync(mcpServersDir)) {
       const actualServers = fs.readdirSync(mcpServersDir, { withFileTypes: true })
         .filter((d) => d.isDirectory())
@@ -127,8 +129,9 @@ export class ManagementService {
       throw new Error(`Agent ${agentId} not found in dev-suite`);
     }
 
-    const agentsDir = path.join(projectPath, '.claude', 'agents');
-    const skillsDir = path.join(projectPath, '.claude', 'skills');
+    const paths = targetPaths(projectPath);
+    const agentsDir = paths.agentsDir;
+    const skillsDir = paths.skillsDir;
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.mkdirSync(skillsDir, { recursive: true });
 
@@ -184,7 +187,7 @@ export class ManagementService {
       if (!manifest.files) {
         manifest.files = [];
       }
-      const relativePath = `.claude/agents/${agentId}.md`;
+      const relativePath = paths.relAgentFile(agentId);
       const hash = this.calculateFileHash(destPath);
       if (hash) {
         const trackedFile: TrackedFile = {
@@ -215,7 +218,8 @@ export class ManagementService {
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
-    const agentPath = path.join(projectPath, '.claude', 'agents', agentId + '.md');
+    const paths = targetPaths(projectPath);
+    const agentPath = paths.agentFile(agentId);
 
     if (!fs.existsSync(agentPath)) {
       throw new Error(`Agent ${agentId} not found`);
@@ -235,7 +239,7 @@ export class ManagementService {
         manifest.agents = manifest.agents.filter((a: string) => a !== agentId);
       }
       if (manifest.files) {
-        const relativePath = `.claude/agents/${agentId}.md`;
+        const relativePath = paths.relAgentFile(agentId);
         manifest.files = manifest.files.filter(
           (f: TrackedFile) => f.path !== relativePath
         );
@@ -266,7 +270,8 @@ export class ManagementService {
       throw new Error(`MCP server ${serverName} not built. Run prepareServers first.`);
     }
 
-    const mcpServersDir = path.join(projectPath, '.mcp-servers');
+    const paths = targetPaths(projectPath);
+    const mcpServersDir = paths.mcpServersDir;
     fs.mkdirSync(mcpServersDir, { recursive: true });
 
     const serverDest = path.join(mcpServersDir, serverName);
@@ -286,8 +291,8 @@ export class ManagementService {
       });
     }
 
-    // Update .mcp.json
-    const mcpJsonPath = path.join(projectPath, '.mcp.json');
+    // Update the MCP config file
+    const mcpJsonPath = paths.mcpConfigFile;
     let mcpConfig = { mcpServers: {} as Record<string, unknown> };
 
     if (fs.existsSync(mcpJsonPath)) {
@@ -296,7 +301,7 @@ export class ManagementService {
 
     mcpConfig.mcpServers[serverName] = {
       command: 'node',
-      args: [path.join(projectPath, '.mcp-servers', serverName, 'dist', 'index.js')],
+      args: [paths.mcpServerEntry(serverName)],
       env: envVars,
     };
 
@@ -318,7 +323,8 @@ export class ManagementService {
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
-    const serverDir = path.join(projectPath, '.mcp-servers', serverName);
+    const paths = targetPaths(projectPath);
+    const serverDir = paths.mcpServerDir(serverName);
 
     if (!fs.existsSync(serverDir)) {
       throw new Error(`MCP server ${serverName} not found`);
@@ -326,8 +332,8 @@ export class ManagementService {
 
     fs.rmSync(serverDir, { recursive: true, force: true });
 
-    // Update .mcp.json
-    const mcpJsonPath = path.join(projectPath, '.mcp.json');
+    // Update the MCP config file
+    const mcpJsonPath = paths.mcpConfigFile;
     if (fs.existsSync(mcpJsonPath)) {
       const mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
       delete mcpConfig.mcpServers[serverName];
@@ -570,7 +576,7 @@ export class ManagementService {
    */
   private async getCustomAgentsList(projectPath: string): Promise<CustomAgentSummary[]> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
-    const customAgentsDir = path.join(projectPath, '.claude', 'agents', 'custom');
+    const customAgentsDir = targetPaths(projectPath).customAgentsDir;
     const agents: CustomAgentSummary[] = [];
 
     if (!fs.existsSync(customAgentsDir)) {

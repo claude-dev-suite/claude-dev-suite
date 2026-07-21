@@ -45,6 +45,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Descriptors for Claude Code, GitHub Copilot and Cursor ship in this release;
   only Claude Code has a full write path so far. Groundwork for multi-assistant
   support — see `docs/planning/multi-assistant.md`.
+- **Target path resolver** (`services/targets/target-paths.ts`): turns a layout
+  descriptor into the concrete paths of one project, in both project-relative
+  POSIX form (what the manifest stores, so entries compare across platforms) and
+  absolute form (what filesystem calls need). Every path dev-suite writes now
+  derives from the descriptor instead of a hardcoded literal. Behaviour is
+  unchanged for Claude Code — the resolver reproduces exactly the paths written
+  before.
 - **Manifest target tagging**: `.dev-suite-manifest.json` records which
   assistants a project was installed for (`targets`), and every tracked file
   carries a `target`, so several assistants can share one project without

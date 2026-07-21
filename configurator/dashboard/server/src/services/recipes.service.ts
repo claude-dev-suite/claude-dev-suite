@@ -11,6 +11,7 @@ import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { readJsonSync } from '../utils/fs-utils.js';
+import { targetPaths } from './targets/target-paths.js';
 // HooksService available for future advanced hook operations
 // import { HooksService } from './hooks.service.js';
 import {
@@ -632,7 +633,7 @@ export class RecipesService {
     }
 
     // Use the HooksService to add the hook
-    const settingsPath = path.join(projectPath, '.claude', 'settings.json');
+    const settingsPath = targetPaths(projectPath).settingsFile;
     const claudeDir = path.dirname(settingsPath);
 
     // Ensure directory exists
@@ -709,7 +710,7 @@ export class RecipesService {
     recipe: AutomationRecipe
   ): Promise<{ success: boolean; error?: string }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
-    const settingsPath = path.join(projectPath, '.claude', 'settings.json');
+    const settingsPath = targetPaths(projectPath).settingsFile;
 
     type Settings = { hooks?: Record<string, unknown[]> };
     const settings = readJsonSync<Settings>(settingsPath);

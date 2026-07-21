@@ -9,6 +9,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'node:url';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
+import { targetPaths } from '../targets/target-paths.js';
+
+/** Hook scripts live beside the target's other config, under <configDir>/hooks/. */
+const HOOK_SCRIPTS_SUBDIR = 'hooks';
 import type {
   ClaudeHookUI,
   ClaudeHooksStatus,
@@ -60,7 +64,7 @@ export class ClaudeHooksService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    return path.join(projectPath, '.claude', 'settings.json');
+    return targetPaths(projectPath).settingsFile;
   }
 
   /**
@@ -91,7 +95,7 @@ export class ClaudeHooksService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    const claudeDir = path.join(projectPath, '.claude');
+    const claudeDir = targetPaths(projectPath).configDir;
     const settingsPath = this.getClaudeSettingsPath(projectPath);
 
     try {
@@ -159,7 +163,7 @@ export class ClaudeHooksService {
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     const settingsPath = this.getClaudeSettingsPath(projectPath);
-    const claudeDir = path.join(projectPath, '.claude');
+    const claudeDir = targetPaths(projectPath).configDir;
     const hasClaudeDir = fs.existsSync(claudeDir);
     const hasSettings = fs.existsSync(settingsPath);
 
@@ -685,7 +689,7 @@ Respond ONLY with valid JSON:
     }
 
     // Destination: <projectPath>/.claude/hooks/<scriptFile>
-    const hooksDir = path.join(projectPath, '.claude', 'hooks');
+    const hooksDir = path.join(targetPaths(projectPath).configDir, HOOK_SCRIPTS_SUBDIR);
     const destScript = path.join(hooksDir, template.scriptFile);
 
     try {
@@ -706,7 +710,7 @@ Respond ONLY with valid JSON:
     }
 
     // Register in settings.json using the local relative path
-    const localHookCmd = `.claude/hooks/${template.scriptFile}`;
+    const localHookCmd = `${targetPaths(projectPath).relConfigDir}/${HOOK_SCRIPTS_SUBDIR}/${template.scriptFile}`;
     const addResult = this.addClaudeHook(projectPath, {
       event: template.event,
       matcher: template.hooks[0]?.matcher,
@@ -745,7 +749,7 @@ Respond ONLY with valid JSON:
     }
 
     // Remove the script file if it exists
-    const destScript = path.join(projectPath, '.claude', 'hooks', template.scriptFile);
+    const destScript = path.join(targetPaths(projectPath).configDir, HOOK_SCRIPTS_SUBDIR, template.scriptFile);
     if (fs.existsSync(destScript)) {
       try {
         fs.unlinkSync(destScript);
@@ -761,7 +765,7 @@ Respond ONLY with valid JSON:
       return { success: true };
     }
 
-    const localHookCmd = `.claude/hooks/${template.scriptFile}`;
+    const localHookCmd = `${targetPaths(projectPath).relConfigDir}/${HOOK_SCRIPTS_SUBDIR}/${template.scriptFile}`;
     const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: string[] }>>;
     const eventKey = template.event;
     const eventHooks = hooks[eventKey];

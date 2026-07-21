@@ -14,6 +14,7 @@ import { execSync, execFileSync } from 'child_process';
 import type { InstallConfig, InstallManifest } from '../types.js';
 import type { TrackedFile, ExtendedManifest, StackInfo } from '../types/index.js';
 import { DEFAULT_TARGET, type TargetId } from './targets/target-layout.js';
+import { targetPaths, type TargetPaths } from './targets/target-paths.js';
 import { AgentsService } from './agents.service.js';
 import { HooksService } from './hooks.service.js';
 import {
@@ -47,6 +48,14 @@ const TIMEOUTS = {
 export class InstallationService {
   private agentsService = new AgentsService();
   private hooksService = new HooksService();
+
+  /**
+   * Resolve the on-disk layout of a target inside a project. Every path this
+   * service writes goes through here — see services/targets/target-layout.ts.
+   */
+  private paths(projectPath: string, target: TargetId = DEFAULT_TARGET): TargetPaths {
+    return targetPaths(projectPath, target);
+  }
 
   /**
    * Prepare (build) MCP servers
@@ -188,15 +197,14 @@ export class InstallationService {
       files: [],
     };
 
-    // Create directories
-    const claudeDir = path.join(projectPath, '.claude');
-    const agentsDir = path.join(claudeDir, 'agents');
-    const skillsDir = path.join(claudeDir, 'skills');
-    const mcpServersDir = path.join(projectPath, '.mcp-servers');
+    // Create directories. All target-owned paths resolve through the layout
+    // descriptor so a second assistant is a descriptor change, not a rewrite.
+    const paths = this.paths(projectPath);
+    const skillsDir = paths.skillsDir;
 
-    fs.mkdirSync(agentsDir, { recursive: true });
+    fs.mkdirSync(paths.agentsDir, { recursive: true });
     fs.mkdirSync(skillsDir, { recursive: true });
-    fs.mkdirSync(mcpServersDir, { recursive: true });
+    fs.mkdirSync(paths.mcpServersDir, { recursive: true });
 
     // Clean stale skill folders left over from previous installs (eager
     // mode nested folders, lazy mode flat names from a previous agent set).
@@ -215,7 +223,7 @@ export class InstallationService {
     // tokens per session — trivial vs the ~200K context window. User's
     // explicit override (any pre-existing value in `.claude/settings.json`)
     // is preserved.
-    this.ensureSkillBudget(claudeDir, manifest, extendedManifest, projectPath);
+    this.ensureSkillBudget(paths, manifest, extendedManifest, projectPath);
 
     // Install agents
     // In lazy mode we split skills in two buckets:
@@ -267,7 +275,7 @@ export class InstallationService {
         extendedManifest.mcpServers.push(serverName);
         mcpConfig[serverName] = {
           command: 'node',
-          args: [path.join(projectPath, '.mcp-servers', serverName, 'dist', 'index.js')],
+          args: [paths.mcpServerEntry(serverName)],
           env: getServerEnvVars(serverName, envVars, devSuiteDir),
         };
       }
@@ -284,7 +292,7 @@ export class InstallationService {
     // injected ONLY when the user explicitly provided one (development
     // override against a live dev-suite source).
     if (skillLoadingMode === 'lazy') {
-      const skillLoaderDist = path.join(projectPath, '.mcp-servers', 'skill-loader', 'dist', 'index.js');
+      const skillLoaderDist = paths.mcpServerEntry('skill-loader');
       const userOverride = envVars?.DEV_SUITE_ROOT?.trim();
       mcpConfig['skill-loader'] = {
         command: 'node',
@@ -296,28 +304,25 @@ export class InstallationService {
       });
     }
 
-    // Install rules → copy to [projectPath]/.claude/rules/
+    // Install rules → copy to the target's rules directory
     if (rules.length > 0) {
-      const rulesDestDir = path.join(claudeDir, 'rules');
-      fs.mkdirSync(rulesDestDir, { recursive: true });
+      fs.mkdirSync(paths.rulesDir, { recursive: true });
       const { RulesService } = await import('./rules.service.js');
       const rulesService = new RulesService();
       for (const ruleId of rules) {
         const src = rulesService.findRuleFile(ruleId);
         if (src) {
-          const dest = path.join(rulesDestDir, `${ruleId}.md`);
-          fs.copyFileSync(src, dest);
+          fs.copyFileSync(src, paths.ruleFile(ruleId));
           manifest.rules.push(ruleId);
-          manifest.files.push({ path: `.claude/rules/${ruleId}.md`, type: 'config', source: src });
+          manifest.files.push({ path: paths.relRuleFile(ruleId), type: 'config', source: src });
         }
       }
     }
 
-    // Write .mcp.json
-    const mcpJsonPath = path.join(projectPath, '.mcp.json');
-    fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: mcpConfig }, null, 2));
-    manifest.files.push({ path: '.mcp.json', type: 'config', source: 'generated' });
-    this.trackFile(extendedManifest, projectPath, '.mcp.json', 'config');
+    // Write the MCP config file
+    fs.writeFileSync(paths.mcpConfigFile, JSON.stringify({ mcpServers: mcpConfig }, null, 2));
+    manifest.files.push({ path: paths.relMcpConfigFile, type: 'config', source: 'generated' });
+    this.trackFile(extendedManifest, projectPath, paths.relMcpConfigFile, 'config');
 
     // Write .dev-suite.json
     const devSuiteConfig = {
@@ -342,8 +347,8 @@ export class InstallationService {
       const hookResult = this.hooksService.configureIntegrationValidatorHook(projectPath, detectedStack);
       validatorHookConfigured = hookResult.configured;
       if (hookResult.configured) {
-        manifest.files.push({ path: '.claude/settings.json', type: 'config', source: 'generated' });
-        this.trackFile(extendedManifest, projectPath, '.claude/settings.json', 'config');
+        manifest.files.push({ path: paths.relSettingsFile, type: 'config', source: 'generated' });
+        this.trackFile(extendedManifest, projectPath, paths.relSettingsFile, 'config');
         // Track the integration-validator-hook feature as applied
         extendedManifest.features['integration-validator-hook'] = {
           version: '1.0.0',
@@ -437,10 +442,19 @@ export class InstallationService {
       errors.push(...ruleResult.errors);
     }
 
-    // Remove directories
-    const dirsToRemove = ['.mcp-servers', '.claude/agents', '.claude/skills', '.claude/commands', '.kb-cache'];
+    // Remove directories. The rules directory is deliberately absent: rule
+    // files are removed individually above (removePathScopedRules) so that
+    // user-authored rules sharing the directory survive an uninstall.
+    const paths = this.paths(projectPath);
+    const dirsToRemove = [
+      paths.relMcpServersDir,
+      paths.relAgentsDir,
+      paths.relSkillsDir,
+      paths.relCommandsDir,
+      '.kb-cache',
+    ];
     for (const dir of dirsToRemove) {
-      const dirPath = path.join(projectPath, dir);
+      const dirPath = paths.abs(dir);
       if (fs.existsSync(dirPath)) {
         try {
           fs.rmSync(dirPath, { recursive: true, force: true });
@@ -451,25 +465,25 @@ export class InstallationService {
       }
     }
 
-    // Remove .claude if empty
-    const claudeDir = path.join(projectPath, '.claude');
-    if (fs.existsSync(claudeDir)) {
+    // Remove the target's config dir if we emptied it
+    const configDir = paths.configDir;
+    if (fs.existsSync(configDir)) {
       try {
-        const contents = fs.readdirSync(claudeDir);
+        const contents = fs.readdirSync(configDir);
         if (contents.length === 0) {
-          fs.rmdirSync(claudeDir);
-          removed.push('.claude');
+          fs.rmdirSync(configDir);
+          removed.push(paths.relConfigDir);
         }
       } catch (error: unknown) {
-        logger.warn('Failed to remove empty .claude directory', {
+        logger.warn('Failed to remove empty target config directory', {
           error,
-          context: { claudeDir }
+          context: { configDir }
         });
       }
     }
 
     // Remove config files
-    const configFiles = ['.dev-suite.json', '.dev-suite-manifest.json', '.mcp.json'];
+    const configFiles = ['.dev-suite.json', '.dev-suite-manifest.json', paths.relMcpConfigFile];
     for (const file of configFiles) {
       const filePath = path.join(projectPath, file);
       if (fs.existsSync(filePath)) {
@@ -484,8 +498,8 @@ export class InstallationService {
 
     // Clean the dev-suite section from every instructions file we wrote
     cleanInstructionsSections(projectPath);
-    removed.push('AGENTS.md (dev-suite section)');
-    removed.push('CLAUDE.md (dev-suite section)');
+    removed.push(`${paths.relSharedInstructionsFile} (dev-suite section)`);
+    removed.push(`${paths.relInstructionsFile} (dev-suite section)`);
 
     return { removed, errors };
   }
@@ -592,13 +606,13 @@ export class InstallationService {
    *   better than we do)
    */
   private ensureSkillBudget(
-    claudeDir: string,
+    paths: TargetPaths,
     manifest: InstallManifest,
     extendedManifest: ExtendedManifest | undefined,
     projectPath: string,
   ): void {
     const TARGET_BUDGET = 0.05;
-    const settingsPath = path.join(claudeDir, 'settings.json');
+    const settingsPath = paths.settingsFile;
     let settings: Record<string, unknown> = {};
     let alreadySet = false;
 
@@ -627,13 +641,11 @@ export class InstallationService {
 
     settings.skillListingBudgetFraction = TARGET_BUDGET;
     try {
-      if (!fs.existsSync(claudeDir)) {
-        fs.mkdirSync(claudeDir, { recursive: true });
-      }
+      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-      manifest.files.push({ path: '.claude/settings.json', type: 'config', source: 'generated' });
+      manifest.files.push({ path: paths.relSettingsFile, type: 'config', source: 'generated' });
       if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, '.claude/settings.json', 'config');
+        this.trackFile(extendedManifest, projectPath, paths.relSettingsFile, 'config');
       }
       logger.info('Set skillListingBudgetFraction in .claude/settings.json', {
         context: { settingsPath, value: TARGET_BUDGET },
@@ -751,7 +763,8 @@ export class InstallationService {
       });
     }
 
-    const skillsDestRoot = path.join(projectPath, '.claude', 'skills');
+    const paths = this.paths(projectPath);
+    const skillsDestRoot = paths.skillsDir;
     let safeDest: string;
     try {
       safeDest = validatePathWithinBase(path.join(skillsDestRoot, flatName), skillsDestRoot, false);
@@ -762,9 +775,9 @@ export class InstallationService {
 
     if (!fs.existsSync(safeDest)) {
       copyDirSync(safeSrc, safeDest);
-      manifest.files.push({ path: `.claude/skills/${flatName}`, type: 'skill', source: safeSrc });
+      manifest.files.push({ path: paths.relSkillDir(flatName), type: 'skill', source: safeSrc });
       if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, `.claude/skills/${flatName}`, 'skill', safeSrc);
+        this.trackFile(extendedManifest, projectPath, paths.relSkillDir(flatName), 'skill', safeSrc);
       }
     }
     usedFlatNames.set(flatName, skillPath);
@@ -802,8 +815,9 @@ export class InstallationService {
       // path — use the returned value as the sanitized destination for the agent
       // file write (recognized path-injection barrier).
       validatePathWithinBase(agentFile, path.join(devSuiteDir, 'agents'), false);
+      const paths = this.paths(projectPath);
       const destPath = validatePathWithinBase(
-        path.join(projectPath, '.claude', 'agents', agentId + '.md'),
+        paths.agentFile(agentId),
         projectPath,
         false
       );
@@ -828,10 +842,10 @@ export class InstallationService {
         grantSkillTool: true,
       });
       fs.writeFileSync(destPath, installedContent, 'utf-8');
-      manifest.files.push({ path: `.claude/agents/${agentId}.md`, type: 'agent', source: agentFile });
+      manifest.files.push({ path: paths.relAgentFile(agentId), type: 'agent', source: agentFile });
       // Track with hash for upgrade system (hash reflects the installed file)
       if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, `.claude/agents/${agentId}.md`, 'agent', agentFile);
+        this.trackFile(extendedManifest, projectPath, paths.relAgentFile(agentId), 'agent', agentFile);
       }
 
       return true;
@@ -888,8 +902,9 @@ export class InstallationService {
       // path — use the returned value as the sanitized destination for the agent
       // file write (recognized path-injection barrier).
       validatePathWithinBase(agentFile, path.join(devSuiteDir, 'agents'), false);
+      const paths = this.paths(projectPath);
       const destPath = validatePathWithinBase(
-        path.join(projectPath, '.claude', 'agents', agentId + '.md'),
+        paths.agentFile(agentId),
         projectPath,
         false
       );
@@ -921,10 +936,10 @@ export class InstallationService {
         grantSkillTool: true,
       });
       fs.writeFileSync(destPath, installedContent, 'utf-8');
-      manifest.files.push({ path: `.claude/agents/${agentId}.md`, type: 'agent', source: agentFile });
+      manifest.files.push({ path: paths.relAgentFile(agentId), type: 'agent', source: agentFile });
       // Track with hash for upgrade system (hash reflects the installed file).
       if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, `.claude/agents/${agentId}.md`, 'agent', agentFile);
+        this.trackFile(extendedManifest, projectPath, paths.relAgentFile(agentId), 'agent', agentFile);
       }
 
       return true;
@@ -959,6 +974,7 @@ export class InstallationService {
     manifest: InstallManifest,
     extendedManifest: ExtendedManifest | undefined
   ): void {
+    const paths = this.paths(projectPath);
     const lines: string[] = [
       '# Skills (lazy mode)',
       '',
@@ -968,7 +984,7 @@ export class InstallationService {
       '',
       '- **Core skills** — declared as `core_skills:` in each agent\'s',
       '  frontmatter (or `skills:` for unmigrated agents). Installed as',
-      '  native Claude Code skills under `.claude/skills/<name>/SKILL.md`.',
+      `  native Claude Code skills under \`${paths.relSkillsDir}/<name>/SKILL.md\`.`,
       '  Claude Code auto-discovers them at boot: only the YAML description',
       '  is loaded; the body is fetched on demand when the skill is invoked.',
       '- **Extended skills** — declared as `extended_skills:` in each',
@@ -991,7 +1007,7 @@ export class InstallationService {
 
     lines.push(
       '> **Runtime requirement**: the `skill-loader` MCP server reads',
-      `> \`DEV_SUITE_ROOT\` (set to \`${devSuiteDir}\` in \`.mcp.json\`) to`,
+      `> \`DEV_SUITE_ROOT\` (set to \`${devSuiteDir}\` in \`${paths.relMcpConfigFile}\`) to`,
       '> resolve non-preloaded skill bodies on demand.'
     );
     lines.push('');
@@ -999,9 +1015,10 @@ export class InstallationService {
     const readmePath = path.join(skillsDir, '_README.md');
     fs.writeFileSync(readmePath, lines.join('\n'));
 
-    manifest.files.push({ path: '.claude/skills/_README.md', type: 'skill', source: 'generated' });
+    const relReadme = paths.relSkillDir('_README.md');
+    manifest.files.push({ path: relReadme, type: 'skill', source: 'generated' });
     if (extendedManifest) {
-      this.trackFile(extendedManifest, projectPath, '.claude/skills/_README.md', 'skill');
+      this.trackFile(extendedManifest, projectPath, relReadme, 'skill');
     }
 
     logger.info('Lazy skills README written', {
@@ -1027,8 +1044,9 @@ export class InstallationService {
       return false;
     }
 
+    const paths = this.paths(projectPath);
     const serverSource = path.join(devSuiteDir, 'mcp-servers', serverName);
-    const serverDest = path.join(projectPath, '.mcp-servers', serverName);
+    const serverDest = paths.mcpServerDir(serverName);
 
     // SECURITY: Validate paths stay within expected directories
     try {
@@ -1044,11 +1062,11 @@ export class InstallationService {
 
     try {
       copyDirSync(serverSource, serverDest);
-      manifest.files.push({ path: `.mcp-servers/${serverName}`, type: 'mcp-server', source: serverSource });
+      manifest.files.push({ path: paths.relMcpServerDir(serverName), type: 'mcp-server', source: serverSource });
 
       // Track main server file with hash
       if (extendedManifest) {
-        const indexPath = `.mcp-servers/${serverName}/dist/index.js`;
+        const indexPath = `${paths.relMcpServerDir(serverName)}/dist/index.js`;
         this.trackFile(extendedManifest, projectPath, indexPath, 'mcp-server', serverSource);
       }
 
@@ -1068,7 +1086,7 @@ export class InstallationService {
     } catch (error: unknown) {
       logger.error('Failed to install MCP server', {
         error,
-        context: { serverName, projectPath, serverDest: path.join(projectPath, '.mcp-servers', serverName) }
+        context: { serverName, projectPath, serverDest }
       });
       return false;
     }

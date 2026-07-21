@@ -12,6 +12,8 @@ import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { parseYamlDescription } from '../utils/yaml-utils.js';
 import { BestPracticesValidatorService } from './best-practices-validator.service.js';
+import { targetPaths } from './targets/target-paths.js';
+import { getTargetLayout } from './targets/target-layout.js';
 import type {
   CustomAgent,
   CustomAgentListItem,
@@ -38,14 +40,13 @@ interface DevSuiteConfig {
 const logger = getLogger('CustomAgentsService');
 
 /**
- * Directory name for custom agents within .claude/agents/
+ * Project-relative locations of the user-reserved custom areas, resolved from
+ * the target layout. Used for the `filePath` shown in the UI; the on-disk paths
+ * come from `targetPaths()` so both stay in sync with the descriptor.
  */
-const CUSTOM_AGENTS_DIR = 'custom';
-
-/**
- * Directory name for custom skills within .claude/skills/
- */
-const CUSTOM_SKILLS_DIR = 'custom';
+const DEFAULT_LAYOUT = getTargetLayout();
+const CUSTOM_AGENTS_REL = DEFAULT_LAYOUT.customAgentsDir ?? `${DEFAULT_LAYOUT.agentsDir}/custom`;
+const CUSTOM_SKILLS_REL = DEFAULT_LAYOUT.customSkillsDir ?? `${DEFAULT_LAYOUT.skillsDir}/custom`;
 
 export class CustomAgentsService {
   private bestPracticesValidator = new BestPracticesValidatorService();
@@ -54,14 +55,14 @@ export class CustomAgentsService {
    * Get the custom agents directory path for a project
    */
   private getCustomAgentsDir(projectPath: string): string {
-    return path.join(projectPath, '.claude', 'agents', CUSTOM_AGENTS_DIR);
+    return targetPaths(projectPath).customAgentsDir;
   }
 
   /**
    * Get the custom skills directory path for a project
    */
   private getCustomSkillsDir(projectPath: string): string {
-    return path.join(projectPath, '.claude', 'skills', CUSTOM_SKILLS_DIR);
+    return targetPaths(projectPath).customSkillsDir;
   }
 
   /**
@@ -288,7 +289,7 @@ export class CustomAgentsService {
         content,
         category: 'custom',
         isCustom: true,
-        filePath: `.claude/agents/${CUSTOM_AGENTS_DIR}/${agentId}.md`,
+        filePath: `${CUSTOM_AGENTS_REL}/${agentId}.md`,
         createdAt: stats.birthtime.toISOString(),
         modifiedAt: stats.mtime.toISOString(),
       };
@@ -597,7 +598,7 @@ export class CustomAgentsService {
         name: skillId,
         description: description || `Custom skill: ${skillId}`,
         isCustom: true,
-        filePath: `.claude/skills/${CUSTOM_SKILLS_DIR}/${skillId}/SKILL.md`,
+        filePath: `${CUSTOM_SKILLS_REL}/${skillId}/SKILL.md`,
         modifiedAt: stats.mtime.toISOString(),
         content,
       };
@@ -862,7 +863,7 @@ export class CustomAgentsService {
         name,
         description: description || `Custom skill: ${name}`,
         isCustom: true,
-        filePath: `.claude/skills/${CUSTOM_SKILLS_DIR}/${name}/SKILL.md`,
+        filePath: `${CUSTOM_SKILLS_REL}/${name}/SKILL.md`,
         modifiedAt: stats.mtime.toISOString(),
       };
     } catch (error) {

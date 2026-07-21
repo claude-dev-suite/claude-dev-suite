@@ -23,6 +23,7 @@ import type { Agent } from '../../types.js';
 import { HooksService } from '../hooks.service.js';
 import { getCategoryPaths, isAlwaysOnCategory } from './category-paths.js';
 import { SHARED_INSTRUCTIONS_FILE, getTargetLayout } from '../targets/target-layout.js';
+import { targetPaths } from '../targets/target-paths.js';
 
 // Markers for dev-suite section
 export const DEV_SUITE_START_MARKER = '<!-- DEV-SUITE-CONFIG-START -->';
@@ -295,8 +296,8 @@ export function generatePathScopedRules(
   projectPath = resolveProjectPath(projectPath);
   if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
-  const rulesDir = path.join(projectPath, '.claude', 'rules');
-  fs.mkdirSync(rulesDir, { recursive: true });
+  const paths = targetPaths(projectPath);
+  fs.mkdirSync(paths.rulesDir, { recursive: true });
 
   // Group path-scoped agents by category (skip always-on categories)
   const byCategory = new Map<string, Agent[]>();
@@ -336,8 +337,8 @@ ${agentLines}
 Use the Task tool with the corresponding subagent_type to delegate work to these specialists.
 `;
 
-    const relPath = `.claude/rules/${category}.md`;
-    const absPath = path.join(projectPath, relPath);
+    const relPath = paths.relRuleFile(category);
+    const absPath = paths.abs(relPath);
     fs.writeFileSync(absPath, content, 'utf-8');
     writtenFiles.push(relPath);
   }
@@ -362,9 +363,10 @@ export function removePathScopedRules(
   const removed: string[] = [];
   const errors: string[] = [];
 
+  const rulesPrefix = `${targetPaths(projectPath).relRulesDir}/`;
   for (const relPath of trackedRuleFiles) {
-    // Safety: only touch files inside .claude/rules/
-    if (!relPath.startsWith('.claude/rules/')) {
+    // Safety: only touch files inside the target's rules directory
+    if (!relPath.startsWith(rulesPrefix)) {
       errors.push(`Skipped unexpected path: ${relPath}`);
       continue;
     }

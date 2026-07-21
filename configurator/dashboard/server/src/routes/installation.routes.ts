@@ -12,6 +12,7 @@ import { InstallationService } from '../services/installation.service.js';
 import type { InstallConfig } from '../types.js';
 import { validateBody, validateQuery } from '../middleware/validateRequest.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
+import { targetPaths } from '../services/targets/target-paths.js';
 import {
   PrepareServersRequestSchema,
   InstallRequestSchema,
@@ -125,7 +126,7 @@ installationRoutes.get('/available-commands', validateQuery(AvailableCommandsReq
     const projectPath = resolveProjectPath(rawPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
-    const commandsDir = path.join(projectPath, '.claude', 'commands');
+    const commandsDir = targetPaths(projectPath).commandsDir;
     const commands: { name: string; description: string; file: string }[] = [];
 
     try {

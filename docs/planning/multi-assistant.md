@@ -1,6 +1,6 @@
 # Multi-Assistant Support — Planning Document
 
-Status: **approved plan** (2026-07-21). Phases 0 and 1 implemented; Phase 2 next.
+Status: **approved plan** (2026-07-21). Phases 0 and 1 complete; Phase 2 next.
 Scope: make dev-suite generate configuration for multiple AI coding assistants, not only Claude Code.
 
 ## Decisions (locked 2026-07-21)
@@ -53,12 +53,19 @@ Scope: make dev-suite generate configuration for multiple AI coding assistants, 
 - Legacy installs migrate on next install/sync; user content outside markers preserved in both files; both tracked in the manifest.
 - Result: instructions coverage for Copilot/Cursor/Codex/Windsurf/Zed at near-zero cost. Skills/agents already partially picked up by Copilot CLI and Cursor via `.claude/` compat.
 
-### Phase 1 — Foundations (behavior-preserving refactor) — **PARTIALLY DONE**
+### Phase 1 — Foundations (behavior-preserving refactor) — **DONE**
 - **Done**: `services/targets/target-layout.ts` with descriptors for Claude Code / Copilot / Cursor, capability flags, `getManagedDirs`/`getSharedFiles`/`isCustomUserPath` helpers, `isImplemented` gating.
 - **Done**: unified `generateDevSuiteSection` (management.service's diverging copy removed; its description sanitizer now applies on every path — it previously ran only on regeneration, so freshly installed instructions were unsanitized).
 - **Done**: `target` on `TrackedFile`, `targets` on `ExtendedManifest`, transparent migration in `loadManifest` (`migrateManifestTargets`).
 - **Done**: `ROOT_MANAGED_FILES` in reinstall so backup/rollback treat `AGENTS.md` and `CLAUDE.md` as a unit (restoring one without the other would leave a dangling import).
-- **Remaining**: sweep the remaining `.claude/`/`.mcp.json` literals across the ~15 services onto the layout module (installation, management, reinstall, hooks, custom-agents, recipes, routes). Deferred so Phase 0 could ship on a green suite; it is the prerequisite for Phase 2 adapters.
+- **Done**: `services/targets/target-paths.ts` — resolves a layout descriptor into concrete paths for one project, in both project-relative POSIX form (manifest-facing) and absolute form (filesystem-facing). Accessors for optional locations throw rather than silently resolving to the project root.
+- **Done**: literal sweep across installation, management, reinstall, custom-agents, recipes, claude-hooks, claude-md, package-installer and the installation routes. Every dev-suite-written path now derives from the descriptor.
+- **Deliberately left as literals** (not layout-derived, with reasons):
+  - `~/.claude/projects` in `orchestrator.routes.ts` — Claude Code's own session store, not something dev-suite writes.
+  - `.claude/hooks/*.sh` entries in `hooks.constants.ts` — hook events/scripts are abstracted in Phase 3.
+  - `.mcp-servers` in `utils/constants.ts` / `utils/fs-utils.ts` scan-exclusion lists — utils must not depend on services.
+
+**Verified**: full suite green (2144 tests) plus a real install into a temp project — tree, manifest tagging and POSIX manifest paths all unchanged from before the sweep.
 
 ### Phase 2 — Tier 1 adapters (first multi-assistant release)
 - `TargetAdapter` interface + Claude, Copilot, Cursor adapters.
