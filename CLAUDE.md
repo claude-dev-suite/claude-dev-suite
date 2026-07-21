@@ -107,7 +107,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `rules.service.ts` | List available project rule templates from the `rules/` directory |
 | `usage.service.ts` | Fetch usage/billing data from the Anthropic Admin API for the Usage panel |
 | `agent-bundles.ts` | Expand `bundle:` skill references in agent frontmatter into concrete skill directory lists |
-| `targets/target-layout.ts` | Per-assistant layout descriptors (directories, instructions/MCP/settings files) + capability flags; the single source of truth for target paths |
+| `targets/target-layout.ts` | Per-assistant layout descriptors (directories, instructions/MCP/settings files) + capability flags; the single source of truth for target paths. **Formats these descriptors encode are specified in `docs/ASSISTANT-FORMAT-REFERENCE.md` — read it before touching any target adapter, and never research assistant formats independently** |
 | `targets/target-paths.ts` | Resolve a layout descriptor into one project's concrete paths (relative POSIX for the manifest, absolute for filesystem calls) |
 | `installation/claude-md.service.ts` | Generate the shared instructions section, write `AGENTS.md` + the `CLAUDE.md` import pointer, and per-category path-scoped rule files |
 

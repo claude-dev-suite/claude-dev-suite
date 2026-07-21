@@ -7,7 +7,7 @@ Scope: make dev-suite generate configuration for multiple AI coding assistants, 
 
 | # | Decision | Outcome |
 |---|----------|---------|
-| 1 | First targets | **GitHub Copilot (CLI + VS Code) and Cursor** (Tier 1); Codex CLI + Gemini CLI later (Tier 2); Windsurf/Devin + Cline last (Tier 3); Roo Code never (product discontinued May 2026) |
+| 1 | First targets | **GitHub Copilot (CLI + VS Code) and Cursor** (Tier 1); Codex CLI + Gemini CLI later (Tier 2); Devin Desktop + Cline last (Tier 3); Roo Code never (product discontinued May 2026). *Naming note: Windsurf was rebranded **Devin Desktop** in June 2026 and Cascade reached EOL in July 2026 — the Tier 3 target is Devin Desktop, and legacy `.windsurf/` paths are still read during a transition period.* |
 | 2 | Instructions file strategy | **`AGENTS.md` is the primary generated artifact** (marker-delimited dev-suite section). `CLAUDE.md` imports it via `@AGENTS.md` (officially supported import syntax, max 4 hops). Copilot reads AGENTS.md natively; `.github/copilot-instructions.md` generated only if needed. |
 | 3 | Writes outside the project (home-dir MCP config for Copilot CLI etc.) | **Opt-in checkbox in the wizard**, off by default. Never write to the user's home directory silently. |
 | 4 | Unified skills directory | *Amended after verification:* Claude Code does **not** read `.agents/skills/` (only `.claude/skills/`, `~/.claude/skills/`; symlinks need admin on Windows). Copilot and Cursor both read `.claude/skills/` directly. → **`.claude/skills/` stays the canonical physical location for Tier 1**; `.agents/skills/` added as dual-write in Phase 3 for Codex/Gemini. Revisit if Claude Code adds `.agents/skills/` discovery. |
@@ -15,32 +15,33 @@ Scope: make dev-suite generate configuration for multiple AI coding assistants, 
 
 ## Key research findings (July 2026)
 
-- The **Agent Skills standard (SKILL.md)** is adopted by ~40 clients. Copilot, Cursor, Windsurf/Devin and Cline read `.claude/skills/` directly; Copilot CLI and Cursor also read `.claude/agents/`. Part of multi-assistant compatibility is therefore free.
-- **`AGENTS.md`** (Linux Foundation / Agentic AI Foundation) is read natively by Codex, Copilot, Cursor, Windsurf/Devin, Zed, Amp, Cline. Not by Gemini CLI (needs `context.fileName` setting) nor by Claude Code (needs `@AGENTS.md` import in CLAUDE.md).
-- **MCP is the only primitive requiring real per-tool conversion.** Nobody reads Claude Code's `.mcp.json`:
-  - VS Code/Copilot: `.vscode/mcp.json`, top-level key **`servers`** (not `mcpServers`), `${env:VAR}`, `inputs` for secrets
-  - Copilot CLI: `~/.copilot/mcp-config.json` (home dir → opt-in), `type: local`, `tools` allowlist
-  - Cursor: `.cursor/mcp.json`, `mcpServers`, near-identical stdio entries, `${env:VAR}`
-  - Gemini CLI: `.gemini/settings.json` key `mcpServers`; Codex: TOML `[mcp_servers.<n>]` in `.codex/config.toml` (trusted projects only); Windsurf/Cline: user-global config only
+*Superseded by [`docs/ASSISTANT-FORMAT-REFERENCE.md`](../ASSISTANT-FORMAT-REFERENCE.md)
+for anything format-related — several claims in the original list were wrong. Kept
+here only as the strategic shape of the problem:*
+
+- Much of multi-assistant compatibility is **free**, because several tools read
+  each other's directories. But no single skills directory reaches everyone:
+  `.claude/skills/` + `.agents/skills/` together do.
+- **`AGENTS.md`** is the one artifact nearly everyone reads. Two exceptions need
+  a shim: Claude Code (`@AGENTS.md` import) and Gemini CLI (`context.fileName`).
+- **MCP and path-scoped rules are the only primitives requiring real per-tool
+  conversion** — they are the only two with no cross-tool overlap. Correction to
+  the original claim that "nobody reads Claude Code's `.mcp.json`": Copilot CLI
+  does, at project level.
 - Codebase state: the installation pipeline is tool-neutral until serialization; Claude coupling is concentrated in `toInstalledAgentContent()` (installation/file-operations.ts), scattered `.claude`/`.mcp.json`/`CLAUDE.md` path literals across ~15 services (no central path module), a duplicated `generateDevSuiteSection` (installation/claude-md.service.ts vs management.service.ts), Claude hook events/env vars in `hooks.constants.ts` and `registry/features.json`, and ~230 "Claude" occurrences in 35 frontend files.
 
-## Target formats (Tier 1) — re-verified 2026-07-21 (slice 2.0)
+## Target formats
 
-Verified against official docs (docs.github.com, code.visualstudio.com,
-cursor.com/docs) on 2026-07-21. Everything below is CONFIRMED by an official
-source unless marked otherwise.
+**Moved out of this document.** Formats for every supported assistant — Claude
+Code, Copilot, Cursor, Codex CLI, Gemini CLI, Devin Desktop and Cline — live in
+[`docs/ASSISTANT-FORMAT-REFERENCE.md`](../ASSISTANT-FORMAT-REFERENCE.md), which is
+normative for implementers and carries per-claim confidence markers, an
+unconfirmed register, and a ranked list of silent-breakage traps.
 
-| Primitive | Copilot | Cursor |
-|---|---|---|
-| Instructions | `AGENTS.md` native both surfaces. VS Code since **v1.104**, `chat.useAgentsMdFile` defaults to **`true`** (was thought off). CLI also reads `.github/copilot-instructions.md` **and `CLAUDE.md`**. Multiple files are *combined*, no precedence. | `AGENTS.md` native, root + nested (child wins). Introducing version *unconfirmed*. `.cursorrules` absent from current docs — do not write it. |
-| Path-scoped rules | `.github/instructions/*.instructions.md`, key **`applyTo`**, glob relative to workspace root, comma-separated multi-glob | `.cursor/rules/*.mdc`, keys exactly **`description` / `globs` / `alwaysApply`** — no `type` key; rule types are *derived* from which keys are present. Plain `.md` in that dir is ignored. |
-| Agents | `.github/agents/*.agent.md`; **VS Code also reads `.claude/agents/*.md` directly**. Keys: `name` (optional), `description` (required), `tools`, `model`, `mcp-servers`, `target`, … `infer` is retired. | `.cursor/agents/*.md`; **also reads `.claude/agents/` and `.codex/agents/` directly**, `.cursor/` wins on conflict. Keys `name`/`description`/`model`/`readonly`/`is_background`, all optional. |
-| Skills | reads **`.github/skills`, `.claude/skills` and `.agents/skills`** | reads `.cursor/skills/`, `.agents/skills/` and **`.claude/skills/`** (explicit compatibility). Recursive discovery. Skills landed in Cursor 2.4. |
-| MCP | VS Code `.vscode/mcp.json`, key **`servers`**, `type` must be **`"stdio"`**. CLI is a *different* file **and shape**: user `~/.copilot/mcp-config.json`, key `mcpServers`, `type: "local"`, plus a `tools` allowlist. CLI project-level is **`.mcp.json` or `.github/mcp.json`** (trust-gated). | `.cursor/mcp.json` (user: `~/.cursor/mcp.json`), key `mcpServers`, `type: "stdio"`. `${env:VAR}`, `${workspaceFolder}`, `${userHome}` all supported. |
-| Hooks | `.github/hooks/*.json`, `version: 1`, types `command`/`http`/`prompt`. **CLI + cloud agent only — not VS Code** project-level. camelCase vs PascalCase event names select different payload field casing. | `.cursor/hooks.json`, requires `version`, 21 camelCase events, optional `matcher`. |
-| Settings/permissions | `.github/copilot/settings.json` | `.cursor/cli.json` (`permissions.allow`/`deny`); global counterpart has a *different filename*, `~/.cursor/cli-config.json`. |
+Kept here only because it is *planning* rather than *reference*: what the
+verification changed about the plan itself.
 
-### What 2.0 changed in the plan
+### What slice 2.0 changed in the plan
 
 **The big one: agents and skills need no second write.** Both Copilot and Cursor
 read `.claude/agents/` and `.claude/skills/` directly. The planned agent writers
@@ -75,24 +76,18 @@ before the Phase 2 release; if confirmed, the fix is to make the pointer's impor
 Claude-only (e.g. keep the marker section but drop the bare `@AGENTS.md` line for
 projects targeting Copilot CLI).
 
-### Still unconfirmed after 2.0 — do not encode assumptions
-- `${env:VAR}` interpolation in `.vscode/mcp.json` (the reference page lists only
-  `${input:id}` and `${workspaceFolder}`). Prefer literal values or `envFile`.
-- Whether Copilot CLI honours `.vscode/mcp.json` (assume it does not).
-- Which Cursor version introduced `AGENTS.md`, and its precedence against
-  `.cursorrules` / `.cursor/rules` when they coexist.
-- Skill/agent name-collision precedence between `.cursor/` and `.claude/`.
-- Whether nested `.cursor/rules/` directories in subfolders are honoured.
+**Unconfirmed items** are tracked in the reference doc's register (Part 5), not
+here — two of them (Devin Desktop MCP, Cline hooks path) are marked blocking.
 
 ## Architecture
 
 - **`target-layout.ts`**: per-tool descriptor `{ agentsDir, skillsDir, commandsDir, rulesDir, mcpConfigFile, instructionsFile, settingsFile, hooksLocation, capabilities }`. All services resolve paths through it; Claude Code is the first instance.
 - **`TargetAdapter` interface**: `layout()`, `capabilities()`, `writeInstructions()`, `writeAgent()`, `writeSkills()`, `writeCommands()`, `writeMcpConfig()`, `writeHooks()`, `writeSettings()`. Single logical pipeline in `installation.service`; per-target writers at the end. `toInstalledAgentContent()` becomes the Claude adapter's transform.
-- **Capability degradation**: adapters declare unsupported primitives (e.g. Windsurf has no file-based agents); pipeline skips and reports instead of failing.
+- **Capability degradation**: adapters declare unsupported primitives (e.g. Cline can never receive committable MCP config — a permanent gap, not a missing adapter); pipeline skips and reports instead of failing.
 - **Manifest**: `TrackedFile` gains a `target` discriminator (single `.dev-suite-manifest.json`, not per-target files). `ReinstallService.classify()`/erase/backup derive prefixes from the target layout so tools can coexist in one project. `custom/` guard and `<!-- dev-suite-managed -->` sentinels generalize as-is. Old manifests migrate on first reinstall/sync (implicit `target: 'claude-code'`).
 - **Abstract model tiers**: `model: sonnet` in source frontmatter becomes a tier (`fast`/`balanced`/`powerful`) resolved per target.
 - **Abstract hook events**: internal names (`before-tool`, `after-file-edit`, `agent-stop`) mapped per target; `registry/features.json` `apply.target` becomes logical (`settings`, `agent:<id>`), resolved by the adapter; update `features.schema.json`.
-- **Assistant detection**: new `detection/assistant-detection.ts` probing `.claude/`, `.cursor/`, `.github/copilot-instructions.md`, `.codex/`, `.gemini/`, `.windsurf|.devin/`, `.clinerules`, `AGENTS.md` → wizard pre-selects targets; existing unmanaged `AGENTS.md` is merged via markers, never overwritten (backup rule applies).
+- **Assistant detection**: new `detection/assistant-detection.ts` probing `.claude/`, `.cursor/`, `.github/copilot-instructions.md`, `.codex/`, `.gemini/`, `.devin|.windsurf/`, `.clinerules`, `AGENTS.md` → wizard pre-selects targets; existing unmanaged `AGENTS.md` is merged via markers, never overwritten (backup rule applies).
 
 ## Phases
 
@@ -100,7 +95,7 @@ projects targeting Copilot CLI).
 - `AGENTS.md` carries the marker-delimited dev-suite section; `CLAUDE.md` is a pointer with `@AGENTS.md`.
 - Section content made portable: no `.claude/rules/...` paths in the shared file (Claude Code auto-loads those rules via `paths:` frontmatter, so the pointer was informational only — no token-cost regression).
 - Legacy installs migrate on next install/sync; user content outside markers preserved in both files; both tracked in the manifest.
-- Result: instructions coverage for Copilot/Cursor/Codex/Windsurf/Zed at near-zero cost. Skills/agents already partially picked up by Copilot CLI and Cursor via `.claude/` compat.
+- Result: instructions coverage for Copilot/Cursor/Codex/Devin/Cline/Zed at near-zero cost. Skills/agents already partially picked up by Copilot CLI and Cursor via `.claude/` compat.
 
 ### Phase 1 — Foundations (behavior-preserving refactor) — **DONE**
 - **Done**: `services/targets/target-layout.ts` with descriptors for Claude Code / Copilot / Cursor, capability flags, `getManagedDirs`/`getSharedFiles`/`isCustomUserPath` helpers, `isImplemented` gating.
@@ -228,7 +223,7 @@ CHANGELOG, capability matrix, and the MINOR bump per the release checklist.
 - Abstract hooks + logical `features.json` targets; settings/permissions writers.
 
 ### Phase 4 — Polish
-- Tier 3 adapters with degradation (Windsurf/Devin, Cline).
+- Tier 3 adapters with degradation (Devin Desktop, Cline — note Cline's MCP gap is permanent).
 - Content translation pass: lint agent/skill bodies for Claude-specific tool names (`Read`/`Edit`, `mcp__*`, `Task`/`subagent_type`) → neutral phrasing or per-target conditional sections.
 - Commands → user-invocable skills where possible (skills are replacing slash commands ecosystem-wide).
 - Per-target E2E; real-CLI smoke tests (Copilot CLI, Codex, Gemini) against a generated project.
