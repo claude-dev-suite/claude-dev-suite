@@ -129,7 +129,7 @@ The **Web Dashboard** (launched via `init-project.sh`) provides:
 - **Stack Detection**: Identifies React, Spring Boot, Android/Kotlin (Room, Compose), Unity (2D, URP, HDRP, DOTS, Netcode, XR, Addressables, Cinemachine, Input System), PostgreSQL, Git provider, and more
 - **Agent Selection**: Pre-selects agents based on detected technologies
 - **MCP Selection**: Pre-selects MCP servers with environment variable configuration
-- **One-Click Install**: Generates all config files (`.mcp.json`, `.dev-suite.json`, `CLAUDE.md`)
+- **One-Click Install**: Generates all config files (`.mcp.json`, `.dev-suite.json`, `AGENTS.md` + `CLAUDE.md`)
 
 #### **Task Orchestrator** 🔥 NEW
 
@@ -664,7 +664,8 @@ After initialization, your project will contain:
 your-project/
 ├── .mcp.json                    # MCP server configuration
 ├── .dev-suite.json              # Stack and component configuration
-├── CLAUDE.md                    # Agent routing rules (auto-generated)
+├── AGENTS.md                    # Agent routing rules (auto-generated, shared across assistants)
+├── CLAUDE.md                    # Imports AGENTS.md via @AGENTS.md (Claude Code doesn't read AGENTS.md)
 ├── .claude/
 │   ├── agents/                  # Selected specialized agents
 │   ├── skills/                  # Related skills

@@ -12,6 +12,7 @@ import { readJsonSync } from '../../utils/fs-utils.js';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import { getLogger } from '../../utils/logger.js';
 import type { FeatureRegistry, ExtendedManifest, TrackedFile } from '../../types/index.js';
+import { DEFAULT_TARGET } from '../targets/target-layout.js';
 
 // Import and re-export canonical getDevSuiteDir so that:
 // 1. It is available locally in this module.
@@ -59,7 +60,26 @@ export function loadManifest(projectPath: string): ExtendedManifest | null {
   projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
   const manifestPath = path.join(projectPath, MANIFEST_FILENAME);
-  return readJsonSync<ExtendedManifest>(manifestPath);
+  const manifest = readJsonSync<ExtendedManifest>(manifestPath);
+  return manifest ? migrateManifestTargets(manifest) : manifest;
+}
+
+/**
+ * Bring a manifest written before multi-assistant support up to date, in memory.
+ *
+ * Everything installed by an older dev-suite targeted Claude Code, so untagged
+ * files and manifests are attributed to it. Applied on read so existing projects
+ * keep working without an explicit migration step; the tags are persisted the
+ * next time the manifest is written.
+ */
+export function migrateManifestTargets(manifest: ExtendedManifest): ExtendedManifest {
+  if (!manifest.targets || manifest.targets.length === 0) {
+    manifest.targets = [DEFAULT_TARGET];
+  }
+  for (const file of manifest.files ?? []) {
+    file.target ??= DEFAULT_TARGET;
+  }
+  return manifest;
 }
 
 /**

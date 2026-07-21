@@ -27,8 +27,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   cheatsheet used by `jwt`/`cryptography`) to their web-verified current pages, so
   those live-only topics resolve again. Full audit in `docs/kb-audit-2026-07.md`.
 
+### Added
+
+- **`AGENTS.md` is now generated as the primary instructions file**, with
+  `CLAUDE.md` reduced to a pointer that pulls it in via Claude Code's supported
+  `@AGENTS.md` import. `AGENTS.md` is the cross-assistant standard (read natively
+  by Copilot, Cursor, Codex, Windsurf, Zed and others), so a dev-suite install is
+  now understood by those assistants without any extra configuration, while
+  routing content stays in a single source of truth. Existing installations
+  migrate on the next install/sync: the routing section moves out of `CLAUDE.md`
+  and is replaced by the import. User content outside the dev-suite markers is
+  preserved in both files, and both are tracked in the manifest.
+- **Target layout descriptors** (`services/targets/target-layout.ts`): a single
+  source of truth for where each supported assistant expects its configuration
+  (directories, instructions file, MCP config, settings, hooks) plus capability
+  flags, so services stop hardcoding `.claude/`, `.mcp.json` and `CLAUDE.md`.
+  Descriptors for Claude Code, GitHub Copilot and Cursor ship in this release;
+  only Claude Code has a full write path so far. Groundwork for multi-assistant
+  support — see `docs/planning/multi-assistant.md`.
+- **Manifest target tagging**: `.dev-suite-manifest.json` records which
+  assistants a project was installed for (`targets`), and every tracked file
+  carries a `target`, so several assistants can share one project without
+  reinstall/erase crossing between them. Manifests written before this release
+  are attributed to `claude-code` automatically when read.
+
 ### Changed
 
+- **Instruction generation deduplicated.** `management.service` had its own copy
+  of the CLAUDE.md section builder that diverged from the installer's: it emitted
+  the older flat routing layout and was the only one that sanitized agent
+  descriptions. Both now use the installer's implementation, so regenerating
+  after adding/removing a component produces the same output as a fresh install,
+  and description sanitization (which strips constructs that could forge section
+  markers or inject prompts) applies on every path.
 - **Updates tab simplified to a single update mechanism.** The incremental
   feature-upgrade UI (available-updates list, 3-way conflict detection/resolution,
   selective apply, and upgrade history) was retired in favour of a version panel

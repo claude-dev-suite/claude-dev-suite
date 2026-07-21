@@ -13,6 +13,7 @@ import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { execSync, execFileSync } from 'child_process';
 import type { InstallConfig, InstallManifest } from '../types.js';
 import type { TrackedFile, ExtendedManifest, StackInfo } from '../types/index.js';
+import { DEFAULT_TARGET, type TargetId } from './targets/target-layout.js';
 import { AgentsService } from './agents.service.js';
 import { HooksService } from './hooks.service.js';
 import {
@@ -29,8 +30,8 @@ import {
   flattenSkillName,
   toInstalledAgentContent,
   getServerEnvVars,
-  updateClaudeMd,
-  cleanClaudeMdSection,
+  updateInstructions,
+  cleanInstructionsSections,
   generatePathScopedRules,
   removePathScopedRules,
 } from './installation/index.js';
@@ -171,6 +172,9 @@ export class InstallationService {
       features: {},
       files: [],
       upgradeHistory: [],
+      // Multi-target installs are introduced target by target; today every
+      // install writes the Claude Code layout.
+      targets: [DEFAULT_TARGET],
     };
 
     // Legacy manifest for backward compatibility
@@ -362,11 +366,20 @@ export class InstallationService {
     const ruleFiles = generatePathScopedRules(installedAgents, projectPath);
     extendedManifest.installedRuleFiles = ruleFiles;
 
-    // Re-write extended manifest with catalog snapshot + rule file tracking
-    fs.writeFileSync(manifestPath, JSON.stringify(extendedManifest, null, 2));
+    // Write instructions: AGENTS.md holds the shared section, CLAUDE.md imports it
+    const instructionFiles = updateInstructions(projectPath, {
+      agents: installedAgents,
+      detectedStack,
+      validatorHookConfigured,
+    });
+    for (const file of instructionFiles) {
+      // Legacy manifest has no 'generated' type; 'config' is its closest match.
+      manifest.files.push({ path: file, type: 'config', source: 'generated' });
+      this.trackFile(extendedManifest, projectPath, file, 'generated', 'generated');
+    }
 
-    // Update CLAUDE.md — always-on agents inline, path-scoped ones cross-referenced
-    updateClaudeMd(projectPath, installedAgents, detectedStack, validatorHookConfigured);
+    // Re-write the manifest with catalog snapshot, rule files and instruction files
+    fs.writeFileSync(manifestPath, JSON.stringify(extendedManifest, null, 2));
 
     return manifest;
   }
@@ -469,8 +482,9 @@ export class InstallationService {
       }
     }
 
-    // Clean CLAUDE.md
-    cleanClaudeMdSection(projectPath);
+    // Clean the dev-suite section from every instructions file we wrote
+    cleanInstructionsSections(projectPath);
+    removed.push('AGENTS.md (dev-suite section)');
     removed.push('CLAUDE.md (dev-suite section)');
 
     return { removed, errors };
@@ -504,14 +518,18 @@ export class InstallationService {
   // ========== Private methods ==========
 
   /**
-   * Track a file with hash in the extended manifest
+   * Track a file with hash in the extended manifest.
+   *
+   * `target` records which assistant the file belongs to so that erase and
+   * reinstall stay scoped when several assistants share one project.
    */
   private trackFile(
     extendedManifest: ExtendedManifest,
     projectPath: string,
     relativePath: string,
     type: TrackedFile['type'],
-    source?: string
+    source?: string,
+    target: TargetId = DEFAULT_TARGET
   ): void {
     const fullPath = path.join(projectPath, relativePath);
     const hash = calculateFileHashFromPath(fullPath);
@@ -522,6 +540,7 @@ export class InstallationService {
         hash,
         type,
         source,
+        target,
       });
     }
   }

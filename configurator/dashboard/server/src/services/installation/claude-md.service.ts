@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT
 /**
- * CLAUDE.md Management Service
+ * Instructions File Service
  *
- * Handles reading, updating, and cleaning the dev-suite section in CLAUDE.md.
- * Path-scoped routing for category-specific agents is written to
- * `.claude/rules/{category}.md` so that Claude Code only loads those
- * instructions when matching files are open, reducing cold-start token cost.
+ * Writes the dev-suite instructions section that agents read at session start.
+ *
+ * `AGENTS.md` is the primary artifact: it is the cross-assistant standard and
+ * is read natively by Copilot, Cursor, Codex, Windsurf and others. Claude Code
+ * does not read AGENTS.md, so `CLAUDE.md` is written as a thin pointer that
+ * pulls it in via the supported `@AGENTS.md` import syntax — one source of
+ * truth, no duplicated content.
+ *
+ * Path-scoped routing for category-specific agents stays out of the shared
+ * section: it is written to per-target rule files (`.claude/rules/{category}.md`
+ * today) so instructions are only loaded when matching files are open, keeping
+ * cold-start token cost low.
  */
 
 import * as fs from 'fs';
@@ -14,6 +22,7 @@ import { resolveProjectPath, PathValidationError } from '../../utils/utilities.j
 import type { Agent } from '../../types.js';
 import { HooksService } from '../hooks.service.js';
 import { getCategoryPaths, isAlwaysOnCategory } from './category-paths.js';
+import { SHARED_INSTRUCTIONS_FILE, getTargetLayout } from '../targets/target-layout.js';
 
 // Markers for dev-suite section
 export const DEV_SUITE_START_MARKER = '<!-- DEV-SUITE-CONFIG-START -->';
@@ -27,85 +36,171 @@ interface DetectedStackInfo {
   backend?: { framework?: string; runtime?: string };
 }
 
-/**
- * Update CLAUDE.md with agent routing instructions and validation workflow.
- *
- * Always-on agents (security, core, quality, mcp-config) are written inline.
- * Category-scoped agents are listed only as a cross-reference; the detailed
- * routing for them lives in `.claude/rules/{category}.md`.
- */
-export function updateClaudeMd(
-  projectPath: string,
-  agents: Agent[],
-  detectedStack?: DetectedStackInfo,
-  validatorHookConfigured = false
-): void {
-  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
-  projectPath = resolveProjectPath(projectPath);
-  if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-  const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
-  const section = generateDevSuiteSection(agents, detectedStack, validatorHookConfigured);
+/** Minimal shape of a user-authored custom agent, as listed in instructions. */
+export interface CustomAgentSummary {
+  id: string;
+  name: string;
+  description: string;
+}
 
-  if (!fs.existsSync(claudeMdPath)) {
-    fs.writeFileSync(claudeMdPath, section + '\n');
+/** Inputs for the generated dev-suite instructions section. */
+export interface InstructionsSectionOptions {
+  agents: Agent[];
+  customAgents?: CustomAgentSummary[];
+  detectedStack?: DetectedStackInfo;
+  validatorHookConfigured?: boolean;
+}
+
+/**
+ * Insert or replace the dev-suite marked section in a file.
+ *
+ * User content outside the markers is always preserved; when the file exists
+ * but has no markers the section is appended after a horizontal rule.
+ */
+function upsertMarkedSection(filePath: string, section: string): void {
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, section + '\n');
     return;
   }
 
-  const content = fs.readFileSync(claudeMdPath, 'utf-8');
+  const content = fs.readFileSync(filePath, 'utf-8');
   const startIdx = content.indexOf(DEV_SUITE_START_MARKER);
   const endIdx = content.indexOf(DEV_SUITE_END_MARKER);
 
   if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
     const before = content.substring(0, startIdx);
     const after = content.substring(endIdx + DEV_SUITE_END_MARKER.length);
-    fs.writeFileSync(claudeMdPath, before + section + after);
+    fs.writeFileSync(filePath, before + section + after);
   } else {
     const separator = content.endsWith('\n') ? '\n' : '\n\n';
-    fs.writeFileSync(claudeMdPath, content + separator + '---\n\n' + section + '\n');
+    fs.writeFileSync(filePath, content + separator + '---\n\n' + section + '\n');
   }
 }
 
 /**
- * Remove the dev-suite section from CLAUDE.md
+ * Remove the dev-suite marked section from a file, deleting the file when
+ * nothing but our section was in it.
  */
-export function cleanClaudeMdSection(projectPath: string): void {
-  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
-  projectPath = resolveProjectPath(projectPath);
-  if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-  const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
-  if (!fs.existsSync(claudeMdPath)) return;
+function removeMarkedSection(filePath: string): void {
+  if (!fs.existsSync(filePath)) return;
 
-  const content = fs.readFileSync(claudeMdPath, 'utf-8');
+  const content = fs.readFileSync(filePath, 'utf-8');
   const startIdx = content.indexOf(DEV_SUITE_START_MARKER);
   const endIdx = content.indexOf(DEV_SUITE_END_MARKER);
+  if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) return;
 
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    let before = content.substring(0, startIdx);
-    const after = content.substring(endIdx + DEV_SUITE_END_MARKER.length);
+  let before = content.substring(0, startIdx);
+  const after = content.substring(endIdx + DEV_SUITE_END_MARKER.length);
 
-    before = before.replace(/\n---\n+$/, '\n').replace(/\n+$/, '\n');
-    const newContent = (before + after.replace(/^\n+/, '')).trim();
+  before = before.replace(/\n---\n+$/, '\n').replace(/\n+$/, '\n');
+  const newContent = (before + after.replace(/^\n+/, '')).trim();
 
-    if (newContent.length === 0) {
-      fs.unlinkSync(claudeMdPath);
-    } else {
-      fs.writeFileSync(claudeMdPath, newContent + '\n');
-    }
+  if (newContent.length === 0) {
+    fs.unlinkSync(filePath);
+  } else {
+    fs.writeFileSync(filePath, newContent + '\n');
   }
 }
 
+/** Validate and normalise a project path before writing into it. */
+function assertSafeProjectPath(projectPath: string): string {
+  if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
+  const resolved = resolveProjectPath(projectPath);
+  if (!path.isAbsolute(resolved)) throw new PathValidationError('Path must be rooted');
+  return resolved;
+}
+
 /**
- * Generate the dev-suite section content for CLAUDE.md.
+ * Write the dev-suite instructions for every assistant that reads a
+ * project-level instructions file.
  *
- * Only always-on agents (security, core, quality, mcp-config) appear in the
- * full routing block. Category-scoped agents are listed in a compact index
- * that references the corresponding `.claude/rules/{category}.md` file.
+ * `AGENTS.md` receives the full section (shared across assistants);
+ * `CLAUDE.md` receives a pointer that imports it, because Claude Code does not
+ * read AGENTS.md natively.
+ *
+ * @returns relative paths of the files written, for manifest tracking.
  */
-export function generateDevSuiteSection(
-  agents: Agent[],
-  detectedStack?: DetectedStackInfo,
-  validatorHookConfigured = false
-): string {
+export function updateInstructions(
+  projectPath: string,
+  opts: InstructionsSectionOptions
+): string[] {
+  const resolved = assertSafeProjectPath(projectPath);
+
+  upsertMarkedSection(
+    path.join(resolved, SHARED_INSTRUCTIONS_FILE),
+    generateDevSuiteSection(opts)
+  );
+
+  const claudeMdFile = getTargetLayout('claude-code').instructionsFile;
+  upsertMarkedSection(
+    path.join(resolved, claudeMdFile),
+    generateSharedInstructionsPointer()
+  );
+
+  return [SHARED_INSTRUCTIONS_FILE, claudeMdFile];
+}
+
+/**
+ * Remove the dev-suite section from every instructions file we write.
+ */
+export function cleanInstructionsSections(projectPath: string): void {
+  const resolved = assertSafeProjectPath(projectPath);
+  removeMarkedSection(path.join(resolved, SHARED_INSTRUCTIONS_FILE));
+  removeMarkedSection(path.join(resolved, getTargetLayout('claude-code').instructionsFile));
+}
+
+/**
+ * The CLAUDE.md section: a pointer that imports the shared instructions.
+ *
+ * `@AGENTS.md` is Claude Code's supported import syntax; it must stay on its
+ * own line and outside code spans to be expanded.
+ */
+export function generateSharedInstructionsPointer(): string {
+  return `${DEV_SUITE_START_MARKER}
+# Dev-Suite Configuration
+
+Project instructions are maintained in ${SHARED_INSTRUCTIONS_FILE}, shared across AI coding
+assistants. The import below pulls them into context — edit that file, not this section.
+
+@${SHARED_INSTRUCTIONS_FILE}
+${DEV_SUITE_END_MARKER}`;
+}
+
+/**
+ * Sanitize an agent description for safe embedding in a generated instructions
+ * file.
+ *
+ * Strips constructs that could be used for prompt injection or that would break
+ * the surrounding Markdown structure: fenced code blocks, bare backtick runs,
+ * HTML comment markers (which could forge our own section markers), leading
+ * heading markers, and newlines.
+ */
+export function sanitizeAgentDescription(description: string): string {
+  if (!description) return '';
+  return description
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/`{3,}/g, '')
+    .replace(/~{3,}/g, '')
+    .replace(/`+/g, '')
+    .replace(/<!--[\s\S]*?(?:-->|--!>)/g, '')
+    .replace(/<!--/g, '')
+    .replace(/(?:-->|--!>)/g, '')
+    .replace(/^#+\s*/g, '')
+    .trim();
+}
+
+/**
+ * Generate the shared dev-suite instructions section.
+ *
+ * Only always-on agents (security, core, quality, mcp-config) get a full inline
+ * routing block. Category-scoped agents appear as a compact one-line-per-category
+ * index — their detailed routing lives in per-target rule files that the
+ * assistant loads only when matching files are open. The index deliberately
+ * avoids naming tool-specific rule paths so the section stays portable.
+ */
+export function generateDevSuiteSection(opts: InstructionsSectionOptions): string {
+  const { agents, customAgents = [], detectedStack, validatorHookConfigured = false } = opts;
+
   // Split agents into always-on and path-scoped groups
   const alwaysOnAgents = agents.filter(a => isAlwaysOnCategory(a.category));
   const scopedAgents = agents.filter(a => !isAlwaysOnCategory(a.category));
@@ -115,14 +210,23 @@ export function generateDevSuiteSection(
     ? agents.map((a) => `- \`@${a.id}\``).join('\n')
     : '- No agents installed';
 
+  // Custom (user-authored) agents are listed separately and never overwritten
+  const customAgentsSection = customAgents.length > 0
+    ? `\n\n## Custom Agents\n\nProject-specific custom agents:\n\n${customAgents
+        .map(a => `- \`@custom:${a.id}\` — ${sanitizeAgentDescription(a.description)}`)
+        .join('\n')}`
+    : '';
+
   // Always-on routing block (security, core, quality, mcp-config)
   let alwaysOnRouting = '';
   if (alwaysOnAgents.length > 0) {
-    const lines = alwaysOnAgents.map(a => `- Use \`@${a.id}\` for: ${a.description}`);
+    const lines = alwaysOnAgents.map(
+      a => `- Use \`@${a.id}\` for: ${sanitizeAgentDescription(a.description)}`
+    );
     alwaysOnRouting = `\n\n## Agent Routing (Always Active)\n\nThese agents apply to every file in the project:\n\n${lines.join('\n')}\n\n**Important**: Always delegate tasks to the most appropriate specialist agent.`;
   }
 
-  // Path-scoped summary: group by category and reference the rule file
+  // Path-scoped summary: one line per category, no tool-specific paths
   let scopedSection = '';
   if (scopedAgents.length > 0) {
     // Group by category
@@ -137,10 +241,10 @@ export function generateDevSuiteSection(
     const categoryLines: string[] = [];
     for (const [cat, catAgents] of byCategory) {
       const agentIds = catAgents.map(a => `\`@${a.id}\``).join(', ');
-      categoryLines.push(`- **${cat}**: ${agentIds} — see \`.claude/rules/${cat}.md\``);
+      categoryLines.push(`- **${cat}**: ${agentIds}`);
     }
 
-    scopedSection = `\n\n## Path-Scoped Agent Rules\n\nThe following agents activate automatically when you open matching files.\nFull routing details are in the rule files listed below:\n\n${categoryLines.join('\n')}`;
+    scopedSection = `\n\n## Path-Scoped Agent Rules\n\nThese agents cover specific parts of the codebase and activate automatically\nwhen you work on matching files:\n\n${categoryLines.join('\n')}`;
   }
 
   // Generate API validation section if hook was configured
@@ -155,7 +259,7 @@ export function generateDevSuiteSection(
       ? monitoredAgents.frontend.map(a => `\`${a}\``).join(', ')
       : 'None detected';
 
-    validationSection = `\n\n## API Integration Validation\n\nThis project uses \`integration-validator-expert\` to validate API contract consistency between frontend and backend.\n\n### How It Works\nAn automatic hook (\`.claude/settings.json\`) detects when API endpoints or frontend integrations are modified and triggers validation automatically.\n\n### Monitored Agents\n- **Backend**: ${backendList}\n- **Frontend**: ${frontendList}\n\n### What Gets Validated\n- Path/method correspondence between frontend calls and OpenAPI spec\n- Request/response type alignment\n- Required/optional field correctness\n\n### Trigger Conditions\nThe validator is triggered when:\n- Backend: Controller/route/handler modifications, new REST/GraphQL endpoints, DTO changes\n- Frontend: New API calls (fetch, axios, useQuery), API type modifications\n\nThe validator is NOT triggered for:\n- CSS/styling changes only\n- Text/label changes only\n- Internal refactoring without API changes\n- UI components without data fetching`;
+    validationSection = `\n\n## API Integration Validation\n\nThis project uses \`integration-validator-expert\` to validate API contract consistency between frontend and backend.\n\n### How It Works\nAn automatic hook detects when API endpoints or frontend integrations are modified and triggers validation automatically.\n\n### Monitored Agents\n- **Backend**: ${backendList}\n- **Frontend**: ${frontendList}\n\n### What Gets Validated\n- Path/method correspondence between frontend calls and OpenAPI spec\n- Request/response type alignment\n- Required/optional field correctness\n\n### Trigger Conditions\nThe validator is triggered when:\n- Backend: Controller/route/handler modifications, new REST/GraphQL endpoints, DTO changes\n- Frontend: New API calls (fetch, axios, useQuery), API type modifications\n\nThe validator is NOT triggered for:\n- CSS/styling changes only\n- Text/label changes only\n- Internal refactoring without API changes\n- UI components without data fetching`;
   }
 
   return `${DEV_SUITE_START_MARKER}
@@ -163,7 +267,7 @@ export function generateDevSuiteSection(
 
 ## Installed Agents
 
-${agentList}${alwaysOnRouting}${scopedSection}${validationSection}
+${agentList}${customAgentsSection}${alwaysOnRouting}${scopedSection}${validationSection}
 
 ## Commands
 

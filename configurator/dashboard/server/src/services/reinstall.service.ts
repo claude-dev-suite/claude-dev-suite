@@ -28,6 +28,7 @@ import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { readJsonSync } from '../utils/fs-utils.js';
+import { SHARED_INSTRUCTIONS_FILE } from './targets/target-layout.js';
 import { InstallationService } from './installation.service.js';
 import {
   DEV_SUITE_VERSION,
@@ -61,6 +62,21 @@ import type {
 const logger = getLogger('ReinstallService');
 
 const BACKUP_DIR_PREFIX = '.dev-suite-backup-';
+
+/**
+ * Project-root files that participate in backup/rollback as a unit.
+ *
+ * Instructions files are listed together: `AGENTS.md` holds the shared section
+ * and `CLAUDE.md` imports it, so restoring one without the other would leave a
+ * dangling import.
+ */
+const ROOT_MANAGED_FILES: readonly string[] = Object.freeze([
+  '.mcp.json',
+  '.dev-suite.json',
+  '.dev-suite-manifest.json',
+  SHARED_INSTRUCTIONS_FILE,
+  'CLAUDE.md',
+]);
 
 /** Selection of components to reinstall. */
 interface Selection {
@@ -540,7 +556,7 @@ export class ReinstallService {
     }
 
     // Top-level config + CLAUDE.md
-    for (const f of ['.mcp.json', '.dev-suite.json', '.dev-suite-manifest.json', 'CLAUDE.md']) {
+    for (const f of ROOT_MANAGED_FILES) {
       const src = this.safe(projectPath, f);
       if (fs.existsSync(src)) {
         fs.copyFileSync(src, this.safe(backupDir, f));
@@ -574,7 +590,7 @@ export class ReinstallService {
   private rollback(projectPath: string, backupDir: string, selection: Selection, files: TrackedFile[]): void {
     // 1. Remove managed surfaces created/mutated during the attempt.
     fs.rmSync(this.safe(projectPath, '.claude'), { recursive: true, force: true });
-    for (const f of ['.mcp.json', '.dev-suite.json', '.dev-suite-manifest.json', 'CLAUDE.md']) {
+    for (const f of ROOT_MANAGED_FILES) {
       const p = this.safe(projectPath, f);
       if (fs.existsSync(p)) fs.rmSync(p, { force: true });
     }

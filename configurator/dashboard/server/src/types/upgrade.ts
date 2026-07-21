@@ -8,6 +8,7 @@
 
 import type { StackInfo } from './core.js';
 import type { ReinstallHistoryEntry } from './reinstall.js';
+import type { TargetId } from '../services/targets/target-layout.js';
 
 // ============================================
 // FEATURE REGISTRY TYPES
@@ -156,6 +157,13 @@ export interface TrackedFile {
   type: 'agent' | 'skill' | 'mcp-server' | 'config' | 'generated';
   /** Source path in dev-suite (for agent/skill) */
   source?: string;
+  /**
+   * Assistant this file was written for. Lets several assistants coexist in one
+   * project so erase/reinstall can be scoped to a single target.
+   * Missing value means `claude-code` (manifests written before multi-assistant
+   * support) — see `migrateManifestTargets`.
+   */
+  target?: TargetId;
 }
 
 /**
@@ -210,6 +218,11 @@ export interface ExtendedManifest {
   upgradeHistory: UpgradeHistoryEntry[];
   /** Snapshot of all available components at install time (for new-component detection) */
   availableAtInstall?: CatalogSnapshot;
+  /**
+   * Assistants this project was installed for. Missing means `['claude-code']`
+   * (manifests written before multi-assistant support).
+   */
+  targets?: TargetId[];
   /**
    * Relative paths of `.claude/rules/{category}.md` files written by dev-suite.
    * Used for clean uninstall. Missing field is treated as an empty array (backward compat).

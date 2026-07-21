@@ -121,6 +121,57 @@ describe('InstallationService', () => {
       expect(manifest.availableAtInstall.mcpServers).toContain('api-tester');
     });
 
+    it('should write AGENTS.md with the routing section and CLAUDE.md as an import', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const agentsMd = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf-8');
+      const claudeMd = fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf-8');
+
+      expect(agentsMd).toContain('@typescript-expert');
+      expect(claudeMd).toContain('@AGENTS.md');
+      // The routing detail lives in one place only
+      expect(claudeMd).not.toContain('@typescript-expert');
+    });
+
+    it('should tag the manifest and its files with the install target', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.dev-suite-manifest.json'), 'utf-8')
+      );
+
+      expect(manifest.targets).toEqual(['claude-code']);
+      expect(manifest.files.length).toBeGreaterThan(0);
+      expect(manifest.files.every((f: { target?: string }) => f.target === 'claude-code')).toBe(true);
+    });
+
+    it('should track both instruction files in the manifest', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.dev-suite-manifest.json'), 'utf-8')
+      );
+      const tracked = manifest.files.map((f: { path: string }) => f.path);
+
+      expect(tracked).toContain('AGENTS.md');
+      expect(tracked).toContain('CLAUDE.md');
+    });
+
     it('should handle empty configuration', async () => {
       const manifest = await installationService.install({
         projectPath: projectDir,

@@ -8,13 +8,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync, spawnSync } from 'child_process';
-import type { Agent } from '../types.js';
 import type { ExtendedManifest, TrackedFile, NewComponentsResult } from '../types/upgrade.js';
 import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { createHash } from 'crypto';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { parseAgentSkills, flattenSkillName, toInstalledAgentContent } from './installation/file-operations.js';
+import { updateInstructions, type CustomAgentSummary } from './installation/claude-md.service.js';
 import { validatePathWithinBase } from './installation/index.js';
 import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 import { getLogger } from '../utils/logger.js';
@@ -24,8 +24,6 @@ const logger = getLogger('ManagementService');
 const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 
 // Constants
-const DEV_SUITE_START_MARKER = '<!-- DEV-SUITE-CONFIG-START -->';
-const DEV_SUITE_END_MARKER = '<!-- DEV-SUITE-CONFIG-END -->';
 const TIMEOUTS = {
   GIT_FETCH: 30000,
   GIT_PULL: 60000,
@@ -552,7 +550,8 @@ export class ManagementService {
   }
 
   /**
-   * Regenerate CLAUDE.md with full agent routing instructions
+   * Regenerate the instructions files (AGENTS.md + CLAUDE.md pointer) with the
+   * current agent routing.
    */
   private async regenerateClaudeMd(projectPath: string): Promise<void> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
@@ -563,16 +562,16 @@ export class ManagementService {
     // Get custom agents
     const customAgents = await this.getCustomAgentsList(projectPath);
 
-    this.updateClaudeMd(projectPath, installedAgents, customAgents);
+    updateInstructions(projectPath, { agents: installedAgents, customAgents });
   }
 
   /**
    * Get list of custom agents from project
    */
-  private async getCustomAgentsList(projectPath: string): Promise<Array<{ id: string; name: string; description: string }>> {
+  private async getCustomAgentsList(projectPath: string): Promise<CustomAgentSummary[]> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     const customAgentsDir = path.join(projectPath, '.claude', 'agents', 'custom');
-    const agents: Array<{ id: string; name: string; description: string }> = [];
+    const agents: CustomAgentSummary[] = [];
 
     if (!fs.existsSync(customAgentsDir)) {
       return agents;
@@ -612,124 +611,4 @@ export class ManagementService {
     return agents;
   }
 
-  private updateClaudeMd(
-    projectPath: string,
-    agents: Agent[],
-    customAgents: Array<{ id: string; name: string; description: string }> = []
-  ): void {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
-    const resolved = resolveProjectPath(projectPath);
-    const claudeMdPath = path.join(resolved, 'CLAUDE.md');
-    const section = this.generateDevSuiteSection(agents, customAgents);
-
-    if (!fs.existsSync(claudeMdPath)) {
-      fs.writeFileSync(claudeMdPath, section + '\n');
-      return;
-    }
-
-    const content = fs.readFileSync(claudeMdPath, 'utf-8');
-    const startIdx = content.indexOf(DEV_SUITE_START_MARKER);
-    const endIdx = content.indexOf(DEV_SUITE_END_MARKER);
-
-    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-      const before = content.substring(0, startIdx);
-      const after = content.substring(endIdx + DEV_SUITE_END_MARKER.length);
-      fs.writeFileSync(claudeMdPath, before + section + after);
-    } else {
-      const separator = content.endsWith('\n') ? '\n' : '\n\n';
-      fs.writeFileSync(claudeMdPath, content + separator + '---\n\n' + section + '\n');
-    }
-  }
-
-  /**
-   * Sanitize agent description for safe embedding in CLAUDE.md.
-   *
-   * Strips constructs that could be used for prompt injection or that would
-   * break the surrounding Markdown structure:
-   * - Fenced code blocks (``` and ~~~) — could smuggle arbitrary instructions
-   * - Bare backtick sequences — can close inline-code spans unexpectedly
-   * - HTML comment tags — could hide injected content
-   * - Leading "#" characters that would create rogue headings
-   * - Newlines are collapsed to a single space so the value stays on one line
-   */
-  private sanitizeAgentDescription(description: string): string {
-    if (!description) return '';
-    return description
-      // Collapse all newlines / carriage-returns to a single space first
-      .replace(/[\r\n]+/g, ' ')
-      // Remove fenced code block delimiters (``` and ~~~)
-      .replace(/`{3,}/g, '')
-      .replace(/~{3,}/g, '')
-      // Remove remaining backtick sequences
-      .replace(/`+/g, '')
-      // Remove HTML comment markers (handle both --> and --!> endings)
-      .replace(/<!--[\s\S]*?(?:-->|--!>)/g, '')
-      .replace(/<!--/g, '')
-      .replace(/(?:-->|--!>)/g, '')
-      // Strip leading Markdown heading markers
-      .replace(/^#+\s*/g, '')
-      // Trim leading/trailing whitespace
-      .trim();
-  }
-
-  private generateDevSuiteSection(
-    agents: Agent[],
-    customAgents: Array<{ id: string; name: string; description: string }> = []
-  ): string {
-    const agentList = agents.length > 0
-      ? agents.map((a) => `- \`@${a.id}\``).join('\n')
-      : '- No agents installed';
-
-    // Custom agents list
-    const customAgentList = customAgents.length > 0
-      ? customAgents.map((a) => `- \`@custom:${a.id}\` (Custom)`).join('\n')
-      : '';
-
-    // Generate routing instructions based on agent descriptions
-    let routingInstructions = '';
-    const allAgentsForRouting = [
-      ...agents.map((a) => ({ id: a.id, description: this.sanitizeAgentDescription(a.description), isCustom: false })),
-      ...customAgents.map((a) => ({ id: `custom:${a.id}`, description: this.sanitizeAgentDescription(a.description), isCustom: true })),
-    ];
-
-    if (allAgentsForRouting.length > 0) {
-      const routingLines = allAgentsForRouting.map((a) => {
-        const suffix = a.isCustom ? ' (Custom)' : '';
-        return `- Use \`@${a.id}\` for: ${a.description}${suffix}`;
-      });
-      routingInstructions = `
-
-## Agent Routing
-
-When working on tasks that match an agent's expertise, you MUST use the appropriate agent. Use the Task tool with the corresponding subagent_type.
-
-${routingLines.join('\n')}
-
-**Important**: Always delegate tasks to the most appropriate specialist agent. Do not attempt to handle specialized tasks directly when a relevant agent is available.`;
-    }
-
-    // Build custom agents section
-    const customAgentsSection = customAgents.length > 0
-      ? `
-
-## Custom Agents
-
-Project-specific custom agents:
-
-${customAgentList}`
-      : '';
-
-    return `${DEV_SUITE_START_MARKER}
-# Dev-Suite Configuration
-
-## Installed Agents
-
-${agentList}${customAgentsSection}${routingInstructions}
-
-## Commands
-
-- \`/init-project\` - Reconfigure dev-suite
-- \`/uninstall-dev-suite\` - Remove dev-suite
-${DEV_SUITE_END_MARKER}`;
-  }
 }
