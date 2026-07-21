@@ -45,6 +45,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Descriptors for Claude Code, GitHub Copilot and Cursor ship in this release;
   only Claude Code has a full write path so far. Groundwork for multi-assistant
   support — see `docs/planning/multi-assistant.md`.
+- **Per-assistant format writers** (`services/targets/writers/`): MCP
+  configuration and path-scoped agent routing, serialized into each assistant's
+  own format. These are the only two primitives that genuinely differ between
+  tools — Copilot and Cursor read `.claude/agents/` and `.claude/skills/`
+  directly, so agents and skills need no second write. The MCP writers merge
+  with any servers the user already configured rather than overwriting the file,
+  and refuse to silently discard a config they cannot parse. Not yet reachable
+  from the UI; the adapters that consume them land next.
 - **Target adapter seam** (`services/targets/target-adapter.ts` +
   `targets/adapters/`): `install()` now resolves a tool-neutral `InstallPlan`
   without touching disk, then hands it to one adapter per target. Claude Code is

@@ -525,6 +525,7 @@ gracefully. Resolve one and move it into Part 3 with its source.
 |---|---|---|
 | 1 | `${env:VAR}` interpolation in `.vscode/mcp.json` — the reference page lists only `${input:id}` and `${workspaceFolder}` | Copilot MCP writer — prefer literal values or `envFile` |
 | 2 | Whether Copilot CLI honours `.vscode/mcp.json` | Copilot MCP writer — assume it does not |
+| 2b | Whether Copilot CLI accepts a project `.mcp.json` entry that omits `type` and `tools` (i.e. the file dev-suite already writes for Claude Code). The path and top-level key match, but the documented CLI entry shape uses `type: "local"` plus a `tools` allowlist, and whether those default is not documented. **Not testable here — Copilot CLI is not installed on the dev machine.** | Sidestepped rather than resolved: dev-suite writes `.github/mcp.json` with the explicit CLI shape, so it never depends on a default, and never mutates the file Claude Code owns |
 | 3 | Which Cursor version introduced `AGENTS.md`, and its precedence against `.cursorrules` / `.cursor/rules` | Cursor instructions — write `AGENTS.md`, never `.cursorrules` |
 | 4 | Skill/agent name-collision precedence between `.cursor/` and `.claude/` | Cursor — write skills once |
 | 5 | Whether nested `.cursor/rules/` in subfolders are honoured | Cursor rules — emit at root only |

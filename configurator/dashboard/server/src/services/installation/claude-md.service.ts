@@ -24,13 +24,13 @@ import { HooksService } from '../hooks.service.js';
 import { getCategoryPaths, isAlwaysOnCategory } from './category-paths.js';
 import { SHARED_INSTRUCTIONS_FILE, getTargetLayout } from '../targets/target-layout.js';
 import { targetPaths } from '../targets/target-paths.js';
+import { claudeCodeRule, RULE_FILE_MARKER } from '../targets/writers/path-scoped-rules.writer.js';
 
 // Markers for dev-suite section
 export const DEV_SUITE_START_MARKER = '<!-- DEV-SUITE-CONFIG-START -->';
 export const DEV_SUITE_END_MARKER = '<!-- DEV-SUITE-CONFIG-END -->';
 
-/** Sentinel embedded in rules file comments so we know it was created by dev-suite */
-const RULE_FILE_MARKER = '<!-- dev-suite-managed -->';
+
 
 interface DetectedStackInfo {
   frontend?: { framework?: string; metaFramework?: string };
@@ -315,27 +315,11 @@ export function generatePathScopedRules(
     const globs = getCategoryPaths(category);
     if (!globs || globs.length === 0) continue; // safety guard
 
-    const pathsYaml = globs.map(g => `  - "${g}"`).join('\n');
-    const agentLines = agents
-      .map(a => `- \`@${a.id}\` — ${a.description}`)
-      .join('\n');
-
-    const displayCategory = category.charAt(0).toUpperCase() + category.slice(1);
-
-    const content = `---
-paths:
-${pathsYaml}
----
-${RULE_FILE_MARKER}
-
-# ${displayCategory} Agents
-
-When working on files matching the paths above, prefer these agents:
-
-${agentLines}
-
-Use the Task tool with the corresponding subagent_type to delegate work to these specialists.
-`;
+    const content = claudeCodeRule({
+      category,
+      globs,
+      agents: agents.map(a => ({ id: a.id, description: a.description })),
+    });
 
     const relPath = paths.relRuleFile(category);
     const absPath = paths.abs(relPath);

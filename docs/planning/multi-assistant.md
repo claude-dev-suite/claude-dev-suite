@@ -148,7 +148,27 @@ only implementation and reproduces current behaviour exactly.
 - Done when: suite green with no test rewrites beyond import paths, and a real
   install produces a byte-identical tree.
 
-**2.2 — Copilot + Cursor writers** *(pure functions + golden files, not yet reachable)*
+**2.2 — Copilot + Cursor writers** — **DONE 2026-07-22**
+
+Outcome and the two decisions it forced:
+
+- **Copilot CLI gets `.github/mcp.json`, not `.mcp.json`.** The open question was
+  whether the CLI accepts the `.mcp.json` dev-suite already writes; it could not
+  be answered — Copilot CLI is not installed on the dev machine, and the docs
+  neither state that `type`/`tools` default nor that they are required. Rather
+  than gamble on a default, we write the explicit CLI shape to the other
+  documented project path. That also avoids putting Copilot-shaped entries into
+  the file Claude Code owns, which is what lets both tools share a project.
+- **Decision 3's home-directory opt-in is no longer needed for MCP.** It existed
+  because Copilot CLI's MCP config was believed to be user-scope only. Both
+  Copilot surfaces now have committable project-level files, so nothing needs to
+  be written outside the project. Keep the opt-in mechanism for any future
+  user-scope write, but Phase 2 does not require it.
+- Rule and MCP writers are pure functions with golden-file tests. The Claude Code
+  rule generator now uses the same module rather than holding a second copy of
+  the format.
+
+*Original scope, for reference:*
 *Scope reduced by 2.0: agents and skills dropped — both tools read `.claude/`
 directly.* What remains is the two formats with no cross-tool overlap:
 - **MCP config**: `.vscode/mcp.json` (`servers`, `type: "stdio"`) and
