@@ -45,6 +45,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Descriptors for Claude Code, GitHub Copilot and Cursor ship in this release;
   only Claude Code has a full write path so far. Groundwork for multi-assistant
   support — see `docs/planning/multi-assistant.md`.
+- **Target adapter seam** (`services/targets/target-adapter.ts` +
+  `targets/adapters/`): `install()` now resolves a tool-neutral `InstallPlan`
+  without touching disk, then hands it to one adapter per target. Claude Code is
+  the only implementation so far and reproduces its previous output exactly. The
+  Claude-specific behaviours moved with it — flat skill directories, the native
+  subagent frontmatter transform, and `skillListingBudgetFraction` — so an
+  assistant that reads `.claude/` directly inherits none of them.
 - **Target path resolver** (`services/targets/target-paths.ts`): turns a layout
   descriptor into the concrete paths of one project, in both project-relative
   POSIX form (what the manifest stores, so entries compare across platforms) and

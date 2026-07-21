@@ -7,7 +7,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { execSync, execFileSync } from 'child_process';
@@ -15,25 +14,18 @@ import type { InstallConfig, InstallManifest } from '../types.js';
 import type { TrackedFile, ExtendedManifest, StackInfo } from '../types/index.js';
 import { DEFAULT_TARGET, type TargetId } from './targets/target-layout.js';
 import { targetPaths, type TargetPaths } from './targets/target-paths.js';
+import type { InstallPlan, McpServerEntry } from './targets/target-adapter.js';
+import { getAdapter } from './targets/adapters/index.js';
 import { AgentsService } from './agents.service.js';
-import { HooksService } from './hooks.service.js';
 import {
   validatePathWithinBase,
   validateEntryName,
-  validateAgentId,
-  validateSkillPath,
   getDevSuiteDir,
   calculateFileHashFromPath,
   copyDirSync,
-  findAgentFile,
-  parseAgentSkills,
-  parseAgentSkillsStructured,
-  flattenSkillName,
-  toInstalledAgentContent,
   getServerEnvVars,
   updateInstructions,
   cleanInstructionsSections,
-  generatePathScopedRules,
   removePathScopedRules,
 } from './installation/index.js';
 
@@ -47,7 +39,6 @@ const TIMEOUTS = {
 
 export class InstallationService {
   private agentsService = new AgentsService();
-  private hooksService = new HooksService();
 
   /**
    * Resolve the on-disk layout of a target inside a project. Every path this
@@ -197,134 +188,53 @@ export class InstallationService {
       files: [],
     };
 
-    // Create directories. All target-owned paths resolve through the layout
-    // descriptor so a second assistant is a descriptor change, not a rewrite.
+    // ---- Plan complete. Nothing above this line touches disk. ----
+
+    // The catalog is read before the write phase so adapters can resolve agent
+    // metadata (for routing sections and path-scoped rules) without re-reading
+    // it, and so the snapshot below reflects the same catalog the install saw.
+    const allAgents = await this.agentsService.getAgents();
+    const allMcpServers = await this.agentsService.getMcpServers();
+
+    const plan: InstallPlan = {
+      projectPath,
+      devSuiteDir,
+      agents,
+      mcpServers,
+      rules,
+      envVars: envVars ?? {},
+      skillLoadingMode,
+      detectedStack,
+      agentCatalog: allAgents,
+    };
+
     const paths = this.paths(projectPath);
-    const skillsDir = paths.skillsDir;
 
-    fs.mkdirSync(paths.agentsDir, { recursive: true });
-    fs.mkdirSync(skillsDir, { recursive: true });
+    // ---- Target-neutral writes ----
+    // MCP server bundles are plain node packages; only the config file that
+    // *references* them differs per assistant, so they are installed once here
+    // rather than by each adapter.
     fs.mkdirSync(paths.mcpServersDir, { recursive: true });
+    const mcpServerEntries = this.installMcpServerBundles(
+      plan, paths, manifest, extendedManifest
+    );
 
-    // Clean stale skill folders left over from previous installs (eager
-    // mode nested folders, lazy mode flat names from a previous agent set).
-    // Without this, re-installing accumulates skill descriptions in
-    // `.claude/skills/` and re-triggers Claude Code's
-    // `skillListingBudgetFraction` warning. We treat any direct child of
-    // `.claude/skills/` containing a `SKILL.md` (anywhere in its tree) as
-    // dev-suite-managed and remove it. `_README.md` and unrelated user files
-    // are preserved.
-    this.cleanStaleSkills(skillsDir);
-
-    // dev-suite typically installs 30-60 core skills across selected agents,
-    // which exceeds Claude Code's default `skillListingBudgetFraction = 0.01`
-    // (~20 descriptions). We raise it to 0.05 (~100 descriptions) so the
-    // *"N descriptions dropped"* warning doesn't fire. The bump costs ~10K
-    // tokens per session — trivial vs the ~200K context window. User's
-    // explicit override (any pre-existing value in `.claude/settings.json`)
-    // is preserved.
-    this.ensureSkillBudget(paths, manifest, extendedManifest, projectPath);
-
-    // Install agents
-    // In lazy mode we split skills in two buckets:
-    //   - agent-scoped skills (referenced by selected agents) → installed
-    //     natively under `.claude/skills/<flat-name>/SKILL.md` so Claude Code
-    //     auto-loads their description at boot (~250 char/skill).
-    //   - all other ~620 skills → reachable on-demand via the `skill-loader`
-    //     MCP server (no boot cost).
-    const lazySkillPaths = new Map<string, string>(); // skillPath → description (NON-preloaded)
-    const preloadedSkillPaths = new Set<string>();    // original path of natively installed skills
-    const usedFlatNames = new Map<string, string>();  // flatName → originalSkillPath (collision detection)
-    const skillPathToFlat = new Map<string, string>(); // skillPath → final flat dir name (shared across agents)
-
-    for (const agentId of agents) {
-      if (skillLoadingMode === 'lazy') {
-        const installed = this.installAgentLazy(
-          agentId, projectPath, devSuiteDir, manifest, extendedManifest, lazySkillPaths, preloadedSkillPaths, usedFlatNames, skillPathToFlat
-        );
-        if (installed) {
-          manifest.agents.push(agentId);
-          extendedManifest.agents.push(agentId);
-        }
-      } else {
-        const installed = this.installAgent(
-          agentId, projectPath, devSuiteDir, manifest, extendedManifest, usedFlatNames, preloadedSkillPaths, skillPathToFlat
-        );
-        if (installed) {
-          manifest.agents.push(agentId);
-          extendedManifest.agents.push(agentId);
-        }
-      }
-    }
-
-    // In lazy mode: write a small README at .claude/skills/_README.md that
-    // documents the dual discovery model (native preload + MCP fallback).
-    // We use _README.md rather than index.md so Claude Code's auto-discovery
-    // doesn't try to interpret it as a skill folder.
-    if (skillLoadingMode === 'lazy') {
-      this.writeSkillIndex(lazySkillPaths, preloadedSkillPaths, skillsDir, devSuiteDir, projectPath, manifest, extendedManifest);
-    }
-
-    // Install MCP servers
-    const mcpConfig: Record<string, { command: string; args: string[]; env: Record<string, string> }> = {};
-
-    for (const serverName of mcpServers) {
-      const installed = this.installMcpServer(serverName, projectPath, devSuiteDir, manifest, extendedManifest);
-      if (installed) {
-        manifest.mcpServers.push(serverName);
-        extendedManifest.mcpServers.push(serverName);
-        mcpConfig[serverName] = {
-          command: 'node',
-          args: [paths.mcpServerEntry(serverName)],
-          env: getServerEnvVars(serverName, envVars, devSuiteDir),
-        };
-      }
-    }
-
-    // In lazy mode: add the skill-loader MCP server entry to .mcp.json so
-    // Claude Code can fetch skill bodies at runtime. Point to the LOCAL copy
-    // of the server in <project>/.mcp-servers/skill-loader/ (which the
-    // install step already populated with node_modules + bundled skills) —
-    // NOT to the dev-suite source, so the project stays portable.
-    //
-    // The skill-loader self-resolves its skills directory from
-    // <packageDir>/skills/ (auto-bundled at build time). DEV_SUITE_ROOT is
-    // injected ONLY when the user explicitly provided one (development
-    // override against a live dev-suite source).
-    if (skillLoadingMode === 'lazy') {
-      const skillLoaderDist = paths.mcpServerEntry('skill-loader');
-      const userOverride = envVars?.DEV_SUITE_ROOT?.trim();
-      mcpConfig['skill-loader'] = {
-        command: 'node',
-        args: [skillLoaderDist],
-        env: userOverride ? { DEV_SUITE_ROOT: userOverride } : {},
-      };
-      logger.info('Lazy skill loading enabled — skill-loader MCP server added to .mcp.json', {
-        context: { skillLoaderDist, devSuiteRootOverride: userOverride ?? null },
+    // ---- Per-target writes ----
+    const adapter = getAdapter(DEFAULT_TARGET);
+    const writeResult = await adapter.write({
+      plan,
+      paths,
+      mcpServers: mcpServerEntries,
+      manifest,
+      extendedManifest,
+    });
+    for (const skipped of writeResult.skipped) {
+      logger.info('Target does not support a primitive — skipped', {
+        context: { target: adapter.id, ...skipped },
       });
     }
 
-    // Install rules → copy to the target's rules directory
-    if (rules.length > 0) {
-      fs.mkdirSync(paths.rulesDir, { recursive: true });
-      const { RulesService } = await import('./rules.service.js');
-      const rulesService = new RulesService();
-      for (const ruleId of rules) {
-        const src = rulesService.findRuleFile(ruleId);
-        if (src) {
-          fs.copyFileSync(src, paths.ruleFile(ruleId));
-          manifest.rules.push(ruleId);
-          manifest.files.push({ path: paths.relRuleFile(ruleId), type: 'config', source: src });
-        }
-      }
-    }
-
-    // Write the MCP config file
-    fs.writeFileSync(paths.mcpConfigFile, JSON.stringify({ mcpServers: mcpConfig }, null, 2));
-    manifest.files.push({ path: paths.relMcpConfigFile, type: 'config', source: 'generated' });
-    this.trackFile(extendedManifest, projectPath, paths.relMcpConfigFile, 'config');
-
-    // Write .dev-suite.json
+    // ---- Target-neutral finalization ----
     const devSuiteConfig = {
       version: manifest.version,
       installedAt: manifest.installedAt,
@@ -337,45 +247,18 @@ export class InstallationService {
     manifest.files.push({ path: '.dev-suite.json', type: 'config', source: 'generated' });
     this.trackFile(extendedManifest, projectPath, '.dev-suite.json', 'config');
 
-    // Write extended manifest (used by upgrade system)
-    const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
-    fs.writeFileSync(manifestPath, JSON.stringify(extendedManifest, null, 2));
-
-    // Configure integration-validator hook if stack detected
-    let validatorHookConfigured = false;
-    if (detectedStack) {
-      const hookResult = this.hooksService.configureIntegrationValidatorHook(projectPath, detectedStack);
-      validatorHookConfigured = hookResult.configured;
-      if (hookResult.configured) {
-        manifest.files.push({ path: paths.relSettingsFile, type: 'config', source: 'generated' });
-        this.trackFile(extendedManifest, projectPath, paths.relSettingsFile, 'config');
-        // Track the integration-validator-hook feature as applied
-        extendedManifest.features['integration-validator-hook'] = {
-          version: '1.0.0',
-          appliedAt: new Date().toISOString(),
-        };
-        logger.info('Integration validator hook configured', { context: { projectPath } });
-      }
-    }
-
     // Record catalog snapshot for new-component detection
-    const allAgents = await this.agentsService.getAgents();
-    const allMcpServers = await this.agentsService.getMcpServers();
     extendedManifest.availableAtInstall = {
       agents: allAgents.map(a => a.id),
       mcpServers: allMcpServers.map(s => s.name),
     };
-
-    // Generate path-scoped rule files (.claude/rules/{category}.md)
-    const installedAgents = allAgents.filter(a => manifest.agents.includes(a.id));
-    const ruleFiles = generatePathScopedRules(installedAgents, projectPath);
-    extendedManifest.installedRuleFiles = ruleFiles;
+    extendedManifest.installedRuleFiles = writeResult.ruleFiles;
 
     // Write instructions: AGENTS.md holds the shared section, CLAUDE.md imports it
     const instructionFiles = updateInstructions(projectPath, {
-      agents: installedAgents,
+      agents: writeResult.installedAgents,
       detectedStack,
-      validatorHookConfigured,
+      validatorHookConfigured: writeResult.validatorHookConfigured,
     });
     for (const file of instructionFiles) {
       // Legacy manifest has no 'generated' type; 'config' is its closest match.
@@ -383,10 +266,64 @@ export class InstallationService {
       this.trackFile(extendedManifest, projectPath, file, 'generated', 'generated');
     }
 
-    // Re-write the manifest with catalog snapshot, rule files and instruction files
+    // The manifest is written once, last: it is the record of everything above,
+    // so writing it earlier would describe a state that may not have been reached.
+    const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
     fs.writeFileSync(manifestPath, JSON.stringify(extendedManifest, null, 2));
 
     return manifest;
+  }
+
+  /**
+   * Copy the MCP server bundles into the project and resolve their launch
+   * entries. Target-neutral: the bundles are plain node packages, and only the
+   * config file referencing them varies per assistant.
+   */
+  private installMcpServerBundles(
+    plan: InstallPlan,
+    paths: TargetPaths,
+    manifest: InstallManifest,
+    extendedManifest: ExtendedManifest
+  ): Record<string, McpServerEntry> {
+    const entries: Record<string, McpServerEntry> = {};
+
+    for (const serverName of plan.mcpServers) {
+      const installed = this.installMcpServer(
+        serverName, plan.projectPath, plan.devSuiteDir, manifest, extendedManifest
+      );
+      if (installed) {
+        manifest.mcpServers.push(serverName);
+        extendedManifest.mcpServers.push(serverName);
+        entries[serverName] = {
+          command: 'node',
+          args: [paths.mcpServerEntry(serverName)],
+          env: getServerEnvVars(serverName, plan.envVars, plan.devSuiteDir),
+        };
+      }
+    }
+
+    // Lazy mode adds the skill-loader entry so the assistant can fetch skill
+    // bodies at runtime. It points at the LOCAL copy under `.mcp-servers/`,
+    // not the dev-suite source, so the project stays portable.
+    //
+    // The skill-loader self-resolves its skills directory from
+    // <packageDir>/skills/ (auto-bundled at build time). DEV_SUITE_ROOT is
+    // injected ONLY when the user explicitly provided one (development
+    // override against a live dev-suite source).
+    if (plan.skillLoadingMode === 'lazy') {
+      const skillLoaderDist = paths.mcpServerEntry('skill-loader');
+      const userOverride = plan.envVars.DEV_SUITE_ROOT?.trim();
+      entries['skill-loader'] = {
+        command: 'node',
+        args: [skillLoaderDist],
+        env: userOverride ? { DEV_SUITE_ROOT: userOverride } : {},
+      };
+      logger.info('Lazy skill loading enabled — skill-loader MCP server added', {
+        context: { skillLoaderDist, devSuiteRootOverride: userOverride ?? null },
+      });
+    }
+
+    return entries;
   }
 
   /**
@@ -589,441 +526,6 @@ export class InstallationService {
       } : undefined,
       testing: detectedStack.testing,
     };
-  }
-
-  /**
-   * Ensure `.claude/settings.json` raises `skillListingBudgetFraction` to a
-   * value that fits the dev-suite's typical core-skill count (30-60 across
-   * selected agents). Default Claude Code budget is 1% (~20 descriptions),
-   * which causes the *"N descriptions dropped"* warning on heavy installs.
-   *
-   * Behaviour:
-   * - File missing → create with `{ skillListingBudgetFraction: 0.05 }`
-   * - File present, key missing → merge in `0.05` while preserving everything
-   *   else (hooks, env, permissions)
-   * - File present, key already set → leave alone (respect user override —
-   *   even when it's lower than 0.05, the user knows their context budget
-   *   better than we do)
-   */
-  private ensureSkillBudget(
-    paths: TargetPaths,
-    manifest: InstallManifest,
-    extendedManifest: ExtendedManifest | undefined,
-    projectPath: string,
-  ): void {
-    const TARGET_BUDGET = 0.05;
-    const settingsPath = paths.settingsFile;
-    let settings: Record<string, unknown> = {};
-    let alreadySet = false;
-
-    if (fs.existsSync(settingsPath)) {
-      try {
-        const raw = fs.readFileSync(settingsPath, 'utf-8');
-        settings = JSON.parse(raw);
-        if (Object.prototype.hasOwnProperty.call(settings, 'skillListingBudgetFraction')) {
-          alreadySet = true;
-        }
-      } catch (error: unknown) {
-        logger.warn('Failed to parse existing .claude/settings.json — overwriting with safe defaults', {
-          error,
-          context: { settingsPath },
-        });
-        settings = {};
-      }
-    }
-
-    if (alreadySet) {
-      logger.info('Preserving user-set skillListingBudgetFraction', {
-        context: { value: settings.skillListingBudgetFraction },
-      });
-      return;
-    }
-
-    settings.skillListingBudgetFraction = TARGET_BUDGET;
-    try {
-      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-      manifest.files.push({ path: paths.relSettingsFile, type: 'config', source: 'generated' });
-      if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, paths.relSettingsFile, 'config');
-      }
-      logger.info('Set skillListingBudgetFraction in .claude/settings.json', {
-        context: { settingsPath, value: TARGET_BUDGET },
-      });
-    } catch (error: unknown) {
-      logger.warn('Failed to write .claude/settings.json — skill budget not raised', {
-        error,
-        context: { settingsPath },
-      });
-    }
-  }
-
-  /**
-   * Remove dev-suite-managed skill folders from `.claude/skills/` so a
-   * re-install starts from a clean slate. Any direct child of `skillsDir`
-   * that contains a `SKILL.md` anywhere in its tree is considered managed.
-   *
-   * Files at the top level (e.g. `_README.md`) are preserved. Unrelated
-   * folders that don't contain a `SKILL.md` (rare, but possible if the user
-   * keeps custom artifacts here) are also preserved.
-   */
-  private cleanStaleSkills(skillsDir: string): void {
-    if (!fs.existsSync(skillsDir)) return;
-
-    const containsSkillMd = (dir: string): boolean => {
-      try {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          if (entry.isFile() && entry.name === 'SKILL.md') return true;
-          if (entry.isDirectory() && containsSkillMd(path.join(dir, entry.name))) return true;
-        }
-      } catch {
-        // unreadable — treat as no match
-      }
-      return false;
-    };
-
-    let removed = 0;
-    for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      // Never touch the reserved `custom/` folder — it holds user-authored
-      // skills (custom-agents.service), even though they contain SKILL.md.
-      if (entry.name === 'custom' || !validateEntryName(entry.name)) continue;
-      // SECURITY: validatePathWithinBase returns a path verified to stay inside
-      // skillsDir (rejects traversal/symlink escape) — use the returned value.
-      const fullPath = validatePathWithinBase(path.join(skillsDir, entry.name), skillsDir, false);
-      if (containsSkillMd(fullPath)) {
-        try {
-          fs.rmSync(fullPath, { recursive: true, force: true });
-          removed++;
-        } catch (error: unknown) {
-          logger.warn('Failed to remove stale skill folder', {
-            error,
-            context: { folder: fullPath },
-          });
-        }
-      }
-    }
-
-    if (removed > 0) {
-      logger.info('Cleaned stale skill folders before re-install', {
-        context: { skillsDir, removed },
-      });
-    }
-  }
-
-  /**
-   * Install one skill as a FLAT top-level dir under `.claude/skills/<flat>/`
-   * (the only shape Claude Code resolves by name), with cross-agent collision
-   * handling. Returns the final flat dir name (so the agent's `skills:` list can
-   * reference it), or null if the skill is invalid/missing. Idempotent: a skill
-   * already installed by another agent returns its recorded flat name.
-   */
-  private installSkillFlat(
-    skillPath: string,
-    devSuiteDir: string,
-    projectPath: string,
-    manifest: InstallManifest,
-    extendedManifest: ExtendedManifest | undefined,
-    usedFlatNames: Map<string, string>,
-    preloadedSkillPaths: Set<string>,
-    skillPathToFlat: Map<string, string>
-  ): string | null {
-    const already = skillPathToFlat.get(skillPath);
-    if (already) return already;
-
-    if (!validateSkillPath(skillPath)) {
-      logger.warn('Invalid skill path - potential path traversal', { context: { skillPath } });
-      return null;
-    }
-    const skillsSource = path.join(devSuiteDir, 'skills');
-    // validatePathWithinBase returns the validated path — use the returned value
-    // as the sanitized path into every fs sink (recognized path-injection barrier).
-    let safeSrc: string;
-    try {
-      safeSrc = validatePathWithinBase(path.join(skillsSource, skillPath), skillsSource, false);
-    } catch {
-      logger.warn('Skill path validation failed', { context: { skillPath } });
-      return null;
-    }
-    if (!fs.existsSync(safeSrc)) return null;
-
-    let flatName = flattenSkillName(skillPath);
-    if (!flatName) {
-      logger.warn('Skill flatten produced empty name', { context: { skillPath } });
-      return null;
-    }
-    // Collision: a different skillPath already claimed this flat name.
-    const claimedBy = usedFlatNames.get(flatName);
-    if (claimedBy && claimedBy !== skillPath) {
-      const suffix = crypto.createHash('sha1').update(skillPath).digest('hex').slice(0, 6);
-      const max = 64 - suffix.length - 1;
-      flatName = `${flatName.slice(0, max).replace(/-+$/, '')}-${suffix}`;
-      logger.warn('Flat skill name collision — applied hash suffix', {
-        context: { skillPath, claimedBy, flatName },
-      });
-    }
-
-    const paths = this.paths(projectPath);
-    const skillsDestRoot = paths.skillsDir;
-    let safeDest: string;
-    try {
-      safeDest = validatePathWithinBase(path.join(skillsDestRoot, flatName), skillsDestRoot, false);
-    } catch {
-      logger.warn('Flattened skill path failed validation', { context: { skillPath, flatName } });
-      return null;
-    }
-
-    if (!fs.existsSync(safeDest)) {
-      copyDirSync(safeSrc, safeDest);
-      manifest.files.push({ path: paths.relSkillDir(flatName), type: 'skill', source: safeSrc });
-      if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, paths.relSkillDir(flatName), 'skill', safeSrc);
-      }
-    }
-    usedFlatNames.set(flatName, skillPath);
-    preloadedSkillPaths.add(skillPath);
-    skillPathToFlat.set(skillPath, flatName);
-    return flatName;
-  }
-
-  private installAgent(
-    agentId: string,
-    projectPath: string,
-    devSuiteDir: string,
-    manifest: InstallManifest,
-    extendedManifest: ExtendedManifest | undefined,
-    usedFlatNames: Map<string, string>,
-    preloadedSkillPaths: Set<string>,
-    skillPathToFlat: Map<string, string>
-  ): boolean {
-    // SECURITY: Validate agentId
-    if (!validateAgentId(agentId)) {
-      logger.warn('Invalid agent ID - potential path traversal', { context: { agentId } });
-      return false;
-    }
-    // SECURITY: Path traversal check for projectPath
-    if (projectPath.includes('..')) {
-      logger.warn('Invalid projectPath - path traversal detected', { context: { projectPath } });
-      return false;
-    }
-
-    const agentFile = findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
-    if (!agentFile) return false;
-
-    try {
-      // SECURITY: Validate paths. validatePathWithinBase returns the validated
-      // path — use the returned value as the sanitized destination for the agent
-      // file write (recognized path-injection barrier).
-      validatePathWithinBase(agentFile, path.join(devSuiteDir, 'agents'), false);
-      const paths = this.paths(projectPath);
-      const destPath = validatePathWithinBase(
-        paths.agentFile(agentId),
-        projectPath,
-        false
-      );
-
-      // Eager mode: copy ALL of the agent's skills as FLAT top-level dirs
-      // (bundle-expanded by the shared parser), then write the agent file with
-      // Claude-Code-native frontmatter so tool restrictions + skill preload
-      // actually take effect (see toInstalledAgentContent / Option R).
-      const agentContent = fs.readFileSync(agentFile, 'utf-8');
-      const skills = parseAgentSkills(agentContent, agentId);
-      const installedFlat: string[] = [];
-      for (const skillPath of skills) {
-        const flat = this.installSkillFlat(
-          skillPath, devSuiteDir, projectPath, manifest, extendedManifest,
-          usedFlatNames, preloadedSkillPaths, skillPathToFlat
-        );
-        if (flat && !installedFlat.includes(flat)) installedFlat.push(flat);
-      }
-
-      const installedContent = toInstalledAgentContent(agentContent, {
-        installedSkillFlatNames: installedFlat,
-        grantSkillTool: true,
-      });
-      fs.writeFileSync(destPath, installedContent, 'utf-8');
-      manifest.files.push({ path: paths.relAgentFile(agentId), type: 'agent', source: agentFile });
-      // Track with hash for upgrade system (hash reflects the installed file)
-      if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, paths.relAgentFile(agentId), 'agent', agentFile);
-      }
-
-      return true;
-    } catch (error: unknown) {
-      logger.warn('Failed to install agent', {
-        error,
-        context: { agentId, projectPath }
-      });
-      return false;
-    }
-  }
-
-  /**
-   * Lazy variant of installAgent.
-   *
-   * Copies the agent .md file AND preloads ONLY the agent's `core_skills:`
-   * (or, for unmigrated agents that still use legacy `skills:`, the full
-   * list — same as before) under `.claude/skills/<flat-name>/SKILL.md`.
-   * Claude Code's native progressive disclosure loads their description at
-   * boot (Level 1) and the body on demand (Level 2).
-   *
-   * `extended_skills:` are NOT preloaded — they are reachable via the
-   * `skill-loader` MCP server (`list_skills`, `load_skill`), which reads
-   * DEV_SUITE_ROOT directly at runtime. This keeps the Level 1 budget
-   * (~1% of context, `skillListingBudgetFraction`) under control even
-   * when many agents are installed.
-   */
-  private installAgentLazy(
-    agentId: string,
-    projectPath: string,
-    devSuiteDir: string,
-    manifest: InstallManifest,
-    extendedManifest: ExtendedManifest | undefined,
-    lazySkillPaths: Map<string, string>,
-    preloadedSkillPaths: Set<string>,
-    usedFlatNames: Map<string, string>,
-    skillPathToFlat: Map<string, string>
-  ): boolean {
-    // SECURITY: Validate agentId
-    if (!validateAgentId(agentId)) {
-      logger.warn('Invalid agent ID - potential path traversal', { context: { agentId } });
-      return false;
-    }
-    if (projectPath.includes('..')) {
-      logger.warn('Invalid projectPath - path traversal detected', { context: { projectPath } });
-      return false;
-    }
-
-    const agentFile = findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
-    if (!agentFile) return false;
-
-    try {
-      // SECURITY: Validate paths. validatePathWithinBase returns the validated
-      // path — use the returned value as the sanitized destination for the agent
-      // file write (recognized path-injection barrier).
-      validatePathWithinBase(agentFile, path.join(devSuiteDir, 'agents'), false);
-      const paths = this.paths(projectPath);
-      const destPath = validatePathWithinBase(
-        paths.agentFile(agentId),
-        projectPath,
-        false
-      );
-
-      // Lazy mode: preload only the agent's `core_skills` (or, for unmigrated
-      // agents that still use legacy `skills:`, the cap-limited core) as FLAT
-      // dirs. `extended_skills:` are NOT copied — they stay reachable via the
-      // `skill-loader` MCP at runtime. Then write the agent file with
-      // Claude-Code-native frontmatter (tools/mcpServers/skills + skill-loader +
-      // Skill) so tool restrictions and skill preload actually take effect.
-      const agentContent = fs.readFileSync(agentFile, 'utf-8');
-      const { core: coreSkills } = parseAgentSkillsStructured(agentContent, agentId);
-      const installedFlat: string[] = [];
-      for (const skillPath of coreSkills) {
-        const flat = this.installSkillFlat(
-          skillPath, devSuiteDir, projectPath, manifest, extendedManifest,
-          usedFlatNames, preloadedSkillPaths, skillPathToFlat
-        );
-        if (flat) {
-          if (!installedFlat.includes(flat)) installedFlat.push(flat);
-          // Now preloaded natively — drop from the MCP-side index if present.
-          lazySkillPaths.delete(skillPath);
-        }
-      }
-
-      const installedContent = toInstalledAgentContent(agentContent, {
-        installedSkillFlatNames: installedFlat,
-        extraMcpServers: ['skill-loader'],
-        grantSkillTool: true,
-      });
-      fs.writeFileSync(destPath, installedContent, 'utf-8');
-      manifest.files.push({ path: paths.relAgentFile(agentId), type: 'agent', source: agentFile });
-      // Track with hash for upgrade system (hash reflects the installed file).
-      if (extendedManifest) {
-        this.trackFile(extendedManifest, projectPath, paths.relAgentFile(agentId), 'agent', agentFile);
-      }
-
-      return true;
-    } catch (error: unknown) {
-      logger.warn('Failed to install agent (lazy)', {
-        error,
-        context: { agentId, projectPath }
-      });
-      return false;
-    }
-  }
-
-  /**
-   * Write `.claude/skills/_README.md` — a short note describing the dual
-   * discovery model in lazy mode:
-   *
-   *   1. The skills referenced by selected agents are installed natively as
-   *      `.claude/skills/<flat-name>/SKILL.md` (Claude Code auto-loads their
-   *      description at boot, body on demand).
-   *   2. All other skills are reachable on demand via the `skill-loader` MCP
-   *      server tools `list_skills` and `load_skill`.
-   *
-   * The filename starts with `_` to keep Claude Code's auto-discovery from
-   * mistaking it for a skill folder.
-   */
-  private writeSkillIndex(
-    _lazySkillPaths: Map<string, string>,
-    preloadedSkillPaths: Set<string>,
-    skillsDir: string,
-    devSuiteDir: string,
-    projectPath: string,
-    manifest: InstallManifest,
-    extendedManifest: ExtendedManifest | undefined
-  ): void {
-    const paths = this.paths(projectPath);
-    const lines: string[] = [
-      '# Skills (lazy mode)',
-      '',
-      'This project uses dev-suite **tiered skill loading** to keep Claude',
-      'Code\'s skill description budget (`skillListingBudgetFraction`,',
-      '~1% of context) under control even with many agents installed.',
-      '',
-      '- **Core skills** — declared as `core_skills:` in each agent\'s',
-      '  frontmatter (or `skills:` for unmigrated agents). Installed as',
-      `  native Claude Code skills under \`${paths.relSkillsDir}/<name>/SKILL.md\`.`,
-      '  Claude Code auto-discovers them at boot: only the YAML description',
-      '  is loaded; the body is fetched on demand when the skill is invoked.',
-      '- **Extended skills** — declared as `extended_skills:` in each',
-      '  agent\'s frontmatter, plus the rest of the dev-suite catalog. NOT',
-      '  preloaded. Reachable on demand via the `skill-loader` MCP server:',
-      '  - `mcp__skill-loader__list_skills` to discover available skills',
-      '    (pass `groupByCategory: true` for a compact summary)',
-      '  - `mcp__skill-loader__load_skill({ skill_path: "<path>" })` to',
-      '    fetch a full SKILL.md body when needed',
-      '',
-      `## Natively preloaded core skills (${preloadedSkillPaths.size})`,
-      '',
-    ];
-
-    const sortedPreloaded = [...preloadedSkillPaths].sort();
-    for (const skillPath of sortedPreloaded) {
-      lines.push(`- \`${skillPath}\``);
-    }
-    lines.push('');
-
-    lines.push(
-      '> **Runtime requirement**: the `skill-loader` MCP server reads',
-      `> \`DEV_SUITE_ROOT\` (set to \`${devSuiteDir}\` in \`${paths.relMcpConfigFile}\`) to`,
-      '> resolve non-preloaded skill bodies on demand.'
-    );
-    lines.push('');
-
-    const readmePath = path.join(skillsDir, '_README.md');
-    fs.writeFileSync(readmePath, lines.join('\n'));
-
-    const relReadme = paths.relSkillDir('_README.md');
-    manifest.files.push({ path: relReadme, type: 'skill', source: 'generated' });
-    if (extendedManifest) {
-      this.trackFile(extendedManifest, projectPath, relReadme, 'skill');
-    }
-
-    logger.info('Lazy skills README written', {
-      context: { preloadedCount: preloadedSkillPaths.size, readmePath },
-    });
   }
 
   private installMcpServer(

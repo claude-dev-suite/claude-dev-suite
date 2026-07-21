@@ -82,7 +82,7 @@ here — two of them (Devin Desktop MCP, Cline hooks path) are marked blocking.
 ## Architecture
 
 - **`target-layout.ts`**: per-tool descriptor `{ agentsDir, skillsDir, commandsDir, rulesDir, mcpConfigFile, instructionsFile, settingsFile, hooksLocation, capabilities }`. All services resolve paths through it; Claude Code is the first instance.
-- **`TargetAdapter` interface**: `layout()`, `capabilities()`, `writeInstructions()`, `writeAgent()`, `writeSkills()`, `writeCommands()`, `writeMcpConfig()`, `writeHooks()`, `writeSettings()`. Single logical pipeline in `installation.service`; per-target writers at the end. `toInstalledAgentContent()` becomes the Claude adapter's transform.
+- **`TargetAdapter` interface** *(implemented in 2.1, shape differs from the original sketch)*: a single `write(ctx)` rather than one method per primitive. Granular writers turned out to be the wrong cut — Copilot and Cursor need no agent or skill writer at all (they read `.claude/` directly), so most of the sketched methods would have been empty for most targets. `installation.service` resolves a tool-neutral `InstallPlan`, then hands it to one adapter per target. `toInstalledAgentContent()` moved into the Claude adapter, along with flat-skill installation and `skillListingBudgetFraction`.
 - **Capability degradation**: adapters declare unsupported primitives (e.g. Cline can never receive committable MCP config — a permanent gap, not a missing adapter); pipeline skips and reports instead of failing.
 - **Manifest**: `TrackedFile` gains a `target` discriminator (single `.dev-suite-manifest.json`, not per-target files). `ReinstallService.classify()`/erase/backup derive prefixes from the target layout so tools can coexist in one project. `custom/` guard and `<!-- dev-suite-managed -->` sentinels generalize as-is. Old manifests migrate on first reinstall/sync (implicit `target: 'claude-code'`).
 - **Abstract model tiers**: `model: sonnet` in source frontmatter becomes a tier (`fast`/`balanced`/`powerful`) resolved per target.
@@ -134,7 +134,7 @@ second write (both tools read `.claude/` directly), so Tier 1 conversion reduces
 to MCP config + path-scoped rules. Five items remain unconfirmed and are listed
 above as "do not encode assumptions".
 
-**2.1 — Adapter seam** *(pure refactor, no new targets, no user-visible change)*
+**2.1 — Adapter seam** — **DONE 2026-07-22** *(pure refactor, no new targets, no user-visible change)*
 Split `install()` at its natural seam. Lines 141-198 are already pure decision
 making — nothing has touched disk — so they become an `InstallPlan`; everything
 from line 200 becomes `TargetAdapter.write(plan)`. `ClaudeCodeAdapter` is the
