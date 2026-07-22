@@ -42,6 +42,7 @@ import {
 } from './index.js';
 import { trackManifestFile } from './manifest-tracking.js';
 import { targetPaths } from '../targets/target-paths.js';
+import { AGENTS_SKILLS_DIR, readsAgentsSkills } from '../targets/target-layout.js';
 import type { InstallPlan } from '../targets/target-adapter.js';
 
 const logger = getLogger('SubstrateInstaller');
@@ -98,6 +99,52 @@ export class SubstrateInstaller {
         lazySkillPaths, preloadedSkillPaths, paths.skillsDir, devSuiteDir,
         projectPath, manifest, extendedManifest
       );
+    }
+
+    // Dual-write the skills to `.agents/skills` when a selected target reads the
+    // cross-tool location rather than `.claude/skills` (Codex, Gemini).
+    if (readsAgentsSkills(plan.targets)) {
+      this.mirrorSkillsToAgentsDir(paths.skillsDir, projectPath, manifest, extendedManifest);
+    }
+  }
+
+  /**
+   * Copy the installed `.claude/skills` tree into `.agents/skills` so Codex and
+   * Gemini (which don't read `.claude/`) discover the same skills. The two stay
+   * byte-identical — `.agents/skills` is a mirror, never a separate source.
+   */
+  private mirrorSkillsToAgentsDir(
+    claudeSkillsDir: string,
+    projectPath: string,
+    manifest: InstallManifest,
+    extendedManifest: ExtendedManifest
+  ): void {
+    if (!fs.existsSync(claudeSkillsDir)) return;
+    const destRoot = path.join(projectPath, ...AGENTS_SKILLS_DIR.split('/'));
+
+    // Clean our previously-mirrored skill folders so a re-install with a
+    // different agent set doesn't accumulate stale skills here either. Mirrors
+    // cleanStaleSkills' safety: only folders containing a SKILL.md, never custom/.
+    this.cleanStaleSkills(destRoot);
+    fs.mkdirSync(destRoot, { recursive: true });
+
+    let mirrored = 0;
+    for (const entry of fs.readdirSync(claudeSkillsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === 'custom' || !validateEntryName(entry.name)) continue;
+      const src = validatePathWithinBase(path.join(claudeSkillsDir, entry.name), claudeSkillsDir, false);
+      const dest = validatePathWithinBase(path.join(destRoot, entry.name), destRoot, false);
+      if (!fs.existsSync(dest)) {
+        copyDirSync(src, dest);
+        const rel = `${AGENTS_SKILLS_DIR}/${entry.name}`;
+        manifest.files.push({ path: rel, type: 'skill', source: src });
+        trackManifestFile(extendedManifest, projectPath, rel, 'skill', src);
+        mirrored++;
+      }
+    }
+    if (mirrored > 0) {
+      logger.info('Mirrored skills to .agents/skills for cross-tool discovery', {
+        context: { destRoot, mirrored },
+      });
     }
   }
 

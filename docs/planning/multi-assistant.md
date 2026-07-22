@@ -324,6 +324,34 @@ Split into 2.4a (backend detection service + `/api/detect-assistants`) and 2.4b
   branch merges. It is a **MINOR** bump (new capability, backwards-compatible).
 
 ### Phase 3 — Tier 2 (Codex CLI, Gemini CLI)
+
+**3.1 — Foundations + Gemini adapter** — **DONE 2026-07-22**
+- Codex and Gemini descriptors added; `skillsSource: 'claude' | 'agents'` capability
+  distinguishes who reads `.claude/skills` (Claude/Copilot/Cursor/Cline) from who
+  reads the cross-tool `.agents/skills` (Codex/Gemini/Devin).
+- **`.agents/skills` dual-write**: the substrate mirrors its `.claude/skills` tree
+  to `.agents/skills` (byte-identical) whenever a selected target reads it, so
+  Codex and Gemini — which read neither `.claude/agents` nor `.claude/skills` —
+  still get the skills. `managedSurfaces` backs the mirror up.
+- **Gemini adapter** (implemented): `.gemini/settings.json` with `mcpServers`
+  (JSON, no `type` field) and a `context.fileName` that includes `AGENTS.md`
+  (Gemini doesn't read it by default) while preserving the user's own context
+  files and settings. Merges, and refuses to clobber an unparseable file.
+- Reported as skipped for Gemini: native subagents (routing rides in AGENTS.md)
+  and glob rules (Gemini has none). `isImplemented` now includes `gemini`.
+
+**3.2 — Codex adapter** *(next)*
+Codex reads AGENTS.md + `.agents/skills` already (so instructions and skills work
+today via the shared substrate). The remaining piece is MCP config: `[mcp_servers.*]`
+in `.codex/config.toml` — **TOML, and there is no TOML dependency yet**. Merging
+into a user's existing `config.toml` needs either a TOML library (round-trips lose
+comments) or a careful section-level merge. Plus the trusted-project caveat to
+surface. Deferred so 3.1 could ship green; Codex is *usable for instructions +
+skills right now*, just without MCP.
+
+---
+
+*Original Phase 3 scope:*
 - Codex: `.codex/agents/*.toml`, TOML `[mcp_servers.*]` (trusted-project caveat), AGENTS.md already covered.
 - Gemini: `.gemini/agents/*.md`, `mcpServers` in `.gemini/settings.json`, `context.fileName` setting for AGENTS.md, commands as TOML.
 - `.agents/skills/` dual-write (Codex/Gemini/Cursor read it; Claude keeps `.claude/skills/`).

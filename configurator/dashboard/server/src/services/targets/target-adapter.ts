@@ -61,6 +61,8 @@ export interface InstallPlan {
    * their own deselected entries while leaving the user's servers untouched.
    */
   mcpCatalog: string[];
+  /** The assistants this install is targeting. */
+  targets: TargetId[];
 }
 
 /** A resolved MCP server entry, before it is serialized into a target's format. */

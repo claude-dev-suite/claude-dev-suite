@@ -98,7 +98,7 @@ describe('AssistantDetectionService', () => {
     expect(rows['copilot'].implemented).toBe(true);
     expect(rows['cursor'].implemented).toBe(true);
     expect(rows['codex'].implemented).toBe(false);
-    expect(rows['gemini'].implemented).toBe(false);
+    expect(rows['gemini'].implemented).toBe(true);
   });
 });
 

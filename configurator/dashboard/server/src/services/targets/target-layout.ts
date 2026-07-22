@@ -25,6 +25,14 @@ export type TargetId =
   | 'windsurf'
   | 'cline';
 
+/**
+ * Which shared skills directory a target reads. The `.claude/skills` substrate
+ * is read by Claude Code, Copilot, Cursor and Cline; Codex and Gemini read the
+ * cross-tool `.agents/skills` directory instead. dev-suite writes whichever is
+ * needed (see installation/substrate.ts).
+ */
+export type SkillsSource = 'claude' | 'agents';
+
 /** Where a target reads MCP server configuration from, if at all. */
 export type McpConfigScope =
   /** Config file lives inside the project (committable). */
@@ -53,6 +61,8 @@ export interface TargetCapabilities {
   hooks: boolean;
   /** Project-level settings/permissions file. */
   settings: boolean;
+  /** Which shared skills directory this target reads. */
+  skillsSource: SkillsSource;
 }
 
 /**
@@ -102,6 +112,12 @@ export const SHARED_INSTRUCTIONS_FILE = 'AGENTS.md';
 /** Directory where dev-suite installs MCP server bundles (target-independent). */
 export const MCP_SERVERS_DIR = '.mcp-servers';
 
+/**
+ * Cross-tool skills directory (the Agent Skills interop path). Written in
+ * addition to `.claude/skills` when a selected target reads it (Codex, Gemini).
+ */
+export const AGENTS_SKILLS_DIR = '.agents/skills';
+
 /** Target assumed when a manifest or request does not specify one. */
 export const DEFAULT_TARGET: TargetId = 'claude-code';
 
@@ -128,6 +144,7 @@ const CLAUDE_CODE: TargetLayout = {
     mcp: 'project',
     hooks: true,
     settings: true,
+    skillsSource: 'claude',
   },
 };
 
@@ -162,6 +179,7 @@ const COPILOT: TargetLayout = {
     mcp: 'project',
     hooks: true,
     settings: true,
+    skillsSource: 'claude',
   },
 };
 
@@ -194,6 +212,66 @@ const CURSOR: TargetLayout = {
     mcp: 'project',
     hooks: true,
     settings: true,
+    skillsSource: 'claude',
+  },
+};
+
+/**
+ * OpenAI Codex CLI.
+ *
+ * Reads `AGENTS.md` natively and skills from `.agents/skills`. MCP config is
+ * TOML in `.codex/config.toml` (`[mcp_servers.<n>]`), and only applies in a
+ * trusted project — a caveat the adapter surfaces. Does NOT read `.claude/`.
+ */
+const CODEX: TargetLayout = {
+  id: 'codex',
+  displayName: 'OpenAI Codex CLI',
+  configDir: '.codex',
+  agentsDir: '.codex/agents',
+  skillsDir: AGENTS_SKILLS_DIR,
+  instructionsFile: SHARED_INSTRUCTIONS_FILE,
+  mcpConfigFile: '.codex/config.toml',
+  agentFileExtension: '.toml',
+  capabilities: {
+    agents: true,
+    skills: true,
+    commands: false,
+    pathScopedRules: false, // no glob mechanism — routing rides in AGENTS.md
+    mcp: 'project',
+    hooks: true,
+    // No separate project settings file dev-suite writes — config.toml is it.
+    settings: false,
+    skillsSource: 'agents',
+  },
+};
+
+/**
+ * Google Gemini CLI.
+ *
+ * Reads skills from `.agents/skills`, but does NOT read `AGENTS.md` by default —
+ * the adapter sets `context.fileName` in `.gemini/settings.json` to include it.
+ * MCP lives in the same JSON settings file under `mcpServers`.
+ */
+const GEMINI: TargetLayout = {
+  id: 'gemini',
+  displayName: 'Gemini CLI',
+  configDir: '.gemini',
+  agentsDir: '.gemini/agents',
+  skillsDir: AGENTS_SKILLS_DIR,
+  commandsDir: '.gemini/commands',
+  instructionsFile: SHARED_INSTRUCTIONS_FILE,
+  mcpConfigFile: '.gemini/settings.json',
+  settingsFile: '.gemini/settings.json',
+  agentFileExtension: '.md',
+  capabilities: {
+    agents: true,
+    skills: true,
+    commands: true,
+    pathScopedRules: false, // no glob mechanism
+    mcp: 'project',
+    hooks: true,
+    settings: true,
+    skillsSource: 'agents',
   },
 };
 
@@ -208,14 +286,16 @@ export const TARGET_LAYOUTS: Readonly<Partial<Record<TargetId, TargetLayout>>> =
   'claude-code': CLAUDE_CODE,
   copilot: COPILOT,
   cursor: CURSOR,
-  // Tier 2/3 descriptors (codex, gemini, windsurf, cline) land with their adapters.
+  codex: CODEX,
+  gemini: GEMINI,
+  // Tier 3 descriptors (windsurf, cline) land with their adapters.
 });
 
 /**
  * Targets that currently have a full write path implemented. Must stay in step
  * with the adapter registry in `targets/adapters/index.ts` — a test asserts it.
  */
-const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor']);
+const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor', 'gemini']);
 
 /** True when dev-suite can actually install for this target today. */
 export function isImplemented(target: TargetId): boolean {
@@ -237,6 +317,18 @@ export function getTargetLayout(target: TargetId = DEFAULT_TARGET): TargetLayout
     throw new Error(`Unknown or not-yet-supported target: ${target}`);
   }
   return layout;
+}
+
+/**
+ * True when any of these targets reads the cross-tool `.agents/skills`
+ * directory rather than the `.claude/skills` substrate. Drives the substrate's
+ * dual-write (installation/substrate.ts) and the reinstall backup.
+ */
+export function readsAgentsSkills(targets: readonly TargetId[]): boolean {
+  return targets.some(t => {
+    const layout = TARGET_LAYOUTS[t];
+    return layout?.capabilities.skillsSource === 'agents';
+  });
 }
 
 /**

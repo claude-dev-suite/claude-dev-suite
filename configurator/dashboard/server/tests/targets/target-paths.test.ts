@@ -111,7 +111,7 @@ describe('TargetPaths — other targets', () => {
   });
 
   it('throws for a target with no descriptor yet', () => {
-    expect(() => targetPaths(ROOT, 'codex')).toThrow(/not-yet-supported|Unknown/);
+    expect(() => targetPaths(ROOT, 'windsurf')).toThrow(/not-yet-supported|Unknown/);
   });
 });
 

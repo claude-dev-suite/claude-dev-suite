@@ -34,15 +34,17 @@ describe('adapter registry', () => {
     }
   });
 
-  it('throws a named error for a target with no adapter', () => {
-    // Codex has neither a descriptor nor an adapter yet (Tier 2).
+  it('throws a named error for a target with a descriptor but no adapter', () => {
+    // Codex has a descriptor (Phase 3 foundations) but its TOML adapter hasn't
+    // landed, so it is not yet implemented.
     expect(isImplemented('codex')).toBe(false);
     expect(() => getAdapter('codex')).toThrow(/No adapter implemented/);
   });
 
-  it('reports Copilot and Cursor as implemented now that their adapters landed', () => {
+  it('reports the Tier 1 targets and Gemini as implemented', () => {
     expect(isImplemented('copilot')).toBe(true);
     expect(isImplemented('cursor')).toBe(true);
+    expect(isImplemented('gemini')).toBe(true);
   });
 });
 
@@ -68,6 +70,7 @@ describe('ClaudeCodeAdapter.write', () => {
       skillLoadingMode: 'eager',
       agentCatalog: [],
       mcpCatalog: [],
+      targets: ['claude-code'],
       ...overrides,
     };
   }

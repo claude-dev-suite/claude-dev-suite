@@ -212,6 +212,7 @@ export class InstallationService {
       detectedStack,
       agentCatalog: allAgents,
       mcpCatalog: allMcpServers.map(s => s.name),
+      targets,
     };
 
     // ---- Target-neutral writes ----

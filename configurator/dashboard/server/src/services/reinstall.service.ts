@@ -29,10 +29,12 @@ import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import {
+  AGENTS_SKILLS_DIR,
   DEFAULT_TARGET,
   MCP_SERVERS_DIR,
   SHARED_INSTRUCTIONS_FILE,
   getTargetLayout,
+  readsAgentsSkills,
   type TargetId,
   type TargetLayout,
 } from './targets/target-layout.js';
@@ -113,6 +115,10 @@ export function managedSurfaces(targets: readonly TargetId[]): { dirs: string[];
     if (layout.mcpConfigFile) files.add(layout.mcpConfigFile);
     if (layout.settingsFile) files.add(layout.settingsFile);
   }
+
+  // The shared `.agents/skills` mirror lives outside every config dir, so it
+  // needs backing up explicitly when a target that reads it is in play.
+  if (readsAgentsSkills([...effectiveTargets])) dirs.add(AGENTS_SKILLS_DIR);
 
   const dirList = [...dirs];
   // A file already inside a backed-up directory tree is covered by that copy;

@@ -27,7 +27,7 @@ const definedLayouts = Object.values(TARGET_LAYOUTS).filter(Boolean) as TargetLa
 
 describe('target layout descriptors', () => {
   it('defines at least the Tier 1 targets', () => {
-    expect(Object.keys(TARGET_LAYOUTS).sort()).toEqual(['claude-code', 'copilot', 'cursor']);
+    expect(Object.keys(TARGET_LAYOUTS).sort()).toEqual(['claude-code', 'codex', 'copilot', 'cursor', 'gemini']);
   });
 
   it.each(definedLayouts.map(l => [l.id, l] as const))(
@@ -93,11 +93,13 @@ describe('target layout descriptors', () => {
     expect(isImplemented('cursor')).toBe(true);
     // Tier 2/3 have no adapter yet.
     expect(isImplemented('codex')).toBe(false);
-    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'copilot', 'cursor']);
+    expect(isImplemented('gemini')).toBe(true);
+    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'copilot', 'cursor', 'gemini']);
   });
 
   it('throws for targets without a descriptor yet', () => {
-    expect(() => getTargetLayout('codex')).toThrow(/not-yet-supported|Unknown/);
+    // Tier 3 (windsurf/cline) have no descriptor yet.
+    expect(() => getTargetLayout('windsurf')).toThrow(/not-yet-supported|Unknown/);
   });
 
   it('lists managed dirs without shared files, and vice versa', () => {

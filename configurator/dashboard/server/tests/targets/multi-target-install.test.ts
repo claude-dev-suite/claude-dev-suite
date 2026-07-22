@@ -118,6 +118,32 @@ describe('multi-target install', () => {
     expect(cursor.mcpServers['documentation']).toBeDefined();
   });
 
+  it('installs Gemini: mirrors skills to .agents/skills and writes AGENTS.md-aware settings', async () => {
+    await install(['gemini']);
+
+    // Skills are mirrored to the cross-tool location Gemini reads.
+    expect(exists('.agents/skills')).toBe(true);
+    const claudeSkills = fs.readdirSync(path.join(projectDir, '.claude', 'skills')).filter(n => n !== '_README.md').sort();
+    const agentsSkills = fs.readdirSync(path.join(projectDir, '.agents', 'skills')).filter(n => n !== '_README.md').sort();
+    expect(agentsSkills).toEqual(claudeSkills);
+    expect(agentsSkills.length).toBeGreaterThan(0);
+
+    // AGENTS.md is written (Gemini reads it via context.fileName), but CLAUDE.md is not.
+    expect(exists('AGENTS.md')).toBe(true);
+    expect(exists('CLAUDE.md')).toBe(false);
+
+    const settings = readJson('.gemini/settings.json');
+    expect(settings.context.fileName).toContain('AGENTS.md');
+    expect(settings.mcpServers['documentation']).toBeDefined();
+    expect(settings.mcpServers['documentation']).not.toHaveProperty('type');
+  });
+
+  it('does not mirror .agents/skills for a Claude-only install', async () => {
+    await install(['claude-code']);
+    expect(exists('.claude/skills')).toBe(true);
+    expect(exists('.agents/skills')).toBe(false);
+  });
+
   it('leaves an unparseable existing MCP file untouched and reports it', async () => {
     fs.mkdirSync(path.join(projectDir, '.cursor'), { recursive: true });
     const garbage = '{ not json at all';
