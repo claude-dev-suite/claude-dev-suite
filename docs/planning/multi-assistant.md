@@ -202,12 +202,41 @@ Two scope calls made during the slice:
   targets can actually be installed. Adding a flag that does nothing is the
   silent-no-op smell the plan warns against; it moves to the slice where it can
   filter something real.
-- **The Copilot/Cursor adapters are the remaining gap before 2.4.** Neither 2.3
-  nor 2.4 originally named the step that builds the adapters consuming the 2.2
-  writers. It is small now (MCP + rules writers exist; agents/skills need no
-  writer) but it is real: it must also settle who writes the shared `.claude/`
-  substrate when Claude Code is *not* among the targets but another tool that
-  reads it *is*. Call it **2.3b**, to land before the wizard.
+- **The Copilot/Cursor adapters are the remaining gap before 2.4** → done as
+  **2.3b** (below).
+
+**2.3b — Copilot + Cursor adapters + the `.claude/` substrate** — **DONE 2026-07-22**
+
+The slice that makes multi-assistant actually work. `install(targets)` now
+produces correct config for Claude Code, Copilot and Cursor, in any combination.
+
+The substrate question, settled: `.claude/agents` and `.claude/skills` are
+**shared infrastructure**, not the Claude Code target. Copilot and Cursor read
+them directly, so they are written once by the service (a new
+`installation/substrate.ts`, extracted from the Claude adapter) on every install
+regardless of the target set — on the same footing as the `.mcp-servers/`
+bundles. The Claude Code adapter shrank to what is genuinely Claude-specific:
+`skillListingBudgetFraction`, `.mcp.json`, `.claude/rules`, the validator hook.
+
+- Copilot adapter: `.vscode/mcp.json` (`servers`/stdio) **and** `.github/mcp.json`
+  (`mcpServers`/local) — both surfaces — plus `.github/instructions/*`. Merges
+  into existing MCP files; reports settings/hooks as skipped.
+- Cursor adapter: `.cursor/mcp.json` + `.cursor/rules/*.mdc`, same merge/skip.
+- Path-scoped rule *spec* computation extracted to
+  `installation/path-scoped-rules.ts`; each target serializes with its own 2.2
+  writer. `removePathScopedRules` now recognises every target's rules dir.
+- `CLAUDE.md` pointer is written only when Claude Code is a selected target;
+  `AGENTS.md` always (every Tier 1 assistant reads it natively).
+- `isImplemented()` widened to `claude-code`/`copilot`/`cursor`, so the API and
+  wizard accept them.
+
+One defect the slice surfaced and fixed: a Copilot-only install still writes the
+`.claude/` substrate, but `managedSurfaces(['copilot'])` didn't back up `.claude`,
+so a failed reinstall could lose it. `managedSurfaces` now always includes the
+Claude Code surfaces because the substrate is always present.
+
+Verified by a real multi-target install (all three + Copilot-only) and a
+multi-target reinstall round-trip. Suite 2216.
 
 *Original scope, for reference:*
 Thread `targets: TargetId[]` from request to manifest, and give reinstall/uninstall

@@ -172,14 +172,15 @@ describe('InstallationService', () => {
 
     it('rejects a target that has no adapter yet', async () => {
       // Defense in depth: the request schema rejects unimplemented targets, and
-      // so does the service for any direct caller that bypasses it.
+      // so does the service for any direct caller that bypasses it. Codex is
+      // Tier 2 — no adapter yet.
       await expect(
         installationService.install({
           projectPath: projectDir,
           agents: [],
           mcpServers: [],
           envVars: {},
-          targets: ['copilot'] as never,
+          targets: ['codex'] as never,
         })
       ).rejects.toThrow(/No adapter implemented/);
     });

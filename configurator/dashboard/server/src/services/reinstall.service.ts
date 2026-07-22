@@ -94,7 +94,14 @@ export function managedSurfaces(targets: readonly TargetId[]): { dirs: string[];
     SHARED_INSTRUCTIONS_FILE,
   ]);
 
-  for (const target of targets.length ? targets : [DEFAULT_TARGET]) {
+  // The `.claude/` substrate (agents + skills) is always written, even for a
+  // Copilot- or Cursor-only install, because those assistants read it directly.
+  // So DEFAULT_TARGET's surfaces are always in play regardless of the request.
+  // Its extra files (`.mcp.json`, `.claude/settings.json`) simply don't exist
+  // when Claude Code wasn't targeted, and backup/rollback skip absent files.
+  const effectiveTargets = new Set<TargetId>([DEFAULT_TARGET, ...targets]);
+
+  for (const target of effectiveTargets) {
     let layout: TargetLayout;
     try {
       layout = getTargetLayout(target);

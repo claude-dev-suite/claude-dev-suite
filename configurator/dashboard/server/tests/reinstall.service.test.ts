@@ -47,6 +47,38 @@ describe('ReinstallService', () => {
   const writeDevSuiteJson = (cfg: unknown) =>
     fs.writeFileSync(path.join(projectDir, '.dev-suite.json'), JSON.stringify(cfg, null, 2));
 
+  it('round-trips a multi-target install: reinstall keeps every assistant\'s files', async () => {
+    // Install Copilot + Cursor (no Claude Code target), then reinstall and
+    // confirm the substrate and both assistants' config survive the
+    // erase-and-replace — exercising the target-aware backup path.
+    await installationService.install({
+      projectPath: projectDir,
+      agents: ['typescript-expert'],
+      mcpServers: [],
+      envVars: {},
+      skillLoadingMode: 'eager',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      targets: ['copilot', 'cursor'] as any,
+    });
+
+    expect(fs.existsSync(path.join(projectDir, '.vscode', 'mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, '.cursor', 'mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, '.claude', 'agents', 'typescript-expert.md'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'CLAUDE.md'))).toBe(false);
+
+    const result = await reinstallService.executeReinstall({ projectPath: projectDir });
+    expect(result.success).toBe(true);
+
+    // The reinstall re-targets the same assistants recorded in the manifest.
+    expect(fs.existsSync(path.join(projectDir, '.vscode', 'mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, '.cursor', 'mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, '.claude', 'agents', 'typescript-expert.md'))).toBe(true);
+    // Still no Claude Code artifacts — reinstall didn't silently add the target.
+    expect(fs.existsSync(path.join(projectDir, 'CLAUDE.md'))).toBe(false);
+    expect(JSON.parse(fs.readFileSync(path.join(projectDir, '.dev-suite-manifest.json'), 'utf-8')).targets)
+      .toEqual(['copilot', 'cursor']);
+  });
+
   it('preserves custom agents under .claude/agents/custom/', async () => {
     await installBase();
     const customPath = path.join(projectDir, '.claude', 'agents', 'custom', 'my-agent.md');

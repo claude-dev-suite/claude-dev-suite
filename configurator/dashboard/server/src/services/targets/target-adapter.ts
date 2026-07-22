@@ -55,6 +55,12 @@ export interface InstallPlan {
   detectedStack?: DetectionResult;
   /** Full agent catalog, so adapters can resolve metadata without re-reading it. */
   agentCatalog: Agent[];
+  /**
+   * Names of every MCP server dev-suite can install. Adapters that *merge* into
+   * a shared config file (e.g. Copilot's `.vscode/mcp.json`) use this to drop
+   * their own deselected entries while leaving the user's servers untouched.
+   */
+  mcpCatalog: string[];
 }
 
 /** A resolved MCP server entry, before it is serialized into a target's format. */
@@ -91,10 +97,14 @@ export interface TargetWriteContext {
   extendedManifest: ExtendedManifest;
 }
 
-/** What an adapter did, so the caller can finish the install and report. */
+/**
+ * What an adapter did, so the caller can finish the install and report.
+ *
+ * Note there is no `installedAgents` here: agents are written once, as the
+ * shared `.claude/` substrate, before any adapter runs — see
+ * installation/substrate.ts. Adapters contribute only their own format.
+ */
 export interface TargetWriteResult {
-  /** Catalog entries for the agents that were actually installed. */
-  installedAgents: Agent[];
   /** Project-relative paths of path-scoped rule files written. */
   ruleFiles: string[];
   /** Whether the integration-validator hook was configured. */

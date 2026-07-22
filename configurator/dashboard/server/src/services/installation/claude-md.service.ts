@@ -21,10 +21,15 @@ import * as path from 'path';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { Agent } from '../../types.js';
 import { HooksService } from '../hooks.service.js';
-import { getCategoryPaths, isAlwaysOnCategory } from './category-paths.js';
-import { SHARED_INSTRUCTIONS_FILE, getTargetLayout } from '../targets/target-layout.js';
-import { targetPaths } from '../targets/target-paths.js';
-import { claudeCodeRule, RULE_FILE_MARKER } from '../targets/writers/path-scoped-rules.writer.js';
+import { isAlwaysOnCategory } from './category-paths.js';
+import {
+  SHARED_INSTRUCTIONS_FILE,
+  getTargetLayout,
+  listImplementedTargets,
+  type TargetId,
+} from '../targets/target-layout.js';
+import { writePathScopedRules } from './path-scoped-rules.js';
+import { RULE_FILE_MARKER } from '../targets/writers/path-scoped-rules.writer.js';
 
 // Markers for dev-suite section
 export const DEV_SUITE_START_MARKER = '<!-- DEV-SUITE-CONFIG-START -->';
@@ -50,6 +55,12 @@ export interface InstructionsSectionOptions {
   customAgents?: CustomAgentSummary[];
   detectedStack?: DetectedStackInfo;
   validatorHookConfigured?: boolean;
+  /**
+   * Selected assistants. The `CLAUDE.md` import pointer is written only when
+   * `claude-code` is among them — every other Tier 1 assistant reads `AGENTS.md`
+   * natively. Omitted means Claude Code (the historical single-target default).
+   */
+  targets?: TargetId[];
 }
 
 /**
@@ -131,18 +142,29 @@ export function updateInstructions(
     path.join(resolved, SHARED_INSTRUCTIONS_FILE),
     generateDevSuiteSection(opts)
   );
+  const written = [SHARED_INSTRUCTIONS_FILE];
 
-  const claudeMdFile = getTargetLayout('claude-code').instructionsFile;
-  upsertMarkedSection(
-    path.join(resolved, claudeMdFile),
-    generateSharedInstructionsPointer()
-  );
+  // CLAUDE.md is a shim so Claude Code (which doesn't read AGENTS.md) picks up
+  // the shared section. Write it only when Claude Code is actually a target.
+  const includesClaude = !opts.targets || opts.targets.includes('claude-code');
+  if (includesClaude) {
+    const claudeMdFile = getTargetLayout('claude-code').instructionsFile;
+    upsertMarkedSection(
+      path.join(resolved, claudeMdFile),
+      generateSharedInstructionsPointer()
+    );
+    written.push(claudeMdFile);
+  }
 
-  return [SHARED_INSTRUCTIONS_FILE, claudeMdFile];
+  return written;
 }
 
 /**
  * Remove the dev-suite section from every instructions file we write.
+ *
+ * Both files are always cleaned regardless of target: an uninstall shouldn't
+ * have to know which assistants were selected to leave the project clean, and
+ * removeMarkedSection is a no-op when the file or section is absent.
  */
 export function cleanInstructionsSections(projectPath: string): void {
   const resolved = assertSafeProjectPath(projectPath);
@@ -278,15 +300,12 @@ ${DEV_SUITE_END_MARKER}`;
 }
 
 /**
- * Generate and write path-scoped rule files to `.claude/rules/{category}.md`.
+ * Generate and write Claude Code path-scoped rule files
+ * (`.claude/rules/{category}.md`, `paths:` frontmatter).
  *
- * Each file uses Claude Code's `paths:` frontmatter so the rule is only
- * injected into the context when matching files are open. Categories with
- * an empty paths list (always-on: security, core, quality, mcp-config)
- * do not get a rule file — their routing stays in CLAUDE.md.
- *
- * Returns the list of relative paths for rule files that were written
- * (relative to projectPath), for tracking in the manifest.
+ * Thin wrapper over the per-target writer for backward compatibility; the
+ * generic implementation and the Copilot/Cursor variants live in
+ * `installation/path-scoped-rules.ts`.
  */
 export function generatePathScopedRules(
   installedAgents: Agent[],
@@ -296,38 +315,7 @@ export function generatePathScopedRules(
   projectPath = resolveProjectPath(projectPath);
   if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
-  const paths = targetPaths(projectPath);
-  fs.mkdirSync(paths.rulesDir, { recursive: true });
-
-  // Group path-scoped agents by category (skip always-on categories)
-  const byCategory = new Map<string, Agent[]>();
-  for (const agent of installedAgents) {
-    const cat = agent.category as string;
-    if (isAlwaysOnCategory(cat)) continue;
-    const bucket = byCategory.get(cat) ?? [];
-    bucket.push(agent);
-    byCategory.set(cat, bucket);
-  }
-
-  const writtenFiles: string[] = [];
-
-  for (const [category, agents] of byCategory) {
-    const globs = getCategoryPaths(category);
-    if (!globs || globs.length === 0) continue; // safety guard
-
-    const content = claudeCodeRule({
-      category,
-      globs,
-      agents: agents.map(a => ({ id: a.id, description: a.description })),
-    });
-
-    const relPath = paths.relRuleFile(category);
-    const absPath = paths.abs(relPath);
-    fs.writeFileSync(absPath, content, 'utf-8');
-    writtenFiles.push(relPath);
-  }
-
-  return writtenFiles;
+  return writePathScopedRules('claude-code', installedAgents, projectPath);
 }
 
 /**
@@ -347,10 +335,17 @@ export function removePathScopedRules(
   const removed: string[] = [];
   const errors: string[] = [];
 
-  const rulesPrefix = `${targetPaths(projectPath).relRulesDir}/`;
+  // Rule files can belong to any implemented target's rules directory
+  // (`.claude/rules`, `.github/instructions`, `.cursor/rules`). Accept a path
+  // under any of them; the sentinel check below is the real safety guard.
+  const rulesPrefixes = listImplementedTargets()
+    .map(l => l.rulesDir)
+    .filter((d): d is string => Boolean(d))
+    .map(d => `${d}/`);
+
   for (const relPath of trackedRuleFiles) {
-    // Safety: only touch files inside the target's rules directory
-    if (!relPath.startsWith(rulesPrefix)) {
+    // Safety: only touch files inside a known rules directory
+    if (!rulesPrefixes.some(prefix => relPath.startsWith(prefix))) {
       errors.push(`Skipped unexpected path: ${relPath}`);
       continue;
     }

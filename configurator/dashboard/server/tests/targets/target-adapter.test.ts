@@ -34,10 +34,15 @@ describe('adapter registry', () => {
     }
   });
 
-  it('throws a named error for a target with a descriptor but no adapter', () => {
-    // Copilot has a descriptor (its paths are known) but no write path yet.
-    expect(isImplemented('copilot')).toBe(false);
-    expect(() => getAdapter('copilot')).toThrow(/No adapter implemented/);
+  it('throws a named error for a target with no adapter', () => {
+    // Codex has neither a descriptor nor an adapter yet (Tier 2).
+    expect(isImplemented('codex')).toBe(false);
+    expect(() => getAdapter('codex')).toThrow(/No adapter implemented/);
+  });
+
+  it('reports Copilot and Cursor as implemented now that their adapters landed', () => {
+    expect(isImplemented('copilot')).toBe(true);
+    expect(isImplemented('cursor')).toBe(true);
   });
 });
 
@@ -62,6 +67,7 @@ describe('ClaudeCodeAdapter.write', () => {
       envVars: {},
       skillLoadingMode: 'eager',
       agentCatalog: [],
+      mcpCatalog: [],
       ...overrides,
     };
   }
@@ -103,13 +109,14 @@ describe('ClaudeCodeAdapter.write', () => {
       extendedManifest,
     });
 
-    expect(result.installedAgents).toEqual([]);
+    expect(result.ruleFiles).toEqual([]);
     expect(result.validatorHookConfigured).toBe(false);
     expect(result.skipped).toEqual([]);
 
-    // Claude Code owns these directories, so the adapter creates them.
-    expect(fs.existsSync(path.join(projectPath, '.claude', 'agents'))).toBe(true);
-    expect(fs.existsSync(path.join(projectPath, '.claude', 'skills'))).toBe(true);
+    // The Claude Code adapter writes its own config (agents/skills are the
+    // shared substrate, written by the service, not the adapter).
+    expect(fs.existsSync(path.join(projectPath, '.mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(projectPath, '.claude', 'settings.json'))).toBe(true);
   });
 
   it('serializes MCP servers under the mcpServers key Claude Code expects', async () => {

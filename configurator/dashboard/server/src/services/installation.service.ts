@@ -17,6 +17,7 @@ import { targetPaths, type TargetPaths } from './targets/target-paths.js';
 import type { InstallPlan, McpServerEntry } from './targets/target-adapter.js';
 import { getAdapter } from './targets/adapters/index.js';
 import { AgentsService } from './agents.service.js';
+import { SubstrateInstaller } from './installation/substrate.js';
 import {
   validatePathWithinBase,
   validateEntryName,
@@ -210,6 +211,7 @@ export class InstallationService {
       skillLoadingMode,
       detectedStack,
       agentCatalog: allAgents,
+      mcpCatalog: allMcpServers.map(s => s.name),
     };
 
     // ---- Target-neutral writes ----
@@ -221,6 +223,11 @@ export class InstallationService {
     const mcpServerEntries = this.installMcpServerBundles(
       plan, bundlePaths, manifest, extendedManifest
     );
+
+    // The `.claude/agents` + `.claude/skills` substrate is shared: Copilot and
+    // Cursor read it directly, so it is written once here regardless of which
+    // assistants were selected — not owned by the Claude Code target.
+    new SubstrateInstaller().install(plan, manifest, extendedManifest);
 
     // ---- Per-target writes ----
     // One adapter per selected assistant, each writing into its own layout. For
@@ -270,11 +277,15 @@ export class InstallationService {
     };
     extendedManifest.installedRuleFiles = ruleFiles;
 
-    // Write instructions: AGENTS.md holds the shared section, CLAUDE.md imports it
+    // Write instructions: AGENTS.md holds the shared section (every Tier 1
+    // assistant reads it natively). The CLAUDE.md import pointer is written only
+    // when Claude Code is a selected target — it is the one assistant that needs
+    // the shim, and writing it for a Copilot-only install would be noise.
     const instructionFiles = updateInstructions(projectPath, {
       agents: installedAgents,
       detectedStack,
       validatorHookConfigured,
+      targets,
     });
     for (const file of instructionFiles) {
       // Legacy manifest has no 'generated' type; 'config' is its closest match.

@@ -11,9 +11,13 @@
 import type { TargetId } from '../target-layout.js';
 import type { TargetAdapter } from '../target-adapter.js';
 import { ClaudeCodeAdapter } from './claude-code.adapter.js';
+import { CopilotAdapter } from './copilot.adapter.js';
+import { CursorAdapter } from './cursor.adapter.js';
 
 const ADAPTERS: Partial<Record<TargetId, TargetAdapter>> = {
   'claude-code': new ClaudeCodeAdapter(),
+  copilot: new CopilotAdapter(),
+  cursor: new CursorAdapter(),
 };
 
 /**
@@ -33,4 +37,4 @@ export function listAdapterTargets(): TargetId[] {
   return Object.keys(ADAPTERS) as TargetId[];
 }
 
-export { ClaudeCodeAdapter };
+export { ClaudeCodeAdapter, CopilotAdapter, CursorAdapter };

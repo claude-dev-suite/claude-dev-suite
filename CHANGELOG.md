@@ -45,6 +45,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Descriptors for Claude Code, GitHub Copilot and Cursor ship in this release;
   only Claude Code has a full write path so far. Groundwork for multi-assistant
   support — see `docs/planning/multi-assistant.md`.
+- **GitHub Copilot and Cursor are now installable targets.** `install()` accepts
+  any combination of `claude-code`, `copilot` and `cursor` and writes each
+  assistant's own configuration: Copilot gets `.vscode/mcp.json` and
+  `.github/mcp.json` (its two MCP surfaces, with different keys and `type`
+  values) plus `.github/instructions/*`; Cursor gets `.cursor/mcp.json` and
+  `.cursor/rules/*.mdc`. `AGENTS.md` is written for all of them; the `CLAUDE.md`
+  import pointer only when Claude Code is selected. MCP config files are merged
+  with any servers the user already has, and an unparseable existing file is left
+  untouched rather than overwritten. The `.claude/agents` and `.claude/skills`
+  directories are written once as shared infrastructure that Copilot and Cursor
+  read directly, so agents and skills are available even in a Copilot- or
+  Cursor-only install.
 - **Multi-target install plumbing.** `install()` accepts a `targets` list and
   runs one adapter per assistant, recording them in the manifest; the request
   schema validates targets against the set that has a working adapter, so the

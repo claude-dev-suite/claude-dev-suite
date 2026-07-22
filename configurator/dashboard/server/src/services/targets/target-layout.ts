@@ -211,8 +211,11 @@ export const TARGET_LAYOUTS: Readonly<Partial<Record<TargetId, TargetLayout>>> =
   // Tier 2/3 descriptors (codex, gemini, windsurf, cline) land with their adapters.
 });
 
-/** Targets that currently have a full write path implemented. */
-const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code']);
+/**
+ * Targets that currently have a full write path implemented. Must stay in step
+ * with the adapter registry in `targets/adapters/index.ts` — a test asserts it.
+ */
+const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor']);
 
 /** True when dev-suite can actually install for this target today. */
 export function isImplemented(target: TargetId): boolean {

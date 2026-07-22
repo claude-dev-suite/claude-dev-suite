@@ -37,6 +37,14 @@ describe('managedSurfaces', () => {
     expect(dirs).not.toContain('.vscode');
   });
 
+  it('always includes the .claude substrate, even for a non-Claude target', () => {
+    // The .claude/agents + .claude/skills substrate is written for every
+    // install (Copilot/Cursor read it directly), so a Copilot-only reinstall
+    // must still back it up or a failed rollback would lose it.
+    expect(managedSurfaces(['copilot']).dirs).toContain('.claude');
+    expect(managedSurfaces(['cursor']).dirs).toContain('.claude');
+  });
+
   it('keeps Cursor MCP inside the tree copy', () => {
     const { dirs, files } = managedSurfaces(['cursor']);
     // .cursor/mcp.json is under .cursor, so the tree copy covers it.
@@ -76,10 +84,14 @@ describe('InstallRequestSchema targets', () => {
     expect(() => InstallRequestSchema.parse({ ...base, targets: ['claude-code'] })).not.toThrow();
   });
 
+  it('accepts the Tier 1 targets that now have adapters', () => {
+    expect(InstallRequestSchema.safeParse({ ...base, targets: ['copilot', 'cursor'] }).success).toBe(true);
+  });
+
   it('rejects a target whose adapter has not landed', () => {
-    // Copilot has a descriptor but no adapter yet — the API must not promise
-    // output it cannot produce.
-    const result = InstallRequestSchema.safeParse({ ...base, targets: ['copilot'] });
+    // Codex is Tier 2 — a descriptor may come later, but no adapter yet, so the
+    // API must not promise output it cannot produce.
+    const result = InstallRequestSchema.safeParse({ ...base, targets: ['codex'] });
     expect(result.success).toBe(false);
   });
 

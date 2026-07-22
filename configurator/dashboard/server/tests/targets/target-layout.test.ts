@@ -86,11 +86,14 @@ describe('target layout descriptors', () => {
     expect(getTargetLayout('copilot').mcpConfigFile).not.toBe('.mcp.json');
   });
 
-  it('defaults to claude-code and reports it as the only implemented target', () => {
+  it('defaults to claude-code and reports the Tier 1 targets as implemented', () => {
     expect(DEFAULT_TARGET).toBe('claude-code');
     expect(isImplemented('claude-code')).toBe(true);
-    expect(isImplemented('copilot')).toBe(false);
-    expect(listImplementedTargets().map(l => l.id)).toEqual(['claude-code']);
+    expect(isImplemented('copilot')).toBe(true);
+    expect(isImplemented('cursor')).toBe(true);
+    // Tier 2/3 have no adapter yet.
+    expect(isImplemented('codex')).toBe(false);
+    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'copilot', 'cursor']);
   });
 
   it('throws for targets without a descriptor yet', () => {
