@@ -136,6 +136,16 @@ describe('multi-target install', () => {
     expect(settings.context.fileName).toContain('AGENTS.md');
     expect(settings.mcpServers['documentation']).toBeDefined();
     expect(settings.mcpServers['documentation']).not.toHaveProperty('type');
+
+    // Native Gemini subagent generated from the installed agent.
+    const agentPath = path.join(projectDir, '.gemini', 'agents', 'typescript-expert.md');
+    expect(fs.existsSync(agentPath)).toBe(true);
+    const agentFile = fs.readFileSync(agentPath, 'utf-8');
+    expect(agentFile).toContain('kind: local');
+    expect(agentFile).toContain('name: typescript-expert');
+    // Claude-specific source frontmatter must not leak into the Gemini agent file.
+    expect(agentFile).not.toContain('allowed-tools');
+    expect(agentFile).not.toContain('core_skills');
   });
 
   it('installs Codex: merges MCP into config.toml, keeping the user\'s content', async () => {

@@ -55,6 +55,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   tree to the cross-tool `.agents/skills` directory whenever a target that reads
   it is selected — so both get the full skill set. All five assistants (Claude
   Code, Copilot, Cursor, Gemini, Codex) can now be selected in the wizard.
+- **Gemini gets native subagents.** Selecting Gemini now also generates a
+  `.gemini/agents/<id>.md` file per installed agent, so each dev-suite agent is a
+  delegatable `@`-agent in Gemini — the one target that previously got only
+  AGENTS.md routing (it reads neither `.claude/agents` nor the shared substrate).
 - **Cline is now an installable target.** It reads `AGENTS.md` and the
   `.claude/skills` substrate directly, so dev-suite writes its path-scoped rules
   to `.clinerules/*.md`. Cline has no committable MCP config (user-global only)

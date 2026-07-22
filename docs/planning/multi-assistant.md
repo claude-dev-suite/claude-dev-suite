@@ -377,11 +377,26 @@ Claude) with a tool-neutral body (Cline has no Task-tool delegation). MCP
 are reported as **permanent** skipped gaps, not unfinished work. `isImplemented`
 now includes `cline`; six assistants are selectable.
 
+**4.2 — Native Gemini subagents** — **DONE 2026-07-22**
+Gemini was the one target with no delegatable subagents (it reads neither
+`.claude/agents` nor the substrate — only AGENTS.md routing). The adapter now
+generates `.gemini/agents/<id>.md` per installed agent: Gemini frontmatter
+(`name`/`description`/`kind: local`) over the agent's own role body, carried
+verbatim. `tools`/`model` are deliberately omitted so no Claude tool/model name
+is mapped onto Gemini. The body is the same prose Copilot and Cursor already read
+from `.claude/agents`, so Gemini is on equal footing.
+
+*Deliberately not done — content-translation of agent bodies:* the bodies still
+carry the occasional Claude tool name (`Edit`/`Write`). A regex prose-neutralizer
+is fragile (easy to garble domain text) and can't be validated without a real
+CLI, so it stays deferred; shipping the body verbatim matches what the other
+`.claude/agents`-reading assistants already get.
+
 **Remaining Phase 4**: Devin Desktop adapter (blocked on verifying Desktop reads
-`.devin/config.json` for MCP), native subagent generation for Codex/Gemini,
-content-translation lint of agent bodies for Claude-specific tool names, and
-real-CLI E2E smoke tests. Plus the Phase 3 residual (abstract hooks + logical
-`features.json` targets).
+`.devin/config.json` for MCP), native subagents for Codex (`.codex/agents/*.toml`
+with `deny_unknown_fields` — risky, needs real-CLI validation), safe
+content-translation of agent bodies, and real-CLI E2E smoke tests. Plus the
+Phase 3 residual (abstract hooks + logical `features.json` targets).
 
 *Original Phase 4 scope:*
 - Tier 3 adapters with degradation (Devin Desktop, Cline — note Cline's MCP gap is permanent).

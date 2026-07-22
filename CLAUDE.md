@@ -114,7 +114,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `targets/adapters/claude-code.adapter.ts` | Writes Claude-Code-specific config: `skillListingBudgetFraction`, `.mcp.json`, `.claude/rules`, validator hook (the `.claude/` agent+skill substrate is shared, see below) |
 | `targets/adapters/copilot.adapter.ts` | Writes Copilot config: `.vscode/mcp.json` (VS Code) + `.github/mcp.json` (CLI) + `.github/instructions/*`; merges into existing MCP files |
 | `targets/adapters/cursor.adapter.ts` | Writes Cursor config: `.cursor/mcp.json` + `.cursor/rules/*.mdc`; merges into existing MCP files |
-| `targets/adapters/gemini.adapter.ts` | Writes Gemini config: `.gemini/settings.json` (mcpServers + `context.fileName` to read AGENTS.md); reads skills from `.agents/skills` mirror |
+| `targets/adapters/gemini.adapter.ts` | Writes Gemini config: `.gemini/settings.json` (mcpServers + `context.fileName`) and native subagents `.gemini/agents/*.md`; reads skills from `.agents/skills` mirror |
 | `targets/adapters/codex.adapter.ts` | Writes Codex MCP config: `[mcp_servers.*]` in `.codex/config.toml` (TOML merge); reads AGENTS.md + `.agents/skills` natively; surfaces the trusted-project caveat |
 | `targets/adapters/cline.adapter.ts` | Writes Cline path-scoped rules to `.clinerules/*.md` (`paths:`, neutral body); reads AGENTS.md + `.claude/skills`; reports MCP + native-agents as permanent skipped gaps |
 | `installation/substrate.ts` | Install the shared `.claude/agents`+`.claude/skills` substrate once per install (Copilot/Cursor read it directly); mirror skills to `.agents/skills` when a target reads that instead (Codex/Gemini) |
@@ -124,6 +124,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `targets/writers/mcp-config.writer.ts` | Serialize MCP servers into each assistant's format (Claude `mcpServers`, VS Code `servers`+stdio, Copilot CLI `local`+tools, Cursor stdio), merging with the user's own entries |
 | `targets/writers/path-scoped-rules.writer.ts` | Serialize glob-scoped agent routing per assistant (`paths:` / `applyTo:` / `globs:`) |
 | `targets/writers/gemini-settings.writer.ts` | Serialize `.gemini/settings.json` (mcpServers + AGENTS.md-aware context.fileName), merging with existing settings |
+| `targets/writers/gemini-agent.writer.ts` | Turn a dev-suite agent into a native Gemini subagent (`.gemini/agents/<id>.md`, name/description/kind + verbatim body) |
 | `targets/writers/codex-toml.writer.ts` | Serialize `[mcp_servers.*]` TOML tables for `.codex/config.toml` via a comment-preserving section-level merge (no TOML dependency) |
 | `targets/adapters/index.ts` | Adapter registry keyed by `TargetId`; must stay in step with `isImplemented()` |
 | `installation/claude-md.service.ts` | Generate the shared instructions section, write `AGENTS.md` + the `CLAUDE.md` import pointer, and per-category path-scoped rule files |
