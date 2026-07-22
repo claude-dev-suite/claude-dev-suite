@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { WIZARD_STEPS } from '@/components/wizard/steps';
 import { useCallback } from 'react';
 import { Header } from './Header';
 import { Sidebar, type WizardStep } from './Sidebar';
@@ -38,13 +39,7 @@ export function Layout({
 
   // Prepare wizard steps with status
   const stepsWithStatus: WizardStep[] = (
-    wizardSteps || [
-      { id: 1, label: 'Detection', description: 'Analyze project' },
-      { id: 2, label: 'Agents', description: 'Select agents' },
-      { id: 3, label: 'MCP Servers', description: 'Configure tools' },
-      { id: 4, label: 'Environment', description: 'Set variables' },
-      { id: 5, label: 'Install', description: 'Finalize setup' },
-    ]
+    wizardSteps || WIZARD_STEPS.map((s) => ({ ...s }))
   ).map((step) => ({
     ...step,
     status:

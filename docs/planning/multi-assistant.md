@@ -264,7 +264,26 @@ Fix that drift while adding `targets`, with the enum derived from `isImplemented
 so the API rejects targets whose adapter hasn't landed.
 Plus CLI `--target` (repeatable, mirroring `--keep`) and per-target result reporting.
 
-**2.4 — Assistant detection + wizard step** *(the user-visible slice)*
+**2.4 — Assistant detection + wizard step** — **DONE 2026-07-22**
+
+Split into 2.4a (backend detection service + `/api/detect-assistants`) and 2.4b
+(frontend). Both shipped:
+- New "Target Assistants" wizard step (step 6, before Install) that self-fetches
+  `/api/detect-assistants`, pre-selects the recommended targets, and requires at
+  least one to proceed. Its selection flows into the install POST as `targets`.
+- The home-dir opt-in checkbox was **not** needed after all (2.2 found both
+  Copilot surfaces have committable project files), so it was dropped.
+- The wizard's hardcoded step bounds were centralised into
+  `wizard/steps.ts` (`WIZARD_STEPS` + `LAST_WIZARD_STEP`), consumed by the
+  container, `ui.store`, `Layout` and `Sidebar`. This also fixed the sidebar
+  labels, which were silently a step behind (5 entries for a 6-step wizard, no
+  "Rules"). Inserting the step was then one edit, not eight.
+- The stale `WizardContainer.test.tsx` (a hand-rolled mock asserting "Step N of
+  5") was rewritten to exercise the real step registry and `Sidebar`.
+- `InstallRequest.targets` added to both synced `api.ts` copies (type-sync check
+  passes).
+
+*Original scope, for reference:*
 - `detection/assistant-detection.service.ts` as a **standalone** sub-service returning
   its own typed array — it is orthogonal to stack detection and `DetectionResult` has
   no natural slot for it. Markers table in `detection.constants.ts` derived from

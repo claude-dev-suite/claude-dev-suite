@@ -10,6 +10,8 @@ import { Step3McpServers } from './Step3McpServers';
 import { Step4Environment } from './Step4Environment';
 import { Step5Install } from './Step5Install';
 import { StepRules } from './StepRules';
+import { StepAssistants } from './StepAssistants';
+import { LAST_WIZARD_STEP } from './steps';
 import { Button } from '../common';
 
 export interface WizardState {
@@ -21,6 +23,7 @@ export interface WizardState {
   envVars: Record<string, string>;
   recommendedAgents: string[];
   recommendedMcpServers: string[];
+  selectedAssistants: string[];
 }
 
 export interface WizardContainerProps {
@@ -71,6 +74,7 @@ export function WizardContainer({
     envVars: {},
     recommendedAgents: [],
     recommendedMcpServers: [],
+    selectedAssistants: [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -100,7 +104,7 @@ export function WizardContainer({
   );
 
   const nextStep = useCallback(() => {
-    if (currentStep < 6) {
+    if (currentStep < LAST_WIZARD_STEP) {
       goToStep(currentStep + 1);
     }
   }, [currentStep, goToStep]);
@@ -160,6 +164,19 @@ export function WizardContainer({
     setState((prev) => ({ ...prev, selectedRules: recommendedIds }));
   }, []);
 
+  const toggleAssistant = useCallback((target: string) => {
+    setState((prev) => ({
+      ...prev,
+      selectedAssistants: prev.selectedAssistants.includes(target)
+        ? prev.selectedAssistants.filter((t) => t !== target)
+        : [...prev.selectedAssistants, target],
+    }));
+  }, []);
+
+  const initAssistants = useCallback((recommendedTargets: string[]) => {
+    setState((prev) => ({ ...prev, selectedAssistants: recommendedTargets }));
+  }, []);
+
   // Mode selection handler
   const handleModeSelect = useCallback((mode: WizardMode) => {
     setWizardMode(mode);
@@ -216,10 +233,12 @@ export function WizardContainer({
       case 3:
         return true; // MCP servers are optional
       case 4:
-        return true; // Rules are optional
-      case 5:
         return true; // Env vars can be skipped
+      case 5:
+        return true; // Rules are optional
       case 6:
+        return state.selectedAssistants.length > 0;
+      case 7:
         return true;
       default:
         return false;
@@ -339,11 +358,21 @@ export function WizardContainer({
         );
       case 6:
         return (
+          <StepAssistants
+            projectPath={state.projectPath}
+            selectedAssistants={state.selectedAssistants}
+            onToggleAssistant={toggleAssistant}
+            onInitAssistants={initAssistants}
+          />
+        );
+      case 7:
+        return (
           <Step5Install
             projectPath={state.projectPath}
             selectedAgents={state.selectedAgents}
             selectedMcpServers={state.selectedMcpServers}
             selectedRules={state.selectedRules}
+            selectedAssistants={state.selectedAssistants}
             envVars={state.envVars}
             detection={state.detection}
             onComplete={onComplete}
@@ -396,7 +425,7 @@ export function WizardContainer({
     if (wizardMode === 'create' && createSubStep === 'config') return false;
 
     // Hide navigation for install step (Step5Install has its own buttons)
-    if (currentStep === 6) return false;
+    if (currentStep === LAST_WIZARD_STEP) return false;
 
     return true;
   };
@@ -405,11 +434,11 @@ export function WizardContainer({
   const getStepIndicators = () => {
     if (wizardMode === 'configure' || (wizardMode === 'create' && currentStep > 1)) {
       // Show steps 1-6
-      return [1, 2, 3, 4, 5, 6];
+      return [1, 2, 3, 4, 5, 6, 7];
     }
     if (wizardMode === 'create') {
       // Show template steps + regular steps
-      return ['T1', 'T2', 1, 2, 3, 4, 5, 6];
+      return ['T1', 'T2', 1, 2, 3, 4, 5, 6, 7];
     }
     return [];
   };
@@ -455,7 +484,7 @@ export function WizardContainer({
             ))}
           </div>
 
-          {currentStep < 6 ? (
+          {currentStep < LAST_WIZARD_STEP ? (
             <Button onClick={handleNext} disabled={!canProceed()}>
               Continue
             </Button>

@@ -45,6 +45,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Descriptors for Claude Code, GitHub Copilot and Cursor ship in this release;
   only Claude Code has a full write path so far. Groundwork for multi-assistant
   support — see `docs/planning/multi-assistant.md`.
+- **Wizard "Target Assistants" step.** The install wizard now has a step that
+  detects which AI assistants a project already uses, pre-selects the ones it
+  found (falling back to Claude Code), and lets the user choose which to generate
+  configuration for. The selection is sent to the install endpoint as `targets`.
+  The wizard's step definitions were centralised into one module, which also
+  fixed the sidebar step list that had silently fallen a step behind.
 - **GitHub Copilot and Cursor are now installable targets.** `install()` accepts
   any combination of `claude-code`, `copilot` and `cursor` and writes each
   assistant's own configuration: Copilot gets `.vscode/mcp.json` and

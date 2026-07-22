@@ -11,6 +11,7 @@ export interface Step5InstallProps {
   selectedAgents: string[];
   selectedMcpServers: string[];
   selectedRules: string[];
+  selectedAssistants: string[];
   envVars: Record<string, string>;
   detection: DetectionResponse | null;
   onComplete: () => void;
@@ -28,6 +29,7 @@ export function Step5Install({
   selectedAgents,
   selectedMcpServers,
   selectedRules,
+  selectedAssistants,
   envVars,
   detection,
   onComplete,
@@ -81,6 +83,7 @@ export function Step5Install({
           agents: selectedAgents,
           mcpServers: selectedMcpServers,
           rules: selectedRules,
+          targets: selectedAssistants,
           envVars,
           detectedStack: detection ? {
             projectType: detection.project_type,
@@ -125,13 +128,17 @@ export function Step5Install({
     } finally {
       setInstalling(false);
     }
-  }, [projectPath, selectedAgents, selectedMcpServers, selectedRules, envVars, detection, updateStep]);
+  }, [projectPath, selectedAgents, selectedMcpServers, selectedRules, selectedAssistants, envVars, detection, updateStep]);
 
   return (
     <div className="space-y-6">
       {/* Summary */}
       <PanelSection title="Installation Summary">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="p-4 bg-surface-700/30 rounded-lg">
+            <div className="text-2xl font-bold text-white">{selectedAssistants.length}</div>
+            <div className="text-sm text-surface-400">Assistants</div>
+          </div>
           <div className="p-4 bg-surface-700/30 rounded-lg">
             <div className="text-2xl font-bold text-white">{selectedAgents.length}</div>
             <div className="text-sm text-surface-400">Agents</div>

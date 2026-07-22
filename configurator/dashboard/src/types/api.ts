@@ -206,6 +206,8 @@ export interface InstallRequest {
   mcpServers: string[];
   /** Environment variable values */
   envVars: Record<string, string>;
+  /** Assistants to generate configuration for (defaults to Claude Code) */
+  targets?: string[];
   /** Detected stack info */
   stack?: StackInfo;
 }
