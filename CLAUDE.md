@@ -93,6 +93,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `code-review.service.ts` | Code review job creation and management |
 | `custom-agents.service.ts` | User-created custom agent management |
 | `detection.service.ts` | Detect project stack (frameworks, databases, Git provider) |
+| `detection/assistant-detection.service.ts` | Detect which AI assistants a project already uses (marker files + manifest targets) and recommend which to pre-select in the wizard |
 | `git.service.ts` | Git operations and repository management |
 | `hooks.service.ts` | Git and Claude Code hooks management |
 | `installation.service.ts` | Copy files, install MCP servers, generate config, record catalog snapshot |
