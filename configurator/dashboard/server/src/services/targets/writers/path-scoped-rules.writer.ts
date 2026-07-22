@@ -135,7 +135,16 @@ Delegate to the matching agent when the task falls in its area.
  * YAML and silently never matches.
  */
 export function cursorMdcRule(spec: PathScopedRuleSpec): string {
-  const globs = spec.globs.join(', ');
+  // `globs` is an unquoted YAML scalar. A value that starts with `*` is a YAML
+  // alias indicator in a strict parser; Cursor's .mdc parser tolerates it, but
+  // no official example leads with `*`. Ordering any concrete-prefixed glob
+  // first sidesteps the edge without changing which files match (globs are an
+  // unordered OR-set).
+  const ordered = [
+    ...spec.globs.filter(g => !g.startsWith('*')),
+    ...spec.globs.filter(g => g.startsWith('*')),
+  ];
+  const globs = ordered.join(', ');
   const category = displayCategory(spec.category);
 
   return `---

@@ -14,6 +14,28 @@ and the date), then write the code.
   generated output. These conventions move fast — several claims in this file
   were wrong six months ago.
 
+### Post-implementation re-verification (2026-07-22)
+
+After the adapters were built, every file shape dev-suite actually writes was
+cross-checked against current official docs, one assistant at a time. **All
+written formats were CONFIRMED** — VS Code `.vscode/mcp.json` (`servers`/stdio)
+and Copilot CLI `.github/mcp.json` (`mcpServers`/local/`tools`), Copilot
+`applyTo` instructions, Cursor `.cursor/mcp.json` and `.mdc` `globs`, Gemini
+`.gemini/settings.json` (`mcpServers` + `context.fileName`) and `.gemini/agents`
+(`name`/`description`/`kind: local`), Codex `[mcp_servers.*]` + `.env` sub-table
+TOML, and Cline `.clinerules` `paths:`. Two findings, neither a wrong format:
+
+1. **Copilot CLI does not read `.claude/agents`** — only VS Code does; the CLI
+   reads only `.github/agents/*.agent.md` (which dev-suite doesn't generate). So
+   the Copilot CLI surface gets agent *routing* via AGENTS.md but no native
+   subagent definitions. Now reported as a skipped capability by the Copilot
+   adapter. Writing native `.github/agents/*.agent.md` (which would also enrich
+   VS Code with tool restrictions) is a documented follow-up.
+2. **Cursor `.mdc` `globs:` starting with `*`** is a strict-YAML alias edge that
+   Cursor's lenient parser tolerates but no official example demonstrates. The
+   writer now orders any concrete-prefixed glob first (match-neutral) to avoid
+   relying on that leniency.
+
 ## How to read this file
 
 Every factual claim carries a confidence marker:

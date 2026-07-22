@@ -394,9 +394,19 @@ CLI, so it stays deferred; shipping the body verbatim matches what the other
 
 **Remaining Phase 4**: Devin Desktop adapter (blocked on verifying Desktop reads
 `.devin/config.json` for MCP), native subagents for Codex (`.codex/agents/*.toml`
-with `deny_unknown_fields` — risky, needs real-CLI validation), safe
+with `deny_unknown_fields` — risky, needs real-CLI validation), **native Copilot
+agents** (`.github/agents/*.agent.md`, 30k body cap — would cover the Copilot CLI
+surface, which reads only that path and NOT `.claude/agents`, and would enrich VS
+Code with tool restrictions; surfaced by the 2026-07-22 re-verification), safe
 content-translation of agent bodies, and real-CLI E2E smoke tests. Plus the
 Phase 3 residual (abstract hooks + logical `features.json` targets).
+
+### Format re-verification (2026-07-22)
+
+Every written format cross-checked against official docs after implementation —
+all CONFIRMED. See docs/ASSISTANT-FORMAT-REFERENCE.md "Post-implementation
+re-verification" for the two findings (Copilot CLI agents gap → now reported +
+follow-up above; Cursor `globs` leading-`*` YAML edge → hardened by reordering).
 
 *Original Phase 4 scope:*
 - Tier 3 adapters with degradation (Devin Desktop, Cline — note Cline's MCP gap is permanent).

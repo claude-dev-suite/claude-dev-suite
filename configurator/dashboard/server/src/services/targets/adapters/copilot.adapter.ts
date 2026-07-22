@@ -80,6 +80,13 @@ export class CopilotAdapter implements TargetAdapter {
       });
     }
     skipped.push({ capability: 'settings', reason: 'no project-level settings file is written for Copilot' });
+    // VS Code discovers agent definitions from the shared `.claude/agents`
+    // substrate, but the Copilot CLI reads only `.github/agents/*.agent.md`,
+    // which dev-suite does not generate — CLI users get routing via AGENTS.md.
+    skipped.push({
+      capability: 'agents',
+      reason: 'agent definitions reach Copilot in VS Code (it reads .claude/agents); the Copilot CLI reads only .github/agents/*.agent.md, which is not generated — CLI routing comes from AGENTS.md',
+    });
 
     return { ruleFiles, validatorHookConfigured: false, skipped };
   }
