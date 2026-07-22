@@ -34,6 +34,7 @@ import {
   SHARED_INSTRUCTIONS_FILE,
   getTargetLayout,
   type TargetId,
+  type TargetLayout,
 } from './targets/target-layout.js';
 import { targetPaths } from './targets/target-paths.js';
 import { InstallationService } from './installation.service.js';
@@ -71,24 +72,48 @@ const logger = getLogger('ReinstallService');
 const BACKUP_DIR_PREFIX = '.dev-suite-backup-';
 
 /**
- * Project-root files that participate in backup/rollback as a unit.
+ * Everything a reinstall may mutate, across every target in a manifest, split
+ * into config-directory trees (copied/removed wholesale) and standalone files.
  *
- * Instructions files are listed together: `AGENTS.md` holds the shared section
- * and `CLAUDE.md` imports it, so restoring one without the other would leave a
- * dangling import.
+ * The standalone-file set is the subtle part. It includes any target's MCP,
+ * settings or instructions file that lives *outside* its config directory —
+ * most importantly Copilot's `.vscode/mcp.json`, which sits under neither
+ * `.github` (its config dir) nor the project root. Backing up only the
+ * config-dir trees would silently miss it, so a failed Copilot reinstall would
+ * roll back without restoring its MCP config.
+ *
+ * Instructions files travel together for the same reason `AGENTS.md` and
+ * `CLAUDE.md` always did: one holds the shared section, the other imports it,
+ * so restoring one without the other leaves a dangling import.
  */
-function rootManagedFiles(target: TargetId = DEFAULT_TARGET): string[] {
-  const layout = getTargetLayout(target);
-  const candidates = [
-    layout.mcpConfigFile,
+export function managedSurfaces(targets: readonly TargetId[]): { dirs: string[]; files: string[] } {
+  const dirs = new Set<string>();
+  const files = new Set<string>([
     '.dev-suite.json',
     '.dev-suite-manifest.json',
     SHARED_INSTRUCTIONS_FILE,
-    layout.instructionsFile,
-  ];
-  // Project-root files only. Config nested under a directory (e.g. Copilot's
-  // .vscode/mcp.json) is backed up with that directory tree instead.
-  return [...new Set(candidates.filter((f): f is string => Boolean(f) && !f!.includes('/')))];
+  ]);
+
+  for (const target of targets.length ? targets : [DEFAULT_TARGET]) {
+    let layout: TargetLayout;
+    try {
+      layout = getTargetLayout(target);
+    } catch {
+      continue; // unknown/future target in the manifest — skip defensively
+    }
+    if (layout.configDir) dirs.add(layout.configDir);
+    if (layout.instructionsFile) files.add(layout.instructionsFile);
+    if (layout.mcpConfigFile) files.add(layout.mcpConfigFile);
+    if (layout.settingsFile) files.add(layout.settingsFile);
+  }
+
+  const dirList = [...dirs];
+  // A file already inside a backed-up directory tree is covered by that copy;
+  // list only the ones that aren't (root files + nested config like .vscode/).
+  const fileList = [...files].filter(
+    f => !f.includes('..') && !dirList.some(d => f === d || f.startsWith(`${d}/`))
+  );
+  return { dirs: dirList, files: fileList };
 }
 
 /** Selection of components to reinstall. */
@@ -183,7 +208,6 @@ export class ReinstallService {
     }
 
     const selection = this.resolveSelection(projectPath, manifest);
-    const files = manifest.files ?? [];
 
     // Recover install parameters BEFORE erasing anything (they live in files we
     // are about to regenerate).
@@ -210,7 +234,7 @@ export class ReinstallService {
     let backupDir: string | undefined;
     if (shouldBackup) {
       try {
-        backupDir = this.createReinstallBackup(projectPath, files);
+        backupDir = this.createReinstallBackup(projectPath, manifest);
       } catch (error) {
         logger.error('Backup failed; aborting reinstall', { error });
         return this.fail(
@@ -234,6 +258,9 @@ export class ReinstallService {
         envVars,
         detectedStack,
         skillLoadingMode,
+        // Re-target the same assistants the project was installed for, so a
+        // reinstall regenerates every target's config, not just Claude Code's.
+        targets: manifest.targets,
       };
       await this.installationService.install(config);
 
@@ -296,7 +323,7 @@ export class ReinstallService {
       let rolledBack = false;
       if (backupDir) {
         try {
-          this.rollback(projectPath, backupDir, selection, files);
+          this.rollback(projectPath, backupDir, selection, manifest);
           rolledBack = true;
         } catch (rbError) {
           logger.error('Rollback failed — project may be in a partial state', {
@@ -378,6 +405,15 @@ export class ReinstallService {
     };
   }
 
+  /** Resolve a tracked file's target layout, defaulting for legacy/unknown targets. */
+  private layoutFor(target: TargetId | undefined): TargetLayout {
+    try {
+      return getTargetLayout(target ?? DEFAULT_TARGET);
+    } catch {
+      return getTargetLayout(DEFAULT_TARGET);
+    }
+  }
+
   /**
    * Classify a tracked file into how the reinstall treats it.
    */
@@ -387,7 +423,10 @@ export class ReinstallService {
     if (file.type === 'agent') return 'managed-file';
     if (file.type === 'config') {
       // Rule files are managed; settings/mcp/dev-suite config are shared/regenerated.
-      if (file.path.startsWith(`${getTargetLayout().rulesDir}/`)) return 'managed-file';
+      // The rules directory is per-target (`.claude/rules`, `.github/instructions`,
+      // `.cursor/rules`), so resolve it from the file's own target.
+      const rulesDir = this.layoutFor(file.target).rulesDir;
+      if (rulesDir && file.path.startsWith(`${rulesDir}/`)) return 'managed-file';
       return 'shared';
     }
     // 'generated' (e.g. _README.md) is regenerated by install() — skip erase.
@@ -396,8 +435,12 @@ export class ReinstallService {
 
   private componentName(file: TrackedFile): string | null {
     if (file.type === 'agent') {
-      // .claude/agents/<id>.md
-      return path.basename(file.path, '.md');
+      // Agent file extensions differ per target — `.md` for Claude Code,
+      // `.agent.md` for Copilot. Using a hardcoded `.md` would leave the `.agent`
+      // stem on Copilot ids, so orphan detection and selection matching would
+      // silently miss every Copilot agent.
+      const ext = this.layoutFor(file.target).agentFileExtension ?? '.md';
+      return path.basename(file.path, ext);
     }
     if (file.type === 'mcp-server') {
       // .mcp-servers/<name>/...
@@ -407,6 +450,18 @@ export class ReinstallService {
       return name ?? null;
     }
     return null;
+  }
+
+  /** Distinct MCP server bundle names referenced by the manifest's files. */
+  private managedMcpNames(files: TrackedFile[]): string[] {
+    const names = new Set<string>();
+    for (const file of files) {
+      if (file.type === 'mcp-server') {
+        const name = this.componentName(file);
+        if (name && validateEntryName(name)) names.add(name);
+      }
+    }
+    return [...names];
   }
 
   /**
@@ -552,40 +607,38 @@ export class ReinstallService {
   // ---- Backup / rollback ----
 
   /**
-   * Back up everything the reinstall could mutate. Copies the whole `.claude`
-   * tree (copyDirSync skips node_modules/.git), the top-level config files, and
-   * each managed `.mcp-servers/<name>` dir (sans node_modules) into a timestamped
-   * backup dir. Returns the absolute backup dir path.
+   * Back up everything the reinstall could mutate, across every target in the
+   * manifest. Copies each target's config-dir tree (copyDirSync skips
+   * node_modules/.git), the standalone config files — including nested ones like
+   * Copilot's `.vscode/mcp.json` — and each managed `.mcp-servers/<name>` dir
+   * into a timestamped backup dir. Returns the absolute backup dir path.
    */
-  private createReinstallBackup(projectPath: string, files: TrackedFile[]): string {
+  private createReinstallBackup(projectPath: string, manifest: ExtendedManifest): string {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupDir = this.safe(projectPath, `${BACKUP_DIR_PREFIX}${timestamp}`);
     fs.mkdirSync(backupDir, { recursive: true });
 
-    // .claude tree (agents, skills, rules, settings, commands, custom/)
-    const relConfigDir = targetPaths(projectPath).relConfigDir;
-    const claudeDir = this.safe(projectPath, relConfigDir);
-    if (fs.existsSync(claudeDir)) {
-      copyDirSync(claudeDir, this.safe(backupDir, relConfigDir));
+    const { dirs, files } = managedSurfaces(manifest.targets ?? [DEFAULT_TARGET]);
+
+    // Config-dir trees (agents, skills, rules, settings, custom/ …)
+    for (const dir of dirs) {
+      const src = this.safe(projectPath, dir);
+      if (fs.existsSync(src)) copyDirSync(src, this.safe(backupDir, dir));
     }
 
-    // Top-level config + CLAUDE.md
-    for (const f of rootManagedFiles()) {
-      const src = this.safe(projectPath, f);
+    // Standalone config files (project root + nested, e.g. .vscode/mcp.json).
+    // Nested files need their parent recreated inside the backup first.
+    for (const rel of files) {
+      const src = this.safe(projectPath, rel);
       if (fs.existsSync(src)) {
-        fs.copyFileSync(src, this.safe(backupDir, f));
+        const dest = this.safe(backupDir, rel);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(src, dest);
       }
     }
 
     // Managed MCP server dirs (node_modules skipped by copyDirSync)
-    const mcpNames = new Set<string>();
-    for (const file of files) {
-      if (file.type === 'mcp-server') {
-        const name = this.componentName(file);
-        if (name && validateEntryName(name)) mcpNames.add(name);
-      }
-    }
-    for (const name of mcpNames) {
+    for (const name of this.managedMcpNames(manifest.files ?? [])) {
       const src = this.safe(projectPath, MCP_SERVERS_DIR, name);
       if (fs.existsSync(src)) {
         copyDirSync(src, this.safe(backupDir, MCP_SERVERS_DIR, name));
@@ -601,20 +654,21 @@ export class ReinstallService {
    * Deletes managed surfaces (removing any partial files the failed install
    * created) then copies the backup tree back.
    */
-  private rollback(projectPath: string, backupDir: string, selection: Selection, files: TrackedFile[]): void {
-    // 1. Remove managed surfaces created/mutated during the attempt.
-    fs.rmSync(this.safe(projectPath, targetPaths(projectPath).relConfigDir), { recursive: true, force: true });
-    for (const f of rootManagedFiles()) {
-      const p = this.safe(projectPath, f);
+  private rollback(projectPath: string, backupDir: string, selection: Selection, manifest: ExtendedManifest): void {
+    const { dirs, files } = managedSurfaces(manifest.targets ?? [DEFAULT_TARGET]);
+
+    // 1. Remove managed surfaces created/mutated during the attempt. Config-dir
+    // trees go wholesale; standalone files are removed individually so unrelated
+    // content in a shared directory (e.g. the rest of `.vscode/`) is untouched.
+    for (const dir of dirs) {
+      fs.rmSync(this.safe(projectPath, dir), { recursive: true, force: true });
+    }
+    for (const rel of files) {
+      const p = this.safe(projectPath, rel);
       if (fs.existsSync(p)) fs.rmSync(p, { force: true });
     }
     const mcpNames = new Set<string>(selection.mcpServers);
-    for (const file of files) {
-      if (file.type === 'mcp-server') {
-        const name = this.componentName(file);
-        if (name) mcpNames.add(name);
-      }
-    }
+    for (const name of this.managedMcpNames(manifest.files ?? [])) mcpNames.add(name);
     for (const name of mcpNames) {
       if (!validateEntryName(name)) continue;
       const dir = this.safe(projectPath, MCP_SERVERS_DIR, name);

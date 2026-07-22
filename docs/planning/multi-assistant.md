@@ -186,7 +186,30 @@ Optional stretch (not required to ship): native agent files per target, to recov
 the tool-restriction and skill-preload fidelity that Claude-native frontmatter
 loses when read by another tool.
 
-**2.3 — Multi-target plumbing + reinstall scoping** *(the load-bearing slice)*
+**2.3 — Multi-target plumbing + reinstall scoping** — **DONE 2026-07-22**
+
+What shipped: `targets` on `InstallConfig` and `InstallRequestSchema` (validated
+against `isImplemented`, so unimplemented targets 400 at the API and throw for
+direct callers); `install()` loops one adapter per target and records them in the
+manifest; both reinstall defects fixed; reinstall reconstructs its install config
+with the manifest's targets. Suite +16, no existing tests changed. Only
+`claude-code` is installable, so a second target isn't reachable yet — the loop
+runs once and output is byte-identical to before.
+
+Two scope calls made during the slice:
+- **`--target` on the reinstall CLI was deferred**, not built. Reinstall derives
+  its targets from the manifest, so a `--target` filter is inert until multiple
+  targets can actually be installed. Adding a flag that does nothing is the
+  silent-no-op smell the plan warns against; it moves to the slice where it can
+  filter something real.
+- **The Copilot/Cursor adapters are the remaining gap before 2.4.** Neither 2.3
+  nor 2.4 originally named the step that builds the adapters consuming the 2.2
+  writers. It is small now (MCP + rules writers exist; agents/skills need no
+  writer) but it is real: it must also settle who writes the shared `.claude/`
+  substrate when Claude Code is *not* among the targets but another tool that
+  reads it *is*. Call it **2.3b**, to land before the wizard.
+
+*Original scope, for reference:*
 Thread `targets: TargetId[]` from request to manifest, and give reinstall/uninstall
 a target dimension. Persistence needs no schema change — `ExtendedManifest.targets`,
 `TrackedFile.target` and `migrateManifestTargets` already exist from Phase 1, and

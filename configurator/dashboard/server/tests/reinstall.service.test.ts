@@ -226,4 +226,60 @@ describe('ReinstallService', () => {
     expect(preview.hasValidManifest).toBe(false);
     expect(preview.reason).toBeTruthy();
   });
+
+  // Multi-target defect fixes (slice 2.3). These use a synthetic manifest with
+  // Copilot-tagged files, which can't yet be produced by a real install, to
+  // prove reinstall classifies and matches them by their own target's layout —
+  // not Claude Code's — before a Copilot adapter can create one for real.
+  describe('per-target file classification', () => {
+    const writeManifest = (obj: unknown) =>
+      fs.writeFileSync(path.join(projectDir, '.dev-suite-manifest.json'), JSON.stringify(obj, null, 2));
+
+    const multiTargetManifest = () => ({
+      version: '1.0.0',
+      installedAt: '2026-01-01T00:00:00.000Z',
+      projectPath: projectDir,
+      agents: ['react-expert'],
+      mcpServers: [],
+      features: {},
+      upgradeHistory: [],
+      targets: ['claude-code', 'copilot'],
+      files: [
+        { path: '.claude/agents/react-expert.md', hash: 'h1', type: 'agent', target: 'claude-code' },
+        { path: '.github/agents/react-expert.agent.md', hash: 'h2', type: 'agent', target: 'copilot' },
+        { path: '.github/instructions/frontend.instructions.md', hash: 'h3', type: 'config', target: 'copilot' },
+        { path: '.mcp.json', hash: 'h4', type: 'config', target: 'claude-code' },
+      ],
+    });
+
+    beforeEach(() => {
+      writeManifest(multiTargetManifest());
+      writeDevSuiteJson({ agents: { enabled: ['react-expert'] }, mcpServers: { enabled: [] }, rules: { enabled: [] } });
+    });
+
+    it("treats a Copilot rule file as managed via Copilot's rules directory", async () => {
+      const preview = await reinstallService.previewReinstall(projectDir);
+      // classify() must resolve `.github/instructions` from the file's own
+      // target. With Claude Code's `.claude/rules` it would fall through to
+      // 'shared' and never be replaced.
+      expect(preview.filesToReplace).toContain('.github/instructions/frontend.instructions.md');
+    });
+
+    it('does not flag a Copilot agent as orphan when its id is selected', async () => {
+      const preview = await reinstallService.previewReinstall(projectDir);
+      // componentName() must strip `.agent.md`, yielding `react-expert`. A
+      // hardcoded `.md` would yield `react-expert.agent`, which isn't in the
+      // selection, so the agent would be wrongly flagged for removal.
+      expect(preview.orphansToRemove).not.toContain('.github/agents/react-expert.agent.md');
+      expect(preview.orphansToRemove).toHaveLength(0);
+    });
+
+    it('flags a Copilot agent as orphan once its id is deselected', async () => {
+      // Sanity check the negative: componentName must match against the id so
+      // that a genuine orphan is still caught.
+      writeDevSuiteJson({ agents: { enabled: [] }, mcpServers: { enabled: [] }, rules: { enabled: [] } });
+      const preview = await reinstallService.previewReinstall(projectDir);
+      expect(preview.orphansToRemove).toContain('.github/agents/react-expert.agent.md');
+    });
+  });
 });

@@ -45,6 +45,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Descriptors for Claude Code, GitHub Copilot and Cursor ship in this release;
   only Claude Code has a full write path so far. Groundwork for multi-assistant
   support — see `docs/planning/multi-assistant.md`.
+- **Multi-target install plumbing.** `install()` accepts a `targets` list and
+  runs one adapter per assistant, recording them in the manifest; the request
+  schema validates targets against the set that has a working adapter, so the
+  API cannot promise output it can't produce. Reinstall and its backup/rollback
+  became target-aware, which fixed two latent defects: agent-file basenames now
+  respect each target's extension (a hardcoded `.md` would have left `.agent` on
+  Copilot ids and broken orphan detection), and the backup now captures config
+  that lives outside a target's config directory (Copilot's `.vscode/mcp.json`
+  would otherwise have been missed on rollback). Only Claude Code is installable
+  today, so behaviour is unchanged; the plumbing is ready for the adapters.
 - **Per-assistant format writers** (`services/targets/writers/`): MCP
   configuration and path-scoped agent routing, serialized into each assistant's
   own format. These are the only two primitives that genuinely differ between

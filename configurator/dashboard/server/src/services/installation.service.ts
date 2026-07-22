@@ -161,6 +161,12 @@ export class InstallationService {
       skillLoadingMode = 'lazy';
     }
 
+    // Which assistants to write config for. Empty/omitted keeps the historical
+    // single-target behaviour. Every target must have an adapter (getAdapter
+    // throws otherwise); the request schema already rejects unimplemented ones,
+    // and this guards direct service callers.
+    const targets: TargetId[] = config.targets?.length ? [...config.targets] : [DEFAULT_TARGET];
+
     // Create extended manifest with hash tracking for upgrade system
     const extendedManifest: ExtendedManifest = {
       version: '1.0.0',
@@ -172,9 +178,7 @@ export class InstallationService {
       features: {},
       files: [],
       upgradeHistory: [],
-      // Multi-target installs are introduced target by target; today every
-      // install writes the Claude Code layout.
-      targets: [DEFAULT_TARGET],
+      targets,
     };
 
     // Legacy manifest for backward compatibility
@@ -208,31 +212,43 @@ export class InstallationService {
       agentCatalog: allAgents,
     };
 
-    const paths = this.paths(projectPath);
-
     // ---- Target-neutral writes ----
     // MCP server bundles are plain node packages; only the config file that
     // *references* them differs per assistant, so they are installed once here
-    // rather than by each adapter.
-    fs.mkdirSync(paths.mcpServersDir, { recursive: true });
+    // (under the target-independent `.mcp-servers/`) rather than by each adapter.
+    const bundlePaths = this.paths(projectPath);
+    fs.mkdirSync(bundlePaths.mcpServersDir, { recursive: true });
     const mcpServerEntries = this.installMcpServerBundles(
-      plan, paths, manifest, extendedManifest
+      plan, bundlePaths, manifest, extendedManifest
     );
 
     // ---- Per-target writes ----
-    const adapter = getAdapter(DEFAULT_TARGET);
-    const writeResult = await adapter.write({
-      plan,
-      paths,
-      mcpServers: mcpServerEntries,
-      manifest,
-      extendedManifest,
-    });
-    for (const skipped of writeResult.skipped) {
-      logger.info('Target does not support a primitive — skipped', {
-        context: { target: adapter.id, ...skipped },
+    // One adapter per selected assistant, each writing into its own layout. For
+    // a single target this is exactly the previous behaviour.
+    const ruleFiles: string[] = [];
+    let validatorHookConfigured = false;
+    for (const target of targets) {
+      const adapter = getAdapter(target);
+      const writeResult = await adapter.write({
+        plan,
+        paths: this.paths(projectPath, target),
+        mcpServers: mcpServerEntries,
+        manifest,
+        extendedManifest,
       });
+      ruleFiles.push(...writeResult.ruleFiles);
+      validatorHookConfigured = validatorHookConfigured || writeResult.validatorHookConfigured;
+      for (const skipped of writeResult.skipped) {
+        logger.info('Target does not support a primitive — skipped', {
+          context: { target: adapter.id, ...skipped },
+        });
+      }
     }
+
+    // The installed agents are the same set regardless of target (they are
+    // physically written once and read by every assistant), so resolve them
+    // from the accumulated manifest rather than any single adapter's result.
+    const installedAgents = allAgents.filter(a => manifest.agents.includes(a.id));
 
     // ---- Target-neutral finalization ----
     const devSuiteConfig = {
@@ -252,13 +268,13 @@ export class InstallationService {
       agents: allAgents.map(a => a.id),
       mcpServers: allMcpServers.map(s => s.name),
     };
-    extendedManifest.installedRuleFiles = writeResult.ruleFiles;
+    extendedManifest.installedRuleFiles = ruleFiles;
 
     // Write instructions: AGENTS.md holds the shared section, CLAUDE.md imports it
     const instructionFiles = updateInstructions(projectPath, {
-      agents: writeResult.installedAgents,
+      agents: installedAgents,
       detectedStack,
-      validatorHookConfigured: writeResult.validatorHookConfigured,
+      validatorHookConfigured,
     });
     for (const file of instructionFiles) {
       // Legacy manifest has no 'generated' type; 'config' is its closest match.

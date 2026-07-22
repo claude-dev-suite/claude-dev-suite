@@ -3,6 +3,8 @@
  * Shared types for the dashboard server
  */
 
+import type { TargetId } from './services/targets/target-layout.js';
+
 // API Response wrapper
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -105,6 +107,13 @@ export interface InstallConfig {
   mcpServers: string[];
   envVars: Record<string, string>;
   rules?: string[];
+  /**
+   * Assistants to generate configuration for. Omitted or empty means
+   * `['claude-code']`, the historical single-target behaviour. Only targets
+   * with a working adapter are accepted (see `isImplemented`); the request
+   * schema rejects the rest.
+   */
+  targets?: TargetId[];
   detectedStack?: DetectionResult;
   /**
    * Controls how skill files are delivered to the target project.

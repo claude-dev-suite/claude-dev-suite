@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { isImplemented, type TargetId } from '../services/targets/target-layout.js';
 
 // ============================================
 // DETECTION SCHEMAS
@@ -70,6 +71,20 @@ export const InstallRequestSchema = z.object({
   agents: z.array(z.string()).optional().default([]),
   mcpServers: z.array(z.string()).optional().default([]),
   envVars: z.record(z.string(), z.string()).optional(),
+  rules: z.array(z.string()).optional(),
+  skillLoadingMode: z.enum(['eager', 'lazy']).optional(),
+  // Assistants to generate config for. Rejects any target without a working
+  // adapter, so the API can't promise output it cannot produce. Derived from
+  // `isImplemented` rather than a fixed list so it widens automatically as
+  // adapters land.
+  targets: z
+    .array(z.string())
+    .optional()
+    .refine(
+      (ts) => !ts || ts.every((t) => isImplemented(t as TargetId)),
+      { message: 'One or more targets are not yet supported' }
+    ),
+  // Legacy fields the service ignores; accepted so older clients don't 400.
   installCommands: z.boolean().optional(),
   updateClaude: z.boolean().optional(),
   detectedStack: DetectedStackSchema.optional(),

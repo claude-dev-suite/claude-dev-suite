@@ -155,6 +155,35 @@ describe('InstallationService', () => {
       expect(manifest.files.every((f: { target?: string }) => f.target === 'claude-code')).toBe(true);
     });
 
+    it('records an explicit targets request in the manifest', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        targets: ['claude-code'],
+      });
+
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.dev-suite-manifest.json'), 'utf-8')
+      );
+      expect(manifest.targets).toEqual(['claude-code']);
+    });
+
+    it('rejects a target that has no adapter yet', async () => {
+      // Defense in depth: the request schema rejects unimplemented targets, and
+      // so does the service for any direct caller that bypasses it.
+      await expect(
+        installationService.install({
+          projectPath: projectDir,
+          agents: [],
+          mcpServers: [],
+          envVars: {},
+          targets: ['copilot'] as never,
+        })
+      ).rejects.toThrow(/No adapter implemented/);
+    });
+
     it('should track both instruction files in the manifest', async () => {
       await installationService.install({
         projectPath: projectDir,
