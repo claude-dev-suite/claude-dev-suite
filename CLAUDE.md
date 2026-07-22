@@ -116,6 +116,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `targets/adapters/cursor.adapter.ts` | Writes Cursor config: `.cursor/mcp.json` + `.cursor/rules/*.mdc`; merges into existing MCP files |
 | `targets/adapters/gemini.adapter.ts` | Writes Gemini config: `.gemini/settings.json` (mcpServers + `context.fileName` to read AGENTS.md); reads skills from `.agents/skills` mirror |
 | `targets/adapters/codex.adapter.ts` | Writes Codex MCP config: `[mcp_servers.*]` in `.codex/config.toml` (TOML merge); reads AGENTS.md + `.agents/skills` natively; surfaces the trusted-project caveat |
+| `targets/adapters/cline.adapter.ts` | Writes Cline path-scoped rules to `.clinerules/*.md` (`paths:`, neutral body); reads AGENTS.md + `.claude/skills`; reports MCP + native-agents as permanent skipped gaps |
 | `installation/substrate.ts` | Install the shared `.claude/agents`+`.claude/skills` substrate once per install (Copilot/Cursor read it directly); mirror skills to `.agents/skills` when a target reads that instead (Codex/Gemini) |
 | `installation/path-scoped-rules.ts` | Compute glob-scoped rule specs from installed agents and write them per target via the 2.2 writers |
 | `installation/mcp-config-file.ts` | Read/write+track an assistant'"'"'s MCP config file on disk (merge side; rendering is the pure writer) |

@@ -366,6 +366,24 @@ adapters and can follow when hook portability is tackled.
 - Abstract hooks + logical `features.json` targets; settings/permissions writers.
 
 ### Phase 4 — Polish
+
+**4.1 — Cline adapter (Tier 3, first)** — **DONE 2026-07-22**
+Cline was the safe Tier 3 target: its formats are documented and confirmed, unlike
+Devin Desktop (rebranded, Cascade EOL, MCP status PLAUSIBLE-only). Cline reads
+`AGENTS.md` and the `.claude/skills` substrate directly, so the adapter writes only
+path-scoped rules to `.clinerules/*.md` — `paths:` YAML frontmatter (same key as
+Claude) with a tool-neutral body (Cline has no Task-tool delegation). MCP
+(user-global only) and file-based agents (SDK/CLI only, not the VS Code extension)
+are reported as **permanent** skipped gaps, not unfinished work. `isImplemented`
+now includes `cline`; six assistants are selectable.
+
+**Remaining Phase 4**: Devin Desktop adapter (blocked on verifying Desktop reads
+`.devin/config.json` for MCP), native subagent generation for Codex/Gemini,
+content-translation lint of agent bodies for Claude-specific tool names, and
+real-CLI E2E smoke tests. Plus the Phase 3 residual (abstract hooks + logical
+`features.json` targets).
+
+*Original Phase 4 scope:*
 - Tier 3 adapters with degradation (Devin Desktop, Cline — note Cline's MCP gap is permanent).
 - Content translation pass: lint agent/skill bodies for Claude-specific tool names (`Read`/`Edit`, `mcp__*`, `Task`/`subagent_type`) → neutral phrasing or per-target conditional sections.
 - Commands → user-invocable skills where possible (skills are replacing slash commands ecosystem-wide).

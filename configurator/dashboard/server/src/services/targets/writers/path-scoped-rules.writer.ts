@@ -12,6 +12,7 @@
  * | Claude Code | `paths:`   | YAML list                         |
  * | Copilot     | `applyTo:` | quoted comma-separated string     |
  * | Cursor      | `globs:`   | **unquoted** comma-separated      |
+ * | Cline       | `paths:`   | YAML list (same key as Claude)    |
  *
  * Cursor's shape is the dangerous one: a YAML list parses fine and the rule
  * simply never activates. It is inferred from consistent documentation examples
@@ -88,6 +89,33 @@ ${RULE_FILE_MARKER}
 # ${displayCategory(spec.category)} Agents
 
 When working on files matching \`applyTo\` above, prefer these agents:
+
+${agentLines(spec)}
+
+Delegate to the matching agent when the task falls in its area.
+`;
+}
+
+/**
+ * Cline: `.clinerules/<category>.md`.
+ *
+ * Cline's glob key is `paths:` as a YAML list — the same shape as Claude Code's
+ * rules — but its body must stay tool-neutral, because Cline has no Task tool or
+ * `subagent_type` delegation. So this shares Claude's frontmatter but the
+ * neutral body used for the other assistants.
+ */
+export function clineRule(spec: PathScopedRuleSpec): string {
+  const pathsYaml = spec.globs.map(g => `  - "${g}"`).join('\n');
+
+  return `---
+paths:
+${pathsYaml}
+---
+${RULE_FILE_MARKER}
+
+# ${displayCategory(spec.category)} Agents
+
+When working on files matching the paths above, prefer these agents:
 
 ${agentLines(spec)}
 

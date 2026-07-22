@@ -14,6 +14,7 @@ import {
   claudeCodeRule,
   copilotInstructionsRule,
   cursorMdcRule,
+  clineRule,
   RULE_FILE_MARKER,
   type PathScopedRuleSpec,
 } from '../../../src/services/targets/writers/path-scoped-rules.writer.js';
@@ -115,11 +116,25 @@ Delegate to the matching agent when the task falls in its area.
   });
 });
 
+describe('clineRule', () => {
+  it('uses Claude\'s paths: frontmatter but a tool-neutral body', () => {
+    const out = clineRule(SPEC);
+    // Same glob key/shape as Claude...
+    expect(out).toContain('---\npaths:\n  - "src/components/**/*.tsx"');
+    // ...but no Claude-specific delegation mechanics (Cline has no Task tool).
+    expect(out).not.toContain('Task tool');
+    expect(out).not.toContain('subagent_type');
+    expect(out).toContain('Delegate to the matching agent');
+    expect(out).toContain(RULE_FILE_MARKER);
+  });
+});
+
 describe('all writers', () => {
   const writers = [
     ['claude-code', claudeCodeRule],
     ['copilot', copilotInstructionsRule],
     ['cursor', cursorMdcRule],
+    ['cline', clineRule],
   ] as const;
 
   it.each(writers)('%s carries the managed sentinel so removal stays ours', (_id, write) => {

@@ -168,6 +168,30 @@ describe('multi-target install', () => {
     expect(exists('.agents/skills')).toBe(false);
   });
 
+  it('installs Cline: rules to .clinerules, skills via .claude, no committable MCP', async () => {
+    await install(['cline']);
+
+    // Skills reach Cline via the .claude/skills substrate it reads directly.
+    expect(exists('.claude/skills')).toBe(true);
+    expect(exists('AGENTS.md')).toBe(true);
+    expect(exists('CLAUDE.md')).toBe(false);
+    // No .agents/skills mirror — Cline reads .claude/skills, not the cross-tool dir.
+    expect(exists('.agents/skills')).toBe(false);
+
+    // Path-scoped rules land in .clinerules with a neutral body (no Task tool).
+    const ruleDir = path.join(projectDir, '.clinerules');
+    if (fs.existsSync(ruleDir)) {
+      for (const f of fs.readdirSync(ruleDir)) {
+        const body = fs.readFileSync(path.join(ruleDir, f), 'utf-8');
+        expect(body).not.toContain('subagent_type');
+        expect(body).toContain('paths:');
+      }
+    }
+
+    // MCP is a permanent gap for Cline — reported, never a committable file.
+    expect(exists('.mcp.json')).toBe(false);
+  });
+
   it('leaves an unparseable existing MCP file untouched and reports it', async () => {
     fs.mkdirSync(path.join(projectDir, '.cursor'), { recursive: true });
     const garbage = '{ not json at all';

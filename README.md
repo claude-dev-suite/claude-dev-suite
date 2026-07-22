@@ -71,7 +71,7 @@ How it works:
 - **`.claude/agents/` and `.claude/skills/`** are shared infrastructure. Copilot and Cursor read them directly, so agents and skills are written once and available to every selected assistant.
 - **MCP config and path-scoped rules** are the only formats that differ per assistant, and are written in each one's own shape — `.vscode/mcp.json` + `.github/mcp.json` + `.github/instructions/` for Copilot, `.cursor/mcp.json` + `.cursor/rules/` for Cursor, `.mcp.json` + `.claude/rules/` for Claude Code. Existing MCP files are merged, never overwritten.
 
-Codex and Gemini get `AGENTS.md` and the full skill set (mirrored to the cross-tool `.agents/skills` directory they read), plus MCP config in their own format — Gemini's `.gemini/settings.json`, Codex's `.codex/config.toml`. The **Task Orchestrator** and dashboard chat remain Claude-only — they run on the Claude Agent SDK. Devin and Cline are planned; they are detected and surfaced in the wizard, but not yet configurable.
+Codex and Gemini get `AGENTS.md` and the full skill set (mirrored to the cross-tool `.agents/skills` directory they read), plus MCP config in their own format — Gemini's `.gemini/settings.json`, Codex's `.codex/config.toml`. The **Task Orchestrator** and dashboard chat remain Claude-only — they run on the Claude Agent SDK. Devin is planned; it is detected and surfaced in the wizard, but not yet configurable.
 
 ---
 

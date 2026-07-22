@@ -276,6 +276,35 @@ const GEMINI: TargetLayout = {
 };
 
 /**
+ * Cline (VS Code extension).
+ *
+ * Reads `AGENTS.md` and the `.claude/skills` substrate directly, and path-scoped
+ * rules from `.clinerules/*.md` (`paths:` YAML list, same shape as Claude). Its
+ * MCP config is user-global only — nothing committable — a permanent gap the
+ * adapter reports rather than pretends to fill. File-based agents apply only to
+ * Cline's SDK/CLI, not the VS Code extension, so they are not written either.
+ */
+const CLINE: TargetLayout = {
+  id: 'cline',
+  displayName: 'Cline',
+  configDir: '.clinerules',
+  skillsDir: '.claude/skills',
+  rulesDir: '.clinerules',
+  ruleFileExtension: '.md',
+  instructionsFile: SHARED_INSTRUCTIONS_FILE,
+  capabilities: {
+    agents: false, // VS Code extension does not read file-based agents
+    skills: true,
+    commands: false,
+    pathScopedRules: true,
+    mcp: 'none', // user-global only — nothing committable
+    hooks: true,
+    settings: false,
+    skillsSource: 'claude',
+  },
+};
+
+/**
  * Registry of known targets.
  *
  * Only targets with a working adapter should be offered in the UI — see
@@ -288,14 +317,15 @@ export const TARGET_LAYOUTS: Readonly<Partial<Record<TargetId, TargetLayout>>> =
   cursor: CURSOR,
   codex: CODEX,
   gemini: GEMINI,
-  // Tier 3 descriptors (windsurf, cline) land with their adapters.
+  cline: CLINE,
+  // Tier 3 descriptor (windsurf) lands with its adapter.
 });
 
 /**
  * Targets that currently have a full write path implemented. Must stay in step
  * with the adapter registry in `targets/adapters/index.ts` — a test asserts it.
  */
-const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor', 'gemini', 'codex']);
+const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor', 'gemini', 'codex', 'cline']);
 
 /** True when dev-suite can actually install for this target today. */
 export function isImplemented(target: TargetId): boolean {

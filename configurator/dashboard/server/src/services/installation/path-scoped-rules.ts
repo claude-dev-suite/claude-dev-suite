@@ -21,6 +21,7 @@ import {
   claudeCodeRule,
   copilotInstructionsRule,
   cursorMdcRule,
+  clineRule,
   type PathScopedRuleSpec,
 } from '../targets/writers/path-scoped-rules.writer.js';
 
@@ -29,6 +30,7 @@ const RULE_WRITERS: Partial<Record<TargetId, (spec: PathScopedRuleSpec) => strin
   'claude-code': claudeCodeRule,
   copilot: copilotInstructionsRule,
   cursor: cursorMdcRule,
+  cline: clineRule,
 };
 
 /** True when this target has a path-scoped rule format dev-suite can write. */

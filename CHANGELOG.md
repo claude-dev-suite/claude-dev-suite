@@ -55,6 +55,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   tree to the cross-tool `.agents/skills` directory whenever a target that reads
   it is selected — so both get the full skill set. All five assistants (Claude
   Code, Copilot, Cursor, Gemini, Codex) can now be selected in the wizard.
+- **Cline is now an installable target.** It reads `AGENTS.md` and the
+  `.claude/skills` substrate directly, so dev-suite writes its path-scoped rules
+  to `.clinerules/*.md`. Cline has no committable MCP config (user-global only)
+  and its file-based agents apply only to the SDK/CLI, not the VS Code extension;
+  both are reported as skipped rather than silently missing. Six assistants —
+  Claude Code, Copilot, Cursor, Gemini, Codex, Cline — are now selectable.
 - **Wizard "Target Assistants" step.** The install wizard now has a step that
   detects which AI assistants a project already uses, pre-selects the ones it
   found (falling back to Claude Code), and lets the user choose which to generate

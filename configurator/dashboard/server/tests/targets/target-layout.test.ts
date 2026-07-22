@@ -27,7 +27,7 @@ const definedLayouts = Object.values(TARGET_LAYOUTS).filter(Boolean) as TargetLa
 
 describe('target layout descriptors', () => {
   it('defines at least the Tier 1 targets', () => {
-    expect(Object.keys(TARGET_LAYOUTS).sort()).toEqual(['claude-code', 'codex', 'copilot', 'cursor', 'gemini']);
+    expect(Object.keys(TARGET_LAYOUTS).sort()).toEqual(['claude-code', 'cline', 'codex', 'copilot', 'cursor', 'gemini']);
   });
 
   it.each(definedLayouts.map(l => [l.id, l] as const))(
@@ -93,9 +93,10 @@ describe('target layout descriptors', () => {
     expect(isImplemented('cursor')).toBe(true);
     expect(isImplemented('gemini')).toBe(true);
     expect(isImplemented('codex')).toBe(true);
-    // Tier 3 has no adapter yet.
+    expect(isImplemented('cline')).toBe(true);
+    // Tier 3 (windsurf) has no adapter yet.
     expect(isImplemented('windsurf')).toBe(false);
-    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'codex', 'copilot', 'cursor', 'gemini']);
+    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'cline', 'codex', 'copilot', 'cursor', 'gemini']);
   });
 
   it('throws for targets without a descriptor yet', () => {
