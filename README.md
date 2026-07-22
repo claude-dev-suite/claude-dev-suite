@@ -52,11 +52,26 @@ Dev-Suite transforms Claude Code into a full-stack development powerhouse by pro
 - **Custom Agents Builder** - Create and edit custom agents directly from the dashboard
 - **Recipes & Automations** - Pre-built automation workflows for common development tasks
 - **Hooks Management** - Configure Git hooks and Claude Code hooks from the dashboard
+- **Multi-Assistant Output** - Generate configuration for **Claude Code, GitHub Copilot, and Cursor** from a single install; agents and skills are shared, so several assistants coexist in one project
 - **Update System** - Version visibility (installed vs. available) plus a transactional Reinstall / Sync that re-aligns a project to the current source
 - **Analytics Dashboard** - Track knowledge base usage and correlate with executed jobs
 - **121+ Technologies** - On-demand documentation via Git-based knowledge base
 
 **Key Principle**: Dev-Suite is a **source repository** that initializes your projects. It lives alongside your projects and provides centralized resources that multiple projects can reference.
+
+---
+
+## Multi-Assistant Support
+
+Dev-Suite began as a Claude Code toolkit and still treats Claude Code as its home, but a single install can now generate configuration for **Claude Code, GitHub Copilot, and Cursor**. Pick the targets in the wizard's *Target Assistants* step (detected assistants are pre-selected).
+
+How it works:
+
+- **`AGENTS.md`** is the primary instructions file — the cross-assistant standard that Copilot, Cursor and others read natively. `CLAUDE.md` is generated only when Claude Code is a target, as a thin pointer that imports `AGENTS.md`.
+- **`.claude/agents/` and `.claude/skills/`** are shared infrastructure. Copilot and Cursor read them directly, so agents and skills are written once and available to every selected assistant.
+- **MCP config and path-scoped rules** are the only formats that differ per assistant, and are written in each one's own shape — `.vscode/mcp.json` + `.github/mcp.json` + `.github/instructions/` for Copilot, `.cursor/mcp.json` + `.cursor/rules/` for Cursor, `.mcp.json` + `.claude/rules/` for Claude Code. Existing MCP files are merged, never overwritten.
+
+The **Task Orchestrator** and dashboard chat remain Claude-only — they run on the Claude Agent SDK. Codex CLI, Gemini CLI, Devin and Cline are planned; Codex and Gemini are already detected and surfaced, but not yet configurable.
 
 ---
 
@@ -129,7 +144,8 @@ The **Web Dashboard** (launched via `init-project.sh`) provides:
 - **Stack Detection**: Identifies React, Spring Boot, Android/Kotlin (Room, Compose), Unity (2D, URP, HDRP, DOTS, Netcode, XR, Addressables, Cinemachine, Input System), PostgreSQL, Git provider, and more
 - **Agent Selection**: Pre-selects agents based on detected technologies
 - **MCP Selection**: Pre-selects MCP servers with environment variable configuration
-- **One-Click Install**: Generates all config files (`.mcp.json`, `.dev-suite.json`, `AGENTS.md` + `CLAUDE.md`)
+- **Target Assistants**: Choose which assistants to configure (Claude Code / GitHub Copilot / Cursor); detected ones are pre-selected
+- **One-Click Install**: Generates all config files — shared `AGENTS.md` + `.claude/` agents/skills, plus each selected assistant's own MCP config and rules
 
 #### **Task Orchestrator** 🔥 NEW
 

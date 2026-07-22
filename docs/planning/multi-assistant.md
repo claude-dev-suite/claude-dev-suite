@@ -1,6 +1,9 @@
 # Multi-Assistant Support — Planning Document
 
-Status: **approved plan** (2026-07-21). Phases 0 and 1 complete; Phase 2 next.
+Status: **Phase 2 complete** (2026-07-22) — Claude Code, GitHub Copilot and Cursor
+are installable end to end (backend + wizard). Phases 3–4 (Codex/Gemini, then
+Devin/Cline + content translation) remain. **Not yet released**: the version bump
+and tagging happen at release time, on `main`, as a separate user-triggered step.
 Scope: make dev-suite generate configuration for multiple AI coding assistants, not only Claude Code.
 
 ## Decisions (locked 2026-07-21)
@@ -300,12 +303,25 @@ Split into 2.4a (backend detection service + `/api/detect-assistants`) and 2.4b
   mocks it and asserts "Step N of 5". It will break on the clamp change and should be
   made to exercise the real component instead of re-mocking.
 
-**2.5 — De-branding, docs, release**
-Wizard copy is only ~3 strings. The manage UI is ~20 visible strings, most of them in
-the Claude-hooks subsystem, which is genuinely Claude-specific — the call there is to
-**gate it per selected target rather than rename it**. Orchestrator/chat stays
-Claude-branded (decision 5). Internal `ClaudeHook*` type names stay. Then README,
-CHANGELOG, capability matrix, and the MINOR bump per the release checklist.
+**2.5 — De-branding + docs** — **DONE 2026-07-22** (release itself deferred)
+
+- De-branded the 3 wizard copy strings that became misleading once the wizard
+  serves several assistants (ModeSelection "Generate CLAUDE.md…", StepRules
+  "Claude Code agents will follow…", Step3 "native Claude Code skills").
+- **Did not touch the manage-UI Claude-hooks strings.** On reflection, gating
+  the Hooks tab per target is a *feature*, not de-branding, and the strings are
+  factually correct — it really does configure Claude Code hooks. Renaming or
+  hiding it would misrepresent, not clarify. Recorded as a follow-up, not done
+  under the banner of a de-brand pass. Orchestrator/chat stays Claude-branded
+  (decision 5); internal `ClaudeHook*` type names stay.
+- README gained a "Multi-Assistant Support" section + feature bullet + wizard
+  step; the capability matrix is agent→MCP→skill, orthogonal, so untouched.
+- **Version bump and release deferred by design.** Per the versioning-at-release
+  memory, the bump happens once at release time against the last published
+  version, on `main` — not per-iteration on a feature branch. Tagging/pushing
+  triggers billed CI across three runners and is a user-triggered step. So the
+  CHANGELOG stays under `[Unreleased]`; the release is the next action after this
+  branch merges. It is a **MINOR** bump (new capability, backwards-compatible).
 
 ### Phase 3 — Tier 2 (Codex CLI, Gemini CLI)
 - Codex: `.codex/agents/*.toml`, TOML `[mcp_servers.*]` (trusted-project caveat), AGENTS.md already covered.

@@ -85,7 +85,7 @@ export function StepRules({ selectedRules, onToggleRule, onInitRules }: StepRule
   return (
     <PanelSection
       title="Project Rules"
-      description="Claude Code agents will follow these guidelines when working in this project. Recommended rules are pre-selected."
+      description="Guidelines your agents follow when working in this project. Recommended rules are pre-selected."
     >
       <div className="space-y-6">
         {byCategory.map(({ category, label, rules: catRules }) => (

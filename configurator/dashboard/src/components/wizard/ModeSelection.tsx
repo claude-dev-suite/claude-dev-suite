@@ -119,7 +119,7 @@ export const ModeSelection = memo(function ModeSelection({
             'Auto-detect your tech stack',
             'Get recommended agents and MCP servers',
             'Configure environment variables',
-            'Generate CLAUDE.md with agent routing',
+            'Generate agent routing (AGENTS.md, shared across assistants)',
           ]}
           onClick={() => onModeSelect('configure')}
         />
