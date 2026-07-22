@@ -68,7 +68,7 @@ describe('managedSurfaces', () => {
   it('skips an unknown/future target rather than throwing', () => {
     // A manifest written by a newer dev-suite might name a target this build
     // doesn't know. Backup should degrade, not crash.
-    expect(() => managedSurfaces(['codex' as never])).not.toThrow();
+    expect(() => managedSurfaces(['windsurf' as never])).not.toThrow();
   });
 });
 
@@ -91,7 +91,7 @@ describe('InstallRequestSchema targets', () => {
   it('rejects a target whose adapter has not landed', () => {
     // Codex is Tier 2 — a descriptor may come later, but no adapter yet, so the
     // API must not promise output it cannot produce.
-    const result = InstallRequestSchema.safeParse({ ...base, targets: ['codex'] });
+    const result = InstallRequestSchema.safeParse({ ...base, targets: ['windsurf'] });
     expect(result.success).toBe(false);
   });
 

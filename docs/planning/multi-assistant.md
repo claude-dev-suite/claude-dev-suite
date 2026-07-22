@@ -340,14 +340,22 @@ Split into 2.4a (backend detection service + `/api/detect-assistants`) and 2.4b
 - Reported as skipped for Gemini: native subagents (routing rides in AGENTS.md)
   and glob rules (Gemini has none). `isImplemented` now includes `gemini`.
 
-**3.2 — Codex adapter** *(next)*
-Codex reads AGENTS.md + `.agents/skills` already (so instructions and skills work
-today via the shared substrate). The remaining piece is MCP config: `[mcp_servers.*]`
-in `.codex/config.toml` — **TOML, and there is no TOML dependency yet**. Merging
-into a user's existing `config.toml` needs either a TOML library (round-trips lose
-comments) or a careful section-level merge. Plus the trusted-project caveat to
-surface. Deferred so 3.1 could ship green; Codex is *usable for instructions +
-skills right now*, just without MCP.
+**3.2 — Codex adapter** — **DONE 2026-07-22**
+- Codex MCP config written as `[mcp_servers.<name>]` TOML tables in
+  `.codex/config.toml`, via a **section-level text merge** (no TOML dependency):
+  the file is split at top-level headers, dev-suite's own server tables are
+  replaced, and everything else — the user's tables, their own MCP servers, and
+  their comments — is preserved verbatim. Values are TOML-escaped (Windows paths,
+  quotes). An array-of-tables (`[[...]]`) is never mistaken for one of our
+  sections. Golden tests cover fresh write, merge, stale-drop, and escaping.
+- The trusted-project caveat and the absence of native agent-role TOML are
+  surfaced as advisory skipped entries.
+- `isImplemented` now includes `codex`. Codex is fully installable: AGENTS.md +
+  `.agents/skills` (both via the shared substrate) + MCP config.
+
+**Phase 3 status: Codex and Gemini both installable.** Remaining Phase 3 items —
+abstract hooks and logical `features.json` targets — are independent of the
+adapters and can follow when hook portability is tackled.
 
 ---
 

@@ -45,15 +45,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Descriptors for Claude Code, GitHub Copilot and Cursor ship in this release;
   only Claude Code has a full write path so far. Groundwork for multi-assistant
   support — see `docs/planning/multi-assistant.md`.
-- **Gemini CLI is now an installable target**, and **Codex CLI is partially
-  supported.** Selecting Gemini writes `.gemini/settings.json` — dev-suite's MCP
-  servers plus a `context.fileName` that makes Gemini read the shared `AGENTS.md`
-  (which it ignores by default), merged into any settings the user already has.
-  Because Codex and Gemini read neither `.claude/agents` nor `.claude/skills`, the
-  installer now mirrors the skills tree to the cross-tool `.agents/skills`
-  directory whenever a target that reads it is selected — so both get the full
-  skill set. Codex already picks up `AGENTS.md` and those skills; its MCP config
-  (TOML) lands in a follow-up.
+- **Gemini CLI and OpenAI Codex CLI are now installable targets.** Selecting
+  Gemini writes `.gemini/settings.json` — dev-suite's MCP servers plus a
+  `context.fileName` that makes Gemini read the shared `AGENTS.md` (which it
+  ignores by default). Selecting Codex writes its MCP servers as
+  `[mcp_servers.*]` TOML tables in `.codex/config.toml`, merged into the file so
+  the user's own tables and comments survive. Because Codex and Gemini read
+  neither `.claude/agents` nor `.claude/skills`, the installer mirrors the skills
+  tree to the cross-tool `.agents/skills` directory whenever a target that reads
+  it is selected — so both get the full skill set. All five assistants (Claude
+  Code, Copilot, Cursor, Gemini, Codex) can now be selected in the wizard.
 - **Wizard "Target Assistants" step.** The install wizard now has a step that
   detects which AI assistants a project already uses, pre-selects the ones it
   found (falling back to Claude Code), and lets the user choose which to generate

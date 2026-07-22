@@ -138,6 +138,30 @@ describe('multi-target install', () => {
     expect(settings.mcpServers['documentation']).not.toHaveProperty('type');
   });
 
+  it('installs Codex: merges MCP into config.toml, keeping the user\'s content', async () => {
+    fs.mkdirSync(path.join(projectDir, '.codex'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, '.codex', 'config.toml'),
+      '# mine\nmodel = "gpt-5-codex"\n\n[mcp_servers.user-own]\ncommand = "python"\nargs = ["s.py"]\n'
+    );
+
+    await install(['codex']);
+
+    // Skills reach Codex via the .agents/skills mirror; AGENTS.md is read natively.
+    expect(exists('.agents/skills')).toBe(true);
+    expect(exists('AGENTS.md')).toBe(true);
+    expect(exists('CLAUDE.md')).toBe(false);
+
+    const toml = fs.readFileSync(path.join(projectDir, '.codex', 'config.toml'), 'utf-8');
+    // User content preserved verbatim...
+    expect(toml).toContain('# mine');
+    expect(toml).toContain('model = "gpt-5-codex"');
+    expect(toml).toContain('[mcp_servers.user-own]');
+    // ...and dev-suite's server appended as a TOML table.
+    expect(toml).toContain('[mcp_servers.documentation]');
+    expect(toml.match(/\[mcp_servers\.documentation\]/g)).toHaveLength(1);
+  });
+
   it('does not mirror .agents/skills for a Claude-only install', async () => {
     await install(['claude-code']);
     expect(exists('.claude/skills')).toBe(true);

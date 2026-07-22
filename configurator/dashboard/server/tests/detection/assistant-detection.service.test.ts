@@ -75,11 +75,11 @@ describe('AssistantDetectionService', () => {
   });
 
   it('never recommends a target without an adapter, even if detected', async () => {
-    mkdir('.codex');
+    mkdir('.windsurf');
     const rows = byTarget(await svc.detectAssistants(projectPath));
-    expect(rows['codex'].present).toBe(true);
-    expect(rows['codex'].implemented).toBe(false);
-    expect(rows['codex'].recommended).toBe(false);
+    expect(rows['windsurf'].present).toBe(true);
+    expect(rows['windsurf'].implemented).toBe(false);
+    expect(rows['windsurf'].recommended).toBe(false);
   });
 
   it('does not treat the shared AGENTS.md as an assistant marker', async () => {
@@ -97,8 +97,9 @@ describe('AssistantDetectionService', () => {
     expect(rows['claude-code'].implemented).toBe(true);
     expect(rows['copilot'].implemented).toBe(true);
     expect(rows['cursor'].implemented).toBe(true);
-    expect(rows['codex'].implemented).toBe(false);
+    expect(rows['codex'].implemented).toBe(true);
     expect(rows['gemini'].implemented).toBe(true);
+    expect(rows['windsurf'].implemented).toBe(false);
   });
 });
 

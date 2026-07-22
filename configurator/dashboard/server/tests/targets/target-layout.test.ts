@@ -91,10 +91,11 @@ describe('target layout descriptors', () => {
     expect(isImplemented('claude-code')).toBe(true);
     expect(isImplemented('copilot')).toBe(true);
     expect(isImplemented('cursor')).toBe(true);
-    // Tier 2/3 have no adapter yet.
-    expect(isImplemented('codex')).toBe(false);
     expect(isImplemented('gemini')).toBe(true);
-    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'copilot', 'cursor', 'gemini']);
+    expect(isImplemented('codex')).toBe(true);
+    // Tier 3 has no adapter yet.
+    expect(isImplemented('windsurf')).toBe(false);
+    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'codex', 'copilot', 'cursor', 'gemini']);
   });
 
   it('throws for targets without a descriptor yet', () => {

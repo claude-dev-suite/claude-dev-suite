@@ -295,7 +295,7 @@ export const TARGET_LAYOUTS: Readonly<Partial<Record<TargetId, TargetLayout>>> =
  * Targets that currently have a full write path implemented. Must stay in step
  * with the adapter registry in `targets/adapters/index.ts` — a test asserts it.
  */
-const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor', 'gemini']);
+const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor', 'gemini', 'codex']);
 
 /** True when dev-suite can actually install for this target today. */
 export function isImplemented(target: TargetId): boolean {

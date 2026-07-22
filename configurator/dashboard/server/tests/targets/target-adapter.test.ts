@@ -34,17 +34,16 @@ describe('adapter registry', () => {
     }
   });
 
-  it('throws a named error for a target with a descriptor but no adapter', () => {
-    // Codex has a descriptor (Phase 3 foundations) but its TOML adapter hasn't
-    // landed, so it is not yet implemented.
-    expect(isImplemented('codex')).toBe(false);
-    expect(() => getAdapter('codex')).toThrow(/No adapter implemented/);
+  it('throws a named error for a target with no adapter', () => {
+    // Tier 3 (windsurf/cline) have neither descriptor nor adapter yet.
+    expect(isImplemented('windsurf')).toBe(false);
+    expect(() => getAdapter('windsurf')).toThrow(/No adapter implemented/);
   });
 
-  it('reports the Tier 1 targets and Gemini as implemented', () => {
-    expect(isImplemented('copilot')).toBe(true);
-    expect(isImplemented('cursor')).toBe(true);
-    expect(isImplemented('gemini')).toBe(true);
+  it('reports the Tier 1 + Tier 2 targets as implemented', () => {
+    for (const t of ['copilot', 'cursor', 'gemini', 'codex'] as const) {
+      expect(isImplemented(t)).toBe(true);
+    }
   });
 });
 
