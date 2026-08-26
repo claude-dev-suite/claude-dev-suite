@@ -1,5 +1,25 @@
 # CodeQL data extension: path-injection barriers for dev-suite's own validators.
 #
+# ┌───────────────────────────────────────────────────────────────────────────┐
+# │ STATUS: the plumbing works, the model does not match yet.                 │
+# │                                                                           │
+# │ The pack now resolves and its extensions load — `analyze` passes and      │
+# │ `Resolving data extensions` no longer errors. But the alert count is      │
+# │ unchanged at 133, so these tuples are matching nothing.                   │
+# │                                                                           │
+# │ Unverified, and the likely suspects, in order:                            │
+# │   1. the `file:` type for a first-party TypeScript module — path form,    │
+# │      extension (.ts vs .js), or case                                      │
+# │   2. `Member[fn].ReturnValue` as an access path on a `file:` type         │
+# │   3. whether JS's TaintedPath configuration consumes `barrierModel` for   │
+# │      kind `path-injection` at all in CodeQL 2.26.3                        │
+# │                                                                           │
+# │ Finishing this needs the CodeQL CLI locally:                              │
+# │   codeql resolve extensions-by-pack --search-path=.github/codeql/...      │
+# │ which prints what actually resolved. Iterating through CI is ~4 minutes   │
+# │ per attempt with no diagnostic output, which is the wrong tool.           │
+# └───────────────────────────────────────────────────────────────────────────┘
+#
 # WHY THIS EXISTS
 #
 # `js/path-injection` flags ~130 sinks across the installation pipeline. They are

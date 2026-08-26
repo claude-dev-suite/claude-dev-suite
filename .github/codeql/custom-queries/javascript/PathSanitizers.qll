@@ -1,6 +1,18 @@
 /**
  * Custom sanitizers for path-injection queries.
  *
+ * !! THIS FILE HAS NO EFFECT. !!
+ *
+ * A `.qll` library is only evaluated when a query imports it, and nothing in
+ * `codeql/javascript-queries` imports this pack — so these `TaintedPath::Sanitizer`
+ * subclasses are never instantiated. Verified rather than assumed:
+ * `substrate.ts:378` reads `safeDest`, assigned directly from
+ * `validatePathWithinBase()` at line 361, and `js/path-injection` flags it anyway.
+ *
+ * Kept because the intent is right and the class list is the correct starting
+ * point. The working mechanism is a `barrierModel` data extension — see
+ * `path-sanitizers.model.yml` next to this file, and its status note.
+ *
  * Declares resolveProjectPath() and validatePathWithinBase() as taint barriers
  * for the js/path-injection query. These functions validate that paths are
  * non-traversal, absolute, and exist on the filesystem before returning them.
