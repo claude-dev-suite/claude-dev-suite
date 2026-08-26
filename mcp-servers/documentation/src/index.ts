@@ -95,7 +95,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     {
       name: "fetch_docs",
       description:
-        "Fetch documentation for a specific technology and topic. Supports versioning (e.g., React 18 vs 19). Defaults to latest version.",
+        "Fetch docs for a technology and topic. Supports versioning (e.g. React 18 vs 19); defaults to the latest.",
       inputSchema: {
         type: "object",
         properties: {
@@ -197,6 +197,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     },
     {
       name: "list_docs",
+      // audit-justification: the return shape and the discover-then-fetch order are what let the model call this correctly first time; trimming either costs more in retries than it saves.
       description:
         "List all available KB articles as a compact catalog. Returns { technology: [topics...] } mapping. Use to discover what documentation is available, then fetch specific articles with fetch_docs.",
       inputSchema: {
