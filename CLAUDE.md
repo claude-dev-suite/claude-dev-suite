@@ -11,23 +11,28 @@ dev-suite/
 ├── mcp-servers/{name}/                     # MCP server source (TypeScript, npm workspaces)
 │   ├── src/index.ts                        # Server implementation
 │   └── metadata.json                       # Server metadata (tools, envVars, detectedWhen)
+├── mcp-servers/shared/                     # @dev-suite/shared — SSRF + path guards used by
+│                                           #   several servers; consumed as source, no metadata.json
 ├── configurator/dashboard/
 │   ├── src/                                # React frontend (Vite + TailwindCSS + Zustand)
 │   ├── server/src/services/                # Express backend services
 │   ├── server/tests/                       # Vitest unit tests
 │   └── electron/                           # Electron desktop app (main.cjs, preload.cjs, updater.cjs)
-├── registry/                               # Dynamic config (features.json, frameworks.json, etc.)
-├── templates/                              # Project scaffolding templates
-├── commands/                               # Slash commands
-├── scripts/lib/metadata-parser.sh          # Parse metadata.json & agent YAML
-└── init-project.sh|ps1                     # Entry point (launches dashboard)
+├── registry/features.json                  # Upgrade feature registry (+ its JSON schema)
+├── presets/                                # Stack preset data — not wired to any consumer yet
+├── rules/                                  # Project rule templates offered by the wizard
+├── templates/                              # Project scaffolding templates + hook scripts
+├── commands/                               # Slash commands (installed into .claude/commands)
+├── scripts/                                # CI gates + setup: validate-catalog, audit-mcp-descriptions,
+│                                           #   check-docs-sync, check-type-sync, gen-* doc generators
+└── init-project.sh|ps1                     # Entry point (builds if needed, launches dashboard)
 ```
 
 ## Critical Rules
 
 ### DO NOT:
 1. **Create `.mcp.json` or `.mcp-servers/` in this repository** — MCP servers exist only as source code under `mcp-servers/*/src/`
-2. **Hardcode component lists** — Derive agents from filesystem scan, MCP servers from `mcp-servers/package.json` workspaces, frameworks from `registry/*.json`, env vars from `metadata.json`
+2. **Hardcode component lists** — Derive agents from a filesystem scan, MCP servers from the `mcp-servers/package.json` workspaces, env vars from each `metadata.json`. Framework detection lives in `detection.service.ts`; `registry/features.json` is the upgrade feature registry only, and there is no `frameworks.json`.
 3. **Hardcode counts in docs** — Never write exact counts of agents, skills, MCP servers, or technologies in CLAUDE.md or README.md; derive dynamically when needed (e.g., `find agents -name '*.md' | wc -l`)
 4. **Skip backup creation** — Dashboard MUST create `.dev-suite-backup/` before overwriting any user files
 5. **Use relative paths in generated `.mcp.json`** — All paths must be absolute via `path.resolve()`
@@ -36,7 +41,7 @@ dev-suite/
 ### DO:
 1. **Keep components loosely coupled** — Agents declare skills/MCP servers in frontmatter → Skills reference KB docs → MCP `metadata.json` declares `recommendedFor`/`detectedWhen`. MCP servers are never required — agents must work without them.
 2. **Update metadata when adding components** — Add to `mcp-servers/package.json` workspaces, create `metadata.json`, add YAML frontmatter
-3. **Use dynamic configuration** — Load from `registry/*.json`, parse `metadata.json`, extract YAML frontmatter
+3. **Use dynamic configuration** — Load the feature registry from `registry/features.json`, parse each `metadata.json`, extract YAML frontmatter
 4. **Test cross-platform** — `init-project.sh` (Linux/macOS) + `init-project.ps1` (Windows)
 5. **Validate generated config** — Check `.mcp.json` syntax, verify absolute paths, ensure env vars are set
 6. **Record `availableAtInstall` catalog snapshot** — `installation.service.ts` writes this to `.dev-suite-manifest.json` for new-component discovery
@@ -51,15 +56,26 @@ name: react-expert              # Agent identifier
 description: |                  # Multi-line description
   React specialist...
 model: sonnet                   # Optional: model override (sonnet, haiku, opus)
-allowed-tools: Read, Edit, ...  # Optional: restrict tool access
-skills:                         # Skill directories to include
-  - frontend-react
-  - state-zustand
-mcp_servers:                    # MCP servers this agent uses
+# Restricts tool access. `mcp__<server>__*` entries are also how most agents
+# declare their MCP access — the explicit `mcp_servers:` list below is optional
+# and only 13 of the agents use it.
+allowed-tools: Read, Write, Edit, Glob, Grep, mcp__documentation__*
+core_skills:                    # Installed with the agent — full `{category}/{name}` paths
+  - frontend-frameworks/react
+  - frontend-frameworks/react-hooks
+  - languages/typescript
+extended_skills:                # Reachable on demand via the skill-loader MCP server
+  - state-management/zustand
+  - styling/tailwindcss
+mcp_servers:                    # Optional explicit list, in addition to allowed-tools
   - documentation
-  - code-quality
 ---
 ```
+
+Skill entries are directory paths under `skills/`, not bare names: `frontend-frameworks/react`
+resolves to `skills/frontend-frameworks/react/SKILL.md`. `validate-catalog.mjs` fails on a path
+that does not exist. An agent with 60+ skills can collapse them with `- bundle:<namespace>/<name>`
+(see `services/agent-bundles.ts`), expanded at install time.
 
 ### MCP Server Metadata Fields
 Each `mcp-servers/{name}/metadata.json` contains: `name`, `description`, `shortDescription`, `category`, `tools[]`, `envVars[]` (with `name`, `description`, `default`, `required`), `recommendedFor[]` (agent IDs that benefit from this server — never required), `detectedWhen[]` (technology keywords).
@@ -69,13 +85,35 @@ Each `mcp-servers/{name}/metadata.json` contains: `name`, `description`, `shortD
 | Component | Pattern | Example |
 |-----------|---------|---------|
 | Agents | `{technology}-expert.md` | `react-expert.md` |
-| Skills | `SKILL.md` in category folder | `frontend-react/SKILL.md` |
+| Skills | `SKILL.md` in a `{category}/{tech}` folder | `frontend-frameworks/react/SKILL.md` |
 | MCP servers | lowercase with hyphens | `api-tester`, `database-query` |
 | Commands | `{command-name}.md` | `init-project.md` |
-| Registry | `{purpose}.json` | `frameworks.json` |
+| Registry | `{purpose}.json` | `features.json` |
 
 ### Generated Files in Target Projects
-`.mcp.json`, `.dev-suite.json`, `.dev-suite-manifest.json`, `CLAUDE.md`, `.claude/agents/`, `.claude/skills/`, `.claude/commands/`, `.mcp-servers/*/`
+
+Always, whichever assistants were selected:
+`AGENTS.md`, `.dev-suite.json`, `.dev-suite-manifest.json`, `.claude/agents/`, `.claude/skills/`,
+`.mcp-servers/*/`
+
+Per selected target (derive the authoritative list from `targets/target-layout.ts`):
+
+| Target | Files |
+|--------|-------|
+| `claude-code` | `CLAUDE.md`, `.mcp.json`, `.claude/rules/`, `.claude/commands/`, `.claude/settings.json` |
+| `copilot` | `.vscode/mcp.json`, `.github/mcp.json`, `.github/instructions/` |
+| `cursor` | `.cursor/mcp.json`, `.cursor/rules/` |
+| `gemini` | `.gemini/settings.json`, `.gemini/agents/`, `.agents/skills/` |
+| `codex` | `.codex/config.toml`, `.agents/skills/` |
+| `cline` | `.clinerules/` |
+| `kimi-code` | `.kimi-code/mcp.json`, `.kimi-code/agents/`, `.agents/skills/` |
+
+`CLAUDE.md` and `.mcp.json` are **not** written unless `claude-code` is a target. Slash commands
+are Claude-Code-only — no other assistant reads `.claude/commands`.
+
+`AGENTS.md` holds the generated routing section (cross-assistant standard); `CLAUDE.md` is a
+pointer that imports it via `@AGENTS.md`, since Claude Code does not read AGENTS.md natively.
+Never duplicate routing content across the two.
 
 ## Service Map
 
@@ -89,20 +127,57 @@ Path: `configurator/dashboard/server/src/services/`
 | `code-review.service.ts` | Code review job creation and management |
 | `custom-agents.service.ts` | User-created custom agent management |
 | `detection.service.ts` | Detect project stack (frameworks, databases, Git provider) |
+| `detection/assistant-detection.service.ts` | Detect which AI assistants a project already uses (marker files + manifest targets) and recommend which to pre-select in the wizard |
 | `git.service.ts` | Git operations and repository management |
 | `hooks.service.ts` | Git and Claude Code hooks management |
 | `installation.service.ts` | Copy files, install MCP servers, generate config, record catalog snapshot |
-| `management.service.ts` | Generate CLAUDE.md with agent routing, manage installed components, discover new components |
+| `management.service.ts` | Manage installed components, discover new ones, and regenerate the instructions files (routing goes into `AGENTS.md`; `CLAUDE.md` only imports it) — delegates to `installation/claude-md.service.ts` |
 | `recipes.service.ts` | Pre-built workflow recipes for common tasks |
 | `templates.service.ts` | Project scaffolding template management |
 | `upgrade.service.ts` | Apply incremental `hook-merge` features to installed dev-suite components |
-| `reinstall.service.ts` | Transactional erase-and-replace reinstall/sync (scoped erase of managed files + re-install from source, backup + rollback, orphan removal, per-file opt-out) |
+| `reinstall.service.ts` | Transactional erase-and-replace reinstall/sync (scoped erase of managed files + re-install from source, backup + rollback, orphan removal, per-file opt-out). Target-aware: classification, backup and rollback derive per-file layout from `file.target`, so several assistants can coexist in one project |
 | `release-check.service.ts` | Check the latest GitHub release vs the running dev-suite version (cached, semver compare, graceful on network/rate-limit errors) |
 | `workflows.service.ts` | Multi-step workflow orchestration |
 | `codegen.service.ts` | Spec-driven code generation pipeline with validation and AI refinement |
 | `rules.service.ts` | List available project rule templates from the `rules/` directory |
 | `usage.service.ts` | Fetch usage/billing data from the Anthropic Admin API for the Usage panel |
 | `agent-bundles.ts` | Expand `bundle:` skill references in agent frontmatter into concrete skill directory lists |
+| `targets/target-layout.ts` | Per-assistant layout descriptors (directories, instructions/MCP/settings files) + capability flags; the single source of truth for target paths. **Formats these descriptors encode are specified in `docs/ASSISTANT-FORMAT-REFERENCE.md` — read it before touching any target adapter, and never research assistant formats independently** |
+| `targets/target-paths.ts` | Resolve a layout descriptor into one project's concrete paths (relative POSIX for the manifest, absolute for filesystem calls) |
+| `targets/target-adapter.ts` | The seam between deciding what to install (tool-neutral `InstallPlan`) and writing it for one assistant; capability-degradation reporting |
+| `targets/adapters/claude-code.adapter.ts` | Writes Claude-Code-specific config: `skillListingBudgetFraction`, `.mcp.json`, `.claude/rules`, validator hook (the `.claude/` agent+skill substrate is shared, see below) |
+| `targets/adapters/copilot.adapter.ts` | Writes Copilot config: `.vscode/mcp.json` (VS Code) + `.github/mcp.json` (CLI) + `.github/instructions/*`; merges into existing MCP files |
+| `targets/adapters/cursor.adapter.ts` | Writes Cursor config: `.cursor/mcp.json` + `.cursor/rules/*.mdc`; merges into existing MCP files |
+| `targets/adapters/gemini.adapter.ts` | Writes Gemini config: `.gemini/settings.json` (mcpServers + `context.fileName`) and native subagents `.gemini/agents/*.md`; reads skills from `.agents/skills` mirror |
+| `targets/adapters/codex.adapter.ts` | Writes Codex MCP config: `[mcp_servers.*]` in `.codex/config.toml` (TOML merge); reads AGENTS.md + `.agents/skills` natively; surfaces the trusted-project caveat |
+| `targets/adapters/cline.adapter.ts` | Writes Cline path-scoped rules to `.clinerules/*.md` (`paths:`, neutral body); reads AGENTS.md + `.claude/skills`; reports MCP + native-agents as permanent skipped gaps |
+| `targets/adapters/kimi.adapter.ts` | Writes Kimi Code config: `.kimi-code/mcp.json` (JSON merge) + native subagents `.kimi-code/agents/*.md`; reads AGENTS.md + `.agents/skills`; refuses built-in agent names and reports `${...}`-templated agent bodies |
+| `installation/substrate.ts` | Install the shared `.claude/agents`+`.claude/skills` substrate once per install (Copilot/Cursor read it directly); mirror skills to `.agents/skills` when a target reads that instead (Codex/Gemini) |
+| `installation/path-scoped-rules.ts` | Compute glob-scoped rule specs from installed agents and write them per target via the 2.2 writers |
+| `installation/mcp-config-file.ts` | Read/write+track an assistant'"'"'s MCP config file on disk (merge side; rendering is the pure writer) |
+| `installation/manifest-tracking.ts` | Record written files (with hash and target) in the extended manifest; shared by the service and every adapter |
+| `installation/commands.ts` | Copy the project-facing slash commands into `.claude/commands` (Claude Code only) and track them; maintainer-only commands are excluded |
+| `installation/uninstall.ts` | Safe removal: un-merges the files dev-suite shares with the user (`AGENTS.md`, `.codex/config.toml`, every MCP config) instead of deleting them, bounds-checks every manifest path, and walks owned trees file by file so `custom/` and foreign skills survive |
+| `installation/project-lock.ts` | Serialise every operation that rewrites a project's installation (install, reinstall, add/remove). Re-entrant, because reinstall and the Manage tab delegate to `install()` — the manifest is written last, so two overlapping runs produced a record describing neither |
+| `installation/write-guard.ts` | Snapshot the surfaces an install may overwrite, and restore them if it throws — the manifest is written last, so without this a failed install left untracked files behind |
+| `installation/managed-file.ts` | Write a file only when dev-suite owns it: reads the previous manifest so a hand-written `.gemini/agents/*.md`, `.claude/agents/*.md` or rule file is preserved and reported, never clobbered |
+| `installation/skill-ownership.ts` | Ownership sentinel for installed skill directories, so a re-install removes its own skills and never the user's or another tool's in `.agents/skills` |
+| `installation/managed-surfaces.ts` | The per-target set of paths a write touches; shared by install's backup and reinstall's, and layout-derived so neither service depends on the other |
+| `installation/install-recovery.ts` | Recover env vars and the skill-loading mode from **every** selected assistant's MCP config (JSON and Codex TOML) — reading Claude's `.mcp.json` alone wiped credentials in a Cursor- or Gemini-only project |
+| `installation/gitignore.ts` | Add/remove a marked `.gitignore` block for the MCP configs that carry wizard env values and for the local backup directories |
+| `installation/skill-frontmatter.ts` | Rewrite an installed SKILL.md's `name:` to its flattened directory, which the Agent Skills spec requires |
+| `installation/file-operations.ts` | Low-level copy/hash/flatten helpers: skill flattening, bundle expansion, `toInstalledAgentContent` frontmatter transform |
+| `installation/category-paths.ts` | Map an agent category to the glob patterns its path-scoped rule file should carry |
+| `installation/security-helpers.ts` | Path/entry-name/agent-id/skill-path validation shared by every writer — the guard against traversal in installed content |
+| `targets/writers/mcp-config.writer.ts` | Serialize MCP servers into each assistant's format (Claude `mcpServers`, VS Code `servers`+stdio, Copilot CLI `local`+tools, Cursor stdio), merging with the user's own entries |
+| `targets/writers/path-scoped-rules.writer.ts` | Serialize glob-scoped agent routing per assistant (`paths:` / `applyTo:` / `globs:`) |
+| `targets/writers/gemini-settings.writer.ts` | Serialize `.gemini/settings.json` (mcpServers + AGENTS.md-aware context.fileName), merging with existing settings |
+| `targets/writers/gemini-agent.writer.ts` | Turn a dev-suite agent into a native Gemini subagent (`.gemini/agents/<id>.md`, name/description/kind + verbatim body) |
+| `targets/writers/kimi-agent.writer.ts` | Turn a dev-suite agent into a native Kimi subagent (`.kimi-code/agents/<id>.md`); owns the built-in-name and `${...}`-template guards |
+| `targets/writers/agent-frontmatter.ts` | Shared YAML-scalar + frontmatter-stripping helpers for the native agent writers |
+| `targets/writers/codex-toml.writer.ts` | Serialize `[mcp_servers.*]` TOML tables for `.codex/config.toml` via a comment-preserving section-level merge (no TOML dependency) |
+| `targets/adapters/index.ts` | Adapter registry keyed by `TargetId`; must stay in step with `isImplemented()` |
+| `installation/claude-md.service.ts` | Generate the shared instructions section, write `AGENTS.md` + the `CLAUDE.md` import pointer, and per-category path-scoped rule files |
 
 Subdirectories with additional logic: `code-review/`, `codegen/` (per-target-family code generators), `detection/`, `git/`, `hooks/`, `installation/`, `orchestrator/`, `upgrade/`
 
@@ -119,11 +194,13 @@ Tech stack: React 19, Express 5, Electron 40, Vite 7, Zustand, Zod 4, TypeScript
 
 ### Add a New MCP Server
 1. Create `mcp-servers/{server-name}/` with `package.json` (`@dev-suite/{name}`, main: `dist/index.js`)
-2. Add `metadata.json` with `name`, `description`, `category`, `tools`, `envVars`, `recommendedFor`, `detectedWhen`
+2. Add `metadata.json` with all eight fields `validate-catalog.mjs` requires: `name` (must equal the directory name), `description`, `shortDescription`, `category`, `tools` (**array of strings**, matching the tools the server registers with ListTools), `envVars` (declare every `process.env.X` the server reads, or the wizard never prompts for it), `recommendedFor`, `detectedWhen`
 3. Add `src/index.ts` with MCP server implementation
 4. Add `tsconfig.json` (extend from root or create standalone)
 5. Update `mcp-servers/package.json` workspaces array
-6. Build: `cd mcp-servers && npm install && npm run build`
+6. Keep `package.json` `version` equal to the `version:` passed to `new Server()` in `src/index.ts` — CI compares them
+7. Keep every tool `description` at 120 characters or fewer, or add `// audit-justification: <reason>` on the line immediately above
+8. Build: `cd mcp-servers && npm install && npm run build`
 
 ### Add a New Skill
 1. Create `skills/{category}/{technology}/SKILL.md` with skill definition
@@ -161,7 +238,36 @@ npm run test            # Run all tests
 npm run test:coverage   # Run with coverage report
 ```
 
-**Test coverage**: `detection.service.test.ts` (includes Android/Kotlin and Unity 2D/3D detection), `agents.service.test.ts`, `management.service.test.ts` (includes `getNewComponents` scenarios), `installation.service.test.ts` (includes `availableAtInstall` snapshot), `installation/file-operations.test.ts` (skill flattening, bundle expansion, and `toInstalledAgentContent` native-frontmatter transform), `hooks.service.test.ts`, `analytics.service.test.ts`, `code-review.service.test.ts`, `codegen.service.test.ts`, `workflows.service.test.ts`, `orchestrator.security.test.ts`, `websocket.rate-limit.test.ts`, `logger.test.ts`, `security-codeql.test.ts` (path-injection and ReDoS regression tests), `git.service.test.ts`, `recipes.service.test.ts`, `templates.service.test.ts`, `custom-agents.service.test.ts`, `upgrade.service.test.ts`, `upgrade/` (conflict-detector, feature-applier, package-installer, stack-compatibility, upgrade-utils), `reinstall.service.test.ts` (erase-and-replace: custom-agent preservation, CLAUDE.md/settings.json merge, opt-out keep, orphan removal, rollback), `cli/reinstall.cli.test.ts` (headless CLI `run()`), `release-check.service.test.ts` (semver compare, cache, graceful network/rate-limit failure), `routes/release-check.routes.test.ts`, `security-hardening.test.ts` (hook-script/branch injection, package-installer `shell:false`, IPv6 SSRF ranges, symlink-escape, stack-trace suppression, timing-safe WS token, `getDevSuiteDir` validation), `git-security.test.ts`, `git-helpers.test.ts`, `git-auth.service.test.ts` (GitAuthService: gh device-flow login with mocked process, concurrency guard, cancel/cleanup), route tests in `routes/` (all route files covered). MCP server security tests live alongside each server: `mcp-servers/code-quality/tests/security.test.ts` (Zod arg validation, `validateFilePath`), `mcp-servers/documentation/tests/kb-fetcher-security.test.ts` (branch validator), `mcp-servers/database-query/tests/execute-query-security.test.ts` (SELECT guard + read-only transaction)
+**Test coverage**: the suite is discovered from the filesystem — `find configurator/dashboard/server/tests -name '*.test.ts'` is the authoritative list, and every route file under `src/routes/` has a matching test. Do not maintain an inventory of test files here; it goes stale within a release.
+
+Areas that carry non-obvious invariants, worth reading before changing the code they cover:
+
+| Area | What the tests pin down |
+|------|-------------------------|
+| `targets/writers/` | Golden files fixing the exact MCP and path-scoped-rule bytes per assistant, plus merge and stale-entry semantics |
+| `targets/multi-target-install.test.ts` | Real multi-assistant installs: per-surface MCP shapes, the shared substrate for a non-Claude target, merge safety on an unparseable file |
+| `targets/target-layout.test.ts` / `target-paths.test.ts` | Descriptor/capability consistency and manifest target migration |
+| `reinstall.service.test.ts` | Erase-and-replace: custom-agent preservation, merge of CLAUDE.md and settings.json, opt-out keep, orphan removal, rollback, per-target classification |
+| `installation/claude-md.service.test.ts` | AGENTS.md + CLAUDE.md import, legacy migration, description sanitization |
+| `installation/uninstall.test.ts` | The removal contract: user prose, user MCP servers, Codex comments, `custom/` and foreign skills all survive an uninstall; a manifest path that escapes the project is refused |
+| `installation/write-guard.test.ts` | A failed install rolls back to byte-identical state and leaves no manifest, so `getStatus()` and disk agree |
+| `installation/managed-file.test.ts` | A hand-written agent or rule file is preserved, not recorded as dev-suite's, and survives the later uninstall |
+| `installation/rule-id-safety.test.ts` | A traversing rule id cannot overwrite a project file, from either the wizard or a Sync reading the project's own `.dev-suite.json` |
+| `security-hardening.test.ts`, `security-codeql.test.ts`, `git-security.test.ts` | Hook-script and branch injection, `shell:false`, IPv6 SSRF ranges, symlink escape, timing-safe WS token, path-injection and ReDoS regressions |
+| `mcp-servers/*/tests/security.test.ts` | Per-server guards: Zod arg validation, KB branch validator, the SELECT-only read-only transaction |
+
+**CI gates** (`.github/workflows/ci.yml`) — these fail the build, so run them locally before pushing:
+
+```bash
+node scripts/audit-mcp-descriptions.mjs   # MCP tool descriptions <= 120 chars unless justified
+node scripts/validate-catalog.mjs         # agent/skill/MCP metadata consistency
+node scripts/check-type-sync.mjs          # shared types in sync between client and server
+node scripts/gen-capability-matrix.mjs --check   # docs/AGENT-CAPABILITY-MATRIX.md is current
+node scripts/gen-agents-reference.mjs --check    # README Agents Reference is current
+node scripts/check-docs-sync.mjs          # prose matches steps.ts / IMPLEMENTED_TARGETS / workspaces
+```
+
+Both `gen-*` scripts write the file when run without `--check`; never edit their output by hand.
 
 **Manual verification checklist** (when modifying initialization logic):
 - Detection identifies frameworks, databases, and Git provider correctly

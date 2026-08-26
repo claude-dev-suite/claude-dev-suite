@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../stores/project.store';
+import { API_BASE } from '../../utils/api';
 
 interface SessionInfo {
   id: string;
@@ -31,7 +32,7 @@ export function SessionPicker({ isOpen, onClose, onSelect, currentSessionId }: S
 
     try {
       const response = await fetch(
-        `/api/orchestrator/sessions?project_path=${encodeURIComponent(projectPath)}`
+        `${API_BASE}/api/orchestrator/sessions?project_path=${encodeURIComponent(projectPath)}`
       );
       const data = await response.json();
 

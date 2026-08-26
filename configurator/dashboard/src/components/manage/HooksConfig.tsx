@@ -33,12 +33,17 @@ export function HooksConfig({ projectPath }: HooksConfigProps) {
   // Claude hooks form
   const claudeHooksForm = useClaudeHooksForm(projectPath, hooksData.setError);
 
-  // Initialize git hooks form when status changes
+  // Initialize git hooks form when status changes.
+  //
+  // Depend on the stable callback, never on the whole form object: the effect
+  // sets state, so any dependency that changes identity per render turns this
+  // into an infinite render loop.
+  const { initializeFromStatus } = gitHooksForm;
   useEffect(() => {
     if (hooksData.gitHooksStatus) {
-      gitHooksForm.initializeFromStatus(hooksData.gitHooksStatus);
+      initializeFromStatus(hooksData.gitHooksStatus);
     }
-  }, [hooksData.gitHooksStatus, gitHooksForm]);
+  }, [hooksData.gitHooksStatus, initializeFromStatus]);
 
   // Handlers
   const handleSaveGitHooks = async () => {

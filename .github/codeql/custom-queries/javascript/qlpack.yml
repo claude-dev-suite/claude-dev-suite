@@ -1,5 +1,16 @@
 name: dev-suite/javascript-custom-queries
 version: 1.0.0
 library: true
+
+# `extensionTargets` names the pack whose extensible predicates we add rows to.
+# `barrierModel` is defined in the *library* pack (`codeql/javascript-all`), not
+# in the query pack — targeting `codeql/javascript-queries` gave the extension
+# nothing to attach to.
 extensionTargets:
-  codeql/javascript-queries: "*"
+  codeql/javascript-all: "*"
+
+# `dataExtensions` is what makes the .model.yml files *be* data extensions.
+# Without it CodeQL loads the pack and ignores the YAML entirely:
+# `codeql resolve extensions-by-pack` returned `"extensionPacks": []`.
+dataExtensions:
+  - "*.model.yml"

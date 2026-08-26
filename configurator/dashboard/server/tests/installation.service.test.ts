@@ -121,6 +121,87 @@ describe('InstallationService', () => {
       expect(manifest.availableAtInstall.mcpServers).toContain('api-tester');
     });
 
+    it('should write AGENTS.md with the routing section and CLAUDE.md as an import', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const agentsMd = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf-8');
+      const claudeMd = fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf-8');
+
+      expect(agentsMd).toContain('@typescript-expert');
+      expect(claudeMd).toContain('@AGENTS.md');
+      // The routing detail lives in one place only
+      expect(claudeMd).not.toContain('@typescript-expert');
+    });
+
+    it('should tag the manifest and its files with the install target', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.dev-suite-manifest.json'), 'utf-8')
+      );
+
+      expect(manifest.targets).toEqual(['claude-code']);
+      expect(manifest.files.length).toBeGreaterThan(0);
+      expect(manifest.files.every((f: { target?: string }) => f.target === 'claude-code')).toBe(true);
+    });
+
+    it('records an explicit targets request in the manifest', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+        targets: ['claude-code'],
+      });
+
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.dev-suite-manifest.json'), 'utf-8')
+      );
+      expect(manifest.targets).toEqual(['claude-code']);
+    });
+
+    it('rejects a target that has no adapter yet', async () => {
+      // Defense in depth: the request schema rejects unimplemented targets, and
+      // so does the service for any direct caller that bypasses it. Windsurf is
+      // Tier 3 — no adapter yet.
+      await expect(
+        installationService.install({
+          projectPath: projectDir,
+          agents: [],
+          mcpServers: [],
+          envVars: {},
+          targets: ['windsurf'] as never,
+        })
+      ).rejects.toThrow(/No adapter implemented/);
+    });
+
+    it('should track both instruction files in the manifest', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(projectDir, '.dev-suite-manifest.json'), 'utf-8')
+      );
+      const tracked = manifest.files.map((f: { path: string }) => f.path);
+
+      expect(tracked).toContain('AGENTS.md');
+      expect(tracked).toContain('CLAUDE.md');
+    });
+
     it('should handle empty configuration', async () => {
       const manifest = await installationService.install({
         projectPath: projectDir,
@@ -418,17 +499,31 @@ describe('InstallationService', () => {
       expect(settings.hooks).toEqual({ PreToolUse: [] });
     });
 
-    it('removes stale skill folders left by a previous install', async () => {
-      // Simulate a stale eager-mode install: nested folder with SKILL.md
+    it('removes the skill folders it owns and preserves everything else', async () => {
+      // Ownership is proven by the sentinel dev-suite writes into each folder it
+      // materialises, or by the previous manifest. It used to be inferred from
+      // "this folder contains a SKILL.md", which is equally true of a skill the
+      // user wrote — so a re-install deleted their work.
       const skillsDir = path.join(projectDir, '.claude', 'skills');
-      const staleNested = path.join(skillsDir, 'infrastructure', 'systemd');
-      fs.mkdirSync(staleNested, { recursive: true });
-      fs.writeFileSync(path.join(staleNested, 'SKILL.md'), '# stale\n');
-      // Simulate a stale lazy-mode install: flat folder
-      const staleFlat = path.join(skillsDir, 'old-flat-skill');
-      fs.mkdirSync(staleFlat, { recursive: true });
-      fs.writeFileSync(path.join(staleFlat, 'SKILL.md'), '# stale\n');
-      // Preserve a user-owned non-skill file
+
+      const ownedStale = path.join(skillsDir, 'old-flat-skill');
+      fs.mkdirSync(ownedStale, { recursive: true });
+      fs.writeFileSync(path.join(ownedStale, 'SKILL.md'), '# stale\n');
+      fs.writeFileSync(path.join(ownedStale, '.dev-suite-owned'), '# written by dev-suite\n');
+
+      // Recorded in a manifest from before sentinels existed — still ours.
+      const legacyStale = path.join(skillsDir, 'legacy-skill');
+      fs.mkdirSync(legacyStale, { recursive: true });
+      fs.writeFileSync(path.join(legacyStale, 'SKILL.md'), '# stale\n');
+      fs.writeFileSync(
+        path.join(projectDir, '.dev-suite-manifest.json'),
+        JSON.stringify({ files: [{ path: '.claude/skills/legacy-skill', type: 'skill' }] })
+      );
+
+      // The user's own skill, and a user file at the top level.
+      const userSkill = path.join(skillsDir, 'my-house-style');
+      fs.mkdirSync(userSkill, { recursive: true });
+      fs.writeFileSync(path.join(userSkill, 'SKILL.md'), '# mine\n');
       fs.writeFileSync(path.join(skillsDir, 'NOTES.md'), 'user notes');
 
       await installationService.install({
@@ -438,13 +533,30 @@ describe('InstallationService', () => {
         envVars: {},
       });
 
-      // Stale folders are gone
-      expect(fs.existsSync(staleNested)).toBe(false);
-      expect(fs.existsSync(staleFlat)).toBe(false);
-      // User-owned top-level file is preserved
+      expect(fs.existsSync(ownedStale)).toBe(false);
+      expect(fs.existsSync(legacyStale)).toBe(false);
+      expect(fs.existsSync(path.join(userSkill, 'SKILL.md'))).toBe(true);
       expect(fs.existsSync(path.join(skillsDir, 'NOTES.md'))).toBe(true);
-      // Fresh install still wrote the typescript skill
       expect(fs.existsSync(path.join(skillsDir, 'typescript', 'SKILL.md'))).toBe(true);
+    });
+
+    it('marks every skill folder it writes so the next install can recognise it', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const skillsDir = path.join(projectDir, '.claude', 'skills');
+      const installed = fs
+        .readdirSync(skillsDir, { withFileTypes: true })
+        .filter(e => e.isDirectory());
+
+      expect(installed.length).toBeGreaterThan(0);
+      for (const dir of installed) {
+        expect(fs.existsSync(path.join(skillsDir, dir.name, '.dev-suite-owned'))).toBe(true);
+      }
     });
 
     it('explicit skillLoadingMode=eager bypasses lazy even when skill-loader auto-included', async () => {

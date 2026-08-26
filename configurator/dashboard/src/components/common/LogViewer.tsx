@@ -17,6 +17,7 @@ import { Button } from './Button';
 import { Input } from './Input';
 import { useToast } from '@/hooks/useToast';
 import type { LogEntry } from '../../types/logs';
+import { API_BASE } from '../../utils/api';
 
 // Log level colors
 const LOG_LEVEL_COLORS: Record<string, string> = {
@@ -134,7 +135,7 @@ export function LogViewer({
         limit: maxLogs.toString(),
       });
 
-      const response = await fetch(`/api/logs?${params}`);
+      const response = await fetch(`${API_BASE}/api/logs?${params}`);
       if (!response.ok) throw new Error('Failed to fetch logs');
 
       const result = await response.json();
@@ -154,7 +155,7 @@ export function LogViewer({
   useEffect(() => {
     if (!enableStreaming) return;
 
-    const eventSource = new EventSource('/api/logs/stream');
+    const eventSource = new EventSource(`${API_BASE}/api/logs/stream`);
     eventSourceRef.current = eventSource;
 
     eventSource.onmessage = (event) => {
@@ -277,7 +278,7 @@ export function LogViewer({
     if (!confirm('Clear all logs? This cannot be undone.')) return;
 
     try {
-      const response = await fetch('/api/logs', { method: 'DELETE' });
+      const response = await fetch(`${API_BASE}/api/logs`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to clear logs');
 
       setLogs([]);

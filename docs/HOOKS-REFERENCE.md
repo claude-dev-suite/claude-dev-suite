@@ -1779,6 +1779,29 @@ exit 0
 
 ---
 
+### Output-filter hooks shipped by dev-suite
+
+Three `PreToolUse` hooks ship as templates. They intercept a Bash command before it runs
+and rewrite it so only the useful part of its output reaches the context window. Each one
+fails open: if the filter script errors, the original command is forwarded unchanged.
+
+| Hook id | Intercepts | What survives | Typical saving |
+|---------|-----------|---------------|----------------|
+| `filter-test-output` | `npm test`, `pytest`, `cargo test`, `go test`, `mvn test`, `gradle test` and similar | FAIL/ERROR/PASS summary lines plus a 20-line tail | ~5–50K tokens per run |
+| `filter-lint` | `eslint`, `pylint`, `flake8`, `ruff`, `cargo clippy`, `golangci-lint`, `prettier --check`, `detekt`, `ktlint` | error-severity lines plus a suppressed-warning count | ~5–20K tokens per run |
+| `truncate-logs` | `tail`, `journalctl`, `docker logs`, `kubectl logs`, `cat /var/log/*` | last 100 lines (override with `DS_LOG_LINE_LIMIT`) | ~1K–50K+ tokens |
+
+All three use `matcher: "Bash"`. The definitions live in
+`server/src/services/hooks/hooks.constants.ts` (`CLAUDE_OUTPUT_FILTER_HOOKS`); the shell
+scripts are in `templates/hooks/` and are copied to `<project>/.claude/hooks/` when the
+hook is installed.
+
+Install and remove them from the dashboard's Hooks panel, which calls
+`installOutputFilterHook()` / `uninstallOutputFilterHook()` in `claude-hooks.service.ts`.
+
+This is the highest-leverage hook category in dev-suite: a single noisy test run can cost
+more context than every agent instruction file combined.
+
 ## Best Practices
 
 ### General

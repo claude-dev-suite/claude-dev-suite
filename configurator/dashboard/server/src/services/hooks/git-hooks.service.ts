@@ -29,6 +29,7 @@ import {
   isValidAction,
 } from './hooks.constants.js';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
+import { validatePathWithinBase } from '../installation/security-helpers.js';
 import { validateGitRef } from '../git/git-security.js';
 import { getLogger } from '../../utils/logger.js';
 
@@ -65,6 +66,29 @@ function safeBranchForShell(branch: string): string {
   validateGitRef(branch);
   // Single-quote the branch for the generated shell script.
   return `'${branch.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * SECURITY: Resolve a sub-repository path against the project root.
+ *
+ * The three `*ForRepo` entry points used to do a bare `path.join(projectPath,
+ * repoPath)`. `path.join` *resolves* `..` segments rather than rejecting them,
+ * so the joined path was already normalised by the time it reached the
+ * `includes('..')` and `resolveProjectPath` guards — those only ever inspected
+ * `projectPath`, never `repoPath`. A request with `repoPath: '../../elsewhere'`
+ * therefore installed or deleted executable scripts in the `.git/hooks` of a
+ * repository outside the project. Containment is asserted here instead.
+ */
+function resolveRepoPath(projectPath: string, repoPath: string | null): string {
+  if (!repoPath || repoPath === '.') return projectPath;
+  if (path.isAbsolute(repoPath)) {
+    throw new PathValidationError('Repository path must be relative to the project');
+  }
+  try {
+    return validatePathWithinBase(path.join(projectPath, repoPath), projectPath);
+  } catch {
+    throw new PathValidationError('Repository path escapes the project directory');
+  }
 }
 
 export class GitHooksService {
@@ -653,7 +677,7 @@ export class GitHooksService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    const targetPath = repoPath && repoPath !== '.' ? path.join(projectPath, repoPath) : projectPath;
+    const targetPath = resolveRepoPath(projectPath, repoPath);
 
     const status = this.getGitHooksStatus(targetPath);
     return { ...status, repoPath: repoPath || '.' };
@@ -666,7 +690,7 @@ export class GitHooksService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    const targetPath = repoPath && repoPath !== '.' ? path.join(projectPath, repoPath) : projectPath;
+    const targetPath = resolveRepoPath(projectPath, repoPath);
 
     const result = this.installHooks(targetPath, config);
     result.repoPath = repoPath;
@@ -680,7 +704,7 @@ export class GitHooksService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    const targetPath = repoPath && repoPath !== '.' ? path.join(projectPath, repoPath) : projectPath;
+    const targetPath = resolveRepoPath(projectPath, repoPath);
 
     const result = this.uninstallHooks(targetPath, useHusky);
     result.repoPath = repoPath;

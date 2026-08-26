@@ -7,6 +7,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import { DetectionService } from '../services/detection.service.js';
+import { AssistantDetectionService } from '../services/detection/assistant-detection.service.js';
 import type { DetectionResult } from '../types.js';
 import { validateQuery } from '../middleware/validateRequest.js';
 import { resolveProjectPath } from '../utils/utilities.js';
@@ -19,6 +20,7 @@ import {
 
 export const detectionRoutes = Router();
 const detectionService = new DetectionService();
+const assistantDetectionService = new AssistantDetectionService();
 
 // Convert camelCase to snake_case for frontend compatibility
 function toSnakeCase(result: DetectionResult) {
@@ -108,5 +110,18 @@ detectionRoutes.get('/recommendations', validateQuery(RecommendationsRequestSche
     });
   } catch (err) {
     return res.status(500).json({ error: err instanceof Error ? err.message : 'Recommendations failed' });
+  }
+});
+
+// Detect which AI coding assistants the project already uses (for the wizard's
+// target pre-selection). Returns a bare array, matching the other detection
+// endpoints' response style.
+detectionRoutes.get('/detect-assistants', validateQuery(DetectRequestSchema), async (req: Request, res: Response) => {
+  try {
+    const projectPath = resolveProjectPath(req.query.path);
+    const assistants = await assistantDetectionService.detectAssistants(projectPath);
+    return res.json({ assistants });
+  } catch (err) {
+    return res.status(500).json({ error: err instanceof Error ? err.message : 'Assistant detection failed' });
   }
 });

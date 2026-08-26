@@ -17,6 +17,27 @@ counts and categorical metadata (which agent / skill / tool was used).
 
 ---
 
+## This panel counts tokens. It does not report money.
+
+Token counts are measured facts: the client reports what a call consumed.
+
+Cost is not. Dev-suite used to multiply those counts by a per-model price table
+compiled into `analytics.service.ts` and store the product on each record — so a
+figure invented from a list price was frozen into history, and went stale the
+moment Anthropic changed a rate. It *had* gone stale: the table still carried
+2025 prices.
+
+Real spend already has a real source. The **Usage** panel reads
+`token_cost_usd` / `total_cost_usd` from the Anthropic Admin API's cost report —
+amounts actually billed, per model and workspace. Use it for anything to do with
+money.
+
+The two cannot be merged: the Admin API bills per model and workspace, and does
+not attribute spend to an individual agent, skill or MCP tool, which is exactly
+the axis this panel groups by. Rather than approximate the gap, this panel
+reports the axis it can measure and points at the panel that knows the rest.
+
+
 ## What is tracked
 
 Each `TokenUsageEntry` contains:
@@ -31,7 +52,6 @@ Each `TokenUsageEntry` contains:
 | `sessionId` | Optional session grouping key |
 | `tokensInput` | Number of input tokens |
 | `tokensOutput` | Number of output tokens |
-| `costUsd` | Estimated cost in USD (see Pricing Assumptions) |
 | `model` | Model used: `haiku` | `sonnet` | `opus` |
 | `success` | Whether the call completed successfully |
 | `durationMs` | Wall-clock duration in milliseconds (optional) |
@@ -109,13 +129,12 @@ Content-Type: application/json
 }
 ```
 
-`costUsd` is optional — the server computes it from `model` and token counts if
-omitted.
+There is no cost field: the server records what it was told and nothing more.
 
 **curl example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/analytics/token-usage \
+curl -X POST http://localhost:3456/api/analytics/token-usage \
   -H "Content-Type: application/json" \
   -d '{
     "projectPath": "/home/user/my-project",
@@ -197,32 +216,15 @@ if (process.env.TOKEN_ANALYTICS_ENABLED === 'true') {
 
 ---
 
-## Pricing assumptions
-
-Cost estimates are **approximations** based on Anthropic public list prices as
-of mid-2025.  Actual costs depend on your plan, discounts, and model versions.
-
-| Model | Input (per 1M tokens) | Output (per 1M tokens) |
-|-------|-----------------------|------------------------|
-| Haiku | $0.25 | $1.25 |
-| Sonnet | $3.00 | $15.00 |
-| Opus | $15.00 | $75.00 |
-
-The dashboard shows a disclaimer beneath every cost figure.
-
-Unknown or unrecognised model names fall back to Sonnet pricing.
-
----
-
 ## Dashboard panel
 
 The **Token Analytics** tab in the dashboard (visible when dev-suite is
 installed) shows:
 
-- Summary cards: total tokens, estimated cost, call count
+- Summary cards: total tokens, average tokens per call, call count
 - Group-by tab bar: By Agent / By Skill / By MCP Tool / By Model
 - Time-range selector: Last 24h / Last 7d / Last 30d / All time
-- Top-10 bar chart with token counts, estimated costs, and call counts
+- Top-10 bar chart with token counts and call counts
 - Pricing disclaimer
 
 When the feature is disabled (no `TOKEN_ANALYTICS_ENABLED=true`) the panel

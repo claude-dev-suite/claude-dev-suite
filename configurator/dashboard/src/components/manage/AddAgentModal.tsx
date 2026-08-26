@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Agent } from '@/types';
 import { Modal, ModalFooter, Input, Checkbox, Card, Badge } from '../common';
 import { useComponentLogger } from '@/hooks/useComponentLogger';
+import { API_BASE } from '../../utils/api';
 
 export interface AddAgentModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export function AddAgentModal({
     if (isOpen) {
       const fetchAgents = async () => {
         try {
-          const res = await fetch('/api/agents');
+          const res = await fetch(`${API_BASE}/api/agents`);
           if (res.ok) {
             const data = await res.json();
             setAllAgents(data.agents || []);

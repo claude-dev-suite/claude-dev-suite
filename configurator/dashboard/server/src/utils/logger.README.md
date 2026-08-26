@@ -313,8 +313,11 @@ serverLogger.info('Authentication attempt', {
 
 ## Environment Variables
 
-- `LOG_LEVEL`: Set log level (error, warn, info, http, debug)
-- `LOG_DIR`: Override log directory (optional)
+- `LOG_LEVEL`: log level (error, warn, info, http, debug). Default `info`.
+
+The log directory is not configurable by environment variable — it is resolved per
+platform by `getLogDirectoryPath()` (see [Log Directory](#log-directory)). A `LOG_DIR`
+override was documented here for a while but was never implemented.
 
 ## Production Best Practices
 
@@ -406,6 +409,24 @@ console.log(getLogDirectoryPath());
 // Windows: C:\Users\user\AppData\Roaming\@dev-suite\dashboard\logs
 // Unix: /home/user/.dev-suite/dashboard/logs
 ```
+
+## Example Output
+
+A request against the health endpoint, at `LOG_LEVEL=http`:
+
+```bash
+curl http://localhost:3456/health
+```
+
+```
+2026-01-10 12:34:56 [http] [API] [a1b2c3d4]: -> GET /health
+  { "method": "GET", "url": "/health", "ip": "127.0.0.1" }
+2026-01-10 12:34:56 [http] [API] [a1b2c3d4]: <- 200 GET /health (12ms)
+  { "method": "GET", "url": "/health", "statusCode": 200, "responseTime": 12 }
+```
+
+The correlation id (`a1b2c3d4`) ties the two lines together and is propagated to every
+child logger created during the request — see [Request-Scoped Logging](#request-scoped-logging).
 
 ## TypeScript Types
 

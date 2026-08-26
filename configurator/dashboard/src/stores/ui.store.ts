@@ -57,12 +57,14 @@ export interface Toast {
   timestamp: number;
 }
 
+import { LAST_WIZARD_STEP } from '@/components/wizard/steps';
+
 interface UIState {
   // ============================================
   // STATE
   // ============================================
 
-  /** Current wizard step (1-5) */
+  /** Current wizard step (1..LAST_WIZARD_STEP) */
   currentStep: number;
 
   /** Current active panel */
@@ -219,12 +221,12 @@ const storeCreator: StateCreator<UIState, [['zustand/devtools', never]], []> = (
   // ============================================
 
       setStep: (step: number) =>
-        set({ currentStep: Math.max(1, Math.min(6, step)) }, false, 'setStep'),
+        set({ currentStep: Math.max(1, Math.min(LAST_WIZARD_STEP, step)) }, false, 'setStep'),
 
       nextStep: () =>
         set(
           (state) => ({
-            currentStep: Math.min(6, state.currentStep + 1),
+            currentStep: Math.min(LAST_WIZARD_STEP, state.currentStep + 1),
           }),
           false,
           'nextStep'

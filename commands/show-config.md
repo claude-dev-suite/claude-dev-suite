@@ -6,43 +6,56 @@ allowed-tools: Read, Glob
 
 # Show Configuration
 
-Display the current dev-suite configuration in a readable format.
+Display what dev-suite has installed in this project.
 
 ## Process
 
-1. Read `.dev-suite.json`
-2. Format and display:
-   - Project info
-   - Enabled stacks
-   - Active agents and their skills
-   - Documentation strategy
-   - Active hooks
-   - Enabled MCP servers
+1. Read `.dev-suite.json` — the installed selection
+2. Read `.dev-suite-manifest.json` — every file written, with its target assistant
+3. Read `AGENTS.md` — the generated routing section
+4. Present a summary
+
+## What each file actually contains
+
+`.dev-suite.json` records the selection and nothing else:
+
+```json
+{
+  "version": "1.12.0",
+  "installedAt": "2026-08-24T10:00:00.000Z",
+  "agents":     { "enabled": ["react-expert", "spring-boot-expert"] },
+  "mcpServers": { "enabled": ["documentation", "database-query"] },
+  "rules":      { "enabled": ["conventional-commits"] }
+}
+```
+
+There is no stack, path, hook or documentation-strategy information in it. The detected
+stack is not persisted — it is recomputed by the dashboard on each run.
+
+`.dev-suite-manifest.json` is the authoritative record of what was written: `files[]`
+(each with `path`, `hash`, `type`, `source` and the `target` assistant it belongs to),
+`agents[]`, `mcpServers[]`, `installedRuleFiles[]`, and the `availableAtInstall` catalog
+snapshot used to spot components added to dev-suite since the install.
 
 ## Output Format
 
 ```
-📦 Project: {name} ({type})
+Dev-suite {version}, installed {installedAt}
 
-🎨 Frontend
-   Framework: {framework} + {metaFramework}
-   Styling: {styling}
-   State: {stateManagement}
+Agents ({n})
+   - {agent} ...
 
-⚙️ Backend
-   Runtime: {runtime}
-   Framework: {framework}
-   API: {apiStyle}
+MCP servers ({n})
+   - {server} ...
 
-🗄️ Database
-   Type: {type}
-   ORM: {orm}
+Rules ({n})
+   - {rule} ...
 
-🤖 Active Agents
-   - {agent1} (skills: {skill1}, {skill2})
-   - {agent2} (skills: {skill3})
-
-📚 Documentation: {strategy}
-🪝 Hooks: format={formatOnSave}, lint={lintOnSave}
-🔌 MCP: {servers}
+Assistants configured: {targets from the manifest's files[].target}
+Files managed: {count}
 ```
+
+Take "assistants configured" from the manifest's `targets` array, which is authoritative.
+Do **not** derive it from the distinct `files[].target` values: that is lossy — Cline's only
+artefact is rule files, which are recorded in `installedRuleFiles`, so it never appears there
+at all.

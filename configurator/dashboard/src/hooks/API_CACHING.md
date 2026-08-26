@@ -29,7 +29,7 @@ const { data, loading, error } = useApi<Agent[]>('/api/agents');
 
 ```typescript
 // Disable caching for specific request
-const { data } = useApi('/api/config', { cache: false });
+const { data } = useApi('/api/config', { useCache: false });
 ```
 
 ### Custom Cache TTL
@@ -155,7 +155,7 @@ const { data: agents } = useApi<Agent[]>('/api/agents');
 
 ```typescript
 // Good: Real-time status updates
-const { data: status } = useApi('/api/status', { cache: false });
+const { data: status } = useApi('/api/status', { useCache: false });
 
 // Good: Frequently changing data
 const { data: jobs } = useApi('/api/jobs', {
@@ -218,15 +218,12 @@ const { data } = useApi('/api/frameworks', { cacheTtl: 300000 }); // 5 minutes
 
 ### Monitoring Cache Effectiveness
 
-Enable debug logging to see cache hits:
+Cache hits are logged at `debug` level. The frontend logger enables `debug` only in a
+development build (`import.meta.env.DEV`), so run `npm run dev` to see them — there is no
+runtime switch, and `localStorage.setItem('debug', '*')` has no effect here.
 
-```typescript
-// In browser console, enable debug logs
-localStorage.setItem('debug', '*');
-
-// You'll see messages like:
-// [useApi] Using cached response { endpoint: '/api/agents', cacheKey: 'GET:/api/agents:' }
-// [useApi] Cached response { endpoint: '/api/agents', cacheKey: 'GET:/api/agents:' }
+```bash
+cd configurator/dashboard && npm run dev
 ```
 
 ## Future Enhancements

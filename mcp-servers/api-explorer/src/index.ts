@@ -208,7 +208,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "detect_api_frameworks",
       description:
-        "Scan a directory to detect API frameworks and their OpenAPI endpoints. Useful for discovering APIs in a project or monorepo.",
+        "Scan a directory to detect API frameworks and their OpenAPI endpoints, including across a monorepo.",
       inputSchema: {
         type: "object",
         properties: {

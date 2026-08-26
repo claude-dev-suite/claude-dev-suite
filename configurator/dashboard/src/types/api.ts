@@ -206,6 +206,8 @@ export interface InstallRequest {
   mcpServers: string[];
   /** Environment variable values */
   envVars: Record<string, string>;
+  /** Assistants to generate configuration for (defaults to Claude Code) */
+  targets?: string[];
   /** Detected stack info */
   stack?: StackInfo;
 }
@@ -674,7 +676,6 @@ export interface TokenUsageEntry {
   sessionId?: string;
   tokensInput: number;
   tokensOutput: number;
-  costUsd?: number;
   model?: string;
   success: boolean;
   durationMs?: number;
@@ -686,7 +687,6 @@ export interface TokenUsageEntry {
 export interface TokenAggregatedRow {
   key: string;
   totalTokens: number;
-  totalCostUsd: number;
   callCount: number;
   avgTokensPerCall: number;
 }

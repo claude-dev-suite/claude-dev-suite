@@ -31,7 +31,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "execute_query",
       description:
-        "Execute a SELECT query on the database. Only SELECT queries are allowed for safety. Results are limited by default (1000 rows). Use limit/offset for pagination.",
+        "Execute a SELECT query (only SELECT is allowed). Returns at most 1000 rows; use limit/offset to page.",
       inputSchema: {
         type: "object",
         properties: {

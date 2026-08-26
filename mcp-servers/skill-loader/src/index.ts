@@ -160,7 +160,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             category: {
               type: "string",
               description:
-                "Filter by category (top-level skills directory, e.g. 'languages', 'frontend-frameworks', 'mobile'). Strongly recommended.",
+                "Filter by category: the top-level skills directory, e.g. 'languages' or 'mobile'. Strongly recommended.",
             },
             search: {
               type: "string",
@@ -183,7 +183,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             groupByCategory: {
               type: "boolean",
               description:
-                "If true, returns a compact summary grouped by category {category, skillCount, samplePaths[]} instead of a flat list. Use this first to discover what's available.",
+                "Return a compact per-category summary {category, skillCount, samplePaths} instead of a flat list.",
             },
           },
           additionalProperties: false,
@@ -192,9 +192,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "load_skill",
         description:
-          "Load the full SKILL.md body for a specific skill by its relative path " +
-          "(e.g. 'languages/kotlin' or 'frontend/react'). " +
-          "Returns the complete markdown content including frontmatter.",
+          "Load a skill's full SKILL.md by relative path (e.g. 'languages/kotlin'), frontmatter included.",
         inputSchema: {
           type: "object",
           properties: {
@@ -212,8 +210,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "load_quick_ref",
         description:
-          "Load a specific quick-reference file from a skill's quick-ref/ subdirectory " +
-          "(e.g. skill_path='languages/kotlin', ref='basics' loads skills/languages/kotlin/quick-ref/basics.md).",
+          "Load one quick-ref file from a skill, e.g. skill_path='languages/kotlin', ref='basics'.",
         inputSchema: {
           type: "object",
           properties: {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { LAST_WIZARD_STEP } from '@/components/wizard/steps';
 import { useUIStore } from '../ui.store';
 
 describe('UIStore', () => {
@@ -18,7 +19,7 @@ describe('UIStore', () => {
     expect(useUIStore.getState().currentStep).toBe(1);
 
     setStep(10); // Above max
-    expect(useUIStore.getState().currentStep).toBe(6);
+    expect(useUIStore.getState().currentStep).toBe(LAST_WIZARD_STEP);
   });
 
   it('should navigate steps', () => {
@@ -37,10 +38,10 @@ describe('UIStore', () => {
     prevStep();
     expect(useUIStore.getState().currentStep).toBe(1);
 
-    // Can't go above 6
-    setStep(6);
+    // Can't go above the last step
+    setStep(LAST_WIZARD_STEP);
     nextStep();
-    expect(useUIStore.getState().currentStep).toBe(6);
+    expect(useUIStore.getState().currentStep).toBe(LAST_WIZARD_STEP);
   });
 
   it('should switch panels', () => {

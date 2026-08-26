@@ -242,6 +242,24 @@ export interface LogContext {
 /**
  * Create a logger instance
  */
+/**
+ * Build the `time()` extension bound to a specific logger, so a child logger
+ * times against its own context rather than the parent's.
+ */
+function makeTimer(target: winston.Logger) {
+  return (operation: string, context: LogContext = {}) => {
+    const startTime = Date.now();
+    const operationId = uuidv4();
+
+    target.debug(`Starting: ${operation}`, { ...context, operationId });
+
+    return () => {
+      const duration = Date.now() - startTime;
+      target.debug(`Completed: ${operation}`, { ...context, operationId, duration });
+    };
+  };
+}
+
 function createLogger(defaultContext: LogContext = {}): Logger {
   const baseLogger = winston.createLogger({
     levels: LOG_LEVELS,
@@ -273,31 +291,37 @@ function createLogger(defaultContext: LogContext = {}): Logger {
   // Add custom methods
   const logger = baseLogger as Logger;
 
+  /**
+   * Derive a context-scoped logger that SHARES this logger's transports.
+   *
+   * This used to call `createLogger()`, which builds a fresh Console plus four
+   * DailyRotateFile transports and registers `process.on('uncaughtException')`
+   * handlers. `requestLogger` calls it once per HTTP request, so every request
+   * leaked four file handles and two process listeners — the process degraded
+   * steadily over a long session and eventually tripped the max-listeners
+   * warning. `winston.child()` reuses the parent's transports and only merges
+   * the extra default metadata, which is all a request-scoped logger ever needed.
+   */
   logger.createChildLogger = (context: LogContext): Logger => {
-    return createLogger({
-      ...defaultContext,
-      ...context,
-    });
+    const child = baseLogger.child({ ...context }) as Logger;
+
+    // `child()` keeps the extra bindings in a closure and merges them at write
+    // time, so the child inherits the *parent's* `defaultMeta` prototypally and
+    // callers inspecting it would not see their own context. Publish the merged
+    // view as an own property: it is what the child actually emits, and it
+    // shadows rather than mutates the parent's.
+    child.defaultMeta = { ...baseLogger.defaultMeta, ...context };
+
+    // `child()` returns a plain winston Logger; re-attach our extensions so a
+    // child behaves like any other dev-suite logger (including nesting).
+    child.createChildLogger = (nested: LogContext): Logger =>
+      logger.createChildLogger({ ...context, ...nested });
+    child.time = makeTimer(child);
+
+    return child;
   };
 
-  logger.time = (operation: string, context: LogContext = {}) => {
-    const startTime = Date.now();
-    const operationId = uuidv4();
-
-    logger.debug(`Starting: ${operation}`, {
-      ...context,
-      operationId,
-    });
-
-    return () => {
-      const duration = Date.now() - startTime;
-      logger.debug(`Completed: ${operation}`, {
-        ...context,
-        operationId,
-        duration,
-      });
-    };
-  };
+  logger.time = makeTimer(logger);
 
   return logger;
 }

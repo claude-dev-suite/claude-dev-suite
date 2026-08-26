@@ -73,3 +73,45 @@ describe("resolveKbDir", () => {
     expect(resolveKbDir(undefined, "react")).toBe("react");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-08 audit, Tier 3 #25 — path traversal through the fallback branch.
+//
+// `isSafeSegment` was applied only to the `local` path from the docs index.
+// When the index missed, the raw `technology`/`topic` tool arguments — both
+// unconstrained `z.string()` — were returned verbatim and reached `path.join`
+// downstream.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("resolveKbCoords — traversal through the fallback", () => {
+  it.each(["../../etc", "..", ".", "a/b", "a\b"])(
+    "rejects an unsafe technology %j",
+    (technology) => {
+      expect(() => resolveKbCoords(undefined, technology, "overview")).toThrow(
+        /Invalid technology/i
+      );
+    }
+  );
+
+  it.each(["../../../../etc/passwd", "..", ".", "x/y"])(
+    "rejects an unsafe topic %j",
+    (topic) => {
+      expect(() => resolveKbCoords(undefined, "react", topic)).toThrow(/Invalid topic/i);
+    }
+  );
+
+  it("still accepts ordinary keys", () => {
+    expect(resolveKbCoords(undefined, "react", "hooks")).toEqual({
+      dir: "react",
+      topicStem: "hooks",
+    });
+  });
+
+  it("allows an empty topic, which resolveKbDir relies on", () => {
+    expect(resolveKbDir(undefined, "react")).toBe("react");
+  });
+
+  it("rejects an unsafe technology through resolveKbDir too", () => {
+    expect(() => resolveKbDir(undefined, "../../etc")).toThrow(/Invalid technology/i);
+  });
+});

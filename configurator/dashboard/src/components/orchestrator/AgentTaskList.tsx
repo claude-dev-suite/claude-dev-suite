@@ -4,6 +4,7 @@ import type { Agent } from '@/types';
 import { Button, Select, Input, Card } from '../common';
 import type { SubTask } from './OrchestratorPanel';
 import clsx from 'clsx';
+import { API_BASE } from '../../utils/api';
 
 export interface AgentTaskListProps {
   tasks: SubTask[];
@@ -26,7 +27,7 @@ export function AgentTaskList({ tasks, onAdd, onRemove, onReorder, onEdit }: Age
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const res = await fetch('/api/agents');
+        const res = await fetch(`${API_BASE}/api/agents`);
         if (res.ok) {
           const data = await res.json();
           setAgents(data.agents || []);

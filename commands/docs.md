@@ -1,7 +1,7 @@
 ---
 name: docs
 description: Search and fetch documentation for a specific technology
-allowed-tools: Read, Glob, Grep, mcp__documentation__fetch_docs, mcp__documentation__search_docs
+allowed-tools: Read, Glob, Grep, mcp__documentation__fetch_docs, mcp__documentation__search_docs, mcp__documentation__list_topics, mcp__documentation__list_docs
 argument-hint: <technology> [topic]
 ---
 
@@ -18,7 +18,8 @@ Fetch documentation for a specific technology.
 ## Process
 
 1. If only technology provided:
-   - List available topics for that technology
+   - Call `list_topics` for that technology and show what is available
+   - If the technology is not indexed, call `list_docs` to show what is
    - Suggest common starting points
 
 2. If technology and topic provided:

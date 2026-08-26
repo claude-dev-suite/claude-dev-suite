@@ -18,6 +18,7 @@ import type {
   GeneratedSkill,
   RefDoc,
 } from '@/types/custom-agents';
+import { API_BASE } from '../../utils/api';
 
 export interface CustomAgentModalProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export function CustomAgentModal({
     try {
       const formData = new FormData();
       Array.from(files).slice(0, remaining).forEach((f) => formData.append('files', f));
-      const res = await fetch('/api/custom-agents/upload-docs', { method: 'POST', body: formData });
+      const res = await fetch(`${API_BASE}/api/custom-agents/upload-docs`, { method: 'POST', body: formData });
       const data = await res.json() as { success: boolean; files?: RefDoc[]; error?: string };
       if (data.success && data.files) {
         setReferenceDocs((prev) => [...prev, ...data.files!].slice(0, 5));

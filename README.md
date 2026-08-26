@@ -52,11 +52,28 @@ Dev-Suite transforms Claude Code into a full-stack development powerhouse by pro
 - **Custom Agents Builder** - Create and edit custom agents directly from the dashboard
 - **Recipes & Automations** - Pre-built automation workflows for common development tasks
 - **Hooks Management** - Configure Git hooks and Claude Code hooks from the dashboard
+- **Multi-Assistant Output** - Generate configuration for **Claude Code, GitHub Copilot, Cursor, Gemini CLI, Codex CLI, Cline, and Kimi Code** from a single install; agents and skills are shared, so several assistants coexist in one project
 - **Update System** - Version visibility (installed vs. available) plus a transactional Reinstall / Sync that re-aligns a project to the current source
 - **Analytics Dashboard** - Track knowledge base usage and correlate with executed jobs
-- **121+ Technologies** - On-demand documentation via Git-based knowledge base
+- **Broad Technology Coverage** - On-demand documentation via a Git-based knowledge base
 
 **Key Principle**: Dev-Suite is a **source repository** that initializes your projects. It lives alongside your projects and provides centralized resources that multiple projects can reference.
+
+---
+
+## Multi-Assistant Support
+
+Dev-Suite began as a Claude Code toolkit and still treats Claude Code as its home, but a single install can now generate configuration for **Claude Code, GitHub Copilot, Cursor, Gemini CLI, Codex CLI, Cline, and Kimi Code**. Pick the targets in the wizard's *Target Assistants* step (detected assistants are pre-selected).
+
+How it works:
+
+- **`AGENTS.md`** is the primary instructions file — the cross-assistant standard that Copilot, Cursor and others read natively. `CLAUDE.md` is generated only when Claude Code is a target, as a thin pointer that imports `AGENTS.md`.
+- **`.claude/agents/` and `.claude/skills/`** are shared infrastructure. Copilot and Cursor read them directly, so agents and skills are written once and available to every selected assistant.
+- **MCP config and path-scoped rules** are the only formats that differ per assistant, and are written in each one's own shape — `.vscode/mcp.json` + `.github/mcp.json` + `.github/instructions/` for Copilot, `.cursor/mcp.json` + `.cursor/rules/` for Cursor, `.mcp.json` + `.claude/rules/` for Claude Code. An MCP file that already exists is merged rather than replaced: dev-suite rewrites only its own server entries and leaves yours untouched. If the file cannot be parsed it is left alone entirely and reported as a skipped capability.
+
+Codex, Gemini and Kimi Code get `AGENTS.md` and the full skill set (mirrored to the cross-tool `.agents/skills` directory they read), plus MCP config in their own format — Gemini's `.gemini/settings.json`, Codex's `.codex/config.toml`, Kimi's `.kimi-code/mcp.json` — and native subagent files for Gemini (`.gemini/agents/`) and Kimi (`.kimi-code/agents/`). Cline reads `AGENTS.md` and the `.claude/skills` substrate directly and gets path-scoped rules in `.clinerules/`; it has no committable MCP config, so the install skips it rather than papering over it.
+
+Assistants without a glob mechanism (Codex, Gemini, Kimi) carry agent routing in `AGENTS.md` instead of path-scoped rules. The **Task Orchestrator** and dashboard chat remain Claude-only — they run on the Claude Agent SDK. Devin is planned; it is detected and surfaced in the wizard, but not yet configurable.
 
 ---
 
@@ -93,15 +110,13 @@ cd claude-dev-suite
 # Windows PowerShell
 .\init-project.ps1 C:\path\to\your-project
 
-# Quick mode (auto-detect + apply best preset)
-./init-project.sh /path/to/your-project --quick
 ```
 
 The script will:
 1. Check Node.js installation (v20+)
-2. Build MCP servers if needed (`npm install && npm run build`)
-3. Launch the web dashboard at `http://localhost:3456`
-4. Guide you through a 5-step wizard to configure your project
+2. Build the MCP servers, the dashboard server and the UI if they have never been built
+3. Launch the web dashboard at `http://localhost:3456` (first free port from 3456)
+4. Guide you through a 7-step wizard to configure your project
 
 ### 3. Restart Claude Code
 
@@ -129,7 +144,8 @@ The **Web Dashboard** (launched via `init-project.sh`) provides:
 - **Stack Detection**: Identifies React, Spring Boot, Android/Kotlin (Room, Compose), Unity (2D, URP, HDRP, DOTS, Netcode, XR, Addressables, Cinemachine, Input System), PostgreSQL, Git provider, and more
 - **Agent Selection**: Pre-selects agents based on detected technologies
 - **MCP Selection**: Pre-selects MCP servers with environment variable configuration
-- **One-Click Install**: Generates all config files (`.mcp.json`, `.dev-suite.json`, `CLAUDE.md`)
+- **Target Assistants**: Choose which assistants to configure (Claude Code, GitHub Copilot, Cursor, Gemini CLI, Codex CLI, Cline, Kimi Code); detected ones are pre-selected
+- **One-Click Install**: Generates all config files — shared `AGENTS.md` + `.claude/` agents/skills, plus each selected assistant's own MCP config and rules
 
 #### **Task Orchestrator** 🔥 NEW
 
@@ -207,7 +223,7 @@ Specialized MCP servers extend Claude Code with powerful tools:
 
 | Server | Tools | Description |
 |--------|-------|-------------|
-| **documentation** | 4 | Fetch docs for 121+ technologies via Git-based KB |
+| **documentation** | 5 | Fetch docs via the Git-based KB; `list_docs` enumerates what is indexed |
 | **database-query** | 9 | SQL queries, schema inspection, migrations |
 | **docker-manager** | 8 | Containers, images, Compose services |
 | **api-tester** | 6 | HTTP requests, collection import, mock servers |
@@ -225,103 +241,19 @@ See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 
 ### Specialized Agents
 
-Domain experts with deep knowledge in specific technologies:
+Domain experts with deep knowledge in specific technologies. Dev-suite ships agents for
+frontend and backend frameworks, databases, testing, DevOps and cloud, mobile (including
+Kotlin Multiplatform and native Android/iOS), data engineering and RAG, security, game
+development, industrial automation (DCS/PLC), Bitcoin and Lightning, and Claude Code
+extension authoring.
 
-Specialized agents organized by domain:
+Each agent declares its own skills, its MCP servers, and the model it runs on. The
+wizard pre-selects the ones your detected stack needs; nothing is installed that you
+did not pick.
 
-#### Core Agents
-- **architect** - Multi-domain system design & trade-offs across web/enterprise, low-level/systems (OS & kernels, embedded/RTOS, systems networking, storage engines, distributed consensus, virtualization, hardware-aware), AI-integrated systems (edge, serving topology, hybrid, gateways, agentic), and data-intensive platforms — discovers and loads the relevant domain skills on demand
-- **code-reviewer** - Code quality, best practices, refactoring
-- **python-expert** - Python 3.10-3.14, async patterns, package management, ruff, pydantic
-- **typescript-expert** - TypeScript 5, advanced types, strict configuration
-- **nodejs-expert** - Event loop, async patterns, streams, worker threads
-- **accessibility-expert** - WCAG 2.2 compliance, ARIA patterns, screen reader compatibility, accessibility testing
-- **dashboard-refactor-expert** - Dashboard React/TypeScript refactoring
-- **claude-code-extension-expert** - Claude Code extensions, skills, hooks, MCP plugins
-- **documentation-expert** - JSDoc, TSDoc, API documentation generation
-
-#### Frontend Agents
-- **react-expert** - React 19, hooks, performance optimization
-- **nextjs-expert** - App Router, RSC, Server Actions, caching
-- **vue-expert** - Vue 3, Composition API, Pinia
-- **svelte-expert** - Svelte 5, SvelteKit, stores
-- **angular-expert** - Angular 17+, signals, standalone components, SSR
-- **electron-expert** - Cross-platform desktop apps, main/renderer process, IPC, auto-updates
-- **tauri-expert** - Tauri desktop apps with Rust backend, IPC, plugins, code signing
-- **ux-expert** - UX/UI design, visual hierarchy, design systems, interaction design, mobile UX, dark mode
-- **creative-frontend-expert** - Advanced animation (Framer Motion, GSAP), Three.js/R3F, SVG animation, Canvas/WebGL, advanced CSS effects
-
-#### Backend Agents
-- **spring-boot-expert** - Spring Boot 3, JPA, Security, REST APIs
-- **nestjs-expert** - Modules, guards, pipes, Prisma integration
-- **fastapi-expert** - Python async, Pydantic, SQLAlchemy
-- **streamlit-expert** - Streamlit Python web apps, session state, caching, multipage
-- **rust-expert** - Actix-web, Axum, Rocket, Warp
-- **go-expert** - Gin, Fiber, Echo, Chi
-- **deno-expert** - Fresh, Oak, TypeScript-first runtime
-- **dotnet-expert** - ASP.NET Core 8+, Entity Framework Core, Blazor, SignalR
-- **cpp-expert** - Modern C++ (C++17/20/23), CMake, Google Test, clang-tidy, sanitizers
-- **windows-driver-expert** - Windows kernel & user-mode drivers (KMDF/UMDF), HID filters, Indirect Display Drivers, WinDbg, driver signing
-
-#### Data Agents
-- **data-engineering-expert** - pandas, openpyxl, lxml, bulk data pipelines, Excel/XML/CSV, UTF-16 file formats
-- **rag-expert** - Retrieval-Augmented Generation end-to-end: chunking, embeddings, vector stores (Pinecone/Weaviate/Qdrant/pgvector/ES), hybrid search, reranking, agentic RAG (Self-RAG/CRAG), graph RAG, multimodal RAG, evaluation (RAGAS/DeepEval), guardrails, LangChain/LlamaIndex/Haystack/DSPy
-
-#### Industrial Agents
-- **dcs-analyst** - ABB Freelance PRT/DMF/CSV file analysis, tag extraction, DCS reverse engineering
-- **freelance-engineer** - ABB Freelance engineering file generation, PRT/DMF bulk templating
-- **automation-architect** - DCS/PLC automation pipeline design, cross-platform strategies (ABB, Siemens, Emerson, Honeywell)
-- **membrane-expert** - Reverse Osmosis and EDI process expertise for water treatment, desalination, ultrapure water, and pharma WFI (ASTM D4516 KPI normalization, fouling/scaling diagnostics, CIP planning, SEC/LCOW economics, regulatory citations)
-
-#### Database Agents
-- **prisma-expert** - Schema design, queries, migrations
-- **sql-expert** - PostgreSQL, MySQL, query optimization
-- **mongodb-expert** - Document modeling, aggregations, Spring Data MongoDB
-
-#### Testing Agents
-- **vitest-expert** - Unit testing, mocking, coverage
-- **playwright-expert** - E2E testing, locators, assertions
-- **spring-boot-integration-test-expert** - @SpringBootTest, Testcontainers
-- **python-integration-test-expert** - pytest, testcontainers-python, pytest-django, FastAPI TestClient, factory_boy, Celery, Pact
-- **smoke-test-expert** - Post-implementation verification, live HTTP testing, fix orchestration
-- **qa-expert** - Test strategy, quality assurance
-
-#### Infrastructure & Security
-- **docker-expert** - Containerization, Compose, best practices
-- **devops-expert** - CI/CD, GitHub Actions, deployment
-- **security-expert** - OWASP, authentication, authorization
-
-#### Quality & Open Source
-- **integration-validator-expert** - API contract validation, frontend-backend alignment
-- **open-source-expert** - OSS readiness, licensing, community health, compliance
-
-#### Cloud & Mobile Agents
-- **cloud-expert** - AWS, Azure, GCP, Terraform, serverless, API gateway, service mesh
-- **mobile-expert** - React Native, Flutter, Expo, push notifications, payments
-- **kmp-expert** - Kotlin Multiplatform + Compose Multiplatform across Android/iOS/Desktop/Wasm, Rust ↔ Kotlin/Swift bindings via UniFFI (incl. KMP fork), Gradle KMP, expect/actual, StateFlow + Voyager/Decompose + Koin, Bitcoin libs via UniFFI (BDK, LDK Node, LWK, CDK, Breez SDK Liquid)
-- **android-native-expert** - Native Android with Jetpack Compose, Kotlin, Material 3 / Material You, Navigation Compose 2.8 type-safe routes, Hilt DI, Android Keystore + BiometricPrompt with crypto-object binding, EncryptedSharedPreferences, WorkManager (Hilt-injected), Foreground Services with Android 14+ types, NFC (NDEF/IsoDep/HCE), Universal/App Links, FileProvider, ProGuard/R8, Network Security Config + cert pinning, SQLCipher with Keystore-derived key
-- **ios-native-expert** - Native iOS with SwiftUI 6.x + @Observable, Swift Concurrency, NavigationStack/SplitView with type-safe routes, Keychain Services with biometric SAC (.biometryCurrentSet), Secure Enclave P-256 keys, BGTaskScheduler app refresh + processing, Universal Links + custom URI schemes, App Groups, Share Extensions, Privacy Manifest (PrivacyInfo.xcprivacy), StoreKit 2, GRDB + SQLCipher, age + age-plugin-se for SEP-bound encrypted backups
-
-#### Game Development Agents
-- **unity-expert** - Unity 6 (2D and 3D), C#, MonoBehaviour lifecycle, ScriptableObjects, URP/HDRP, Shader Graph, Input System, UI Toolkit, Cinemachine, Addressables, DOTS/ECS, Netcode for GameObjects, AR Foundation, XR Interaction Toolkit, Sprite Atlas v2, Tilemap, 2D Animation, 2D Lights, Pixel Perfect Camera, platformer character controllers (coyote time, jump buffer)
-
-**Engine-agnostic 2D art skills** (cross-loaded onto unity-expert today, ready for future godot-expert / phaser-expert): tile design (autotiling Wang/blob, hex/iso grids, terrain blending, 9-slice), pixel art fundamentals (anti-aliasing rules, dithering patterns, outline philosophy, pixel hinting), palettes (color theory, restricted palettes from PICO-8 to AAP-64, hue shifting, palette swaps), seamless textures (offset-paint, normal map authoring, repetition reduction), animation frames (walk cycles, attack anticipation, frame counts, sub-pixel motion), tools (Aseprite, Tiled, LDtk, Tilesetter, Pixelorama, Spine, TexturePacker, Sprite Lamp), 2D lighting art (workflow for 2D Lights, normal maps, emissive layers, day/night), VFX (smoke/fire/water/electricity frame patterns, hitstop, screen shake, juice principles), environment design (parallax planning, atmospheric perspective, environmental storytelling), character design (silhouette-first, expressions in low-res, faction visual language).
-
-#### Bitcoin / Lightning / L2 Agents
-- **bitcoin-protocol-expert** - Consensus, transactions, scripts (P2PK→P2TR+Tapscript), SegWit, Taproot, PSBT, descriptors, Miniscript, P2P (BIP155/152/157/158/324), package relay (BIP331), TRUC v3 (BIP431), message signing (BIP137/322), proposals (CTV/APO/OP_VAULT/CAT/drivechains), cryptography (secp256k1, Schnorr BIP340, MuSig2 BIP327, FROST, adaptor sigs, DLCs), metaprotocols (Ordinals/Inscriptions/BRC-20/Runes/Atomicals)
-- **bitcoin-core-expert** - bitcoin.conf, JSON-RPC, REST, ZMQ notifications, indexes (txindex/blockfilterindex/coinstatsindex), pruning, descriptors wallet, signet, Tor/I2P/CJDNS, Guix reproducible builds, Bitcoin Knots, integration with Electrs/Fulcrum/Esplora/mempool.space/BTCPay, self-hosted node distros (Umbrel/Start9/RaspiBlitz/MyNode/Citadel)
-- **lightning-expert** - All BOLT specs, channel state machines, HTLCs, onion routing (Sphinx), gossip, watchtowers, splicing, taproot channels, LND/CLN/LDK/Eclair/Greenlight/phoenixd, BOLT12 offers, LNURL, Lightning Address, LSP (BLIPs), WebLN, NWC (NIP-47), UMA, trampoline, MPP/AMP, Loop/Pool/Lit, submarine swaps (Boltz), security (replacement cycling, channel jamming, pinning), Taproot Assets / RGB on Lightning, consumer wallets (Phoenix, Mutiny, Breez, Zeus, Aqua, BlueWallet)
-- **bitcoin-wallet-expert** - HD wallets (BIP32/39/44/49/84/86), output descriptors, PSBT signing flows (BIP174/370/371), multisig coordination, time-locked vaults (CSV, OP_VAULT), coin selection (BnB / SRD / waste metric), fee estimation, RBF/CPFP, hardware wallet integration (Trezor, Ledger, Coldcard, BitBox02, Jade, Passport, SeedSigner, Krux, Keystone, Specter DIY, HWI), privacy (CoinJoin / PayJoin / Silent Payments BIP352 / BIP47 PayNyms), payment standards (BIP21, BIP329, BIP85, SLIP-39, SeedQR)
-- **bitcoin-testing-expert** - regtest, signet (incl. Mutinynet 30s blocks for fast LN dev), Polar (LN regtest GUI), Nigiri (full stack regtest with Esplora), Bitcoin Core's Python functional test framework, fuzzing (libFuzzer + cargo-fuzz on rust-bitcoin/bdk/secp256k1), property-based testing (proptest, hypothesis)
-
-L2 / metaprotocols / mining / hardware / infrastructure / library knowledge is delivered via skills loaded onto the appropriate agents (Bitcoin domain agents OR language-experts via detection). Covers: ARK/ARKADE, Spark (Lightspark), Liquid, Taproot Assets, RGB, Stacks, Rootstock, Fedimint, Cashu, Citrea, Strata, BSquared, Bitlayer, Merlin, Botanix, BOB, Hemi, MAP, Babylon, BitVM/BitVM2/BitVM3, threshold-tBTC, drivechains/spacechains; Ordinals/Inscriptions/BRC-20/Runes/Atomicals; Stratum V1/V2 + decentralized pools; major HW vendors + DIY signers; Electrs/Fulcrum/Esplora/mempool.space/BTCPay/Specter/Sparrow; libraries across Rust (rust-bitcoin, BDK, LDK, miniscript, rust-dlc), TypeScript (bitcoinjs-lib, @scure/btc-signer, mempool.js, bcoin), Python (python-bitcoinlib, embit, BDK-Python, bitcoinlib, hdwallet), Go (btcd, btcsuite, lnd, tapd), JVM (bitcoinj, bdk-jvm), .NET (NBitcoin), C (libsecp256k1, libwally, libbitcoin).
-
-#### Messaging & Performance
-- **messaging-expert** - Kafka, RabbitMQ, NATS, SQS, event-driven architecture
-- **performance-expert** - Profiling, optimization, bottlenecks
-- **log-analyst** - Log analysis, debugging, observability
-
-See [Agents Reference](#agents-reference) for trigger keywords and skills.
+See the [Agents Reference](#agents-reference) below for the full list with models and
+MCP servers, or [docs/AGENT-CAPABILITY-MATRIX.md](docs/AGENT-CAPABILITY-MATRIX.md) for
+per-agent skills. Both are generated from agent frontmatter, so they cannot drift.
 
 ---
 
@@ -345,7 +277,7 @@ Skills organized by category:
 
 #### Knowledge Base Architecture
 
-The knowledge base provides **on-demand documentation for 121+ technologies** via a separate Git repository: [github.com/claude-dev-suite/knowledge_base](https://github.com/claude-dev-suite/knowledge_base)
+The knowledge base provides **on-demand documentation** via a separate Git repository: [github.com/claude-dev-suite/knowledge_base](https://github.com/claude-dev-suite/knowledge_base)
 
 **How it works**:
 
@@ -370,7 +302,7 @@ Agent needs docs → documentation MCP → Git sparse checkout → Cache (2h TTL
 │  Each references KB docs for deep dives     │  Loaded on demand by agent
 ├─────────────────────────────────────────────┤
 │  Layer 3: Knowledge Base (Git repo)         │  Full documentation
-│  121+ technologies, fetched via MCP server  │  On-demand, cached 2 hours
+│  Fetched on demand via the MCP server       │  Cached for 2 hours
 └─────────────────────────────────────────────┘
 ```
 
@@ -489,8 +421,8 @@ Pre-built installers for every tagged release are published on the [GitHub Relea
 | Windows  | x64          | `Dev-Suite-Dashboard-Setup-x.y.z.exe` | NSIS installer |
 | macOS    | Apple Silicon | `Dev-Suite-Dashboard-x.y.z-arm64.dmg` | M1 / M2 / M3 / M4 |
 | macOS    | Intel         | `Dev-Suite-Dashboard-x.y.z-x64.dmg`  | 2019 and earlier |
-| Linux    | x64          | `Dev-Suite-Dashboard-x.y.z.AppImage` | Portable, all distros (incl. Fedora / RHEL) |
-| Linux    | x64          | `dev-suite-dashboard_x.y.z_amd64.deb` | Debian / Ubuntu / Mint |
+| Linux    | x64          | `dev-suite-dashboard-x.y.z-x64.AppImage` | Portable, all distros (incl. Fedora / RHEL) |
+| Linux    | x64          | `dev-suite-dashboard-x.y.z-x64.deb` | Debian / Ubuntu / Mint |
 
 > Installers are currently **unsigned**. The OS will show a warning on first launch — see the per-platform instructions below.
 
@@ -516,19 +448,19 @@ Pre-built installers for every tagged release are published on the [GitHub Relea
 #### Linux — AppImage (portable, all distros)
 
 ```bash
-chmod +x Dev-Suite-Dashboard-*.AppImage
-./Dev-Suite-Dashboard-*.AppImage
+chmod +x dev-suite-dashboard-*.AppImage
+./dev-suite-dashboard-*.AppImage
 ```
 
 If the AppImage refuses to run on a system without FUSE 2 (Ubuntu 22.04+, Fedora 38+), install it with `sudo apt install libfuse2` or extract and run instead:
 ```bash
-./Dev-Suite-Dashboard-*.AppImage --appimage-extract-and-run
+./dev-suite-dashboard-*.AppImage --appimage-extract-and-run
 ```
 
 #### Linux — Debian / Ubuntu / Mint (`.deb`)
 
 ```bash
-sudo dpkg -i dev-suite-dashboard_*_amd64.deb
+sudo dpkg -i dev-suite-dashboard-*-x64.deb
 sudo apt-get install -f   # only if dpkg reports missing dependencies
 ```
 
@@ -550,28 +482,30 @@ The desktop app checks GitHub Releases at startup and every 4 hours. When a new 
 ./init-project.sh /path/to/project
 ```
 
-Launches web dashboard at `http://localhost:3456` with 5-step wizard:
+Launches web dashboard at `http://localhost:3456` with a 7-step wizard:
 1. **Detection** - Auto-detect stack, databases, Git provider
 2. **Agents** - Select specialized experts (pre-selected based on stack)
 3. **MCP Servers** - Select tools (pre-selected based on stack)
 4. **Environment** - Configure database URLs, API tokens
-5. **Install** - Generate config files and copy components
+5. **Rules** - Pick project rule templates
+6. **Assistants** - Choose which AI assistants to configure (detected ones pre-selected)
+7. **Install** - Generate config files and copy components
 
-### Quick Mode
+The launcher takes a project path and nothing else; it builds the dashboard on first run.
+
+### Headless Reinstall / Sync
+
+The wizard is the only way to do a first install. Re-aligning a project that already has
+dev-suite installed can run without a UI:
 
 ```bash
-./init-project.sh /path/to/project --quick
+cd configurator/dashboard/server
+npm run reinstall -- --project /path/to/project --dry-run
+npm run reinstall -- --project /path/to/project --yes
 ```
 
-Auto-detects stack and applies best-matching preset with minimal prompts.
-
-### Non-Interactive Mode
-
-```bash
-./init-project.sh /path/to/project --non-interactive --project-type fullstack
-```
-
-Uses detected values or defaults, no user input required.
+`--dry-run` prints the plan and exits. `--keep <relPath>` preserves a locally modified managed
+file, `--no-backup` skips the safety backup, and `--json` emits a machine-readable report.
 
 ---
 
@@ -658,81 +592,63 @@ To scaffold a new project from a template:
 
 ### Generated Files
 
-After initialization, your project will contain:
+What an install writes depends on which assistants you selected. These are always written:
 
 ```
 your-project/
-├── .mcp.json                    # MCP server configuration
+├── AGENTS.md                    # Agent routing (auto-generated, the cross-assistant standard)
 ├── .dev-suite.json              # Stack and component configuration
-├── CLAUDE.md                    # Agent routing rules (auto-generated)
+├── .dev-suite-manifest.json     # Every file dev-suite wrote, with hashes — drives sync/uninstall
 ├── .claude/
-│   ├── agents/                  # Selected specialized agents
-│   ├── skills/                  # Related skills
-│   └── commands/                # Slash commands (/init-project, /docs, etc.)
-└── .mcp-servers/                # Installed MCP servers (built from dev-suite)
+│   ├── agents/                  # Selected agents (shared substrate: Copilot and Cursor read it too)
+│   └── skills/                  # Their skills
+└── .mcp-servers/                # Installed MCP servers, built from dev-suite
     ├── documentation/
     ├── database-query/
     └── ...
 ```
 
+Then one set per selected assistant:
+
+| Assistant | Files written |
+|-----------|---------------|
+| **Claude Code** | `CLAUDE.md` (imports `AGENTS.md`), `.mcp.json`, `.claude/rules/*.md`, `.claude/commands/*.md`, `.claude/settings.json` |
+| **GitHub Copilot** | `.vscode/mcp.json` (VS Code) + `.github/mcp.json` (CLI), `.github/instructions/*.instructions.md` |
+| **Cursor** | `.cursor/mcp.json`, `.cursor/rules/*.mdc` |
+| **Gemini CLI** | `.gemini/settings.json`, `.gemini/agents/*.md`, `.agents/skills/` mirror |
+| **Codex CLI** | `.codex/config.toml` (`[mcp_servers.*]` merged in), `.agents/skills/` mirror |
+| **Cline** | `.clinerules/*.md` (reads `AGENTS.md` and `.claude/skills` directly) |
+| **Kimi Code** | `.kimi-code/mcp.json`, `.kimi-code/agents/*.md`, `.agents/skills/` mirror |
+
+`CLAUDE.md` and `.mcp.json` appear only when Claude Code is one of the targets — they are not
+written for a Copilot-only or Cursor-only install. Slash commands are Claude-Code-only: no other
+assistant reads `.claude/commands`.
+
 ### `.dev-suite.json` Example
+
+`.dev-suite.json` records the installed selection — nothing more. The detected stack is
+recomputed by the dashboard each run and is deliberately not persisted here.
 
 ```json
 {
-  "version": "1.0.0",
-  "project": {
-    "name": "my-app",
-    "type": "fullstack",
-    "isMonorepo": false
-  },
-  "mcpServers": [
-    "documentation",
-    "database-query",
-    "docker-manager",
-    "api-tester",
-    "dashboard-bridge"
-  ],
-  "stacks": {
-    "frontend": {
-      "framework": "react",
-      "metaFramework": "nextjs",
-      "styling": "tailwindcss",
-      "stateManagement": "zustand+tanstack-query"
-    },
-    "backend": {
-      "runtime": "nodejs",
-      "framework": "nestjs",
-      "apiStyle": "rest"
-    },
-    "database": {
-      "type": "postgresql",
-      "orm": "prisma"
-    },
-    "testing": {
-      "unit": "vitest",
-      "e2e": "playwright"
-    }
-  },
-  "git": {
-    "provider": "github",
-    "repository": "https://github.com/owner/my-app",
-    "tokenEnvVar": "GITHUB_TOKEN"
-  },
+  "version": "1.12.0",
+  "installedAt": "2026-08-24T10:00:00.000Z",
   "agents": {
-    "enabled": [
-      "architect",
-      "code-reviewer",
-      "react-expert",
-      "nextjs-expert",
-      "nestjs-expert",
-      "prisma-expert",
-      "vitest-expert",
-      "playwright-expert",
-      "docker-expert"
-    ]
+    "enabled": ["architect", "react-expert", "nestjs-expert", "prisma-expert"]
+  },
+  "mcpServers": {
+    "enabled": ["documentation", "database-query", "api-tester"]
+  },
+  "rules": {
+    "enabled": ["conventional-commits", "semver"]
   }
 }
 ```
+
+For the full record of what was written — every file with its hash and the assistant it
+belongs to, plus the catalog snapshot used to detect newly available components — see
+`.dev-suite-manifest.json`.
+
 
 ### Environment Variables
 
@@ -759,7 +675,7 @@ KB_CACHE_TTL=7200
 
 ### Documentation Server
 
-Fetch on-demand documentation for 121+ technologies via Git-based knowledge base.
+Fetch on-demand documentation via the Git-based knowledge base. Call `list_docs` to see everything indexed.
 
 **Tools**:
 - `fetch_docs({ technology, topic, source?, refresh? })` - Get documentation for a topic
@@ -836,7 +752,10 @@ Explore OpenAPI/Swagger schemas and endpoints.
 - `search_api({ query, alias?, searchIn?, limit? })` - Search across specs
 - `detect_api_frameworks({ path?, maxDepth?, includeConfidence? })` - Detect API frameworks
 
-**Configuration**: API endpoints configured via `.dev-suite.json` or auto-detected from OpenAPI specs.
+**Configuration**: set `API_EXPLORER_ENDPOINTS` to a JSON array of endpoints, e.g.
+`[{"alias":"api","url":"http://localhost:8080/v3/api-docs"}]`. The wizard prompts for it when you
+select this server. Without the variable the server starts but reports no configured endpoints;
+`detect_api_frameworks` still scans a directory on demand.
 
 ---
 
@@ -935,120 +854,162 @@ Control the dashboard and orchestrator from Claude Code.
 
 ## Agents Reference
 
-### Core Agents
+<!-- BEGIN GENERATED: agents-reference -->
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **architect** | architecture, design, scalability, trade-offs, systems, AI, data | clean-code, solid-principles (core) + web/enterprise, `systems/*`, `ai-systems/*` on demand | documentation, api-explorer, skill-loader |
-| **code-reviewer** | review, code quality, refactor, best practices | clean-code | code-quality |
-| **typescript-expert** | TypeScript, types, generics | typescript | documentation |
-| **nodejs-expert** | Node.js, npm, modules | nodejs | documentation |
-| **documentation-expert** | JSDoc, TSDoc, API docs, README | tsdoc, jsdoc | documentation |
-| **python-expert** | Python, async, typing, uv, poetry | python | documentation |
-| **accessibility-expert** | a11y, WCAG, ARIA, keyboard navigation | wcag | documentation |
-| **log-analyst** | logs, debugging, errors, stack traces | logging | log-analyzer |
-| **performance-expert** | performance, profiling, optimization, bottleneck | performance | performance-profiler |
+Dev-suite ships **66 agents** across **15 categories**. Claude Code routes
+to them automatically from the generated `AGENTS.md`; you can also call one by name.
 
-### Frontend Agents
+Skill assignments are omitted here because most agents carry dozens — see
+[docs/AGENT-CAPABILITY-MATRIX.md](docs/AGENT-CAPABILITY-MATRIX.md) for the full
+per-agent skill and MCP breakdown. Both files are generated from agent frontmatter.
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **react-expert** | React, components, hooks, JSX | react, tanstack-query, zustand | documentation, code-quality |
-| **nextjs-expert** | Next.js, App Router, Server Components | nextjs | documentation |
-| **vue-expert** | Vue, Composition API, Pinia | vue, nuxt | documentation |
-| **svelte-expert** | Svelte, SvelteKit, stores | svelte, sveltekit | documentation |
-| **electron-expert** | Electron, desktop apps | electron | documentation |
-| **tauri-expert** | Tauri, Rust desktop apps | tauri | documentation |
-| **angular-expert** | Angular, signals, standalone, SSR, NgRx | angular, angular-routing, angular-forms, angular-http, angular-testing, angular-material, angular-ssr, ngrx, typescript | documentation |
-| **ux-expert** | UX/UI design, visual hierarchy, typography, color systems, design tokens, dark mode, interaction design, mobile UX, form UX, loading states, ethical design | ux-visual-hierarchy, ux-design-systems, ux-interaction-design, tailwindcss, shadcn-ui, wcag | documentation |
-| **creative-frontend-expert** | Advanced animation, Framer Motion, GSAP + ScrollTrigger, Three.js, React Three Fiber, SVG animation, Canvas 2D, WebGL, CSS clip-path/masks/scroll-driven/Houdini | framer-motion, gsap, three-js, svg-animation, canvas-webgl, advanced-css-effects | documentation |
+### Core
 
-### Backend Agents
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **accessibility-expert** | sonnet | Web accessibility expert | `documentation` |
+| **architect** | sonnet | Software architect for system design across domains — not just web/enterprise | `api-explorer`, `documentation` |
+| **claude-code-extension-expert** | sonnet | Creates and improves Claude Code extensions: skills, agents, hooks, MCP servers, and plugins | — |
+| **code-reviewer** | sonnet | Code review expert for quality, security, and best practices | `code-quality`, `documentation` |
+| **dashboard-refactor-expert** | default | Expert in rewriting the configurator dashboard | `code-quality`, `documentation` |
+| **documentation-expert** | haiku | Technical documentation expert | `documentation` |
+| **log-analyst** | haiku | Log analysis specialist for Spring Boot, Node.js, and Python applications | `documentation`, `log-analyzer` |
+| **nodejs-expert** | sonnet | Node.js runtime expert | `documentation`, `log-analyzer`, `performance-profiler` |
+| **performance-expert** | sonnet | Performance analysis specialist for Node.js, Java, and Python applications | `documentation`, `performance-profiler` |
+| **python-expert** | sonnet | Python language expert (3.10-3.14) | `documentation` |
+| **typescript-expert** | sonnet | TypeScript language expert | `code-quality`, `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **spring-boot-expert** | Spring Boot, @Entity, @Controller, @Service | spring-boot, spring-data-jpa, spring-security | documentation, api-tester |
-| **nestjs-expert** | NestJS, modules, guards, pipes | nestjs, prisma | documentation, api-tester |
-| **fastapi-expert** | FastAPI, Pydantic, async Python | fastapi, sqlalchemy | documentation, api-tester |
-| **rust-expert** | Rust, Actix-web, Axum, Rocket, Warp | rust, actix-web, axum | documentation |
-| **go-expert** | Go, Gin, Fiber, Echo, Chi | go, gin, fiber | documentation |
-| **deno-expert** | Deno, Fresh, Oak | deno, fresh | documentation |
-| **dotnet-expert** | ASP.NET Core, EF Core, Blazor, SignalR, C# | aspnet-core, aspnet-minimal-api, aspnet-middleware, aspnet-signalr, aspnet-blazor, aspnet-identity, aspnet-validation, entity-framework-core, csharp, xunit | documentation, api-tester |
-| **cpp-expert** | C++17/20/23, RAII, smart pointers, templates, CMake, Google Test, clang-tidy | cpp, cmake, googletest, cpp-quality, cpp-security | documentation, code-quality |
-| **windows-driver-expert** | WDF, KMDF, UMDF, HID filter, IDD virtual display, IRP/IOCTL, WinDbg, driver signing | cpp, cmake, cpp-quality, cpp-security, wdf-kmdf, wdf-umdf, hid-input-filter, indirect-display, driver-debugging, driver-signing | documentation |
+### Frontend
 
-### Database Agents
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **angular-expert** | sonnet | Angular 17+ specialist for standalone components, signals, dependency injection, routing, forms, and performance optimization | `documentation` |
+| **creative-frontend-expert** | sonnet | Creative frontend specialist for advanced visual effects, animation, and immersive UI | `documentation` |
+| **electron-expert** | sonnet | Electron specialist for cross-platform desktop applications | `documentation` |
+| **nextjs-expert** | sonnet | Next.js App Router specialist | `documentation` |
+| **react-expert** | sonnet | React specialist for component design, hooks, state management, and performance optimization | `documentation` |
+| **svelte-expert** | sonnet | Svelte and SvelteKit specialist with expertise in Svelte 5 runes, component patterns, SvelteKit routing, server-side… | `documentation` |
+| **tauri-expert** | sonnet | Tauri specialist for cross-platform desktop applications built with Rust and web technologies | `documentation` |
+| **ux-expert** | sonnet | UX/UI design specialist | `documentation` |
+| **vue-expert** | sonnet | Vue 3 Composition API specialist | `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **prisma-expert** | Prisma, schema, migrations | prisma | documentation |
-| **sql-expert** | SQL, PostgreSQL, MySQL, queries | postgresql, mysql | documentation, database-query |
-| **mongodb-expert** | MongoDB, aggregations, Spring Data MongoDB | mongodb, spring-data-mongodb | documentation |
+### Backend
 
-### Testing Agents
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **cpp-expert** | sonnet | Modern C++ specialist (C++17/20/23) | `code-quality`, `documentation` |
+| **deno-expert** | sonnet | Deno backend specialist | `documentation` |
+| **dotnet-expert** | sonnet | ASP.NET Core 8+ specialist | `api-tester`, `documentation` |
+| **fastapi-expert** | sonnet | FastAPI Python framework specialist | `api-tester`, `documentation` |
+| **go-expert** | sonnet | Go backend specialist | `documentation` |
+| **nestjs-expert** | sonnet | NestJS framework specialist | `api-tester`, `documentation` |
+| **rust-expert** | sonnet | Rust backend specialist | `documentation` |
+| **spring-boot-expert** | sonnet | Spring Boot 3 Java framework specialist | `api-tester`, `documentation` |
+| **streamlit-expert** | sonnet | Streamlit Python web application framework specialist | `documentation` |
+| **windows-driver-expert** | opus | Windows kernel-mode and user-mode driver development specialist | `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **vitest-expert** | Vitest, Jest, unit tests, describe | vitest | documentation, code-quality |
-| **playwright-expert** | Playwright, E2E, page.goto, locator | playwright | documentation |
-| **spring-boot-integration-test-expert** | @SpringBootTest, @DataJpaTest, Testcontainers | spring-boot-test, testcontainers | documentation |
-| **python-integration-test-expert** | pytest integration, testcontainers python, pytest-django, FastAPI test, factory_boy, celery test, pact python | python-integration, testcontainers-python, pytest-django, fastapi-testing, factory-boy | documentation |
-| **smoke-test-expert** | smoke test, verify implementation, test endpoints, end-to-end verification | smoke-test, rest-assured, testcontainers | api-tester, database-query, docker-manager, log-analyzer, documentation |
+### Database
 
-### Infrastructure & DevOps
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **mongodb-expert** | sonnet | MongoDB database specialist | `documentation` |
+| **prisma-expert** | sonnet | Prisma ORM specialist | `documentation` |
+| **sql-expert** | sonnet | SQL specialist for database design, query optimization, stored procedures, and migrations across PostgreSQL, MySQL, Oracle,… | `database-query`, `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **docker-expert** | Docker, Dockerfile, docker-compose, containers | docker, docker-compose | docker-manager |
-| **devops-expert** | CI/CD, GitHub Actions, GitLab CI, deployment | github-actions, ci-cd | docker-manager |
+### Testing
 
-### Messaging Agents
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **playwright-expert** | sonnet | Playwright E2E testing specialist | `documentation` |
+| **python-integration-test-expert** | sonnet | Python integration testing specialist | `database-query`, `documentation` |
+| **smoke-test-expert** | sonnet | Post-implementation smoke testing specialist with fix orchestration | `api-tester`, `database-query`, `docker-manager`, `documentation`, `log-analyzer` |
+| **spring-boot-integration-test-expert** | sonnet | Spring Boot integration testing specialist | `documentation` |
+| **vitest-expert** | sonnet | Vitest testing framework specialist | `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **messaging-expert** | Kafka, RabbitMQ, NATS, SQS, event streaming | kafka, rabbitmq, nats | documentation |
+### Cloud
 
-### Quality & Open Source Agents
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **cloud-expert** | sonnet | Cloud architecture and services specialist | `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **qa-expert** | QA, test strategy, quality assurance | testing-strategy | documentation |
-| **integration-validator-expert** | API contracts, frontend-backend alignment | integration-validation | documentation, api-explorer |
-| **open-source-expert** | OSS, licensing, community health, compliance | open-source | documentation, code-quality |
+### Infrastructure
 
-### Security Agent
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **devops-expert** | sonnet | DevOps and infrastructure specialist | `docker-manager`, `documentation` |
+| **docker-expert** | haiku | Docker and containerization specialist | `documentation` |
+| **sysadmin-expert** | sonnet | Linux server and production infrastructure specialist | `docker-manager`, `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **security-expert** | security, authentication, authorization, JWT | jwt, oauth2, owasp, secrets-management | security-scanner, documentation |
+### Mobile
 
-### Mobile Agents
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **android-native-expert** | opus | Native Android specialist focused on Jetpack Compose UI, the Android platform APIs (Activity lifecycle, Keystore +… | `documentation` |
+| **ios-native-expert** | opus | Native iOS specialist focused on SwiftUI 6.x with @Observable, Swift Concurrency, the full iOS platform API surface (Keychain… | `documentation` |
+| **kmp-expert** | opus | Kotlin Multiplatform + Compose Multiplatform specialist | `documentation` |
+| **mobile-expert** | sonnet | Cross-platform mobile development specialist | `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **kmp-expert** | Kotlin Multiplatform, KMP, Compose Multiplatform, expect/actual, iosMain/commonMain, UniFFI, BDK/LDK/LWK/CDK/Breez SDK KMP bindings, Voyager, Decompose, Koin, SQLDelight, Material 3 cross-platform, Gradle KMP, XCFramework, CocoaPods/SwiftPM | languages/kotlin, languages/swift, languages/uniffi, mobile/kotlin-multiplatform, frontend-frameworks/compose-multiplatform | documentation |
-| **android-native-expert** | Jetpack Compose, @Composable, ViewModel, Hilt, Navigation Compose, Material You / Dynamic Color, Android Keystore, KeyGenParameterSpec, BiometricPrompt, EncryptedSharedPreferences, WorkManager, Foreground Service, NFC, HCE, App Links, FileProvider, ProGuard, R8, SQLCipher | languages/kotlin, mobile/jetpack-compose, mobile/android-native, databases/sqlcipher, security/libsodium, security/age-encryption | documentation |
-| **ios-native-expert** | SwiftUI, @Observable, NavigationStack, NavigationSplitView, @AppStorage, @SceneStorage, @FocusState, Keychain Services, Secure Enclave, BGTaskScheduler, Universal Links, App Groups, Share Extension, Privacy Manifest, StoreKit 2, GRDB SQLCipher, age-plugin-se | languages/swift, mobile/ios-native, databases/sqlcipher, security/libsodium, security/age-encryption | documentation |
+### Data & AI
 
-### Game Development Agents
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **data-engineering-expert** | sonnet | Python data engineering specialist | `documentation` |
+| **rag-expert** | sonnet | Retrieval-Augmented Generation specialist | `documentation` |
 
-| Agent | Triggers | Skills | MCP Servers |
-|-------|----------|--------|-------------|
-| **unity-expert** | Unity, MonoBehaviour, ScriptableObject, prefab, URP, HDRP, Shader Graph, Tilemap, Sprite Atlas, Cinemachine, Addressables, DOTS, ECS, Netcode for GameObjects, AR Foundation, XR Interaction Toolkit, Pixel Perfect Camera | csharp, unity-core, unity-rendering, unity-input-ui, unity-physics-anim, unity-addressables, unity-performance, unity-dots, unity-netcode, unity-xr, unity-editor-tooling, unity-testing, unity-build-platforms, unity-best-practices, unity-2d-core, unity-2d-tilemap, unity-2d-physics, unity-2d-animation, unity-2d-lighting, unity-2d-cameras, unity-2d-gameplay | documentation |
+### Security
 
-> Optional external integrations (not bundled): **CoplayDev/unity-mcp** (MIT) or **IvanMurzak/Unity-MCP** (Apache-2.0) — open-source MCP servers that expose the Unity Editor (scenes, scripts, assets, profiler, builds) to Claude Code. Install separately if you want the AI to drive the Editor directly.
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **security-expert** | sonnet | Security specialist for vulnerability detection, OWASP Top 10 compliance, and secure coding practices | `documentation`, `security-scanner` |
 
-### Bitcoin / Lightning / L2 Agents
+### Quality
 
-| Agent | Triggers | Skill families | MCP Servers |
-|-------|----------|----------------|-------------|
-| **bitcoin-protocol-expert** | Bitcoin protocol, consensus, BIP, soft fork, script, Taproot, PSBT, descriptors, Miniscript, sighash, Schnorr, MuSig2, FROST, DLC, Ordinals, Runes, BRC-20, package relay, TRUC, BIP324, BIP137/322 | bitcoin/protocol/*, bitcoin/cryptography/*, bitcoin/metaprotocols/* | documentation |
-| **bitcoin-core-expert** | bitcoind, bitcoin.conf, RPC, ZMQ, txindex, blockfilterindex, descriptors wallet, Tor, signet, Electrs, Fulcrum, Esplora, mempool.space, BTCPay, Umbrel, Start9, RaspiBlitz | bitcoin/core/*, bitcoin/protocol/p2p, bitcoin/protocol/descriptors, bitcoin/infrastructure/* | documentation |
-| **lightning-expert** | Lightning, LN, BOLT, channel, HTLC, onion, gossip, LND, CLN, LDK, Eclair, BOLT12, LNURL, Lightning Address, LSP, WebLN, NWC, UMA, Loop, Pool, splicing, Taproot channels, replacement cycling, channel jamming, Phoenix, Mutiny, Breez, Greenlight, phoenixd | bitcoin/lightning/* (full BOLT + impl + app + security + consumer-wallets) | documentation |
-| **bitcoin-wallet-expert** | wallet, HD, BIP32/39/44/49/84/86, descriptor, PSBT, multisig, vault, RBF, CPFP, coin selection, fee bumping, hardware wallet, Trezor, Ledger, Coldcard, BitBox, Jade, Passport, SeedSigner, Krux, HWI, CoinJoin, PayJoin, Silent Payments, BIP47 PayNyms, BIP21, BIP329, BIP85, SLIP-39, SeedQR | bitcoin/wallets/*, bitcoin/hardware/*, bitcoin/privacy/*, bitcoin/protocol/{psbt,descriptors,miniscript,message-signing}, bitcoin/cryptography/{bip32,musig2} | documentation |
-| **bitcoin-testing-expert** | regtest, signet, Mutinynet, Polar, Nigiri, Bitcoin Core test framework, fuzz, libFuzzer, cargo-fuzz, proptest, hypothesis, property-based | bitcoin/testing/*, bitcoin/core/{rpc,operations}, bitcoin/protocol/{psbt,descriptors} | documentation |
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **contract-validator** | sonnet | Cross-validation specialist for contract-first workflows | `code-quality`, `documentation` |
+| **integration-validator-expert** | sonnet | API integration validator with feedback loop orchestration | `api-explorer`, `documentation` |
+| **open-source-expert** | sonnet | Open source readiness expert for project configuration, licensing, community health, and compliance | `code-quality`, `documentation` |
+| **qa-expert** | sonnet | Quality Assurance expert for code quality, static analysis, and best practices | `code-quality`, `documentation` |
 
-> Bitcoin agents are domain-experts — language-specific work (Rust/TS/Python/Go/JVM/.NET/C) routes to the existing language-experts via skill detection. Skills `bitcoin/libraries/*` are loaded onto the matching language-expert when projects use those libraries (rust-bitcoin / bdk / ldk / bitcoinjs-lib / @scure/btc-signer / python-bitcoinlib / btcd / bitcoinj / NBitcoin / libwally / etc.).
+### Game Development
+
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **godot-csharp-expert** | sonnet | Godot 4.x .NET (C#) specialist | `documentation` |
+| **sim-core-expert** | sonnet | Deterministic simulation core specialist | `code-quality`, `documentation` |
+| **unity-expert** | opus | Unity game engine specialist for 2D and 3D development with C# | `documentation` |
+
+### Industrial Automation
+
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **automation-architect** | opus | Designs automation strategies for bulk DCS/PLC engineering projects | — |
+| **dcs-analyst** | sonnet | Analyzes DCS/PLC project files (ABB Freelance PRT, DMF, CSV; Siemens XML; Emerson FHX) | — |
+| **freelance-engineer** | sonnet | ABB Freelance DCS engineering specialist | — |
+| **membrane-expert** | sonnet | Reverse Osmosis (RO) and Electrodeionization (EDI) process expert for water treatment, desalination, ultrapure water, and… | `documentation` |
+
+### Bitcoin / Lightning
+
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **bitcoin-core-expert** | sonnet | Bitcoin Core node operations specialist | `documentation` |
+| **bitcoin-protocol-expert** | opus | Bitcoin protocol specialist | `documentation` |
+| **bitcoin-testing-expert** | sonnet | Bitcoin testing infrastructure specialist | `documentation` |
+| **bitcoin-wallet-expert** | sonnet | Bitcoin wallet design specialist | `documentation` |
+| **lightning-expert** | opus | Lightning Network specialist | `documentation` |
+
+> Bitcoin agents are domain experts: language-specific work (Rust/TS/Python/Go/JVM/.NET/C) routes to the matching language expert through skill detection. The `bitcoin/libraries/*` skills attach to that language expert when the project uses rust-bitcoin, bdk, ldk, bitcoinjs-lib, python-bitcoinlib, btcd, bitcoinj, NBitcoin or libwally.
+
+### Messaging
+
+| Agent | Model | Focus | MCP servers |
+|-------|-------|-------|-------------|
+| **messaging-expert** | sonnet | Message queue and event streaming specialist | `documentation` |
+
+> MCP servers are never required. An agent works without them, losing only the
+> tools that server provides.
+
+<!-- END GENERATED: agents-reference -->
 
 ---
 
@@ -1058,7 +1019,7 @@ Slash commands available in Claude Code after initialization:
 
 | Command | Description |
 |---------|-------------|
-| `/init-project [preset]` | Initialize dev-suite for a project with optional preset |
+| `/init-project` | Initialize dev-suite for a project (launches the dashboard wizard) |
 | `/docs <technology> [topic]` | Access documentation for a technology |
 | `/generate <type>` | Generate code scaffolding (components, APIs, tests) |
 | `/show-config` | Display current dev-suite configuration |

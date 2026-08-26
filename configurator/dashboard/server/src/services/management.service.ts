@@ -7,8 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync, spawnSync } from 'child_process';
-import type { Agent } from '../types.js';
+import { spawnSync } from 'child_process';
 import type { ExtendedManifest, TrackedFile, NewComponentsResult } from '../types/upgrade.js';
 import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
@@ -16,6 +15,12 @@ import { createHash } from 'crypto';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { parseAgentSkills, flattenSkillName, toInstalledAgentContent } from './installation/file-operations.js';
 import { validatePathWithinBase } from './installation/index.js';
+import { targetPaths } from './targets/target-paths.js';
+import { InstallationService } from './installation.service.js';
+import { recoverEnvVars, recoverSkillLoadingMode } from './installation/install-recovery.js';
+import { resolveProjectTargets } from './installation/uninstall.js';
+import { assertValidComponentId } from './installation/security-helpers.js';
+import { withProjectLock } from './installation/project-lock.js';
 import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 import { getLogger } from '../utils/logger.js';
 
@@ -24,8 +29,6 @@ const logger = getLogger('ManagementService');
 const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 
 // Constants
-const DEV_SUITE_START_MARKER = '<!-- DEV-SUITE-CONFIG-START -->';
-const DEV_SUITE_END_MARKER = '<!-- DEV-SUITE-CONFIG-END -->';
 const TIMEOUTS = {
   GIT_FETCH: 30000,
   GIT_PULL: 60000,
@@ -35,6 +38,7 @@ const TIMEOUTS = {
 
 export class ManagementService {
   private agentsService = new AgentsService();
+  private installationService = new InstallationService();
 
   /**
    * Load project manifest
@@ -95,7 +99,8 @@ export class ManagementService {
     }
 
     // Verify against file system
-    const agentsDir = path.join(projectPath, '.claude', 'agents');
+    const paths = targetPaths(projectPath);
+    const agentsDir = paths.agentsDir;
     if (fs.existsSync(agentsDir)) {
       const actualAgents = fs.readdirSync(agentsDir)
         .filter((f) => f.endsWith('.md'))
@@ -103,7 +108,7 @@ export class ManagementService {
       result.agents = actualAgents;
     }
 
-    const mcpServersDir = path.join(projectPath, '.mcp-servers');
+    const mcpServersDir = paths.mcpServersDir;
     if (fs.existsSync(mcpServersDir)) {
       const actualServers = fs.readdirSync(mcpServersDir, { withFileTypes: true })
         .filter((d) => d.isDirectory())
@@ -118,10 +123,16 @@ export class ManagementService {
    * Add an agent to the project
    */
   async addAgent(projectPath: string, agentId: string): Promise<void> {
+    return withProjectLock(projectPath, 'add-agent', () =>
+      this.addAgentUnlocked(projectPath, agentId)
+    );
+  }
+
+  private async addAgentUnlocked(projectPath: string, agentId: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
+    assertValidComponentId(agentId, 'agent ID');
     const devSuiteDir = getDevSuiteDir();
     const agentFile = this.findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
 
@@ -129,8 +140,9 @@ export class ManagementService {
       throw new Error(`Agent ${agentId} not found in dev-suite`);
     }
 
-    const agentsDir = path.join(projectPath, '.claude', 'agents');
-    const skillsDir = path.join(projectPath, '.claude', 'skills');
+    const paths = targetPaths(projectPath);
+    const agentsDir = paths.agentsDir;
+    const skillsDir = paths.skillsDir;
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.mkdirSync(skillsDir, { recursive: true });
 
@@ -186,7 +198,7 @@ export class ManagementService {
       if (!manifest.files) {
         manifest.files = [];
       }
-      const relativePath = `.claude/agents/${agentId}.md`;
+      const relativePath = paths.relAgentFile(agentId);
       const hash = this.calculateFileHash(destPath);
       if (hash) {
         const trackedFile: TrackedFile = {
@@ -206,18 +218,25 @@ export class ManagementService {
     }
 
     // Update CLAUDE.md with agent routing
-    await this.regenerateClaudeMd(projectPath);
+    await this.resyncTargets(projectPath);
   }
 
   /**
    * Remove an agent from the project
    */
   async removeAgent(projectPath: string, agentId: string): Promise<void> {
+    return withProjectLock(projectPath, 'remove-agent', () =>
+      this.removeAgentUnlocked(projectPath, agentId)
+    );
+  }
+
+  private async removeAgentUnlocked(projectPath: string, agentId: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
-    const agentPath = path.join(projectPath, '.claude', 'agents', agentId + '.md');
+    assertValidComponentId(agentId, 'agent ID');
+    const paths = targetPaths(projectPath);
+    const agentPath = paths.agentFile(agentId);
 
     if (!fs.existsSync(agentPath)) {
       throw new Error(`Agent ${agentId} not found`);
@@ -237,7 +256,7 @@ export class ManagementService {
         manifest.agents = manifest.agents.filter((a: string) => a !== agentId);
       }
       if (manifest.files) {
-        const relativePath = `.claude/agents/${agentId}.md`;
+        const relativePath = paths.relAgentFile(agentId);
         manifest.files = manifest.files.filter(
           (f: TrackedFile) => f.path !== relativePath
         );
@@ -246,100 +265,93 @@ export class ManagementService {
     }
 
     // Update CLAUDE.md with agent routing
-    await this.regenerateClaudeMd(projectPath);
+    await this.resyncTargets(projectPath);
   }
 
   /**
-   * Add an MCP server to the project
+   * Add an MCP server to the project.
+   *
+   * Delegates to a full resync, the same way add/removeAgent already do.
+   *
+   * This used to be the one write into a user's project that bypassed the whole
+   * target layer: it copied the bundle by hand, ran `npm install` (which the
+   * installer never does — bundles are self-contained esbuild output), then
+   * JSON.parse'd and rewrote `.mcp.json` directly. In a Cursor- or Gemini-only
+   * project that wrote a Claude Code config no selected assistant reads, left
+   * the real config untouched, and recorded nothing in the manifest — so
+   * uninstall could not remove it and reinstall could not see it.
    */
   async addMcpServer(projectPath: string, serverName: string, envVars: Record<string, string> = {}): Promise<void> {
+    return withProjectLock(projectPath, 'add-mcp-server', () =>
+      this.addMcpServerUnlocked(projectPath, serverName, envVars)
+    );
+  }
+
+  private async addMcpServerUnlocked(projectPath: string, serverName: string, envVars: Record<string, string> = {}): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
+    assertValidComponentId(serverName, 'server name');
+
     const devSuiteDir = getDevSuiteDir();
     const serverSource = path.join(devSuiteDir, 'mcp-servers', serverName);
-
     if (!fs.existsSync(serverSource)) {
       throw new Error(`MCP server ${serverName} not found in dev-suite`);
     }
-
     if (!fs.existsSync(path.join(serverSource, 'dist', 'index.js'))) {
       throw new Error(`MCP server ${serverName} not built. Run prepareServers first.`);
     }
 
-    const mcpServersDir = path.join(projectPath, '.mcp-servers');
-    fs.mkdirSync(mcpServersDir, { recursive: true });
+    const installed = await this.getInstalledComponents(projectPath);
+    const next = installed.mcpServers.includes(serverName)
+      ? installed.mcpServers
+      : [...installed.mcpServers, serverName];
 
-    const serverDest = path.join(mcpServersDir, serverName);
-    this.copyDirSync(serverSource, serverDest);
-
-    // Install dependencies
-    // SECURITY: execFileSync with shell:false and --ignore-scripts prevents
-    // malicious postinstall hooks in copied MCP server packages.
-    // On Windows npm is 'npm.cmd'; on POSIX it is 'npm'.
-    if (fs.existsSync(path.join(serverDest, 'package.json'))) {
-      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      execFileSync(npmCmd, ['install', '--production', '--ignore-scripts'], {
-        cwd: serverDest,
-        stdio: 'pipe',
-        shell: false,
-        timeout: TIMEOUTS.NPM_INSTALL,
-      });
-    }
-
-    // Update .mcp.json
-    const mcpJsonPath = path.join(projectPath, '.mcp.json');
-    let mcpConfig = { mcpServers: {} as Record<string, unknown> };
-
-    if (fs.existsSync(mcpJsonPath)) {
-      mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
-    }
-
-    mcpConfig.mcpServers[serverName] = {
-      command: 'node',
-      args: [path.join(projectPath, '.mcp-servers', serverName, 'dist', 'index.js')],
-      env: envVars,
-    };
-
-    fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpConfig, null, 2));
-
-    // Update .dev-suite.json
     this.updateDevSuiteConfig(projectPath, (config) => {
       if (!config.mcpServers.enabled.includes(serverName)) {
         config.mcpServers.enabled.push(serverName);
       }
     });
+
+    await this.resyncTargets(projectPath, { mcpServers: next, envVars });
   }
 
   /**
-   * Remove an MCP server from the project
+   * Remove an MCP server from the project.
+   *
+   * Mirror of addMcpServer: the resync re-runs the adapters, which un-merge the
+   * entry from every selected assistant's config and update the manifest.
    */
   async removeMcpServer(projectPath: string, serverName: string): Promise<void> {
+    return withProjectLock(projectPath, 'remove-mcp-server', () =>
+      this.removeMcpServerUnlocked(projectPath, serverName)
+    );
+  }
+
+  private async removeMcpServerUnlocked(projectPath: string, serverName: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
-    const serverDir = path.join(projectPath, '.mcp-servers', serverName);
+    assertValidComponentId(serverName, 'server name');
 
+    const paths = targetPaths(projectPath);
+    const serverDir = paths.mcpServerDir(serverName);
     if (!fs.existsSync(serverDir)) {
       throw new Error(`MCP server ${serverName} not found`);
     }
 
+    const installed = await this.getInstalledComponents(projectPath);
+    const next = installed.mcpServers.filter((s) => s !== serverName);
+
+    // Remove the bundle first so the filesystem and the intended set agree; the
+    // adapters then drop the entry from every assistant's config by merge.
     fs.rmSync(serverDir, { recursive: true, force: true });
 
-    // Update .mcp.json
-    const mcpJsonPath = path.join(projectPath, '.mcp.json');
-    if (fs.existsSync(mcpJsonPath)) {
-      const mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
-      delete mcpConfig.mcpServers[serverName];
-      fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpConfig, null, 2));
-    }
-
-    // Update .dev-suite.json
     this.updateDevSuiteConfig(projectPath, (config) => {
       config.mcpServers.enabled = config.mcpServers.enabled.filter((s: string) => s !== serverName);
     });
+
+    await this.resyncTargets(projectPath, { mcpServers: next });
   }
 
   /**
@@ -552,184 +564,53 @@ export class ManagementService {
   }
 
   /**
-   * Regenerate CLAUDE.md with full agent routing instructions
-   */
-  private async regenerateClaudeMd(projectPath: string): Promise<void> {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
-    const currentAgentIds = (await this.getInstalledComponents(projectPath)).agents;
-    const allAgents = await this.agentsService.getAgents();
-    const installedAgents = allAgents.filter(a => currentAgentIds.includes(a.id));
-
-    // Get custom agents
-    const customAgents = await this.getCustomAgentsList(projectPath);
-
-    this.updateClaudeMd(projectPath, installedAgents, customAgents);
-  }
-
-  /**
-   * Get list of custom agents from project
-   */
-  private async getCustomAgentsList(projectPath: string): Promise<Array<{ id: string; name: string; description: string }>> {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
-    const customAgentsDir = path.join(projectPath, '.claude', 'agents', 'custom');
-    const agents: Array<{ id: string; name: string; description: string }> = [];
-
-    if (!fs.existsSync(customAgentsDir)) {
-      return agents;
-    }
-
-    try {
-      const entries = fs.readdirSync(customAgentsDir, { withFileTypes: true });
-
-      for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith('.md')) {
-          const filePath = path.join(customAgentsDir, entry.name);
-          const content = fs.readFileSync(filePath, 'utf-8');
-
-          // Parse YAML frontmatter
-          if (content.startsWith('---')) {
-            const endIdx = content.indexOf('---', 3);
-            if (endIdx > 0) {
-              const frontmatter = content.substring(3, endIdx);
-              const nameMatch = frontmatter.match(/^name:\s*["']?([^"'\n]+)["']?/m);
-              const descMatch = frontmatter.match(/^description:\s*["']?([^"'\n]+)["']?/m);
-
-              if (nameMatch?.[1]) {
-                agents.push({
-                  id: entry.name.replace('.md', ''),
-                  name: nameMatch[1].trim(),
-                  description: descMatch?.[1]?.trim() || `Custom agent: ${nameMatch[1].trim()}`,
-                });
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to read custom agents', { error });
-    }
-
-    return agents;
-  }
-
-  private updateClaudeMd(
-    projectPath: string,
-    agents: Agent[],
-    customAgents: Array<{ id: string; name: string; description: string }> = []
-  ): void {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
-    const resolved = resolveProjectPath(projectPath);
-    const claudeMdPath = path.join(resolved, 'CLAUDE.md');
-    const section = this.generateDevSuiteSection(agents, customAgents);
-
-    if (!fs.existsSync(claudeMdPath)) {
-      fs.writeFileSync(claudeMdPath, section + '\n');
-      return;
-    }
-
-    const content = fs.readFileSync(claudeMdPath, 'utf-8');
-    const startIdx = content.indexOf(DEV_SUITE_START_MARKER);
-    const endIdx = content.indexOf(DEV_SUITE_END_MARKER);
-
-    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-      const before = content.substring(0, startIdx);
-      const after = content.substring(endIdx + DEV_SUITE_END_MARKER.length);
-      fs.writeFileSync(claudeMdPath, before + section + after);
-    } else {
-      const separator = content.endsWith('\n') ? '\n' : '\n\n';
-      fs.writeFileSync(claudeMdPath, content + separator + '---\n\n' + section + '\n');
-    }
-  }
-
-  /**
-   * Sanitize agent description for safe embedding in CLAUDE.md.
+   * Re-run the install for the project's own targets after a Manage-tab change.
    *
-   * Strips constructs that could be used for prompt injection or that would
-   * break the surrounding Markdown structure:
-   * - Fenced code blocks (``` and ~~~) — could smuggle arbitrary instructions
-   * - Bare backtick sequences — can close inline-code spans unexpectedly
-   * - HTML comment tags — could hide injected content
-   * - Leading "#" characters that would create rogue headings
-   * - Newlines are collapsed to a single space so the value stays on one line
+   * This used to write `.claude/agents` and then call `updateInstructions` and
+   * nothing else — no adapter ran. So adding an agent on a Gemini install left
+   * `.gemini/agents/` untouched and the skills mirror stale: the dashboard said
+   * "installed" while the agent did not exist in Gemini at all. Removing one
+   * left `.cursor/rules/frontend.mdc` still recommending a deleted agent.
+   *
+   * Delegating to `install()` also stops `updateInstructions` from creating a
+   * `CLAUDE.md` in a project deliberately installed without Claude Code, since
+   * the target list is now honoured.
    */
-  private sanitizeAgentDescription(description: string): string {
-    if (!description) return '';
-    return description
-      // Collapse all newlines / carriage-returns to a single space first
-      .replace(/[\r\n]+/g, ' ')
-      // Remove fenced code block delimiters (``` and ~~~)
-      .replace(/`{3,}/g, '')
-      .replace(/~{3,}/g, '')
-      // Remove remaining backtick sequences
-      .replace(/`+/g, '')
-      // Remove HTML comment markers (handle both --> and --!> endings)
-      .replace(/<!--[\s\S]*?(?:-->|--!>)/g, '')
-      .replace(/<!--/g, '')
-      .replace(/(?:-->|--!>)/g, '')
-      // Strip leading Markdown heading markers
-      .replace(/^#+\s*/g, '')
-      // Trim leading/trailing whitespace
-      .trim();
+  private async resyncTargets(
+    projectPath: string,
+    /**
+     * Overrides for a change that is not yet reflected on disk.
+     *
+     * `getInstalledComponents` prefers the filesystem over `.dev-suite.json`, so
+     * a server being *added* is not discoverable until the bundle is copied —
+     * which is `install()`'s job. The caller states the intended set instead.
+     */
+    overrides: { mcpServers?: string[]; envVars?: Record<string, string> } = {}
+  ): Promise<void> {
+    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
+
+    const manifest = this.loadManifest(projectPath);
+    const targets = resolveProjectTargets(projectPath, manifest);
+    const installed = await this.getInstalledComponents(projectPath);
+    const devSuiteJson = readJsonSync<{ rules?: { enabled?: string[] } }>(
+      path.join(projectPath, '.dev-suite.json')
+    );
+
+    await this.installationService.install({
+      projectPath,
+      agents: installed.agents,
+      mcpServers: overrides.mcpServers ?? installed.mcpServers,
+      rules: devSuiteJson?.rules?.enabled ?? [],
+      envVars: {
+        ...recoverEnvVars(projectPath, targets),
+        ...(overrides.envVars ?? {}),
+      },
+      skillLoadingMode: recoverSkillLoadingMode(projectPath, targets),
+      // Omitted, not cleared: install() carries the stored stack forward.
+      detectedStack: undefined,
+      targets,
+    });
   }
 
-  private generateDevSuiteSection(
-    agents: Agent[],
-    customAgents: Array<{ id: string; name: string; description: string }> = []
-  ): string {
-    const agentList = agents.length > 0
-      ? agents.map((a) => `- \`@${a.id}\``).join('\n')
-      : '- No agents installed';
 
-    // Custom agents list
-    const customAgentList = customAgents.length > 0
-      ? customAgents.map((a) => `- \`@custom:${a.id}\` (Custom)`).join('\n')
-      : '';
-
-    // Generate routing instructions based on agent descriptions
-    let routingInstructions = '';
-    const allAgentsForRouting = [
-      ...agents.map((a) => ({ id: a.id, description: this.sanitizeAgentDescription(a.description), isCustom: false })),
-      ...customAgents.map((a) => ({ id: `custom:${a.id}`, description: this.sanitizeAgentDescription(a.description), isCustom: true })),
-    ];
-
-    if (allAgentsForRouting.length > 0) {
-      const routingLines = allAgentsForRouting.map((a) => {
-        const suffix = a.isCustom ? ' (Custom)' : '';
-        return `- Use \`@${a.id}\` for: ${a.description}${suffix}`;
-      });
-      routingInstructions = `
-
-## Agent Routing
-
-When working on tasks that match an agent's expertise, you MUST use the appropriate agent. Use the Task tool with the corresponding subagent_type.
-
-${routingLines.join('\n')}
-
-**Important**: Always delegate tasks to the most appropriate specialist agent. Do not attempt to handle specialized tasks directly when a relevant agent is available.`;
-    }
-
-    // Build custom agents section
-    const customAgentsSection = customAgents.length > 0
-      ? `
-
-## Custom Agents
-
-Project-specific custom agents:
-
-${customAgentList}`
-      : '';
-
-    return `${DEV_SUITE_START_MARKER}
-# Dev-Suite Configuration
-
-## Installed Agents
-
-${agentList}${customAgentsSection}${routingInstructions}
-
-## Commands
-
-- \`/init-project\` - Reconfigure dev-suite
-- \`/uninstall-dev-suite\` - Remove dev-suite
-${DEV_SUITE_END_MARKER}`;
-  }
 }

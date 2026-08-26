@@ -45,7 +45,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "profile_script",
       description:
-        "Profile a script for CPU usage. Returns top functions by execution time, call counts, and performance summary. Supports Node.js, Java (JAR), and Python scripts.",
+        "Profile a Node.js, Java (JAR) or Python script for CPU: top functions by time, call counts, summary.",
       inputSchema: {
         type: "object",
         properties: {
@@ -60,7 +60,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "profile_function",
       description:
-        "Profile a specific function by running it multiple times. Returns timing statistics (mean, median, min, max, stdDev) and memory usage.",
+        "Profile a function over repeated runs: mean, median, min, max, stdDev, and memory usage.",
       inputSchema: {
         type: "object",
         properties: {
@@ -76,7 +76,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "benchmark_code",
       description:
-        "Benchmark a code snippet. Runs the code multiple times and returns timing statistics including mean, median, ops/second, and percentiles.",
+        "Benchmark a code snippet over repeated runs: mean, median, ops/second and percentiles.",
       inputSchema: {
         type: "object",
         properties: {
@@ -120,7 +120,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "find_bottlenecks",
       description:
-        "Automatically identify performance bottlenecks in a script. Returns hotspots categorized by type (CPU, memory, I/O, GC) with optimization recommendations.",
+        "Find bottlenecks in a script: hotspots by type (CPU, memory, I/O, GC) with optimization advice.",
       inputSchema: {
         type: "object",
         properties: {
@@ -137,7 +137,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "attach_profiler",
       description:
-        "Attach JFR profiler to a running Java process. Auto-detects process by port or name. Returns CPU hotspots and recommendations.",
+        "Attach the JFR profiler to a running Java process (by PID, port or name). Returns CPU hotspots.",
       inputSchema: {
         type: "object",
         properties: {
@@ -152,7 +152,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "profile_endpoint",
       description:
-        "Profile an HTTP endpoint by making multiple requests. Returns latency statistics (p50, p95, p99), throughput, and error rates.",
+        "Profile an HTTP endpoint over repeated requests: latency p50/p95/p99, throughput, error rate.",
       inputSchema: {
         type: "object",
         properties: {

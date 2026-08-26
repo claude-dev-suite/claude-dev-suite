@@ -26,6 +26,30 @@
       "description": "Port for the orchestrator WebSocket server",
       "default": "3457",
       "required": false
+    },
+    {
+      "name": "DASHBOARD_HOST",
+      "description": "Host the dashboard server listens on. Defaults to 127.0.0.1; only change it if the dashboard was started with HOST set.",
+      "default": "127.0.0.1",
+      "required": false
+    },
+    {
+      "name": "DEV_SUITE_DIR",
+      "description": "Absolute path of the dev-suite checkout. Set automatically by the launcher; override only for a non-standard layout.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "ORCHESTRATOR_WS_TOKEN",
+      "description": "Shared secret a client must present to drive the orchestrator WebSocket. Generated per process and printed to stderr when unset.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "ORCHESTRATOR_WS_HOST",
+      "description": "Host the orchestrator WebSocket binds to. Defaults to 127.0.0.1; this socket accepts job submissions, so do not expose it.",
+      "default": "127.0.0.1",
+      "required": false
     }
   ],
   "recommendedFor": [],

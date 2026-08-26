@@ -12,7 +12,14 @@
     "search_api",
     "detect_api_frameworks"
   ],
-  "envVars": [],
+  "envVars": [
+    {
+      "name": "API_EXPLORER_ENDPOINTS",
+      "description": "JSON array of OpenAPI endpoints to explore, e.g. [{\"alias\":\"api\",\"url\":\"http://localhost:8080/v3/api-docs\"}]. Without it the server starts but has no endpoints configured.",
+      "default": "",
+      "required": false
+    }
+  ],
   "recommendedFor": [
     "architect",
     "integration-validator-expert"

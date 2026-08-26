@@ -44,13 +44,13 @@ echo -e "${BLUE}[1/3]${NC} Checking requirements..."
 # Check Node.js
 if ! command -v node &> /dev/null; then
     echo -e "${RED}✗${NC} Node.js is not installed"
-    echo -e "${YELLOW}Please install Node.js 18+ from https://nodejs.org${NC}"
+    echo -e "${YELLOW}Please install Node.js 20+ from https://nodejs.org${NC}"
     exit 1
 fi
 
 NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo -e "${RED}✗${NC} Node.js 18+ required (found v$NODE_VERSION)"
+if [ "$NODE_VERSION" -lt 20 ]; then
+    echo -e "${RED}✗${NC} Node.js 20+ required (found v$NODE_VERSION)"
     exit 1
 fi
 echo -e "${GREEN}✓${NC} Node.js v$(node -v | sed 's/v//')"
@@ -107,10 +107,42 @@ echo ""
 echo -e "${BLUE}[3/3]${NC} Launching dashboard..."
 
 DASHBOARD_DIR="$DEV_SUITE_DIR/configurator/dashboard"
+SERVER_DIR="$DASHBOARD_DIR/server"
+SERVER_ENTRY="$SERVER_DIR/dist/index.js"
+UI_ENTRY="$DASHBOARD_DIR/dist/index.html"
 
-if [ ! -f "$DASHBOARD_DIR/server.cjs" ]; then
+if [ ! -d "$DASHBOARD_DIR" ]; then
     echo -e "${RED}✗${NC} Dashboard not found at $DASHBOARD_DIR"
     exit 1
+fi
+
+# Build the backend if it has never been compiled (fresh clone)
+if [ ! -f "$SERVER_ENTRY" ]; then
+    echo -e "  ${YELLOW}→${NC} Building dashboard server (first run, this takes a minute)..."
+    (
+        cd "$SERVER_DIR" || exit 1
+        [ -d node_modules ] || npm install --silent
+        npm run build --silent
+    ) || {
+        echo -e "${RED}✗${NC} Failed to build the dashboard server"
+        echo -e "    Run manually: cd \"$SERVER_DIR\" && npm install && npm run build"
+        exit 1
+    }
+fi
+
+# Build the frontend if it has never been compiled. Without it the server still
+# starts, but serves the API only and http://localhost:PORT returns a 503.
+if [ ! -f "$UI_ENTRY" ]; then
+    echo -e "  ${YELLOW}→${NC} Building dashboard UI (first run, this takes a minute)..."
+    (
+        cd "$DASHBOARD_DIR" || exit 1
+        [ -d node_modules ] || npm install --silent
+        npm run build --silent
+    ) || {
+        echo -e "${RED}✗${NC} Failed to build the dashboard UI"
+        echo -e "    Run manually: cd \"$DASHBOARD_DIR\" && npm install && npm run build"
+        exit 1
+    }
 fi
 
 # Find available port
@@ -151,6 +183,7 @@ open_browser() {
 # Give server a moment to start, then open browser
 (sleep 1 && open_browser) &
 
-# Start the dashboard server
-cd "$DASHBOARD_DIR"
-PORT=$PORT node server.cjs
+# Start the dashboard server. cwd must be the server package so Node resolves
+# its dependencies and package.json.
+cd "$SERVER_DIR"
+PORT=$PORT node dist/index.js

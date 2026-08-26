@@ -36,23 +36,42 @@ export function AnalyticsPanel({ projectPath }: AnalyticsPanelProps) {
     setError(null);
 
     try {
+      // Filter and pagination names are the server's: `since`/`until` and
+      // `offset`/`limit`. The panel used to send `startDate`/`endDate` and
+      // `page`/`pageSize`, which the route simply ignored — every filter and
+      // every page beyond the first was a no-op.
       const params = new URLSearchParams();
       params.append('path', projectPath);
       if (technology) params.append('technology', technology);
       if (tool) params.append('tool', tool);
-      if (dateRange.start) params.append('startDate', dateRange.start);
-      if (dateRange.end) params.append('endDate', dateRange.end);
-      params.append('page', page.toString());
-      params.append('pageSize', pageSize.toString());
+      if (dateRange.start) params.append('since', dateRange.start);
+      if (dateRange.end) params.append('until', dateRange.end);
+      params.append('offset', ((page - 1) * pageSize).toString());
+      params.append('limit', pageSize.toString());
 
-      const res = await fetch(`${API_BASE}/api/analytics/kb-usage?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-        setEntries(data.items || []);
-        setTotalPages(data.totalPages || 1);
+      // Stats come from their own endpoint; `kb-usage` never carried them, so
+      // the filter dropdowns (built from `stats`) were always empty.
+      const statsParams = new URLSearchParams({ path: projectPath });
+      if (dateRange.start) statsParams.append('since', dateRange.start);
+
+      const [entriesRes, statsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/analytics/kb-usage?${params.toString()}`),
+        fetch(`${API_BASE}/api/analytics/kb-stats?${statsParams.toString()}`),
+      ]);
+
+      if (entriesRes.ok) {
+        // Both routes answer with the standard { success, data } envelope.
+        const body = await entriesRes.json();
+        const data = body.data ?? {};
+        setEntries(data.entries || []);
+        setTotalPages(Math.max(1, Math.ceil((data.total || 0) / pageSize)));
       } else {
         setError('Failed to load analytics data');
+      }
+
+      if (statsRes.ok) {
+        const body = await statsRes.json();
+        setStats(body.data ?? null);
       }
     } catch (_err) {
       setError('Failed to connect to server');
@@ -77,10 +96,21 @@ export function AnalyticsPanel({ projectPath }: AnalyticsPanelProps) {
     if (!confirm('Are you sure you want to clear all analytics data?')) return;
 
     try {
-      await fetch(`${API_BASE}/api/analytics/clear`, { method: 'POST' });
+      // The route reads `projectPath` off the body; posting nothing threw on
+      // `resolveProjectPath(undefined)` and the button never cleared anything.
+      const res = await fetch(`${API_BASE}/api/analytics/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectPath }),
+      });
+      if (!res.ok) {
+        setError('Failed to clear analytics data');
+        return;
+      }
+      setPage(1);
       fetchData();
     } catch (_err) {
-      console.error('Failed to clear data:', _err);
+      setError('Failed to clear analytics data');
     }
   };
 

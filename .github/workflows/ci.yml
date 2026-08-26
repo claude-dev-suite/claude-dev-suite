@@ -49,6 +49,14 @@ jobs:
       - name: Check shared type sync
         run: node scripts/check-type-sync.mjs
 
+      - name: Check generated agent docs are current
+        run: |
+          node scripts/gen-capability-matrix.mjs --check
+          node scripts/gen-agents-reference.mjs --check
+
+      - name: Check docs match the wizard and target registry
+        run: node scripts/check-docs-sync.mjs
+
       - name: Lint
         run: npm run lint
         working-directory: configurator/dashboard

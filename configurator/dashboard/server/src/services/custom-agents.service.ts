@@ -12,6 +12,8 @@ import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { parseYamlDescription } from '../utils/yaml-utils.js';
 import { BestPracticesValidatorService } from './best-practices-validator.service.js';
+import { targetPaths } from './targets/target-paths.js';
+import { getTargetLayout } from './targets/target-layout.js';
 import type {
   CustomAgent,
   CustomAgentListItem,
@@ -23,6 +25,10 @@ import type {
   CustomSkillValidationResult,
 } from '../types/custom-agents.js';
 import { CustomAgentFrontmatterSchema } from '../validation/schemas.js';
+import {
+  VALID_COMPONENT_NAME,
+  assertValidComponentId,
+} from './installation/security-helpers.js';
 
 /**
  * Interface for dev-suite config with custom agents/skills
@@ -38,14 +44,13 @@ interface DevSuiteConfig {
 const logger = getLogger('CustomAgentsService');
 
 /**
- * Directory name for custom agents within .claude/agents/
+ * Project-relative locations of the user-reserved custom areas, resolved from
+ * the target layout. Used for the `filePath` shown in the UI; the on-disk paths
+ * come from `targetPaths()` so both stay in sync with the descriptor.
  */
-const CUSTOM_AGENTS_DIR = 'custom';
-
-/**
- * Directory name for custom skills within .claude/skills/
- */
-const CUSTOM_SKILLS_DIR = 'custom';
+const DEFAULT_LAYOUT = getTargetLayout();
+const CUSTOM_AGENTS_REL = DEFAULT_LAYOUT.customAgentsDir ?? `${DEFAULT_LAYOUT.agentsDir}/custom`;
+const CUSTOM_SKILLS_REL = DEFAULT_LAYOUT.customSkillsDir ?? `${DEFAULT_LAYOUT.skillsDir}/custom`;
 
 export class CustomAgentsService {
   private bestPracticesValidator = new BestPracticesValidatorService();
@@ -54,14 +59,14 @@ export class CustomAgentsService {
    * Get the custom agents directory path for a project
    */
   private getCustomAgentsDir(projectPath: string): string {
-    return path.join(projectPath, '.claude', 'agents', CUSTOM_AGENTS_DIR);
+    return targetPaths(projectPath).customAgentsDir;
   }
 
   /**
    * Get the custom skills directory path for a project
    */
   private getCustomSkillsDir(projectPath: string): string {
-    return path.join(projectPath, '.claude', 'skills', CUSTOM_SKILLS_DIR);
+    return targetPaths(projectPath).customSkillsDir;
   }
 
   /**
@@ -125,6 +130,10 @@ export class CustomAgentsService {
         const model = modelMatch[1].trim().toLowerCase();
         if (['sonnet', 'opus', 'haiku'].includes(model)) {
           result.model = model as CustomAgentModel;
+        } else {
+          // Silently ignoring an unknown value made the agent *display* as
+          // sonnet while its file said something else, so a typo was invisible.
+          result.modelWarning = `Unrecognised model "${model}" — expected sonnet, opus or haiku; the assistant's default will be used.`;
         }
       }
 
@@ -253,6 +262,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(agentId, 'agent ID');
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -288,7 +298,7 @@ export class CustomAgentsService {
         content,
         category: 'custom',
         isCustom: true,
-        filePath: `.claude/agents/${CUSTOM_AGENTS_DIR}/${agentId}.md`,
+        filePath: `${CUSTOM_AGENTS_REL}/${agentId}.md`,
         createdAt: stats.birthtime.toISOString(),
         modifiedAt: stats.mtime.toISOString(),
       };
@@ -333,7 +343,6 @@ export class CustomAgentsService {
     const agentId = frontmatter.name;
 
     // Validate agent ID to prevent path traversal
-    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
     if (!VALID_COMPONENT_NAME.test(agentId)) {
       return { success: false, error: 'Invalid agent name: use letters, numbers, hyphens, underscores (max 64 chars)' };
     }
@@ -394,6 +403,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(agentId, 'agent ID');
     // Check if agent exists
     const existingAgent = await this.getCustomAgent(projectPath, agentId);
     if (!existingAgent) {
@@ -427,7 +437,6 @@ export class CustomAgentsService {
     const newAgentId = frontmatter.name;
 
     // Validate new agent ID to prevent path traversal
-    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
     if (!VALID_COMPONENT_NAME.test(newAgentId)) {
       return { success: false, error: 'Invalid agent name: use letters, numbers, hyphens, underscores (max 64 chars)' };
     }
@@ -486,6 +495,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(agentId, 'agent ID');
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -570,6 +580,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(skillId, 'skill ID');
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
     const skillMdPath = path.join(skillDir, 'SKILL.md');
 
@@ -597,7 +608,7 @@ export class CustomAgentsService {
         name: skillId,
         description: description || `Custom skill: ${skillId}`,
         isCustom: true,
-        filePath: `.claude/skills/${CUSTOM_SKILLS_DIR}/${skillId}/SKILL.md`,
+        filePath: `${CUSTOM_SKILLS_REL}/${skillId}/SKILL.md`,
         modifiedAt: stats.mtime.toISOString(),
         content,
       };
@@ -633,7 +644,6 @@ export class CustomAgentsService {
     }
 
     // Validate skill name to prevent path traversal
-    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
     if (!VALID_COMPONENT_NAME.test(name)) {
       return { success: false, error: 'Invalid skill name: use letters, numbers, hyphens, underscores (max 64 chars)' };
     }
@@ -688,6 +698,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(skillId, 'skill ID');
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
 
     if (!fs.existsSync(skillDir)) {
@@ -730,6 +741,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(skillId, 'skill ID');
 
     const oldSkillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
     if (!fs.existsSync(oldSkillDir)) {
@@ -862,7 +874,7 @@ export class CustomAgentsService {
         name,
         description: description || `Custom skill: ${name}`,
         isCustom: true,
-        filePath: `.claude/skills/${CUSTOM_SKILLS_DIR}/${name}/SKILL.md`,
+        filePath: `${CUSTOM_SKILLS_REL}/${name}/SKILL.md`,
         modifiedAt: stats.mtime.toISOString(),
       };
     } catch (error) {

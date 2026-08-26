@@ -134,8 +134,8 @@ export function Step3McpServers({
       {lazyEnabled && (
         <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm text-blue-300">
           <strong>Tiered skill loading is built-in.</strong> The <code>skill-loader</code> MCP server
-          is always installed: each agent's <code>core_skills</code> are preloaded as native Claude
-          Code skills (descriptions in context, body on demand) while <code>extended_skills</code>
+          is always installed: each agent's <code>core_skills</code> are preloaded as native
+          skills (descriptions in context, body on demand) while <code>extended_skills</code>
           and the rest of the dev-suite catalog stay reachable via <code>skill-loader</code> on
           demand. <code>DEV_SUITE_ROOT</code> is pre-filled in the next step.
         </div>

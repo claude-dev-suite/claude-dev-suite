@@ -20,14 +20,14 @@ Modify the existing `.dev-suite.json` configuration.
 
 3. Show current configuration for the selected area
 4. Make requested changes
-5. Validate against schema
+5. Re-run the install so the generated files stay consistent (there is no JSON schema for `.dev-suite.json`; the installer is what defines its shape)
 6. Save updated configuration
 7. Show summary of changes
 8. **Analyze sibling projects** for CLAUDE.md updates (see below)
 
 ## Validation
 
-Ensure all changes maintain schema validity and logical consistency (e.g., don't enable NestJS agent without Node.js backend).
+Keep the selection logically consistent (e.g. do not enable the NestJS agent without a Node.js backend). Routing is regenerated into `AGENTS.md`; `CLAUDE.md` only imports it, so never hand-edit routing into `CLAUDE.md`.
 
 ## Sibling Project CLAUDE.md Analysis
 
@@ -43,9 +43,11 @@ This analysis should run when:
 ### Process
 
 1. Find the parent directory of the current project
-2. Search recursively for CLAUDE.md files in sibling folders (excluding dev-suite)
+2. Search recursively for `AGENTS.md` files in sibling folders (excluding dev-suite) —
+   routing lives there now; a sibling that only has `CLAUDE.md` predates the migration
+   and should be re-synced rather than hand-edited
 3. For each found file:
-   - Check if it contains agent routing configuration
+   - Check if it contains a dev-suite agent routing section
    - Compare with the changes made in this reconfiguration
    - Suggest updates if the routing table is missing new agents
 

@@ -1,37 +1,22 @@
 ---
 name: uninstall
 description: Alias for /uninstall-dev-suite. Removes dev-suite components preserving user content.
-allowed-tools: Bash, Read, Glob, AskUserQuestion
-argument-hint: "[project-path]"
+allowed-tools: Bash
 ---
 
-# Uninstall Dev-Suite
+# Uninstall
 
-This is an alias for `/uninstall-dev-suite`.
+Alias for `/uninstall-dev-suite`. See that command for the full description of what is
+removed and what is preserved.
 
-## Quick Reference
-
-**What gets removed (with manifest):**
-- Only files tracked in `.dev-suite-manifest.json`
-- Only dev-suite servers from `.mcp.json` (user servers preserved)
-- Only dev-suite section from `CLAUDE.md` (user content preserved)
-- `.dev-suite.json`, `.dev-suite-manifest.json`, `.kb-cache/`
-
-**What gets removed (without manifest):**
-- Only `.dev-suite.json`, `.dev-suite-manifest.json`, `.kb-cache/`
-- Dev-suite section from `CLAUDE.md`
-- Everything else preserved (can't know what's user content)
-
-## Usage
+Preview:
 
 ```bash
-# Uninstall from current directory
-/uninstall
-
-# Uninstall from specific path
-/uninstall ./my-project
+cd ./dev-suite/configurator/dashboard/server && npm run uninstall -- --project "$OLDPWD" --dry-run
 ```
 
-## Full Documentation
+Remove:
 
-See `/uninstall-dev-suite` for complete documentation and the removal script.
+```bash
+cd ./dev-suite/configurator/dashboard/server && npm run uninstall -- --project "$OLDPWD"
+```

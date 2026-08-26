@@ -11,6 +11,7 @@ import { spawn } from 'child_process';
 import { getLogger } from '../../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { TrackedFile, ExtendedManifest } from '../../types/index.js';
+import { targetPaths } from '../targets/target-paths.js';
 
 const logger = getLogger('PackageInstaller');
 
@@ -242,18 +243,19 @@ export class PackageInstallerService {
 
     const devSuiteDir = getDevSuiteDir();
 
-    // Find the agent file in dev-suite
-    const agentCategories = [
-      'core',
-      'frontend',
-      'backend',
-      'database',
-      'testing',
-      'infrastructure',
-      'messaging',
-      'security',
-      'quality',
-    ];
+    // Find the agent file in dev-suite. Scanned from disk rather than a
+    // hardcoded list: nine of the fifteen directories were listed, so mobile,
+    // cloud, data, gamedev, industrial and bitcoin agents could never be found.
+    const agentsRoot = path.join(devSuiteDir, 'agents');
+    let agentCategories: string[] = [];
+    try {
+      agentCategories = fs
+        .readdirSync(agentsRoot, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => e.name);
+    } catch {
+      agentCategories = [];
+    }
     let sourceAgentPath: string | null = null;
 
     for (const category of agentCategories) {
@@ -272,7 +274,8 @@ export class PackageInstallerService {
     }
 
     // Ensure target directory exists
-    const targetDir = path.join(projectPath, '.claude', 'agents');
+    const paths = targetPaths(projectPath);
+    const targetDir = paths.agentsDir;
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
     }
@@ -299,7 +302,7 @@ export class PackageInstallerService {
         }
         const trackedFile = createTrackedFile(
           projectPath,
-          `.claude/agents/${agentId}.md`,
+          paths.relAgentFile(agentId),
           'agent',
           sourceAgentPath
         );

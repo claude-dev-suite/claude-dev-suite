@@ -60,9 +60,13 @@ export class JobPromptService {
       });
     } else if (job.currentSubTaskIndex > 0) {
       // Even without explicit dependencies, include previous task output for context
-      const prevTask = job.subTasks![job.currentSubTaskIndex - 1];
+      const prevIndex = job.currentSubTaskIndex - 1;
+      const prevTask = job.subTasks![prevIndex];
       if (prevTask) {
-        const prevOutput = job.completedSubTasks[prevTask.agentId];
+        // By position, not by agent: with the same agent at two steps the
+        // agentId lookup returned whichever ran last, not the previous step.
+        const prevOutput =
+          job.completedSubTaskOutputs?.[prevIndex] ?? job.completedSubTasks[prevTask.agentId];
         if (prevOutput) {
           prompt += `## Context from Previous Task\n\n`;
           prompt += `The previous task (${prevTask.agentId}) produced this output:\n`;

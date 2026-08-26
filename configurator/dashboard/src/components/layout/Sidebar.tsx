@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import clsx from 'clsx';
+import { WIZARD_STEPS } from '@/components/wizard/steps';
 
 export interface WizardStep {
   id: number;
@@ -16,13 +17,7 @@ export interface SidebarProps {
   canNavigateToStep?: (step: number) => boolean;
 }
 
-const defaultSteps: WizardStep[] = [
-  { id: 1, label: 'Detection', description: 'Analyze project', status: 'pending' },
-  { id: 2, label: 'Agents', description: 'Select agents', status: 'pending' },
-  { id: 3, label: 'MCP Servers', description: 'Configure tools', status: 'pending' },
-  { id: 4, label: 'Environment', description: 'Set variables', status: 'pending' },
-  { id: 5, label: 'Install', description: 'Finalize setup', status: 'pending' },
-];
+const defaultSteps: WizardStep[] = WIZARD_STEPS.map((s) => ({ ...s, status: 'pending' as const }));
 
 export function Sidebar({
   mode,

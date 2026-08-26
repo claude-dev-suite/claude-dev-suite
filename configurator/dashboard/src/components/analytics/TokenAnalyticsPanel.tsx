@@ -21,7 +21,7 @@ import { API_BASE } from '../../utils/api';
 interface TokenAggregatedRow {
   key: string;
   totalTokens: number;
-  totalCostUsd: number;
+
   callCount: number;
   avgTokensPerCall: number;
 }
@@ -67,13 +67,6 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
-}
-
-function formatCost(usd: number): string {
-  if (usd === 0) return '$0.00';
-  if (usd < 0.0001) return '<$0.0001';
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
 }
 
 // ============================================================
@@ -134,7 +127,7 @@ function RowBar({ row, maxTokens, rank }: RowBarProps) {
 
       {/* Stats */}
       <div className="flex-shrink-0 text-right space-y-0.5 w-24">
-        <p className="text-xs text-surface-300">{formatCost(row.totalCostUsd)}</p>
+        <p className="text-xs text-surface-300">{formatTokens(row.totalTokens)}</p>
         <p className="text-xs text-surface-500">{row.callCount} call{row.callCount !== 1 ? 's' : ''}</p>
       </div>
     </div>
@@ -206,7 +199,6 @@ export function TokenAnalyticsPanel({ projectPath }: TokenAnalyticsPanelProps) {
 
   // Aggregate totals for stat cards
   const totalTokens = rows.reduce((s, r) => s + r.totalTokens, 0);
-  const totalCost = rows.reduce((s, r) => s + r.totalCostUsd, 0);
   const totalCalls = rows.reduce((s, r) => s + r.callCount, 0);
   const maxTokens = rows[0]?.totalTokens ?? 0;
 
@@ -296,9 +288,9 @@ export function TokenAnalyticsPanel({ projectPath }: TokenAnalyticsPanelProps) {
                   sub={`In selected time range`}
                 />
                 <StatCard
-                  label="Estimated Cost"
-                  value={formatCost(totalCost)}
-                  sub="Approximate (see docs)"
+                  label="Avg / Call"
+                  value={formatTokens(totalCalls > 0 ? Math.round(totalTokens / totalCalls) : 0)}
+                  sub="Tokens per call"
                 />
                 <StatCard
                   label="Total Calls"
@@ -412,12 +404,12 @@ export function TokenAnalyticsPanel({ projectPath }: TokenAnalyticsPanelProps) {
               )}
             </div>
 
-            {/* Pricing disclaimer */}
+            {/* This panel counts tokens; it deliberately shows no money. */}
             {status === 'success' && (
               <p className="text-xs text-surface-500 text-center">
-                Cost estimates use approximate Anthropic list pricing (Haiku ~$0.25/MTok in, Sonnet ~$3/MTok in, Opus ~$15/MTok in).
-                Actual costs may differ. See{' '}
-                <code className="font-mono">docs/TOKEN-ANALYTICS.md</code> for details.
+                Token counts are measured. For spend, see the <strong>Usage</strong> panel — it
+                reads amounts actually billed from the Anthropic Admin API, rather than
+                multiplying tokens by a price list that goes stale.
               </p>
             )}
           </>

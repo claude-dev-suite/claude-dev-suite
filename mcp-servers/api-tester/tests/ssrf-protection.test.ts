@@ -5,10 +5,9 @@
  * Tests the IPv6 loopback, ULA, link-local, IPv4-mapped IPv6, and
  * standard IPv4 private-range blocking.
  *
- * NOTE: The api-tester validateUrl currently blocks ::1 explicitly.  The
- * broader IPv6 ULA/link-local blocking relies on the fact that validateUrl
- * checks resolved addresses for hostnames.  For IPv6 literals in the URL
- * the current implementation performs a lightweight check.
+ * As of the 2026-08 audit `validateUrl` delegates to `@dev-suite/shared`, so
+ * IPv6 ULA/link-local and numeric IPv4 literals are checked properly rather
+ * than by the "lightweight check" the local implementation used to do.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -57,5 +56,41 @@ describe('validateUrl — IPv6 SSRF protection', () => {
 
   it('blocks full-form IPv6 loopback [0:0:0:0:0:0:0:1]', async () => {
     await expect(validateUrl('http://[0:0:0:0:0:0:0:1]/')).rejects.toThrow(/SSRF protection/i);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-08 audit, Tier 3 #24/#26 — gaps in the server's own SSRF guard.
+//
+// `validateUrl` now delegates to `@dev-suite/shared`. The local implementation
+// it replaced returned early for "other IPv6" (so unique-local and link-local
+// addresses passed) and matched IPv4 only as a dotted quad (so decimal and hex
+// literals were never range-checked at all).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("audit 2026-08 — gaps closed by the shared guard", () => {
+  it("blocks an IPv6 unique-local address", async () => {
+    await expect(validateUrl("http://[fd00::1]/")).rejects.toThrow();
+  });
+
+  it("blocks an IPv6 link-local address", async () => {
+    await expect(validateUrl("http://[fe80::1]/")).rejects.toThrow();
+  });
+
+  it("blocks a decimal-encoded metadata address", async () => {
+    // 2852039166 === 169.254.169.254
+    await expect(validateUrl("http://2852039166/")).rejects.toThrow(/metadata/i);
+  });
+
+  it("blocks a hex-encoded metadata address", async () => {
+    await expect(validateUrl("http://0xa9fea9fe/")).rejects.toThrow(/metadata/i);
+  });
+
+  it("blocks an IPv4-mapped IPv6 metadata address", async () => {
+    await expect(validateUrl("http://[::ffff:169.254.169.254]/")).rejects.toThrow(/metadata/i);
+  });
+
+  it("still allows localhost", async () => {
+    await expect(validateUrl("http://localhost:3000/")).resolves.toBeUndefined();
   });
 });

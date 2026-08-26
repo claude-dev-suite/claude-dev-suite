@@ -16,7 +16,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
-import { randomUUID } from "crypto";
+import { randomUUID, timingSafeEqual } from "crypto";
 import {
   handlers,
   ORCHESTRATOR_WS_PORT,
@@ -30,17 +30,69 @@ import {
 // WEBSOCKET SERVER
 // ============================================================================
 
+/**
+ * Shared secret required to drive the orchestrator over the WebSocket.
+ *
+ * Read once at startup. When unset, a per-process token is generated and
+ * printed to stderr: an operator can copy it, but nothing on the network can
+ * guess it. Either way an unauthenticated peer can no longer queue jobs.
+ */
+const ORCHESTRATOR_WS_TOKEN =
+  process.env.ORCHESTRATOR_WS_TOKEN && process.env.ORCHESTRATOR_WS_TOKEN.length > 0
+    ? process.env.ORCHESTRATOR_WS_TOKEN
+    : randomUUID();
+
+/** Host to bind. Loopback only — this socket takes privileged commands. */
+const ORCHESTRATOR_WS_HOST = process.env.ORCHESTRATOR_WS_HOST || "127.0.0.1";
+
+/** Sockets that have completed the handshake. */
+const authenticated = new WeakSet<WebSocket>();
+
+/** Constant-time comparison, so a wrong token leaks nothing through timing. */
+function tokenMatches(candidate: unknown): boolean {
+  if (typeof candidate !== "string") return false;
+  const a = Buffer.from(candidate, "utf8");
+  const b = Buffer.from(ORCHESTRATOR_WS_TOKEN, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 function startWebSocketServer() {
   const httpServer = createServer();
   const wss = new WebSocketServer({ server: httpServer });
 
   wss.on("connection", (ws) => {
-    console.error("[Orchestrator] Dashboard connected");
+    console.error("[Orchestrator] Dashboard connected — awaiting auth");
     connectedClients.add(ws);
+
+    // A peer that does not authenticate promptly is dropped, so an unauthorised
+    // connection cannot sit idle holding a slot.
+    const authTimer = setTimeout(() => {
+      if (!authenticated.has(ws)) {
+        ws.send(JSON.stringify({ type: "error", payload: { message: "Auth timeout" } }));
+        ws.close();
+      }
+    }, 5000);
 
     ws.on("message", (data) => {
       try {
         const message = JSON.parse(data.toString());
+
+        // The socket accepts privileged commands — `submit_job` runs an agent
+        // with a caller-supplied projectPath. It used to accept them from any
+        // peer, on every interface. Nothing but `auth` is honoured until the
+        // handshake succeeds.
+        if (!authenticated.has(ws)) {
+          if (message?.type === "auth" && tokenMatches(message?.token)) {
+            authenticated.add(ws);
+            clearTimeout(authTimer);
+            ws.send(JSON.stringify({ type: "auth_ok" }));
+          } else {
+            ws.send(JSON.stringify({ type: "error", payload: { message: "Unauthorized" } }));
+            ws.close();
+          }
+          return;
+        }
+
         handleDashboardMessage(ws, message);
       } catch (error) {
         console.error("[Orchestrator] Invalid message:", error);
@@ -50,17 +102,26 @@ function startWebSocketServer() {
 
     ws.on("close", () => {
       console.error("[Orchestrator] Dashboard disconnected");
+      clearTimeout(authTimer);
       connectedClients.delete(ws);
     });
 
     ws.on("error", (error) => {
       console.error("[Orchestrator] WebSocket error:", error);
+      clearTimeout(authTimer);
       connectedClients.delete(ws);
     });
   });
 
-  httpServer.listen(ORCHESTRATOR_WS_PORT, () => {
-    console.error(`[Orchestrator] WebSocket server listening on port ${ORCHESTRATOR_WS_PORT}`);
+  // Bind loopback explicitly: `listen(port)` binds 0.0.0.0, which exposed an
+  // unauthenticated job-submission endpoint to the whole network.
+  httpServer.listen(ORCHESTRATOR_WS_PORT, ORCHESTRATOR_WS_HOST, () => {
+    console.error(
+      `[Orchestrator] WebSocket server listening on ${ORCHESTRATOR_WS_HOST}:${ORCHESTRATOR_WS_PORT}`
+    );
+    if (!process.env.ORCHESTRATOR_WS_TOKEN) {
+      console.error(`[Orchestrator] Generated auth token: ${ORCHESTRATOR_WS_TOKEN}`);
+    }
   });
 
   return wss;

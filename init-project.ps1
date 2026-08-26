@@ -42,14 +42,14 @@ Write-Host "[1/3] Checking requirements..." -ForegroundColor Blue
 try {
     $nodeVersion = (node -v) -replace 'v', ''
     $nodeMajor = [int]($nodeVersion -split '\.')[0]
-    if ($nodeMajor -lt 18) {
-        Write-Host "X Node.js 18+ required (found v$nodeVersion)" -ForegroundColor Red
+    if ($nodeMajor -lt 20) {
+        Write-Host "X Node.js 20+ required (found v$nodeVersion)" -ForegroundColor Red
         exit 1
     }
     Write-Host "OK Node.js v$nodeVersion" -ForegroundColor Green
 } catch {
     Write-Host "X Node.js is not installed" -ForegroundColor Red
-    Write-Host "Please install Node.js 18+ from https://nodejs.org" -ForegroundColor Yellow
+    Write-Host "Please install Node.js 20+ from https://nodejs.org" -ForegroundColor Yellow
     exit 1
 }
 
@@ -90,11 +90,44 @@ Write-Host ""
 Write-Host "[3/3] Launching dashboard..." -ForegroundColor Blue
 
 $dashboardDir = Join-Path $DevSuiteDir "configurator\dashboard"
-$serverScript = Join-Path $dashboardDir "server.cjs"
+$serverDir    = Join-Path $dashboardDir "server"
+$serverScript = Join-Path $serverDir "dist\index.js"
+$uiEntry      = Join-Path $dashboardDir "dist\index.html"
 
-if (-not (Test-Path $serverScript)) {
+if (-not (Test-Path $dashboardDir)) {
     Write-Host "X Dashboard not found at $dashboardDir" -ForegroundColor Red
     exit 1
+}
+
+# Build the backend if it has never been compiled (fresh clone)
+if (-not (Test-Path $serverScript)) {
+    Write-Host "  -> Building dashboard server (first run, this takes a minute)..." -ForegroundColor Yellow
+    Push-Location $serverDir
+    if (-not (Test-Path (Join-Path $serverDir "node_modules"))) { npm install --silent }
+    npm run build --silent
+    $buildOk = $?
+    Pop-Location
+    if (-not $buildOk -or -not (Test-Path $serverScript)) {
+        Write-Host "X Failed to build the dashboard server" -ForegroundColor Red
+        Write-Host "    Run manually: cd `"$serverDir`"; npm install; npm run build"
+        exit 1
+    }
+}
+
+# Build the frontend if it has never been compiled. Without it the server still
+# starts, but serves the API only and http://localhost:PORT returns a 503.
+if (-not (Test-Path $uiEntry)) {
+    Write-Host "  -> Building dashboard UI (first run, this takes a minute)..." -ForegroundColor Yellow
+    Push-Location $dashboardDir
+    if (-not (Test-Path (Join-Path $dashboardDir "node_modules"))) { npm install --silent }
+    npm run build --silent
+    $buildOk = $?
+    Pop-Location
+    if (-not $buildOk -or -not (Test-Path $uiEntry)) {
+        Write-Host "X Failed to build the dashboard UI" -ForegroundColor Red
+        Write-Host "    Run manually: cd `"$dashboardDir`"; npm install; npm run build"
+        exit 1
+    }
 }
 
 # Find available port
@@ -124,6 +157,7 @@ Write-Host ""
 # Open browser
 Start-Process "http://localhost:$port"
 
-# Start the dashboard server
-Set-Location $dashboardDir
-node server.cjs
+# Start the dashboard server. cwd must be the server package so Node resolves
+# its dependencies and package.json.
+Set-Location $serverDir
+node dist\index.js

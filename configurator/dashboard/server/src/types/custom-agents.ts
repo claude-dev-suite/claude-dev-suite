@@ -25,6 +25,12 @@ export interface CustomAgentFrontmatter {
   description: string;
   /** Model to use (sonnet, opus, haiku) */
   model?: CustomAgentModel;
+  /**
+   * Set when the file declares a `model:` that is not one of the three
+   * supported values — the parser used to drop it silently, so the UI showed
+   * the default and a typo was invisible.
+   */
+  modelWarning?: string;
   /** Allowed tools (comma-separated) */
   'allowed-tools'?: string;
   /** Skills referenced by this agent */

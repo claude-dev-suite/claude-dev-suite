@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Layout } from './components/layout';
 import { WizardContainer } from './components/wizard';
 import { ToastContainer, ErrorBoundary, ErrorFallback, LoadingPanel } from './components/common';
@@ -94,6 +94,10 @@ export function App() {
     }
   }, [setProjectPath]);
 
+  // One-shot latch: the "installed → leave the wizard" redirect must fire once
+  // per session, never again after the user navigates back to the wizard.
+  const hasLeftWizard = useRef(false);
+
   // Check if dev-suite is installed
   useEffect(() => {
     const checkInstalled = async () => {
@@ -106,8 +110,14 @@ export function App() {
         if (res.ok) {
           const data = await res.json();
           setIsInstalled(data.installed);
-          // If installed, default to orchestrator panel
-          if (data.installed && currentPanel === 'wizard') {
+          // If installed, leave the wizard for the orchestrator — but only the
+          // first time we learn this for a given project. `currentPanel` used to
+          // be an effect dependency, so re-running after the user *chose* the
+          // wizard from the header bounced them straight back: an installed
+          // project could never reach the wizard again, and adding a second
+          // assistant target became impossible.
+          if (data.installed && !hasLeftWizard.current && currentPanel === 'wizard') {
+            hasLeftWizard.current = true;
             setCurrentPanel('orchestrator');
           }
         }
@@ -117,7 +127,9 @@ export function App() {
     };
 
     checkInstalled();
-  }, [projectPath, currentPanel, setIsInstalled, setCurrentPanel]);
+    // `currentPanel` is deliberately read but not depended on — see above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectPath, setIsInstalled, setCurrentPanel]);
 
   // Redirect to wizard if not installed and on a panel that requires installation
   useEffect(() => {

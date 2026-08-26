@@ -3,7 +3,7 @@
  * Hook for managing Git hooks form state and handlers
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { HooksStatusResponse, HookType, HookConfig } from '@/types';
 import { API_BASE } from '@/utils/api';
 import { getLogger } from '@/utils/logger';
@@ -144,13 +144,31 @@ export function useGitHooksForm(
     }
   }, [getEffectivePath, selectedGitHooks, gitHookActions, onError]);
 
-  return {
-    selectedGitHooks,
-    gitHookActions,
-    saving,
-    setSelectedGitHooks,
-    toggleGitHookAction,
-    handleSaveGitHooks,
-    initializeFromStatus,
-  };
+  // Memoised so the hook's identity is stable across renders.
+  //
+  // This used to be a bare object literal, i.e. a brand-new value on every
+  // render. HooksConfig listed the whole object as an effect dependency and the
+  // effect called `initializeFromStatus`, which sets state — so the first
+  // successful /api/hooks/status response started a render → new object → effect
+  // → setState → render loop that never settled. Returning a stable value fixes
+  // it for every consumer, not just the one that tripped over it.
+  return useMemo(
+    () => ({
+      selectedGitHooks,
+      gitHookActions,
+      saving,
+      setSelectedGitHooks,
+      toggleGitHookAction,
+      handleSaveGitHooks,
+      initializeFromStatus,
+    }),
+    [
+      selectedGitHooks,
+      gitHookActions,
+      saving,
+      toggleGitHookAction,
+      handleSaveGitHooks,
+      initializeFromStatus,
+    ]
+  );
 }

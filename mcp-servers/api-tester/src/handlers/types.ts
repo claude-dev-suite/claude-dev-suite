@@ -5,6 +5,7 @@
 
 import { z } from "zod";
 import { lookup } from "dns/promises";
+import { validateUrl as validateUrlShared } from '@dev-suite/shared';
 
 // ============================================================================
 // HANDLER TYPES
@@ -90,31 +91,6 @@ export function errorResponse(message: string): HandlerResult {
 // URL VALIDATION (SSRF prevention)
 // ============================================================================
 
-/**
- * Check whether an IPv4 address string falls within a private/reserved range.
- * Returns the matched range name if blocked, null if allowed.
- */
-function getBlockedIpv4Range(ip: string): string | null {
-  const parts = ip.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((p) => isNaN(p))) return null;
-
-  const [a, b, c] = parts;
-
-  // 127.0.0.0/8 — loopback (explicit localhost is allowed via hostname check)
-  if (a === 127) return "loopback";
-  // 0.0.0.0
-  if (a === 0) return "unspecified";
-  // 10.0.0.0/8
-  if (a === 10) return "private (10.x.x.x)";
-  // 172.16.0.0/12
-  if (a === 172 && b >= 16 && b <= 31) return "private (172.16-31.x.x)";
-  // 192.168.0.0/16
-  if (a === 192 && b === 168) return "private (192.168.x.x)";
-  // 169.254.0.0/16 — link-local / cloud metadata (AWS, GCP, Azure)
-  if (a === 169 && b === 254) return "link-local/cloud-metadata (169.254.x.x)";
-
-  return null;
-}
 
 /**
  * Validate a URL against SSRF risks.
@@ -127,64 +103,17 @@ function getBlockedIpv4Range(ip: string): string | null {
  *
  * Throws an Error if the URL is blocked.
  */
+/**
+ * Validate a URL for SSRF risks before making an HTTP request.
+ *
+ * Delegates to the shared guard. The local implementation this replaces let
+ * every non-loopback IPv6 address through — `fd00::/7` unique-local and
+ * `fe80::/10` link-local included — and never decoded decimal/hex/octal IPv4
+ * literals, so `http://2852039166/` reached the cloud-metadata endpoint. The
+ * shared guard handles both.
+ */
 export async function validateUrl(rawUrl: string): Promise<void> {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    throw new Error(`Invalid URL: ${rawUrl}`);
-  }
-
-  const hostname = parsed.hostname.toLowerCase();
-
-  // Allow explicit localhost
-  if (hostname === "localhost") return;
-
-  // Reject bare IP literals in private ranges immediately (no DNS needed)
-  // This catches direct use of 169.254.169.254 etc.
-  const ipv4Literal = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
-  if (ipv4Literal) {
-    const blockedRange = getBlockedIpv4Range(hostname);
-    if (blockedRange) {
-      throw new Error(
-        `SSRF protection: requests to ${blockedRange} are not allowed (${hostname})`
-      );
-    }
-    return; // Public IPv4 literal — allowed
-  }
-
-  // Reject IPv6 literals (except ::1 which will be caught below after DNS,
-  // but bracket-stripped IPv6 we block broadly for non-public addrs)
-  const ipv6Literal =
-    hostname.startsWith("[") || /^[0-9a-f:]+$/i.test(hostname);
-  if (ipv6Literal) {
-    const stripped = hostname.replace(/^\[|\]$/g, "");
-    if (stripped === "::1" || stripped === "0:0:0:0:0:0:0:1") {
-      throw new Error(
-        "SSRF protection: requests to IPv6 loopback (::1) are not allowed"
-      );
-    }
-    // For other IPv6, allow (public IPv6 is legitimate)
-    return;
-  }
-
-  // Resolve hostname to IP and check resolved address
-  let resolvedAddress: string;
-  try {
-    const result = await lookup(hostname);
-    resolvedAddress = result.address;
-  } catch {
-    // DNS resolution failure — let the request fail naturally
-    return;
-  }
-
-  // Check resolved IPv4 address
-  const blockedRange = getBlockedIpv4Range(resolvedAddress);
-  if (blockedRange) {
-    throw new Error(
-      `SSRF protection: hostname "${hostname}" resolves to ${resolvedAddress} which is in a blocked range: ${blockedRange}`
-    );
-  }
+  return validateUrlShared(rawUrl);
 }
 
 // ============================================================================
@@ -212,16 +141,45 @@ export async function makeRequest(options: {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
 
+  // Redirects are NOT followed automatically. `fetch` defaults to
+  // redirect:"follow", so validating only the initial URL left the whole SSRF
+  // guard bypassable: a public URL answering 302 with
+  // `Location: http://169.254.169.254/...` was fetched without any further
+  // check. Each hop is re-validated instead — the same policy
+  // performance-profiler/src/utils/http-client.ts already applies.
+  const MAX_REDIRECTS = 5;
+
   try {
-    const response = await fetch(options.url, {
-      method: options.method,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      signal: controller.signal,
-    });
+    let currentUrl = options.url;
+    let response!: Response;
+
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      response = await fetch(currentUrl, {
+        method: options.method,
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        signal: controller.signal,
+        redirect: "manual",
+      });
+
+      const isRedirect = [301, 302, 303, 307, 308].includes(response.status);
+      if (!isRedirect) break;
+
+      const location = response.headers.get("location");
+      if (!location) break;
+
+      if (hop === MAX_REDIRECTS) {
+        throw new Error(`Too many redirects (max ${MAX_REDIRECTS})`);
+      }
+
+      // Resolve relative Locations against the current URL before validating.
+      const next = new URL(location, currentUrl).toString();
+      await validateUrl(next);
+      currentUrl = next;
+    }
 
     clearTimeout(timeoutId);
 

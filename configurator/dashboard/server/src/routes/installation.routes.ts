@@ -12,6 +12,7 @@ import { InstallationService } from '../services/installation.service.js';
 import type { InstallConfig } from '../types.js';
 import { validateBody, validateQuery } from '../middleware/validateRequest.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
+import { targetPaths } from '../services/targets/target-paths.js';
 import {
   PrepareServersRequestSchema,
   InstallRequestSchema,
@@ -79,12 +80,17 @@ installationRoutes.post('/uninstall', validateBody(UninstallRequestSchema), asyn
   try {
     const { projectPath } = req.body as { projectPath: string };
 
-    await installationService.uninstall(projectPath);
+    const result = await installationService.uninstall(projectPath);
 
-    // Return format expected by frontend
+    // `uninstall()` returns what it removed and what it could not. Answering a
+    // flat `success: true` and dropping `errors` meant a partial uninstall — a
+    // refused path, a config it could not un-merge — was indistinguishable from
+    // a clean one, both for the user and for the CLI.
     return res.json({
-      success: true,
+      success: result.errors.length === 0,
       uninstalled: true,
+      removed: result.removed,
+      errors: result.errors,
     });
   } catch (err) {
     return res.status(500).json({
@@ -125,7 +131,7 @@ installationRoutes.get('/available-commands', validateQuery(AvailableCommandsReq
     const projectPath = resolveProjectPath(rawPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
-    const commandsDir = path.join(projectPath, '.claude', 'commands');
+    const commandsDir = targetPaths(projectPath).commandsDir;
     const commands: { name: string; description: string; file: string }[] = [];
 
     try {

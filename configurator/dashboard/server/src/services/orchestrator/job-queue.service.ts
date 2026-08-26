@@ -10,6 +10,7 @@
  * - Real-time output streaming
  */
 
+import { randomUUID } from 'crypto';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { getProjectPath } from '../../utils/constants.js';
 import { wsLogger, generateCorrelationId } from '../../utils/logger.js';
@@ -84,6 +85,63 @@ export class JobQueueService {
   /**
    * Execute a single subtask and return its output
    */
+  /**
+   * The SDK's pre-execution permission hook for interactive jobs.
+   *
+   * Called before every tool runs. Low/medium-risk operations pass straight
+   * through; a high or critical one is broadcast to the dashboard and this
+   * promise does not resolve until the user answers or the request times out.
+   * Denying returns `behavior: 'deny'`, which stops the tool from running at
+   * all — the previous check only saw the tool *after* the SDK had already
+   * acted on it.
+   *
+   * Fail-closed: an unanswered request resolves to 'deny' in
+   * PermissionService, and anything that throws here is treated as a denial
+   * rather than silently allowing the operation.
+   */
+  private buildCanUseTool(jobId: string) {
+    return async (
+      toolName: string,
+      input: Record<string, unknown>
+    ): Promise<
+      | { behavior: 'allow'; updatedInput?: Record<string, unknown> }
+      | { behavior: 'deny'; message: string; interrupt?: boolean }
+    > => {
+      try {
+        const risk = this.permissionService.classifyOperation(toolName, input);
+        if (risk.risk !== 'high' && risk.risk !== 'critical') {
+          return { behavior: 'allow', updatedInput: input };
+        }
+
+        const requestId = randomUUID();
+        this.wsClientService.broadcast({
+          type: 'permission_request',
+          payload: {
+            requestId,
+            jobId,
+            toolName,
+            input,
+            ...risk,
+            timeoutMs: 30_000,
+          },
+        });
+
+        const decision = await this.permissionService.createRequest(requestId, 30_000);
+        if (decision === 'deny') {
+          return {
+            behavior: 'deny',
+            message: `Operation denied by user: ${risk.description}`,
+            interrupt: true,
+          };
+        }
+        return { behavior: 'allow', updatedInput: input };
+      } catch (error) {
+        wsLogger.error('Permission gate failed — denying', { error, data: { jobId, toolName } });
+        return { behavior: 'deny', message: 'Permission check failed' };
+      }
+    };
+  }
+
   private async executeSubTask(
     job: TrackedJob,
     prompt: string,
@@ -99,6 +157,15 @@ export class JobQueueService {
         settingSources: ['project'],
         allowedTools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],
         permissionMode: (this.config.job.permissionMode === 'interactive' ? 'default' : this.config.job.permissionMode) as 'default' | 'acceptEdits' | 'bypassPermissions',
+        // PREVENTIVE gate. The interactive check used to live in the assistant-
+        // message loop below, which the SDK streams *after* it has decided to
+        // run the tool — an `rm -rf` could already have executed by the time the
+        // user saw the dialog, and clicking Deny only aborted what came next.
+        // `canUseTool` is called before each execution and its verdict is
+        // binding.
+        ...(this.config.job.permissionMode === 'interactive' && {
+          canUseTool: this.buildCanUseTool(job.id),
+        }),
         abortController: this.state.abortController || undefined,
         ...(this.config.job.maxTurns !== undefined && { maxTurns: this.config.job.maxTurns }),
         ...(this.config.job.maxBudgetUsd > 0 && { maxBudgetUsd: this.config.job.maxBudgetUsd }),
@@ -115,35 +182,6 @@ export class JobQueueService {
 
       if (this.sdkService.isAssistantMessage(message)) {
         for (const block of message.message.content) {
-          // Permission check for interactive mode
-          if (
-            block.type === 'tool_use' &&
-            block.name &&
-            this.config.job.permissionMode === 'interactive'
-          ) {
-            const input = (block.input || {}) as Record<string, unknown>;
-            const risk = this.permissionService.classifyOperation(block.name, input);
-            if (risk.risk === 'high' || risk.risk === 'critical') {
-              const requestId = Math.random().toString(36).slice(2, 11);
-              this.wsClientService.broadcast({
-                type: 'permission_request',
-                payload: {
-                  requestId,
-                  jobId: job.id,
-                  toolName: block.name,
-                  input,
-                  ...risk,
-                  timeoutMs: 30_000,
-                },
-              });
-              const decision = await this.permissionService.createRequest(requestId, 30_000);
-              if (decision === 'deny') {
-                this.state.abortController?.abort();
-                throw new Error(`Operation denied by user: ${risk.description}`);
-              }
-            }
-          }
-
           const blockOutput = processAssistantBlock(
             block as { type: string; text?: string; name?: string; input?: Record<string, unknown> },
             job.id,
@@ -234,6 +272,10 @@ export class JobQueueService {
       const result = await this.executeSubTask(job, prompt, projectPath);
 
       job.completedSubTasks[currentTask.agentId] = result.output;
+      // Also by position: two steps with the same agent must not overwrite
+      // each other's output.
+      if (!job.completedSubTaskOutputs) job.completedSubTaskOutputs = [];
+      job.completedSubTaskOutputs[job.currentSubTaskIndex] = result.output;
 
       // Accumulate output for job context summary generation.
       // The consolidator (final summary) replaces all prior output as the primary context.
@@ -293,6 +335,7 @@ export class JobQueueService {
     const trackedJob = job as TrackedJob;
     trackedJob.currentSubTaskIndex = 0;
     trackedJob.completedSubTasks = {};
+    trackedJob.completedSubTaskOutputs = [];
     trackedJob.currentOutputBuffer = '';
 
     this.state.current = trackedJob;
@@ -352,6 +395,20 @@ export class JobQueueService {
         () => this.broadcastQueueStatus()
       );
     } finally {
+      // Release the slot only if this job still owns it.
+      //
+      // `force_unstick` clears `state.current` and starts the next job while
+      // this one is still awaiting the SDK. When it finally settled, this block
+      // used to null out the *successor's* `abortController` and call
+      // `processNextJob()` a second time — leaving two jobs running, one of
+      // them no longer cancellable.
+      if (this.state.current !== job) {
+        wsLogger.warn('Job finished after losing its execution slot — not releasing it', {
+          data: { jobId: job.id, currentJobId: this.state.current?.id ?? null },
+        });
+        return;
+      }
+
       this.permissionService.clearAll();
       this.state.current = null;
       this.state.abortController = null;

@@ -81,59 +81,100 @@ async function findTsFiles(dir) {
 }
 
 /**
- * Extract description string literals from a TypeScript source file.
- * Handles single-quote, double-quote, and template-string forms.
- * Multi-line template strings concatenate to one logical string for measurement.
+ * Read a string-valued expression starting just after a `description:` key.
  *
- * Returns array of { lineNum, value, justified }
+ * Handles every form that appears in the servers: a literal on the same line, a
+ * literal on the following line, several literals joined with `+` across lines,
+ * and multi-line template strings. Returns null for anything that is not a
+ * concatenation of literals (a variable, a helper call), whose length cannot be
+ * measured statically.
+ */
+function readStringExpression(lines, startLine, startCol) {
+  let li = startLine;
+  let ci = startCol;
+  const parts = [];
+
+  const peek = () => (li < lines.length ? lines[li][ci] : undefined);
+
+  // Advance past whitespace, line comments and block comments, crossing lines.
+  const skipTrivia = () => {
+    while (li < lines.length) {
+      const line = lines[li];
+      if (ci >= line.length) { li++; ci = 0; continue; }
+      const ch = line[ci];
+      if (ch === ' ' || ch === '\t' || ch === '\r') { ci++; continue; }
+      if (ch === '/' && line[ci + 1] === '/') { li++; ci = 0; continue; }
+      if (ch === '/' && line[ci + 1] === '*') {
+        ci += 2;
+        while (li < lines.length) {
+          const close = lines[li].indexOf('*/', ci);
+          if (close >= 0) { ci = close + 2; break; }
+          li++; ci = 0;
+        }
+        continue;
+      }
+      return;
+    }
+  };
+
+  const readLiteral = (quote) => {
+    ci++; // consume the opening quote
+    let out = '';
+    while (li < lines.length) {
+      const line = lines[li];
+      if (ci >= line.length) {
+        // Only template strings may span lines; a newline inside '' or "" means
+        // this is not a literal we can measure.
+        if (quote !== '`') return null;
+        out += ' ';
+        li++; ci = 0;
+        continue;
+      }
+      const ch = line[ci];
+      // charCode 92 is the backslash escape prefix
+      if (ch.charCodeAt(0) === 92) { out += line[ci + 1] ?? ''; ci += 2; continue; }
+      if (ch === quote) { ci++; return out; }
+      out += ch; ci++;
+    }
+    return null; // unterminated
+  };
+
+  for (;;) {
+    skipTrivia();
+    const ch = peek();
+    if (ch !== "'" && ch !== '"' && ch !== '`') return null;
+    const literal = readLiteral(ch);
+    if (literal === null) return null;
+    parts.push(literal);
+    skipTrivia();
+    if (peek() === '+') { ci++; continue; }
+    break;
+  }
+
+  return { value: parts.join('').replace(/\s+/g, ' ').trim() };
+}
+
+/**
+ * Extract description string literals from a TypeScript source file.
+ *
+ * Returns array of { lineNum, value, length, justified, justification }
  */
 function extractDescriptions(content) {
   const lines = content.split('\n');
   const results = [];
 
-  // Match: description: '...' / description: "..." / description: `...`
-  // For multi-line backtick strings we capture the content across lines.
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const m = line.match(/^\s*description\s*:\s*(['"`])/);
-    if (!m) continue;
+    // The key may be the only thing on its line — the value can start on the
+    // next one. Matching only `description:` (not the quote after it) is what
+    // makes those fields visible to the audit.
+    const key = lines[i].match(/^\s*description\s*:/);
+    if (!key) continue;
 
-    const quote = m[1];
-    let value = '';
+    const parsed = readStringExpression(lines, i, key[0].length);
+    if (!parsed) continue;
+    const value = parsed.value;
 
-    // Single-line string?
-    if (quote !== '`') {
-      const sm = line.match(new RegExp(`^\\s*description\\s*:\\s*${quote}((?:\\\\.|[^${quote}\\\\])*)${quote}`));
-      if (sm) {
-        value = sm[1].replace(/\\(.)/g, '$1');
-      } else {
-        // Fallback: skip — hard to parse
-        continue;
-      }
-    } else {
-      // Backtick — may span multiple lines
-      const startIdx = line.indexOf('`');
-      let rest = line.slice(startIdx + 1);
-      let closed = false;
-      const parts = [];
-      let j = i;
-      while (true) {
-        const closeIdx = rest.indexOf('`');
-        if (closeIdx >= 0) {
-          parts.push(rest.slice(0, closeIdx));
-          closed = true;
-          break;
-        }
-        parts.push(rest);
-        j++;
-        if (j >= lines.length) break;
-        rest = lines[j];
-      }
-      if (!closed) continue;
-      value = parts.join(' ').replace(/\s+/g, ' ').trim();
-    }
-
-    // Look for justification comment in the previous 3 non-empty lines
+    // A justification must sit on the line immediately above the field.
     let justified = false;
     let just = '';
     for (let k = i - 1; k >= Math.max(0, i - 3); k--) {

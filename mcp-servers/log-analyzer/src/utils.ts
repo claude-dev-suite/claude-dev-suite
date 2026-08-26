@@ -3,7 +3,7 @@
  * Shared security utilities for log-analyzer
  */
 
-import { isAbsolute, resolve, normalize } from "path";
+import { isAbsolute, resolve, normalize, sep } from "path";
 
 // ============================================================================
 // ReDoS-safe regex compilation
@@ -85,6 +85,22 @@ export function safeRegex(pattern: string, flags?: string): RegExp {
  *
  * Throws an Error if the path is invalid or unsafe.
  */
+export function validateExportPath(outputPath: string): void {
+  // Same absolute/no-traversal rules as a log path…
+  validateLogPath(outputPath);
+
+  // …plus optional confinement, because this path is written to rather than
+  // read. Opt-in so existing setups keep working.
+  const root = process.env.LOG_EXPORT_DIR;
+  if (root && root.length > 0) {
+    const resolvedRoot = resolve(root);
+    const resolved = resolve(outputPath);
+    if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + sep)) {
+      throw new Error(`Report output must be inside LOG_EXPORT_DIR (${resolvedRoot})`);
+    }
+  }
+}
+
 export function validateLogPath(filePath: string): void {
   if (!filePath || typeof filePath !== "string") {
     throw new Error("Log file path must be a non-empty string");

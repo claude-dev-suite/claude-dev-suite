@@ -189,7 +189,10 @@ export const STACK_TO_AGENTS: Record<string, string[]> = {
   solid: ['typescript-expert'],
   // Meta-frameworks
   nextjs: ['nextjs-expert'],
-  nuxt: ['nuxt-expert'],
+  // `nuxt-expert` never existed, so a detected Nuxt project got no frontend
+  // recommendation at all. Nuxt is Vue's meta-framework, matching how
+  // `sveltekit` maps to `svelte-expert` and `remix` to `react-expert`.
+  nuxt: ['vue-expert'],
   sveltekit: ['svelte-expert'],
   remix: ['react-expert'],
   astro: ['typescript-expert'],
