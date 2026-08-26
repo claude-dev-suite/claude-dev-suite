@@ -40,14 +40,31 @@ import {
   flattenSkillName,
   toInstalledAgentContent,
 } from './index.js';
-import { trackManifestFile } from './manifest-tracking.js';
+import { trackManifestFile, trackManifestDir } from './manifest-tracking.js';
+import { renameSkillFrontmatter } from './skill-frontmatter.js';
+import { writeManagedFile } from './managed-file.js';
+import {
+  markSkillDirOwned,
+  isOwnedSkillDirOrTracked,
+  trackedSkillPathsFrom,
+} from './skill-ownership.js';
 import { targetPaths } from '../targets/target-paths.js';
-import { AGENTS_SKILLS_DIR, readsAgentsSkills } from '../targets/target-layout.js';
+import { AGENTS_SKILLS_DIR, agentsSkillsReaders, type TargetId } from '../targets/target-layout.js';
 import type { InstallPlan } from '../targets/target-adapter.js';
 
 const logger = getLogger('SubstrateInstaller');
 
 export class SubstrateInstaller {
+  /** Paths the previous install owned; empty on a first install. */
+  private previouslyManaged: ReadonlySet<string> = new Set();
+  /** Agent ids whose destination file belonged to the user and was left alone. */
+  private preservedAgents: string[] = [];
+
+  /** Agent files preserved by the last `install()` call, for the caller to report. */
+  get preserved(): readonly string[] {
+    return this.preservedAgents;
+  }
+
   /**
    * Install the `.claude/` agent + skill substrate for one plan. Mutates the
    * manifests: pushes installed agent ids and tracks every written file.
@@ -62,11 +79,19 @@ export class SubstrateInstaller {
   ): void {
     const { projectPath, devSuiteDir, agents, skillLoadingMode } = plan;
     const paths = targetPaths(projectPath, 'claude-code');
+    this.previouslyManaged = plan.previouslyManaged;
+    this.preservedAgents = [];
 
-    fs.mkdirSync(paths.agentsDir, { recursive: true });
-    fs.mkdirSync(paths.skillsDir, { recursive: true });
+    // Route the mkdir sinks through the guard too: an unvalidated mkdir into a
+    // symlinked `.claude` was how a junction redirected the whole substrate.
+    fs.mkdirSync(validatePathWithinBase(paths.agentsDir, projectPath, false), { recursive: true });
+    fs.mkdirSync(validatePathWithinBase(paths.skillsDir, projectPath, false), { recursive: true });
 
-    this.cleanStaleSkills(paths.skillsDir);
+    // Skill directories written before ownership sentinels existed are
+    // recognised through the previous manifest, so upgrading does not strand
+    // a tree of stale skills.
+    const previouslyTracked = this.readTrackedSkillPaths(projectPath);
+    this.cleanStaleSkills(paths.skillsDir, paths.relSkillsDir, previouslyTracked);
 
     // In lazy mode skills split in two buckets: agent-scoped skills are
     // installed natively so the assistant loads their description at boot, and
@@ -92,32 +117,95 @@ export class SubstrateInstaller {
       }
     }
 
+    // The index describes lazy mode specifically, so a stale one left by a
+    // previous lazy install would keep pointing at a `skill-loader` server that
+    // an eager re-install does not install. `cleanStaleSkills` deliberately
+    // preserves top-level files, so remove it explicitly.
+    this.removeSkillIndex(paths.skillsDir, projectPath);
+
     // `_README.md` rather than `index.md` so skill auto-discovery doesn't try to
-    // interpret it as a skill folder.
-    if (skillLoadingMode === 'lazy') {
+    // interpret it as a skill folder. Written after the mirror below, because it
+    // goes into both trees and the mirror has to exist first.
+    const writeIndex = () => {
+      if (skillLoadingMode !== 'lazy') return;
       this.writeSkillIndex(
         lazySkillPaths, preloadedSkillPaths, paths.skillsDir, devSuiteDir,
         projectPath, manifest, extendedManifest
       );
-    }
+    };
 
     // Dual-write the skills to `.agents/skills` when a selected target reads the
-    // cross-tool location rather than `.claude/skills` (Codex, Gemini).
-    if (readsAgentsSkills(plan.targets)) {
-      this.mirrorSkillsToAgentsDir(paths.skillsDir, projectPath, manifest, extendedManifest);
+    // cross-tool location rather than `.claude/skills` (Codex, Gemini, Kimi).
+    const mirrorOwner = agentsSkillsReaders(plan.targets)[0];
+    if (mirrorOwner) {
+      this.mirrorSkillsToAgentsDir(
+        paths.skillsDir,
+        projectPath,
+        manifest,
+        extendedManifest,
+        mirrorOwner
+      );
+    } else {
+      // Copilot, Cursor and Cline read `.agents/skills` too (reference doc
+      // section 2.2), so a mirror left over from an install that included Codex
+      // or Gemini keeps serving stale skills to a *selected* assistant. Reconcile
+      // it even when no target reads it as its primary location — removing only
+      // folders dev-suite marked, never another tool's.
+      this.reconcileOrphanedMirror(projectPath, previouslyTracked);
+    }
+
+    writeIndex();
+  }
+
+  /**
+   * Remove a `_README.md` left by a previous install, in both skill trees.
+   *
+   * It documents lazy mode, so an eager re-install must not leave one behind
+   * telling the model to call a `skill-loader` server that is no longer there.
+   */
+  private removeSkillIndex(skillsDir: string, projectPath: string): void {
+    const candidates = [
+      path.join(skillsDir, '_README.md'),
+      path.join(projectPath, ...AGENTS_SKILLS_DIR.split('/'), '_README.md'),
+    ];
+    for (const file of candidates) {
+      try {
+        if (fs.existsSync(file)) fs.unlinkSync(file);
+      } catch (error: unknown) {
+        logger.warn('Could not remove the previous skills index', { error, context: { file } });
+      }
     }
   }
 
   /**
-   * Copy the installed `.claude/skills` tree into `.agents/skills` so Codex and
-   * Gemini (which don't read `.claude/`) discover the same skills. The two stay
+   * Drop dev-suite's own stale folders from `.agents/skills` when no selected
+   * target reads it as its primary skills location.
+   *
+   * Never removes the directory itself or anything unmarked: other tools write
+   * here, and Copilot, Cursor and Cline read it.
+   */
+  private reconcileOrphanedMirror(
+    projectPath: string,
+    previouslyTracked: ReadonlySet<string>
+  ): void {
+    const destRoot = path.join(projectPath, ...AGENTS_SKILLS_DIR.split('/'));
+    if (!fs.existsSync(destRoot)) return;
+    this.cleanStaleSkills(destRoot, AGENTS_SKILLS_DIR, previouslyTracked);
+  }
+
+  /**
+   * Copy the installed `.claude/skills` tree into `.agents/skills` so Codex,
+   * Gemini and Kimi Code (none of which read `.claude/`) discover the same
+   * skills. The two stay
    * byte-identical — `.agents/skills` is a mirror, never a separate source.
    */
   private mirrorSkillsToAgentsDir(
     claudeSkillsDir: string,
     projectPath: string,
     manifest: InstallManifest,
-    extendedManifest: ExtendedManifest
+    extendedManifest: ExtendedManifest,
+    /** The selected target the mirror is recorded under — never a hardcoded one. */
+    owner: TargetId
   ): void {
     if (!fs.existsSync(claudeSkillsDir)) return;
     const destRoot = path.join(projectPath, ...AGENTS_SKILLS_DIR.split('/'));
@@ -125,7 +213,7 @@ export class SubstrateInstaller {
     // Clean our previously-mirrored skill folders so a re-install with a
     // different agent set doesn't accumulate stale skills here either. Mirrors
     // cleanStaleSkills' safety: only folders containing a SKILL.md, never custom/.
-    this.cleanStaleSkills(destRoot);
+    this.cleanStaleSkills(destRoot, AGENTS_SKILLS_DIR, this.readTrackedSkillPaths(projectPath));
     fs.mkdirSync(destRoot, { recursive: true });
 
     let mirrored = 0;
@@ -135,9 +223,10 @@ export class SubstrateInstaller {
       const dest = validatePathWithinBase(path.join(destRoot, entry.name), destRoot, false);
       if (!fs.existsSync(dest)) {
         copyDirSync(src, dest);
+        markSkillDirOwned(dest);
         const rel = `${AGENTS_SKILLS_DIR}/${entry.name}`;
         manifest.files.push({ path: rel, type: 'skill', source: src });
-        trackManifestFile(extendedManifest, projectPath, rel, 'skill', src);
+        trackManifestDir(extendedManifest, rel, 'skill', src, owner);
         mirrored++;
       }
     }
@@ -149,54 +238,66 @@ export class SubstrateInstaller {
   }
 
   /**
-   * Remove dev-suite-managed skill folders from `.claude/skills/` so a
-   * re-install starts from a clean slate. Any direct child of `skillsDir`
-   * that contains a `SKILL.md` anywhere in its tree is considered managed.
-   *
-   * Files at the top level (e.g. `_README.md`) are preserved. Unrelated
-   * folders that don't contain a `SKILL.md` (rare, but possible if the user
-   * keeps custom artifacts here) are also preserved.
+   * Skill directories recorded in the project's current manifest, so folders
+   * written before ownership sentinels existed are still recognised as ours.
    */
-  private cleanStaleSkills(skillsDir: string): void {
+  private readTrackedSkillPaths(projectPath: string): Set<string> {
+    const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
+    if (!fs.existsSync(manifestPath)) return new Set();
+    try {
+      return trackedSkillPathsFrom(JSON.parse(fs.readFileSync(manifestPath, 'utf-8')));
+    } catch {
+      return new Set();
+    }
+  }
+
+  /**
+   * Remove the skill folders dev-suite installed, so a re-install starts from a
+   * clean slate.
+   *
+   * Ownership comes from the sentinel file (or the previous manifest), never
+   * from "this folder contains a SKILL.md" — that older rule deleted the user's
+   * own skills, and ran over `.agents/skills`, the cross-tool directory other
+   * assistants legitimately write into.
+   *
+   * Files at the top level (e.g. `_README.md`) are preserved, as is `custom/`.
+   */
+  private cleanStaleSkills(
+    skillsDir: string,
+    relSkillsDir: string,
+    trackedSkillPaths: ReadonlySet<string>
+  ): void {
     if (!fs.existsSync(skillsDir)) return;
 
-    const containsSkillMd = (dir: string): boolean => {
-      try {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          if (entry.isFile() && entry.name === 'SKILL.md') return true;
-          if (entry.isDirectory() && containsSkillMd(path.join(dir, entry.name))) return true;
-        }
-      } catch {
-        // unreadable — treat as no match
-      }
-      return false;
-    };
-
     let removed = 0;
+    let preserved = 0;
     for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       // Never touch the reserved `custom/` folder — it holds user-authored
-      // skills (custom-agents.service), even though they contain SKILL.md.
+      // skills (custom-agents.service).
       if (entry.name === 'custom' || !validateEntryName(entry.name)) continue;
       // SECURITY: validatePathWithinBase returns a path verified to stay inside
       // skillsDir (rejects traversal/symlink escape) — use the returned value.
       const fullPath = validatePathWithinBase(path.join(skillsDir, entry.name), skillsDir, false);
-      if (containsSkillMd(fullPath)) {
-        try {
-          fs.rmSync(fullPath, { recursive: true, force: true });
-          removed++;
-        } catch (error: unknown) {
-          logger.warn('Failed to remove stale skill folder', {
-            error,
-            context: { folder: fullPath },
-          });
-        }
+      const rel = `${relSkillsDir}/${entry.name}`;
+      if (!isOwnedSkillDirOrTracked(fullPath, rel, trackedSkillPaths)) {
+        preserved++;
+        continue;
+      }
+      try {
+        fs.rmSync(fullPath, { recursive: true, force: true });
+        removed++;
+      } catch (error: unknown) {
+        logger.warn('Failed to remove stale skill folder', {
+          error,
+          context: { folder: fullPath },
+        });
       }
     }
 
-    if (removed > 0) {
-      logger.info('Cleaned stale skill folders before re-install', {
-        context: { skillsDir, removed },
+    if (removed > 0 || preserved > 0) {
+      logger.info('Cleaned dev-suite skill folders before re-install', {
+        context: { skillsDir, removed, preservedUserFolders: preserved },
       });
     }
   }
@@ -263,11 +364,30 @@ export class SubstrateInstaller {
       return null;
     }
 
+    if (fs.existsSync(safeDest) && !fs.existsSync(path.join(safeDest, 'SKILL.md'))) {
+      // Something else already occupies this flattened name and it is not a
+      // skill. Claiming the name anyway would put it in the agent's `skills:`
+      // frontmatter while nothing resolves it, and cleanStaleSkills never
+      // touches a directory without a SKILL.md, so it would never self-heal.
+      logger.warn('Flattened skill name is occupied by a non-skill directory — skill omitted', {
+        context: { skillPath, flatName },
+      });
+      return null;
+    }
+
     if (!fs.existsSync(safeDest)) {
       copyDirSync(safeSrc, safeDest);
+      markSkillDirOwned(safeDest);
+      // Flattening renames the directory, and the Agent Skills spec makes
+      // `name:` match the parent directory a MUST (reference doc section 1.2).
+      // Copying byte-for-byte left every installed skill in violation.
+      renameSkillFrontmatter(safeDest, flatName);
       manifest.files.push({ path: paths.relSkillDir(flatName), type: 'skill', source: safeSrc });
       if (extendedManifest) {
-        trackManifestFile(extendedManifest, projectPath, paths.relSkillDir(flatName), 'skill', safeSrc);
+        // A directory has no hash, so the default tracker dropped these
+        // silently (one EISDIR warning per skill) and the manifest recorded
+        // zero skill directories.
+        trackManifestDir(extendedManifest, paths.relSkillDir(flatName), 'skill', safeSrc);
       }
     }
     usedFlatNames.set(flatName, skillPath);
@@ -331,7 +451,20 @@ export class SubstrateInstaller {
         installedSkillFlatNames: installedFlat,
         grantSkillTool: true,
       });
-      fs.writeFileSync(destPath, installedContent, 'utf-8');
+      // `.claude/agents/<id>.md` may be the user's own — Copilot and Cursor read
+      // this directory too, so people hand-write agents in it. Only replace a
+      // file the previous install recorded as ours.
+      if (
+        writeManagedFile({
+          absPath: destPath,
+          relPath: paths.relAgentFile(agentId),
+          content: installedContent,
+          previouslyManaged: this.previouslyManaged,
+        }) === 'preserved'
+      ) {
+        this.preservedAgents.push(agentId);
+        return true;
+      }
       manifest.files.push({ path: paths.relAgentFile(agentId), type: 'agent', source: agentFile });
       // Track with hash for upgrade system (hash reflects the installed file)
       if (extendedManifest) {
@@ -425,7 +558,20 @@ export class SubstrateInstaller {
         extraMcpServers: ['skill-loader'],
         grantSkillTool: true,
       });
-      fs.writeFileSync(destPath, installedContent, 'utf-8');
+      // `.claude/agents/<id>.md` may be the user's own — Copilot and Cursor read
+      // this directory too, so people hand-write agents in it. Only replace a
+      // file the previous install recorded as ours.
+      if (
+        writeManagedFile({
+          absPath: destPath,
+          relPath: paths.relAgentFile(agentId),
+          content: installedContent,
+          previouslyManaged: this.previouslyManaged,
+        }) === 'preserved'
+      ) {
+        this.preservedAgents.push(agentId);
+        return true;
+      }
       manifest.files.push({ path: paths.relAgentFile(agentId), type: 'agent', source: agentFile });
       // Track with hash for upgrade system (hash reflects the installed file).
       if (extendedManifest) {
@@ -502,13 +648,27 @@ export class SubstrateInstaller {
     );
     lines.push('');
 
+    const body = lines.join('\n');
     const readmePath = path.join(skillsDir, '_README.md');
-    fs.writeFileSync(readmePath, lines.join('\n'));
+    fs.writeFileSync(readmePath, body);
 
     const relReadme = paths.relSkillDir('_README.md');
     manifest.files.push({ path: relReadme, type: 'skill', source: 'generated' });
     if (extendedManifest) {
       trackManifestFile(extendedManifest, projectPath, relReadme, 'skill');
+    }
+
+    // Codex, Gemini and Kimi read only the mirror, so an index that lives solely
+    // in `.claude/skills` is invisible to them — the docstring claiming the two
+    // trees stay byte-identical was false.
+    const mirrorRoot = path.join(projectPath, ...AGENTS_SKILLS_DIR.split('/'));
+    if (fs.existsSync(mirrorRoot)) {
+      fs.writeFileSync(path.join(mirrorRoot, '_README.md'), body);
+      const relMirrorReadme = `${AGENTS_SKILLS_DIR}/_README.md`;
+      manifest.files.push({ path: relMirrorReadme, type: 'skill', source: 'generated' });
+      if (extendedManifest) {
+        trackManifestFile(extendedManifest, projectPath, relMirrorReadme, 'skill');
+      }
     }
 
     logger.info('Lazy skills README written', {

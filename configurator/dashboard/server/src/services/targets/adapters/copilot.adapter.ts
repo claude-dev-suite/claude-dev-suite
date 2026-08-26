@@ -42,7 +42,15 @@ const logger = getLogger('CopilotAdapter');
  * this one lives under `.github`, so the reinstall backup covers it via the
  * config-dir tree (unlike `.vscode/mcp.json`, which needs explicit handling).
  */
-const COPILOT_CLI_MCP_FILE = '.github/mcp.json';
+/**
+ * Copilot's CLI MCP surface, read from the layout descriptor.
+ *
+ * This was a module-local literal; the same path was also hardcoded in
+ * gitignore.ts, install-recovery.ts and uninstall.ts. It now lives in exactly
+ * one place — `COPILOT.extraMcpConfigFiles` — so the coverage gate can see it.
+ */
+const COPILOT_CLI_MCP_FILE =
+  getTargetLayout('copilot').extraMcpConfigFiles?.[0] ?? '.github/mcp.json';
 
 export class CopilotAdapter implements TargetAdapter {
   readonly id = 'copilot' as const;
@@ -71,7 +79,7 @@ export class CopilotAdapter implements TargetAdapter {
     );
 
     const installedAgents = plan.agentCatalog.filter(a => manifest.agents.includes(a.id));
-    const ruleFiles = writePathScopedRules('copilot', installedAgents, projectPath);
+    const ruleFiles = writePathScopedRules('copilot', installedAgents, projectPath, plan.previouslyManaged);
 
     if (plan.rules.length > 0) {
       skipped.push({

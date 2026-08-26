@@ -18,9 +18,11 @@
  *    per file (`keep`) to preserve their edits.
  *  - The whole erase+replace is wrapped in backup + rollback-on-error.
  *
- * This intentionally does NOT reuse `InstallationService.uninstall()`, which
- * blanket-deletes `.claude/agents` and `.claude/skills` (recursive) and would
- * destroy `custom/`.
+ * This intentionally does NOT reuse `InstallationService.uninstall()`: that
+ * removes dev-suite entirely, including the shared substrate a reinstall needs
+ * to keep. (It used to be unsafe as well — a recursive delete of
+ * `.claude/agents` and `.claude/skills` that took `custom/` with it — which
+ * `installation/uninstall.ts` now fixes.)
  */
 
 import * as fs from 'fs';
@@ -29,16 +31,18 @@ import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import {
-  AGENTS_SKILLS_DIR,
   DEFAULT_TARGET,
   MCP_SERVERS_DIR,
-  SHARED_INSTRUCTIONS_FILE,
   getTargetLayout,
-  readsAgentsSkills,
   type TargetId,
   type TargetLayout,
 } from './targets/target-layout.js';
 import { targetPaths } from './targets/target-paths.js';
+import { managedSurfaces } from './installation/managed-surfaces.js';
+import { resolveProjectTargets } from './installation/uninstall.js';
+import { recoverEnvVars, recoverSkillLoadingMode } from './installation/install-recovery.js';
+import { isOwnedSkillDirOrTracked, trackedSkillPathsFrom } from './installation/skill-ownership.js';
+import { isValidRuleId } from './rules.service.js';
 import { InstallationService } from './installation.service.js';
 import {
   DEV_SUITE_VERSION,
@@ -71,63 +75,10 @@ import type {
 
 const logger = getLogger('ReinstallService');
 
+// Re-exported for the tests and callers that import it from here.
+export { managedSurfaces };
+
 const BACKUP_DIR_PREFIX = '.dev-suite-backup-';
-
-/**
- * Everything a reinstall may mutate, across every target in a manifest, split
- * into config-directory trees (copied/removed wholesale) and standalone files.
- *
- * The standalone-file set is the subtle part. It includes any target's MCP,
- * settings or instructions file that lives *outside* its config directory —
- * most importantly Copilot's `.vscode/mcp.json`, which sits under neither
- * `.github` (its config dir) nor the project root. Backing up only the
- * config-dir trees would silently miss it, so a failed Copilot reinstall would
- * roll back without restoring its MCP config.
- *
- * Instructions files travel together for the same reason `AGENTS.md` and
- * `CLAUDE.md` always did: one holds the shared section, the other imports it,
- * so restoring one without the other leaves a dangling import.
- */
-export function managedSurfaces(targets: readonly TargetId[]): { dirs: string[]; files: string[] } {
-  const dirs = new Set<string>();
-  const files = new Set<string>([
-    '.dev-suite.json',
-    '.dev-suite-manifest.json',
-    SHARED_INSTRUCTIONS_FILE,
-  ]);
-
-  // The `.claude/` substrate (agents + skills) is always written, even for a
-  // Copilot- or Cursor-only install, because those assistants read it directly.
-  // So DEFAULT_TARGET's surfaces are always in play regardless of the request.
-  // Its extra files (`.mcp.json`, `.claude/settings.json`) simply don't exist
-  // when Claude Code wasn't targeted, and backup/rollback skip absent files.
-  const effectiveTargets = new Set<TargetId>([DEFAULT_TARGET, ...targets]);
-
-  for (const target of effectiveTargets) {
-    let layout: TargetLayout;
-    try {
-      layout = getTargetLayout(target);
-    } catch {
-      continue; // unknown/future target in the manifest — skip defensively
-    }
-    if (layout.configDir) dirs.add(layout.configDir);
-    if (layout.instructionsFile) files.add(layout.instructionsFile);
-    if (layout.mcpConfigFile) files.add(layout.mcpConfigFile);
-    if (layout.settingsFile) files.add(layout.settingsFile);
-  }
-
-  // The shared `.agents/skills` mirror lives outside every config dir, so it
-  // needs backing up explicitly when a target that reads it is in play.
-  if (readsAgentsSkills([...effectiveTargets])) dirs.add(AGENTS_SKILLS_DIR);
-
-  const dirList = [...dirs];
-  // A file already inside a backed-up directory tree is covered by that copy;
-  // list only the ones that aren't (root files + nested config like .vscode/).
-  const fileList = [...files].filter(
-    f => !f.includes('..') && !dirList.some(d => f === d || f.startsWith(`${d}/`))
-  );
-  return { dirs: dirList, files: fileList };
-}
 
 /** Selection of components to reinstall. */
 interface Selection {
@@ -185,6 +136,20 @@ export class ReinstallService {
       // Drift detection (only meaningful for files that still exist + have a hash)
       const fullPath = this.safe(projectPath, file.path);
       const currentHash = calculateFileHashFromPath(fullPath);
+
+      // A file the user deleted hashes to null and used to fall through both
+      // branches, so the preview could report drift but never absence — and the
+      // reinstall then silently recreated it with no mention.
+      if (!currentHash && file.hash && !fs.existsSync(fullPath)) {
+        modifiedManagedFiles.push({
+          path: file.path,
+          type: file.type,
+          manifestHash: file.hash,
+          currentHash: '(deleted)',
+        });
+        continue;
+      }
+
       if (currentHash && file.hash && currentHash !== file.hash) {
         modifiedManagedFiles.push({
           path: file.path,
@@ -224,8 +189,9 @@ export class ReinstallService {
 
     // Recover install parameters BEFORE erasing anything (they live in files we
     // are about to regenerate).
-    const skillLoadingMode = this.recoverSkillLoadingMode(projectPath);
-    const envVars = this.recoverEnvVars(projectPath);
+    const recoveryTargets = resolveProjectTargets(projectPath, manifest);
+    const skillLoadingMode = this.recoverSkillLoadingMode(projectPath, recoveryTargets);
+    const envVars = this.recoverEnvVars(projectPath, recoveryTargets);
     const detectedStack = this.stackInfoToDetectionResult(manifest.detectedStack);
 
     // Carry over prior history (install() rewrites the manifest from scratch).
@@ -268,6 +234,9 @@ export class ReinstallService {
         agents: selection.agents,
         mcpServers: selection.mcpServers,
         rules: selection.rules,
+        // This flow already snapshotted the same surfaces above; a second
+        // backup would double the work and leave two backup dirs behind.
+        createBackup: false,
         envVars,
         detectedStack,
         skillLoadingMode,
@@ -295,7 +264,7 @@ export class ReinstallService {
       }
 
       // ---- VERIFY ----
-      const verifyWarnings = this.verify(projectPath, newManifest);
+      const verifyWarnings = this.verify(projectPath, newManifest, selection);
 
       // ---- History ----
       const historyEntry: ReinstallHistoryEntry = {
@@ -414,7 +383,9 @@ export class ReinstallService {
     return {
       agents: devSuiteJson?.agents?.enabled ?? manifest.agents ?? [],
       mcpServers: devSuiteJson?.mcpServers?.enabled ?? manifest.mcpServers ?? [],
-      rules: devSuiteJson?.rules?.enabled ?? [],
+      // Rule ids come from the project's own `.dev-suite.json`, which never
+      // passed through request validation — filter before they reach a path.
+      rules: (devSuiteJson?.rules?.enabled ?? []).filter(isValidRuleId),
     };
   }
 
@@ -478,47 +449,34 @@ export class ReinstallService {
   }
 
   /**
-   * Count dev-suite-managed skill directories on disk under `.claude/skills/`
-   * — direct children containing a `SKILL.md` (anywhere in their tree),
-   * excluding the reserved user `custom/` folder. Mirrors `cleanStaleSkills`
-   * (installation.service), which is what actually rebuilds them, so this is
-   * the true "will be rebuilt" count. Skill dirs aren't tracked in the manifest
-   * (a directory hashes to null), so they can't be counted from `files`.
+   * Count the skill directories a reinstall will rebuild.
+   *
+   * Ownership comes from the sentinel dev-suite writes into each directory it
+   * materialises, or from the manifest for installs that predate it — the same
+   * rule `cleanStaleSkills` uses, so this is the true "will be rebuilt" count.
+   * It used to be "any direct child containing a SKILL.md", which also counted
+   * the user's own skills and promised to rebuild files dev-suite must not touch.
    */
   private countManagedSkillDirs(projectPath: string): number {
-    const skillsDir = this.safe(projectPath, targetPaths(projectPath).relSkillsDir);
+    const relSkillsDir = targetPaths(projectPath).relSkillsDir;
+    const skillsDir = this.safe(projectPath, relSkillsDir);
     if (!fs.existsSync(skillsDir)) return 0;
 
-    // Every descendant must stay within skillsDir (validated against it).
-    const containsSkillMd = (dir: string): boolean => {
-      try {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          if (entry.isFile() && entry.name === 'SKILL.md') return true;
-          if (
-            entry.isDirectory() &&
-            validateEntryName(entry.name) &&
-            containsSkillMd(validatePathWithinBase(path.join(dir, entry.name), skillsDir))
-          ) {
-            return true;
-          }
-        }
-      } catch {
-        // unreadable — treat as no match
-      }
-      return false;
-    };
+    const tracked = trackedSkillPathsFrom(loadManifest(projectPath));
 
     let count = 0;
     try {
       for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
         if (!entry.isDirectory() || entry.name === 'custom' || !validateEntryName(entry.name)) continue;
-        if (containsSkillMd(this.safe(skillsDir, entry.name))) count++;
+        const abs = validatePathWithinBase(path.join(skillsDir, entry.name), skillsDir, false);
+        if (isOwnedSkillDirOrTracked(abs, `${relSkillsDir}/${entry.name}`, tracked)) count++;
       }
     } catch {
       return 0;
     }
     return count;
   }
+
 
   private isOrphan(file: TrackedFile, selection: Selection): boolean {
     const name = this.componentName(file);
@@ -583,8 +541,35 @@ export class ReinstallService {
    * Post-install verification. Returns non-fatal warnings; throws on fatal
    * problems (which trigger rollback).
    */
-  private verify(projectPath: string, manifest: ExtendedManifest): string[] {
+  private verify(
+    projectPath: string,
+    manifest: ExtendedManifest,
+    selection: Selection
+  ): string[] {
     const warnings: string[] = [];
+
+    // Check against what was ASKED FOR, not only against what was recorded.
+    // Iterating the manifest alone is tautological: a component that failed to
+    // install is never tracked, so it is invisible — and a reinstall that had
+    // just erased it reported success.
+    for (const agentId of selection.agents) {
+      const recorded = (manifest.files ?? []).some(
+        f => f.type === 'agent' && path.basename(f.path).replace(/\.md$/, '') === agentId
+      );
+      if (!recorded) {
+        throw new Error(
+          `Verification failed: agent "${agentId}" was selected but no agent file was installed for it`
+        );
+      }
+    }
+    for (const server of selection.mcpServers) {
+      if (!validateEntryName(server)) continue;
+      if (!fs.existsSync(this.safe(projectPath, MCP_SERVERS_DIR, server))) {
+        throw new Error(
+          `Verification failed: MCP server "${server}" was selected but ${MCP_SERVERS_DIR}/${server} is missing`
+        );
+      }
+    }
 
     // Every tracked file must exist.
     for (const file of manifest.files ?? []) {
@@ -631,7 +616,7 @@ export class ReinstallService {
     const backupDir = this.safe(projectPath, `${BACKUP_DIR_PREFIX}${timestamp}`);
     fs.mkdirSync(backupDir, { recursive: true });
 
-    const { dirs, files } = managedSurfaces(manifest.targets ?? [DEFAULT_TARGET]);
+    const { dirs, files } = managedSurfaces(resolveProjectTargets(projectPath, manifest));
 
     // Config-dir trees (agents, skills, rules, settings, custom/ …)
     for (const dir of dirs) {
@@ -658,8 +643,33 @@ export class ReinstallService {
       }
     }
 
+    this.pruneOldBackups(projectPath);
     logger.info('Created reinstall backup', { context: { backupDir } });
     return backupDir;
+  }
+
+  /**
+   * Keep only the most recent backups.
+   *
+   * They live inside the project, contain the env values the user entered in the
+   * wizard, and nothing ever removed them — a project reinstalled weekly grew a
+   * directory of credential copies. The newest few are worth keeping; the rest
+   * are noise the user did not ask for.
+   */
+  private pruneOldBackups(projectPath: string, keep = 3): void {
+    try {
+      const dirs = fs
+        .readdirSync(projectPath, { withFileTypes: true })
+        .filter(e => e.isDirectory() && e.name.startsWith(BACKUP_DIR_PREFIX))
+        .map(e => e.name)
+        .sort();
+      for (const name of dirs.slice(0, Math.max(0, dirs.length - keep))) {
+        fs.rmSync(this.safe(projectPath, name), { recursive: true, force: true });
+        logger.info('Removed an old reinstall backup', { context: { backup: name } });
+      }
+    } catch (error: unknown) {
+      logger.warn('Could not prune old reinstall backups', { error });
+    }
   }
 
   /**
@@ -668,7 +678,7 @@ export class ReinstallService {
    * created) then copies the backup tree back.
    */
   private rollback(projectPath: string, backupDir: string, selection: Selection, manifest: ExtendedManifest): void {
-    const { dirs, files } = managedSurfaces(manifest.targets ?? [DEFAULT_TARGET]);
+    const { dirs, files } = managedSurfaces(resolveProjectTargets(projectPath, manifest));
 
     // 1. Remove managed surfaces created/mutated during the attempt. Config-dir
     // trees go wholesale; standalone files are removed individually so unrelated
@@ -704,26 +714,17 @@ export class ReinstallService {
 
   // ---- Install-parameter recovery ----
 
-  private recoverSkillLoadingMode(projectPath: string): 'eager' | 'lazy' {
-    const mcp = readJsonSync<{ mcpServers?: Record<string, unknown> }>(
-      this.safe(projectPath, targetPaths(projectPath).relMcpConfigFile)
-    );
-    return mcp?.mcpServers && Object.prototype.hasOwnProperty.call(mcp.mcpServers, 'skill-loader')
-      ? 'lazy'
-      : 'eager';
+  /**
+   * Both recoveries read every selected assistant's MCP config, not only Claude
+   * Code's `.mcp.json` — a Cursor- or Gemini-only project has none, so the old
+   * single-file read wiped every API key the user had entered.
+   */
+  private recoverSkillLoadingMode(projectPath: string, targets: readonly TargetId[]): 'eager' | 'lazy' {
+    return recoverSkillLoadingMode(projectPath, targets);
   }
 
-  private recoverEnvVars(projectPath: string): Record<string, string> {
-    const mcp = readJsonSync<{ mcpServers?: Record<string, { env?: Record<string, string> }> }>(
-      this.safe(projectPath, targetPaths(projectPath).relMcpConfigFile)
-    );
-    const out: Record<string, string> = {};
-    for (const entry of Object.values(mcp?.mcpServers ?? {})) {
-      for (const [k, v] of Object.entries(entry.env ?? {})) {
-        if (typeof v === 'string') out[k] = v;
-      }
-    }
-    return out;
+  private recoverEnvVars(projectPath: string, targets: readonly TargetId[]): Record<string, string> {
+    return recoverEnvVars(projectPath, targets);
   }
 
   /**

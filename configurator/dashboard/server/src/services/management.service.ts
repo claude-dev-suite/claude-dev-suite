@@ -7,16 +7,19 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import type { ExtendedManifest, TrackedFile, NewComponentsResult } from '../types/upgrade.js';
 import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { createHash } from 'crypto';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { parseAgentSkills, flattenSkillName, toInstalledAgentContent } from './installation/file-operations.js';
-import { updateInstructions, type CustomAgentSummary } from './installation/claude-md.service.js';
 import { validatePathWithinBase } from './installation/index.js';
 import { targetPaths } from './targets/target-paths.js';
+import { InstallationService } from './installation.service.js';
+import { recoverEnvVars, recoverSkillLoadingMode } from './installation/install-recovery.js';
+import { resolveProjectTargets } from './installation/uninstall.js';
+import { withProjectLock } from './installation/project-lock.js';
 import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 import { getLogger } from '../utils/logger.js';
 
@@ -34,6 +37,7 @@ const TIMEOUTS = {
 
 export class ManagementService {
   private agentsService = new AgentsService();
+  private installationService = new InstallationService();
 
   /**
    * Load project manifest
@@ -118,6 +122,12 @@ export class ManagementService {
    * Add an agent to the project
    */
   async addAgent(projectPath: string, agentId: string): Promise<void> {
+    return withProjectLock(projectPath, 'add-agent', () =>
+      this.addAgentUnlocked(projectPath, agentId)
+    );
+  }
+
+  private async addAgentUnlocked(projectPath: string, agentId: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -207,13 +217,19 @@ export class ManagementService {
     }
 
     // Update CLAUDE.md with agent routing
-    await this.regenerateClaudeMd(projectPath);
+    await this.resyncTargets(projectPath);
   }
 
   /**
    * Remove an agent from the project
    */
   async removeAgent(projectPath: string, agentId: string): Promise<void> {
+    return withProjectLock(projectPath, 'remove-agent', () =>
+      this.removeAgentUnlocked(projectPath, agentId)
+    );
+  }
+
+  private async removeAgentUnlocked(projectPath: string, agentId: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -248,102 +264,93 @@ export class ManagementService {
     }
 
     // Update CLAUDE.md with agent routing
-    await this.regenerateClaudeMd(projectPath);
+    await this.resyncTargets(projectPath);
   }
 
   /**
-   * Add an MCP server to the project
+   * Add an MCP server to the project.
+   *
+   * Delegates to a full resync, the same way add/removeAgent already do.
+   *
+   * This used to be the one write into a user's project that bypassed the whole
+   * target layer: it copied the bundle by hand, ran `npm install` (which the
+   * installer never does — bundles are self-contained esbuild output), then
+   * JSON.parse'd and rewrote `.mcp.json` directly. In a Cursor- or Gemini-only
+   * project that wrote a Claude Code config no selected assistant reads, left
+   * the real config untouched, and recorded nothing in the manifest — so
+   * uninstall could not remove it and reinstall could not see it.
    */
   async addMcpServer(projectPath: string, serverName: string, envVars: Record<string, string> = {}): Promise<void> {
+    return withProjectLock(projectPath, 'add-mcp-server', () =>
+      this.addMcpServerUnlocked(projectPath, serverName, envVars)
+    );
+  }
+
+  private async addMcpServerUnlocked(projectPath: string, serverName: string, envVars: Record<string, string> = {}): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
+
     const devSuiteDir = getDevSuiteDir();
     const serverSource = path.join(devSuiteDir, 'mcp-servers', serverName);
-
     if (!fs.existsSync(serverSource)) {
       throw new Error(`MCP server ${serverName} not found in dev-suite`);
     }
-
     if (!fs.existsSync(path.join(serverSource, 'dist', 'index.js'))) {
       throw new Error(`MCP server ${serverName} not built. Run prepareServers first.`);
     }
 
-    const paths = targetPaths(projectPath);
-    const mcpServersDir = paths.mcpServersDir;
-    fs.mkdirSync(mcpServersDir, { recursive: true });
+    const installed = await this.getInstalledComponents(projectPath);
+    const next = installed.mcpServers.includes(serverName)
+      ? installed.mcpServers
+      : [...installed.mcpServers, serverName];
 
-    const serverDest = path.join(mcpServersDir, serverName);
-    this.copyDirSync(serverSource, serverDest);
-
-    // Install dependencies
-    // SECURITY: execFileSync with shell:false and --ignore-scripts prevents
-    // malicious postinstall hooks in copied MCP server packages.
-    // On Windows npm is 'npm.cmd'; on POSIX it is 'npm'.
-    if (fs.existsSync(path.join(serverDest, 'package.json'))) {
-      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      execFileSync(npmCmd, ['install', '--production', '--ignore-scripts'], {
-        cwd: serverDest,
-        stdio: 'pipe',
-        shell: false,
-        timeout: TIMEOUTS.NPM_INSTALL,
-      });
-    }
-
-    // Update the MCP config file
-    const mcpJsonPath = paths.mcpConfigFile;
-    let mcpConfig = { mcpServers: {} as Record<string, unknown> };
-
-    if (fs.existsSync(mcpJsonPath)) {
-      mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
-    }
-
-    mcpConfig.mcpServers[serverName] = {
-      command: 'node',
-      args: [paths.mcpServerEntry(serverName)],
-      env: envVars,
-    };
-
-    fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpConfig, null, 2));
-
-    // Update .dev-suite.json
     this.updateDevSuiteConfig(projectPath, (config) => {
       if (!config.mcpServers.enabled.includes(serverName)) {
         config.mcpServers.enabled.push(serverName);
       }
     });
+
+    await this.resyncTargets(projectPath, { mcpServers: next, envVars });
   }
 
   /**
-   * Remove an MCP server from the project
+   * Remove an MCP server from the project.
+   *
+   * Mirror of addMcpServer: the resync re-runs the adapters, which un-merge the
+   * entry from every selected assistant's config and update the manifest.
    */
   async removeMcpServer(projectPath: string, serverName: string): Promise<void> {
+    return withProjectLock(projectPath, 'remove-mcp-server', () =>
+      this.removeMcpServerUnlocked(projectPath, serverName)
+    );
+  }
+
+  private async removeMcpServerUnlocked(projectPath: string, serverName: string): Promise<void> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
     if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
+
     const paths = targetPaths(projectPath);
     const serverDir = paths.mcpServerDir(serverName);
-
     if (!fs.existsSync(serverDir)) {
       throw new Error(`MCP server ${serverName} not found`);
     }
 
+    const installed = await this.getInstalledComponents(projectPath);
+    const next = installed.mcpServers.filter((s) => s !== serverName);
+
+    // Remove the bundle first so the filesystem and the intended set agree; the
+    // adapters then drop the entry from every assistant's config by merge.
     fs.rmSync(serverDir, { recursive: true, force: true });
 
-    // Update the MCP config file
-    const mcpJsonPath = paths.mcpConfigFile;
-    if (fs.existsSync(mcpJsonPath)) {
-      const mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
-      delete mcpConfig.mcpServers[serverName];
-      fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpConfig, null, 2));
-    }
-
-    // Update .dev-suite.json
     this.updateDevSuiteConfig(projectPath, (config) => {
       config.mcpServers.enabled = config.mcpServers.enabled.filter((s: string) => s !== serverName);
     });
+
+    await this.resyncTargets(projectPath, { mcpServers: next });
   }
 
   /**
@@ -556,65 +563,53 @@ export class ManagementService {
   }
 
   /**
-   * Regenerate the instructions files (AGENTS.md + CLAUDE.md pointer) with the
-   * current agent routing.
+   * Re-run the install for the project's own targets after a Manage-tab change.
+   *
+   * This used to write `.claude/agents` and then call `updateInstructions` and
+   * nothing else — no adapter ran. So adding an agent on a Gemini install left
+   * `.gemini/agents/` untouched and the skills mirror stale: the dashboard said
+   * "installed" while the agent did not exist in Gemini at all. Removing one
+   * left `.cursor/rules/frontend.mdc` still recommending a deleted agent.
+   *
+   * Delegating to `install()` also stops `updateInstructions` from creating a
+   * `CLAUDE.md` in a project deliberately installed without Claude Code, since
+   * the target list is now honoured.
    */
-  private async regenerateClaudeMd(projectPath: string): Promise<void> {
+  private async resyncTargets(
+    projectPath: string,
+    /**
+     * Overrides for a change that is not yet reflected on disk.
+     *
+     * `getInstalledComponents` prefers the filesystem over `.dev-suite.json`, so
+     * a server being *added* is not discoverable until the bundle is copied —
+     * which is `install()`'s job. The caller states the intended set instead.
+     */
+    overrides: { mcpServers?: string[]; envVars?: Record<string, string> } = {}
+  ): Promise<void> {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
-    const currentAgentIds = (await this.getInstalledComponents(projectPath)).agents;
-    const allAgents = await this.agentsService.getAgents();
-    const installedAgents = allAgents.filter(a => currentAgentIds.includes(a.id));
 
-    // Get custom agents
-    const customAgents = await this.getCustomAgentsList(projectPath);
+    const manifest = this.loadManifest(projectPath);
+    const targets = resolveProjectTargets(projectPath, manifest);
+    const installed = await this.getInstalledComponents(projectPath);
+    const devSuiteJson = readJsonSync<{ rules?: { enabled?: string[] } }>(
+      path.join(projectPath, '.dev-suite.json')
+    );
 
-    updateInstructions(projectPath, { agents: installedAgents, customAgents });
+    await this.installationService.install({
+      projectPath,
+      agents: installed.agents,
+      mcpServers: overrides.mcpServers ?? installed.mcpServers,
+      rules: devSuiteJson?.rules?.enabled ?? [],
+      envVars: {
+        ...recoverEnvVars(projectPath, targets),
+        ...(overrides.envVars ?? {}),
+      },
+      skillLoadingMode: recoverSkillLoadingMode(projectPath, targets),
+      // Omitted, not cleared: install() carries the stored stack forward.
+      detectedStack: undefined,
+      targets,
+    });
   }
 
-  /**
-   * Get list of custom agents from project
-   */
-  private async getCustomAgentsList(projectPath: string): Promise<CustomAgentSummary[]> {
-    if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
-    const customAgentsDir = targetPaths(projectPath).customAgentsDir;
-    const agents: CustomAgentSummary[] = [];
-
-    if (!fs.existsSync(customAgentsDir)) {
-      return agents;
-    }
-
-    try {
-      const entries = fs.readdirSync(customAgentsDir, { withFileTypes: true });
-
-      for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith('.md')) {
-          const filePath = path.join(customAgentsDir, entry.name);
-          const content = fs.readFileSync(filePath, 'utf-8');
-
-          // Parse YAML frontmatter
-          if (content.startsWith('---')) {
-            const endIdx = content.indexOf('---', 3);
-            if (endIdx > 0) {
-              const frontmatter = content.substring(3, endIdx);
-              const nameMatch = frontmatter.match(/^name:\s*["']?([^"'\n]+)["']?/m);
-              const descMatch = frontmatter.match(/^description:\s*["']?([^"'\n]+)["']?/m);
-
-              if (nameMatch?.[1]) {
-                agents.push({
-                  id: entry.name.replace('.md', ''),
-                  name: nameMatch[1].trim(),
-                  description: descMatch?.[1]?.trim() || `Custom agent: ${nameMatch[1].trim()}`,
-                });
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to read custom agents', { error });
-    }
-
-    return agents;
-  }
 
 }

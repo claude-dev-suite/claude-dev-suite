@@ -24,6 +24,7 @@ import {
 import { checkStackCompatibility } from './upgrade/stack-compatibility.service.js';
 import { detectConflicts } from './upgrade/conflict-detector.service.js';
 import { applyFeature } from './upgrade/feature-applier.service.js';
+import { resolveProjectTargets } from './installation/uninstall.js';
 import type {
   UpgradeHistoryEntry,
   AvailableUpgrade,
@@ -49,6 +50,7 @@ export class UpgradeService {
     if (projectPath.includes('..')) throw new Error('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+
     const registry = loadFeatureRegistry();
     const manifest = loadManifest(projectPath);
 
@@ -240,6 +242,30 @@ export class UpgradeService {
    */
   async executeUpgrade(request: UpgradeExecuteRequest): Promise<UpgradeExecuteResult> {
     const { projectPath, featureIds, resolutions, createBackup: shouldBackup = true } = request;
+
+    // The incremental-upgrade engine predates multi-assistant support: every
+    // path in `registry/features.json` is a `.claude/...` literal and nothing
+    // downstream consults the project's targets. Applying it to a Cursor- or
+    // Gemini-only project would create a `.claude/` tree that no selected
+    // assistant reads, outside the manifest's target classification.
+    //
+    // Its UI is retired (see manage/UpdatesTab.tsx) but the endpoints are still
+    // mounted, so the guard belongs here rather than in the route. It runs
+    // before the registry lookup because it is a property of the *project*, not
+    // of the catalog.
+    const targets = resolveProjectTargets(projectPath, loadManifest(projectPath));
+    if (!targets.includes('claude-code')) {
+      return {
+        success: false,
+        error:
+          `Incremental upgrades apply to Claude Code only; this project targets ${targets.join(', ')}. ` +
+          'Use Sync (reinstall) to bring every selected assistant up to date.',
+        results: [],
+        upgraded: [],
+        skipped: [],
+        failed: [],
+      };
+    }
 
     const registry = loadFeatureRegistry();
     if (!registry) {

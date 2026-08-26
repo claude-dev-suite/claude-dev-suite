@@ -10,14 +10,43 @@ import * as path from 'path';
 import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { execSync, execFileSync } from 'child_process';
-import type { InstallConfig, InstallManifest } from '../types.js';
+import type { DetectionResult, InstallConfig, InstallManifest, InstallSkippedCapability } from '../types.js';
 import type { TrackedFile, ExtendedManifest, StackInfo } from '../types/index.js';
-import { DEFAULT_TARGET, type TargetId } from './targets/target-layout.js';
+import { DEFAULT_TARGET, getTargetLayout, type TargetId } from './targets/target-layout.js';
 import { targetPaths, type TargetPaths } from './targets/target-paths.js';
 import type { InstallPlan, McpServerEntry } from './targets/target-adapter.js';
 import { getAdapter } from './targets/adapters/index.js';
 import { AgentsService } from './agents.service.js';
 import { SubstrateInstaller } from './installation/substrate.js';
+import { withProjectLock } from './installation/project-lock.js';
+import {
+  classifyPath,
+  deleteInstructionsFileIfEmpty,
+  instructionsFilesFor,
+  manifestTargets,
+  removeOwnedTree,
+  resolveInsideProject,
+  pruneEmptyDirs,
+  removeOwnedSkillMirror,
+  removeOwnedSkillTree,
+  sharedConfigsFor,
+  unmergeSharedConfig,
+} from './installation/uninstall.js';
+import { installCommands } from './installation/commands.js';
+import { updateGitignore, removeGitignoreBlock } from './installation/gitignore.js';
+import {
+  readPreviouslyManagedPaths,
+  readPreviousAgentFilesByTarget,
+  readPreviouslyManagedMcpServers,
+  readPreviousRuleFiles,
+  readCarriedForwardState,
+} from './installation/managed-file.js';
+import {
+  snapshotBeforeInstall,
+  rollbackInstall,
+  discardSnapshot,
+  type InstallSnapshot,
+} from './installation/write-guard.js';
 import {
   validatePathWithinBase,
   validateEntryName,
@@ -26,6 +55,7 @@ import {
   copyDirSync,
   getServerEnvVars,
   updateInstructions,
+  listCustomAgents,
   cleanInstructionsSections,
   removePathScopedRules,
 } from './installation/index.js';
@@ -37,6 +67,46 @@ const TIMEOUTS = {
   NPM_INSTALL: 120000,
   COMMAND_DEFAULT: 60000,
 };
+
+/**
+ * Rebuild the request-shaped DetectionResult from a stored StackInfo.
+ *
+ * The inverse of `normalizeStackInfo`. Needed because the manifest and the
+ * InstallPlan disagree on casing: the manifest stores `meta_framework`/`db_type`
+ * and the plan (and every consumer downstream, including the validator hook)
+ * reads `metaFramework`/`dbType`.
+ */
+function denormalizeStackInfo(stored: unknown): DetectionResult | undefined {
+  if (!stored || typeof stored !== 'object') return undefined;
+  const s = stored as {
+    projectType?: string;
+    frontend?: { framework?: string; meta_framework?: string; runtime?: string };
+    backend?: { framework?: string; meta_framework?: string; runtime?: string };
+    database?: { db_type?: string; orm?: string };
+    testing?: { unit?: string; e2e?: string };
+  };
+  return {
+    projectType: s.projectType ?? 'unknown',
+    frontend: s.frontend
+      ? {
+          framework: s.frontend.framework,
+          metaFramework: s.frontend.meta_framework,
+          runtime: s.frontend.runtime,
+        }
+      : undefined,
+    backend: s.backend
+      ? {
+          framework: s.backend.framework,
+          metaFramework: s.backend.meta_framework,
+          runtime: s.backend.runtime,
+        }
+      : undefined,
+    database: s.database ? { dbType: s.database.db_type, orm: s.database.orm } : undefined,
+    testing: s.testing,
+    isMonorepo: false,
+    confidence: 0,
+  };
+}
 
 export class InstallationService {
   private agentsService = new AgentsService();
@@ -129,7 +199,18 @@ export class InstallationService {
   /**
    * Install dev-suite into a project
    */
+  /**
+   * Install dev-suite into a project.
+   *
+   * Serialised per project: install/reinstall/add/remove all rewrite the same
+   * manifest and the manifest is written last, so two overlapping runs produced
+   * a record describing neither. See installation/project-lock.ts.
+   */
   async install(config: InstallConfig): Promise<InstallManifest> {
+    return withProjectLock(config.projectPath, 'install', () => this.installUnlocked(config));
+  }
+
+  private async installUnlocked(config: InstallConfig): Promise<InstallManifest> {
     let { projectPath } = config;
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
@@ -168,17 +249,26 @@ export class InstallationService {
     // and this guards direct service callers.
     const targets: TargetId[] = config.targets?.length ? [...config.targets] : [DEFAULT_TARGET];
 
+    // State an earlier install accumulated. A re-install replaces *files*, not
+    // history: zeroing these turned every add/remove-agent into a silent
+    // downgrade of the project (see readCarriedForwardState).
+    const carried = readCarriedForwardState(projectPath);
+
     // Create extended manifest with hash tracking for upgrade system
     const extendedManifest: ExtendedManifest = {
       version: '1.0.0',
       installedAt: new Date().toISOString(),
       projectPath,
-      detectedStack: detectedStack ? this.normalizeStackInfo(detectedStack) : undefined,
+      // An omitted `detectedStack` means "unchanged", not "none": the Manage-tab
+      // resync has no detection result to pass and must not erase the stored one.
+      detectedStack: detectedStack
+        ? this.normalizeStackInfo(detectedStack)
+        : (carried.detectedStack as ExtendedManifest['detectedStack']),
       agents: [],
       mcpServers: [],
-      features: {},
+      features: carried.features as ExtendedManifest['features'],
       files: [],
-      upgradeHistory: [],
+      upgradeHistory: carried.upgradeHistory as ExtendedManifest['upgradeHistory'],
       targets,
     };
 
@@ -209,95 +299,197 @@ export class InstallationService {
       rules,
       envVars: envVars ?? {},
       skillLoadingMode,
-      detectedStack,
+      // Same "omitted means unchanged" rule as the manifest above, but the plan
+      // carries the request shape (camelCase) while the manifest stores
+      // StackInfo (snake_case), so the carried value has to be converted back.
+      // Without this the Manage-tab resync dropped the integration-validator
+      // hook and the API-validation section from AGENTS.md on every add/remove.
+      detectedStack: detectedStack ?? denormalizeStackInfo(carried.detectedStack),
       agentCatalog: allAgents,
-      mcpCatalog: allMcpServers.map(s => s.name),
+      // Only what the previous install actually wrote — see the field's doc.
+      mcpCatalog: readPreviouslyManagedMcpServers(projectPath),
       targets,
+      // Read before the write phase: the manifest is rewritten last, so this is
+      // the only chance to learn what the previous install owned.
+      previouslyManaged: readPreviouslyManagedPaths(projectPath),
+      previousAgentFiles: readPreviousAgentFilesByTarget(projectPath),
     };
 
-    // ---- Target-neutral writes ----
-    // MCP server bundles are plain node packages; only the config file that
-    // *references* them differs per assistant, so they are installed once here
-    // (under the target-independent `.mcp-servers/`) rather than by each adapter.
-    const bundlePaths = this.paths(projectPath);
-    fs.mkdirSync(bundlePaths.mcpServersDir, { recursive: true });
-    const mcpServerEntries = this.installMcpServerBundles(
-      plan, bundlePaths, manifest, extendedManifest
-    );
-
-    // The `.claude/agents` + `.claude/skills` substrate is shared: Copilot and
-    // Cursor read it directly, so it is written once here regardless of which
-    // assistants were selected — not owned by the Claude Code target.
-    new SubstrateInstaller().install(plan, manifest, extendedManifest);
-
-    // ---- Per-target writes ----
-    // One adapter per selected assistant, each writing into its own layout. For
-    // a single target this is exactly the previous behaviour.
-    const ruleFiles: string[] = [];
-    let validatorHookConfigured = false;
-    for (const target of targets) {
-      const adapter = getAdapter(target);
-      const writeResult = await adapter.write({
-        plan,
-        paths: this.paths(projectPath, target),
-        mcpServers: mcpServerEntries,
-        manifest,
-        extendedManifest,
-      });
-      ruleFiles.push(...writeResult.ruleFiles);
-      validatorHookConfigured = validatorHookConfigured || writeResult.validatorHookConfigured;
-      for (const skipped of writeResult.skipped) {
-        logger.info('Target does not support a primitive — skipped', {
-          context: { target: adapter.id, ...skipped },
-        });
+    // ---- Backup before the first byte is written ----
+    // The manifest is written last, so a throw part-way through used to leave
+    // files on disk with no record of them and `getStatus()` reporting
+    // "not installed" over a half-installed project.
+    let snapshot: InstallSnapshot | undefined;
+    if (config.createBackup !== false) {
+      try {
+        snapshot = snapshotBeforeInstall(projectPath, targets);
+      } catch (error: unknown) {
+        throw new Error(
+          `Backup failed, install aborted: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }
 
-    // The installed agents are the same set regardless of target (they are
-    // physically written once and read by every assistant), so resolve them
-    // from the accumulated manifest rather than any single adapter's result.
-    const installedAgents = allAgents.filter(a => manifest.agents.includes(a.id));
+    try {
+      // ---- Target-neutral writes ----
+      // MCP server bundles are plain node packages; only the config file that
+      // *references* them differs per assistant, so they are installed once here
+      // (under the target-independent `.mcp-servers/`) rather than by each adapter.
+      const bundlePaths = this.paths(projectPath);
+      fs.mkdirSync(bundlePaths.mcpServersDir, { recursive: true });
+      const mcpServerEntries = this.installMcpServerBundles(
+        plan, bundlePaths, manifest, extendedManifest
+      );
 
-    // ---- Target-neutral finalization ----
-    const devSuiteConfig = {
-      version: manifest.version,
-      installedAt: manifest.installedAt,
-      agents: { enabled: manifest.agents },
-      mcpServers: { enabled: manifest.mcpServers },
-      rules: { enabled: manifest.rules },
-    };
-    const devSuiteJsonPath = path.join(projectPath, '.dev-suite.json');
-    fs.writeFileSync(devSuiteJsonPath, JSON.stringify(devSuiteConfig, null, 2));
-    manifest.files.push({ path: '.dev-suite.json', type: 'config', source: 'generated' });
-    this.trackFile(extendedManifest, projectPath, '.dev-suite.json', 'config');
+      // The `.claude/agents` + `.claude/skills` substrate is shared: Copilot and
+      // Cursor read it directly, so it is written once here regardless of which
+      // assistants were selected — not owned by the Claude Code target.
+      new SubstrateInstaller().install(plan, manifest, extendedManifest);
 
-    // Record catalog snapshot for new-component detection
-    extendedManifest.availableAtInstall = {
-      agents: allAgents.map(a => a.id),
-      mcpServers: allMcpServers.map(s => s.name),
-    };
-    extendedManifest.installedRuleFiles = ruleFiles;
+      // Slash commands are Claude-Code-only (no other assistant reads
+      // `.claude/commands`, and none of them share its format), so this is a
+      // no-op unless claude-code was selected.
+      installCommands(plan, manifest, extendedManifest);
 
-    // Write instructions: AGENTS.md holds the shared section (every Tier 1
-    // assistant reads it natively). The CLAUDE.md import pointer is written only
-    // when Claude Code is a selected target — it is the one assistant that needs
-    // the shim, and writing it for a Copilot-only install would be noise.
-    const instructionFiles = updateInstructions(projectPath, {
-      agents: installedAgents,
-      detectedStack,
-      validatorHookConfigured,
-      targets,
-    });
-    for (const file of instructionFiles) {
-      // Legacy manifest has no 'generated' type; 'config' is its closest match.
-      manifest.files.push({ path: file, type: 'config', source: 'generated' });
-      this.trackFile(extendedManifest, projectPath, file, 'generated', 'generated');
+      // ---- Per-target writes ----
+      // One adapter per selected assistant, each writing into its own layout. For
+      // a single target this is exactly the previous behaviour.
+      // Rule files are collected WITH the adapter that wrote them. A flat list
+      // lost that, so every rule file was later tracked under the default target
+      // — `.cursor/rules/frontend.mdc` recorded as `claude-code`. Reinstall
+      // classifies by `file.target`, so those files fell outside drift
+      // detection, outside the per-file "keep my version" opt-out, and outside
+      // the target-scoped backup.
+      const ruleFilesByTarget: Array<{ relPath: string; target: TargetId }> = [];
+      const skippedCapabilities: InstallSkippedCapability[] = [];
+      let validatorHookConfigured = false;
+      for (const target of targets) {
+        const adapter = getAdapter(target);
+        const writeResult = await adapter.write({
+          plan,
+          paths: this.paths(projectPath, target),
+          mcpServers: mcpServerEntries,
+          manifest,
+          extendedManifest,
+        });
+        for (const relPath of writeResult.ruleFiles) {
+          ruleFilesByTarget.push({ relPath, target: adapter.id });
+        }
+        validatorHookConfigured = validatorHookConfigured || writeResult.validatorHookConfigured;
+        for (const skipped of writeResult.skipped) {
+          skippedCapabilities.push({ target: adapter.id, ...skipped });
+          logger.info('Target does not support a primitive — skipped', {
+            context: { target: adapter.id, ...skipped },
+          });
+        }
+      }
+
+      // The installed agents are the same set regardless of target (they are
+      // physically written once and read by every assistant), so resolve them
+      // from the accumulated manifest rather than any single adapter's result.
+      const installedAgents = allAgents.filter(a => manifest.agents.includes(a.id));
+
+      // ---- Target-neutral finalization ----
+      const devSuiteConfig = {
+        version: manifest.version,
+        installedAt: manifest.installedAt,
+        agents: { enabled: manifest.agents },
+        mcpServers: { enabled: manifest.mcpServers },
+        rules: { enabled: manifest.rules },
+        // The user's assistant selection belongs with the rest of their
+        // selection. It used to live only in the manifest, so losing that file
+        // silently downgraded the project to `[DEFAULT_TARGET]`: a Cursor-only
+        // install came back as Claude Code, writing CLAUDE.md and .mcp.json into
+        // a project that had deliberately opted out of both.
+        targets,
+      };
+      const devSuiteJsonPath = path.join(projectPath, '.dev-suite.json');
+      fs.writeFileSync(devSuiteJsonPath, JSON.stringify(devSuiteConfig, null, 2));
+      manifest.files.push({ path: '.dev-suite.json', type: 'config', source: 'generated' });
+      this.trackFile(extendedManifest, projectPath, '.dev-suite.json', 'config');
+
+      // Record catalog snapshot for new-component detection
+      extendedManifest.availableAtInstall = {
+        agents: allAgents.map(a => a.id),
+        mcpServers: allMcpServers.map(s => s.name),
+      };
+      // Rule files from a previous install that this one no longer writes —
+      // a deselected agent's category, or a target that was dropped — used to
+      // stay on disk forever: the field was *assigned*, not merged, so the old
+      // paths simply vanished from the record and nothing could remove them.
+      const previousRuleFiles = readPreviousRuleFiles(projectPath);
+      const ruleFiles = ruleFilesByTarget.map(r => r.relPath);
+      const stillWritten = new Set(ruleFiles);
+      const staleRuleFiles = previousRuleFiles.filter(f => !stillWritten.has(f));
+      if (staleRuleFiles.length > 0) {
+        const staleResult = removePathScopedRules(projectPath, staleRuleFiles);
+        logger.info('Removed rule files this install no longer writes', {
+          context: { removed: staleResult.removed, errors: staleResult.errors },
+        });
+      }
+      extendedManifest.installedRuleFiles = ruleFiles;
+
+      // Rule files are tracked like every other written file, so reinstall's
+      // preview can spot a local edit and the per-file "keep my version"
+      // opt-out can protect it. Only `installedRuleFiles` recorded them before,
+      // and that list is invisible to drift detection.
+      for (const { relPath, target } of ruleFilesByTarget) {
+        this.trackFile(extendedManifest, projectPath, relPath, 'config', 'generated', target);
+      }
+
+      // Keep the credentials the user typed in the wizard, and the local
+      // backups, out of version control. Two of the MCP configs dev-suite
+      // writes are files teams routinely commit.
+      // Deliberately NOT tracked in `manifest.files`: that list is the uninstall
+      // delete-set, and `.gitignore` is the user's file. Uninstall strips only
+      // dev-suite's marked block from it.
+      updateGitignore(projectPath, targets, Object.keys(envVars ?? {}).length > 0);
+
+      // Write instructions: AGENTS.md holds the shared section (every Tier 1
+      // assistant reads it natively). The CLAUDE.md import pointer is written only
+      // when Claude Code is a selected target — it is the one assistant that needs
+      // the shim, and writing it for a Copilot-only install would be noise.
+      const instructionFiles = updateInstructions(projectPath, {
+        agents: installedAgents,
+        // Agents the user wrote themselves are part of the routing too. Without
+        // this a fresh install — and the Manage-tab resync that now delegates to
+        // one — regenerated the section from the catalog alone and dropped them.
+        customAgents: listCustomAgents(projectPath),
+        detectedStack,
+        validatorHookConfigured,
+        targets,
+      });
+      for (const file of instructionFiles) {
+        // Legacy manifest has no 'generated' type; 'config' is its closest match.
+        manifest.files.push({ path: file, type: 'config', source: 'generated' });
+        this.trackFile(extendedManifest, projectPath, file, 'generated', 'generated');
+      }
+
+      // Degradations reach the caller and the manifest, not just the log. The
+      // whole point of the capability contract is that nothing is dropped
+      // silently, and a `logger.info` nobody reads is silent in practice.
+      if (skippedCapabilities.length > 0) {
+        manifest.skipped = skippedCapabilities;
+        extendedManifest.skipped = skippedCapabilities;
+      }
+
+      // The manifest is written once, last: it is the record of everything above,
+      // so writing it earlier would describe a state that may not have been reached.
+      const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
+      fs.writeFileSync(manifestPath, JSON.stringify(extendedManifest, null, 2));
+
+
+    } catch (error: unknown) {
+      if (snapshot) {
+        rollbackInstall(projectPath, snapshot);
+        logger.error('Install failed and was rolled back; the project is unchanged', { error });
+      } else {
+        logger.error('Install failed with no backup taken; the project may be partially written', { error });
+      }
+      throw error;
     }
 
-    // The manifest is written once, last: it is the record of everything above,
-    // so writing it earlier would describe a state that may not have been reached.
-    const manifestPath = path.join(projectPath, '.dev-suite-manifest.json');
-    fs.writeFileSync(manifestPath, JSON.stringify(extendedManifest, null, 2));
+    if (snapshot) discardSnapshot(snapshot);
 
     return manifest;
   }
@@ -358,6 +550,12 @@ export class InstallationService {
    * Uninstall dev-suite from a project
    */
   async uninstall(projectPath: string): Promise<{ removed: string[]; errors: string[] }> {
+    return withProjectLock(projectPath, 'uninstall', () => this.uninstallUnlocked(projectPath));
+  }
+
+  private async uninstallUnlocked(
+    projectPath: string
+  ): Promise<{ removed: string[]; errors: string[] }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -380,15 +578,69 @@ export class InstallationService {
       }
     }
 
-    // Remove tracked files
+    const targets = manifestTargets(manifest as { targets?: unknown } | null);
+    const managedServers = manifest?.mcpServers ?? [];
+
+    // Strip the dev-suite section out of the instructions files FIRST, so the
+    // emptiness test below can tell a file that was only ours from one that
+    // carries the user's prose.
+    cleanInstructionsSections(projectPath);
+    for (const rel of instructionsFilesFor(targets)) {
+      if (deleteInstructionsFileIfEmpty(projectPath, rel)) removed.push(rel);
+      else removed.push(`${rel} (dev-suite section)`);
+    }
+
+    if (removeGitignoreBlock(projectPath)) {
+      removed.push('.gitignore (dev-suite block)');
+    }
+
+    // Un-merge every config file dev-suite shares with the user: remove our own
+    // entries, keep theirs, and delete the file only when nothing of theirs is
+    // left. Never a blanket unlink — these files hold the user's own MCP
+    // servers, Codex model, Gemini theme and Claude permissions.
+    for (const spec of sharedConfigsFor(targets)) {
+      try {
+        const outcome = unmergeSharedConfig(projectPath, spec, managedServers);
+        if (outcome === 'deleted') removed.push(spec.rel);
+        else if (outcome === 'rewritten') removed.push(`${spec.rel} (dev-suite entries)`);
+      } catch (e) {
+        errors.push(`Failed to un-merge ${spec.rel}: ${e}`);
+      }
+    }
+
+    // Remove files dev-suite created outright. Shared files are handled above;
+    // `custom/` is never touched; and every path is bounds-checked because a
+    // manifest is data read off disk and may be hostile or corrupt.
+    const trackedPaths = new Set(
+      (manifest?.files ?? [])
+        .map(f => (typeof f === 'string' ? f : f.path))
+        .filter((p): p is string => Boolean(p))
+        .map(p => p.split(path.sep).join('/'))
+    );
+    const sharedHandled = new Set([
+      ...instructionsFilesFor(targets),
+      ...sharedConfigsFor(targets).map(s => s.rel),
+    ]);
     if (manifest?.files) {
       for (const file of manifest.files) {
         // Handle both string format and object format {path: string}
         const filePath = typeof file === 'string' ? file : file.path;
         if (!filePath) continue;
 
-        const fullPath = path.join(projectPath, filePath);
+        const normalized = filePath.split(path.sep).join('/');
+        if (sharedHandled.has(normalized)) continue;
+        if (classifyPath(normalized, targets) === 'custom') continue;
+
+        const fullPath = resolveInsideProject(projectPath, filePath);
+        if (!fullPath) {
+          errors.push(`Refused to remove ${filePath}: path escapes the project`);
+          continue;
+        }
+        // Skill *directories* are tracked too (they have no hash, so they used
+        // to be dropped from the manifest entirely). The tree walkers below own
+        // their removal — unlinking a directory here just raises EPERM.
         if (fs.existsSync(fullPath)) {
+          if (fs.statSync(fullPath).isDirectory()) continue;
           try {
             fs.unlinkSync(fullPath);
             removed.push(filePath);
@@ -407,28 +659,41 @@ export class InstallationService {
       errors.push(...ruleResult.errors);
     }
 
-    // Remove directories. The rules directory is deliberately absent: rule
-    // files are removed individually above (removePathScopedRules) so that
-    // user-authored rules sharing the directory survive an uninstall.
+    // Remove the directories dev-suite owns. Walked file by file rather than
+    // `rmSync({recursive:true})`: the agents and skills directories also hold
+    // the user's `custom/` area and anything else they put there, and a
+    // recursive delete took all of it with no backup.
     const paths = this.paths(projectPath);
-    const dirsToRemove = [
-      paths.relMcpServersDir,
-      paths.relAgentsDir,
-      paths.relSkillsDir,
-      paths.relCommandsDir,
-      '.kb-cache',
+    const notCustom = { isPreserved: (rel: string) => classifyPath(rel, targets) === 'custom' };
+    const trees: { removed: string[]; preserved: string[] }[] = [
+      // Owned outright: everything under these is dev-suite's.
+      removeOwnedTree(projectPath, paths.relMcpServersDir, notCustom),
+      removeOwnedTree(projectPath, '.kb-cache', notCustom),
+      // Shared with the user: only what the manifest recorded is removed.
+      removeOwnedTree(projectPath, paths.relAgentsDir, {
+        ...notCustom,
+        isOwnedChild: rel => trackedPaths.has(rel),
+      }),
+      // Skill trees carry an ownership sentinel; a folder without one is the
+      // user's or another tool's.
+      removeOwnedSkillTree(projectPath, paths.relSkillsDir, manifest),
+      removeOwnedSkillMirror(projectPath, manifest),
     ];
-    for (const dir of dirsToRemove) {
-      const dirPath = paths.abs(dir);
-      if (fs.existsSync(dirPath)) {
-        try {
-          fs.rmSync(dirPath, { recursive: true, force: true });
-          removed.push(dir);
-        } catch (e) {
-          errors.push(`Failed to remove ${dir}: ${e}`);
-        }
+    for (const result of trees) {
+      removed.push(...result.removed);
+      for (const kept of result.preserved) {
+        logger.info('Preserved path dev-suite does not own', { context: { path: kept } });
       }
     }
+
+    // Directories dev-suite created that are now hollow, because their files
+    // were removed individually so user content could survive.
+    removed.push(...pruneEmptyDirs(projectPath, [
+      paths.relCommandsDir,
+      paths.relRulesDir,
+      ...targets.map(t => getTargetLayout(t).agentsDir).filter((d): d is string => Boolean(d)),
+      ...targets.map(t => getTargetLayout(t).rulesDir).filter((d): d is string => Boolean(d)),
+    ]));
 
     // Remove the target's config dir if we emptied it
     const configDir = paths.configDir;
@@ -447,8 +712,9 @@ export class InstallationService {
       }
     }
 
-    // Remove config files
-    const configFiles = ['.dev-suite.json', '.dev-suite-manifest.json', paths.relMcpConfigFile];
+    // Remove dev-suite's own bookkeeping last: if anything above threw, the
+    // manifest is still on disk and the uninstall can be retried.
+    const configFiles = ['.dev-suite.json', '.dev-suite-manifest.json'];
     for (const file of configFiles) {
       const filePath = path.join(projectPath, file);
       if (fs.existsSync(filePath)) {
@@ -460,11 +726,6 @@ export class InstallationService {
         }
       }
     }
-
-    // Clean the dev-suite section from every instructions file we wrote
-    cleanInstructionsSections(projectPath);
-    removed.push(`${paths.relSharedInstructionsFile} (dev-suite section)`);
-    removed.push(`${paths.relInstructionsFile} (dev-suite section)`);
 
     return { removed, errors };
   }

@@ -23,13 +23,14 @@ export type TargetId =
   | 'codex'
   | 'gemini'
   | 'windsurf'
-  | 'cline';
+  | 'cline'
+  | 'kimi-code';
 
 /**
  * Which shared skills directory a target reads. The `.claude/skills` substrate
- * is read by Claude Code, Copilot, Cursor and Cline; Codex and Gemini read the
- * cross-tool `.agents/skills` directory instead. dev-suite writes whichever is
- * needed (see installation/substrate.ts).
+ * is read by Claude Code, Copilot, Cursor and Cline; Codex, Gemini and Kimi Code
+ * read the cross-tool `.agents/skills` directory instead. dev-suite writes
+ * whichever is needed (see installation/substrate.ts).
  */
 export type SkillsSource = 'claude' | 'agents';
 
@@ -63,7 +64,23 @@ export interface TargetCapabilities {
   settings: boolean;
   /** Which shared skills directory this target reads. */
   skillsSource: SkillsSource;
+  /**
+   * Where this target picks up the agents a dev-suite install actually writes.
+   *
+   * Distinct from `agents`, which states whether the *tool* supports file-based
+   * agents at all. Codex supports them (`.codex/agents/**\/*.toml`) but
+   * dev-suite emits no TOML agents, so a dev-suite install leaves Codex with no
+   * loadable agent — `'none'` here, `agents: true` above.
+   *
+   * - `'claude'`  reads the shared `.claude/agents` substrate directly
+   * - `'native'`  an adapter writes agent files in the target's own format
+   * - `'none'`    a dev-suite install gives this target no loadable agent
+   */
+  agentsSource: AgentsSource;
 }
+
+/** @see TargetCapabilities.agentsSource */
+export type AgentsSource = 'claude' | 'native' | 'none';
 
 /**
  * Filesystem layout of one target, expressed as paths relative to the project
@@ -91,6 +108,18 @@ export interface TargetLayout {
   instructionsFile: string;
   /** MCP configuration file (see `capabilities.mcp` for its scope). */
   mcpConfigFile?: string;
+
+  /**
+   * Additional project MCP config files this target reads, beyond
+   * `mcpConfigFile`.
+   *
+   * Only Copilot has one today. It used to be hardcoded as a literal
+   * `'.github/mcp.json'` in four separate modules — gitignore, install-recovery,
+   * uninstall and the adapter — which meant `sharedConfigCoverage()`, whose job
+   * is to catch exactly this, derived from `mcpConfigFile` alone and could not
+   * see it by construction.
+   */
+  extraMcpConfigFiles?: string[];
   /** Project-level settings/permissions file. */
   settingsFile?: string;
   /** Hooks configuration file, when separate from the settings file. */
@@ -114,7 +143,8 @@ export const MCP_SERVERS_DIR = '.mcp-servers';
 
 /**
  * Cross-tool skills directory (the Agent Skills interop path). Written in
- * addition to `.claude/skills` when a selected target reads it (Codex, Gemini).
+ * addition to `.claude/skills` when a selected target reads it (Codex, Gemini,
+ * Kimi Code).
  */
 export const AGENTS_SKILLS_DIR = '.agents/skills';
 
@@ -145,6 +175,7 @@ const CLAUDE_CODE: TargetLayout = {
     hooks: true,
     settings: true,
     skillsSource: 'claude',
+    agentsSource: 'claude',
   },
 };
 
@@ -169,6 +200,10 @@ const COPILOT: TargetLayout = {
   ruleFileExtension: '.instructions.md',
   instructionsFile: SHARED_INSTRUCTIONS_FILE,
   mcpConfigFile: '.vscode/mcp.json',
+  // Copilot is the one target with two MCP surfaces: VS Code reads
+  // `.vscode/mcp.json`, the CLI reads `.github/mcp.json` (different key and
+  // entry shape — see writers/mcp-config.writer.ts).
+  extraMcpConfigFiles: ['.github/mcp.json'],
   settingsFile: '.github/copilot/settings.json',
   hooksFile: '.github/hooks/dev-suite.json',
   capabilities: {
@@ -180,6 +215,7 @@ const COPILOT: TargetLayout = {
     hooks: true,
     settings: true,
     skillsSource: 'claude',
+    agentsSource: 'claude',
   },
 };
 
@@ -213,6 +249,7 @@ const CURSOR: TargetLayout = {
     hooks: true,
     settings: true,
     skillsSource: 'claude',
+    agentsSource: 'claude',
   },
 };
 
@@ -242,6 +279,7 @@ const CODEX: TargetLayout = {
     // No separate project settings file dev-suite writes — config.toml is it.
     settings: false,
     skillsSource: 'agents',
+    agentsSource: 'none',
   },
 };
 
@@ -272,6 +310,7 @@ const GEMINI: TargetLayout = {
     hooks: true,
     settings: true,
     skillsSource: 'agents',
+    agentsSource: 'native',
   },
 };
 
@@ -301,6 +340,47 @@ const CLINE: TargetLayout = {
     hooks: true,
     settings: false,
     skillsSource: 'claude',
+    agentsSource: 'none',
+  },
+};
+
+/**
+ * Kimi Code (Moonshot AI).
+ *
+ * Reads the root `AGENTS.md` natively and skills from `.agents/skills` — both
+ * already produced for Codex/Gemini — so only two surfaces are Kimi-specific:
+ * `.kimi-code/mcp.json` (JSON, `mcpServers`, the closest shape to Claude's
+ * `.mcp.json` of any non-Claude target) and native agent files under
+ * `.kimi-code/agents`. Does NOT read `.claude/` anything.
+ *
+ * No glob-scoped rules, and hooks/permissions live in the *user's*
+ * `~/.kimi-code/config.toml` — the only project TOML (`.kimi-code/local.toml`)
+ * is machine-specific and documented as gitignored, so there is no committable
+ * settings file to write. Both are reported as permanent gaps.
+ *
+ * Targets the current generation only: the legacy `kimi-cli` (`.kimi/`) has no
+ * project-level MCP config at all, and reads `.claude/skills` anyway.
+ * See docs/ASSISTANT-FORMAT-REFERENCE.md section 3.8.
+ */
+const KIMI_CODE: TargetLayout = {
+  id: 'kimi-code',
+  displayName: 'Kimi Code',
+  configDir: '.kimi-code',
+  agentsDir: '.kimi-code/agents',
+  skillsDir: AGENTS_SKILLS_DIR,
+  instructionsFile: SHARED_INSTRUCTIONS_FILE,
+  mcpConfigFile: '.kimi-code/mcp.json',
+  agentFileExtension: '.md',
+  capabilities: {
+    agents: true,
+    skills: true,
+    commands: false, // no project-level command directory; skills are `/skill:<name>`
+    pathScopedRules: false, // no glob mechanism — routing rides in AGENTS.md
+    mcp: 'project',
+    hooks: false, // `[[hooks]]` is user-level config.toml only
+    settings: false, // `.kimi-code/local.toml` is machine-specific, not committable
+    skillsSource: 'agents',
+    agentsSource: 'native',
   },
 };
 
@@ -318,6 +398,7 @@ export const TARGET_LAYOUTS: Readonly<Partial<Record<TargetId, TargetLayout>>> =
   codex: CODEX,
   gemini: GEMINI,
   cline: CLINE,
+  'kimi-code': KIMI_CODE,
   // Tier 3 descriptor (windsurf) lands with its adapter.
 });
 
@@ -325,7 +406,7 @@ export const TARGET_LAYOUTS: Readonly<Partial<Record<TargetId, TargetLayout>>> =
  * Targets that currently have a full write path implemented. Must stay in step
  * with the adapter registry in `targets/adapters/index.ts` — a test asserts it.
  */
-const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor', 'gemini', 'codex', 'cline']);
+const IMPLEMENTED_TARGETS: readonly TargetId[] = Object.freeze(['claude-code', 'copilot', 'cursor', 'gemini', 'codex', 'cline', 'kimi-code']);
 
 /** True when dev-suite can actually install for this target today. */
 export function isImplemented(target: TargetId): boolean {
@@ -355,16 +436,32 @@ export function getTargetLayout(target: TargetId = DEFAULT_TARGET): TargetLayout
  * dual-write (installation/substrate.ts) and the reinstall backup.
  */
 export function readsAgentsSkills(targets: readonly TargetId[]): boolean {
-  return targets.some(t => {
-    const layout = TARGET_LAYOUTS[t];
-    return layout?.capabilities.skillsSource === 'agents';
-  });
+  return agentsSkillsReaders(targets).length > 0;
 }
 
 /**
- * Directories a target owns inside a project, used by uninstall/erase flows.
- * Only directories dev-suite writes into are returned — never the whole
- * config dir when the assistant also stores unrelated user state there.
+ * The selected targets that read `.agents/skills`, in the given order.
+ *
+ * The mirror is written once and belongs to whichever of them is installed;
+ * `substrate.ts` used to record it under a hardcoded `'codex'`, so a
+ * Gemini-only or Kimi-only project carried manifest entries for a target it had
+ * never selected — and reinstall, which classifies by `file.target`, could not
+ * place them.
+ */
+export function agentsSkillsReaders(targets: readonly TargetId[]): TargetId[] {
+  return targets.filter(t => TARGET_LAYOUTS[t]?.capabilities.skillsSource === 'agents');
+}
+
+/**
+ * Every directory this target's layout *declares*, whether or not dev-suite
+ * writes into it.
+ *
+ * NOT an uninstall set, despite what an earlier version of this comment said:
+ * `getManagedDirs('copilot')` returns `.github/agents`, `.github/skills` and
+ * `.github/prompts`, none of which dev-suite creates, and
+ * `getManagedDirs('cline')` returns `.claude/skills`, which is the shared
+ * substrate. Removal decides ownership from the manifest and the skill
+ * ownership sentinel instead — see `installation/uninstall.ts`.
  */
 export function getManagedDirs(target: TargetId = DEFAULT_TARGET): string[] {
   const layout = getTargetLayout(target);
@@ -392,4 +489,49 @@ export function getSharedFiles(target: TargetId = DEFAULT_TARGET): string[] {
  */
 export function isCustomUserPath(relativePath: string): boolean {
   return /(^|[/\\])custom([/\\]|$)/.test(relativePath);
+}
+
+/**
+ * True when at least one of these targets can actually load an agent file.
+ *
+ * Codex and Cline read `AGENTS.md` but load no agent files of any kind, so
+ * `@<id>` is not invocable for them — instructions telling them to delegate
+ * described something they cannot do.
+ */
+export function anyTargetLoadsAgents(targets: readonly TargetId[]): boolean {
+  return targets.some(t => {
+    try {
+      return getTargetLayout(t).capabilities.agentsSource !== 'none';
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Every project MCP config file a target reads: its primary one plus any extra
+ * surface. The single source for gitignore, env recovery, un-merge and the
+ * coverage gate.
+ */
+export function mcpConfigFilesFor(target: TargetId): string[] {
+  try {
+    const layout = getTargetLayout(target);
+    if (layout.capabilities.mcp !== 'project') return [];
+    return [layout.mcpConfigFile, ...(layout.extraMcpConfigFiles ?? [])].filter(
+      (f): f is string => Boolean(f)
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** True when at least one of these targets has a glob-activated rule mechanism. */
+export function anyTargetSupportsGlobs(targets: readonly TargetId[]): boolean {
+  return targets.some(t => {
+    try {
+      return Boolean(getTargetLayout(t).rulesDir);
+    } catch {
+      return false;
+    }
+  });
 }

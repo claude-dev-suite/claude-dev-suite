@@ -18,6 +18,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { validatePathWithinBase } from './security-helpers.js';
+import { getLogger } from '../../utils/logger.js';
+import { targetPaths } from '../targets/target-paths.js';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { Agent } from '../../types.js';
 import { HooksService } from '../hooks.service.js';
@@ -27,8 +30,15 @@ import {
   getTargetLayout,
   listImplementedTargets,
   type TargetId,
+  anyTargetLoadsAgents,
+  anyTargetSupportsGlobs,
+  DEFAULT_TARGET,
 } from '../targets/target-layout.js';
 import { writePathScopedRules } from './path-scoped-rules.js';
+import { projectCommandFiles } from './commands.js';
+import { getDevSuiteDir } from '../../utils/dev-suite-dir.js';
+
+const logger = getLogger('ClaudeMdService');
 import { RULE_FILE_MARKER } from '../targets/writers/path-scoped-rules.writer.js';
 
 // Markers for dev-suite section
@@ -147,6 +157,13 @@ export function updateInstructions(
   // CLAUDE.md is a shim so Claude Code (which doesn't read AGENTS.md) picks up
   // the shared section. Write it only when Claude Code is actually a target.
   const includesClaude = !opts.targets || opts.targets.includes('claude-code');
+  if (!includesClaude) {
+    // Claude Code is no longer a target. Skipping the file left a legacy routing
+    // section in it from a previous install — stale routing that Claude Code
+    // would still read if the user opened the project with it. Strip our
+    // section; anything of theirs in the file is untouched.
+    removeMarkedSection(path.join(resolved, getTargetLayout('claude-code').instructionsFile));
+  }
   if (includesClaude) {
     const claudeMdFile = getTargetLayout('claude-code').instructionsFile;
     upsertMarkedSection(
@@ -246,7 +263,22 @@ export function generateDevSuiteSection(opts: InstructionsSectionOptions): strin
     const lines = alwaysOnAgents.map(
       a => `- Use \`@${a.id}\` for: ${sanitizeAgentDescription(a.description)}`
     );
-    alwaysOnRouting = `\n\n## Agent Routing (Always Active)\n\nThese agents apply to every file in the project:\n\n${lines.join('\n')}\n\n**Important**: Always delegate tasks to the most appropriate specialist agent.`;
+    // Codex and Cline read AGENTS.md but load no agent files, so `@id` is not
+    // invocable there — presenting these as delegation targets described
+    // something they cannot do. For them the same list is guidance: which
+    // expertise to apply, not whom to hand off to.
+    const closing = anyTargetLoadsAgents(opts.targets ?? [DEFAULT_TARGET])
+      ? '**Important**: Always delegate tasks to the most appropriate specialist agent.'
+      : '**Important**: These are areas of expertise to apply, not separate agents to call — this assistant loads no agent files. Follow the guidance of whichever entry matches the work.';
+    alwaysOnRouting = `
+
+## Agent Routing (Always Active)
+
+These agents apply to every file in the project:
+
+${lines.join('\n')}
+
+${closing}`;
   }
 
   // Path-scoped summary: one line per category, no tool-specific paths
@@ -267,12 +299,28 @@ export function generateDevSuiteSection(opts: InstructionsSectionOptions): strin
       categoryLines.push(`- **${cat}**: ${agentIds}`);
     }
 
-    scopedSection = `\n\n## Path-Scoped Agent Rules\n\nThese agents cover specific parts of the codebase and activate automatically\nwhen you work on matching files:\n\n${categoryLines.join('\n')}`;
+    // Only targets with a glob mechanism actually get automatic activation; for
+    // the others this is a plain index, and saying otherwise was false.
+    const intro = anyTargetSupportsGlobs(opts.targets ?? [DEFAULT_TARGET])
+      ? 'These agents cover specific parts of the codebase and activate automatically\nwhen you work on matching files:'
+      : 'These agents cover specific parts of the codebase. This assistant has no\nglob-activated rules, so consult the matching entry when you touch that area:';
+    scopedSection = `
+
+## Path-Scoped Agent Rules
+
+${intro}
+
+${categoryLines.join('\n')}`;
   }
 
   // Generate API validation section if hook was configured
+  // Only Claude Code runs the validator hook, so describing it in the shared
+  // AGENTS.md told six other assistants about automation that will never fire
+  // for them.
   let validationSection = '';
-  if (validatorHookConfigured && detectedStack) {
+  const validationApplies =
+    validatorHookConfigured && (opts.targets ?? [DEFAULT_TARGET]).includes('claude-code');
+  if (validationApplies && detectedStack) {
     const hooksService = new HooksService();
     const monitoredAgents = hooksService.getMonitoredAgentsList(detectedStack);
     const backendList = monitoredAgents.backend.length > 0
@@ -285,18 +333,49 @@ export function generateDevSuiteSection(opts: InstructionsSectionOptions): strin
     validationSection = `\n\n## API Integration Validation\n\nThis project uses \`integration-validator-expert\` to validate API contract consistency between frontend and backend.\n\n### How It Works\nAn automatic hook detects when API endpoints or frontend integrations are modified and triggers validation automatically.\n\n### Monitored Agents\n- **Backend**: ${backendList}\n- **Frontend**: ${frontendList}\n\n### What Gets Validated\n- Path/method correspondence between frontend calls and OpenAPI spec\n- Request/response type alignment\n- Required/optional field correctness\n\n### Trigger Conditions\nThe validator is triggered when:\n- Backend: Controller/route/handler modifications, new REST/GraphQL endpoints, DTO changes\n- Frontend: New API calls (fetch, axios, useQuery), API type modifications\n\nThe validator is NOT triggered for:\n- CSS/styling changes only\n- Text/label changes only\n- Internal refactoring without API changes\n- UI components without data fetching`;
   }
 
+  // Slash commands are Claude-Code-only: `installation/commands.ts` writes them
+  // into `.claude/commands` and nothing else reads that directory. Advertising
+  // them in the shared AGENTS.md promised six other assistants commands they
+  // cannot run — the same mistake already corrected twenty lines above for the
+  // validation section.
+  //
+  // The list is also derived rather than hardcoded: the two names below were
+  // stale, while `projectCommandFiles()` installs every non-maintainer command.
+  let commandsSection = '';
+  if ((opts.targets ?? [DEFAULT_TARGET]).includes('claude-code')) {
+    const commandNames = listProjectCommandNames();
+    if (commandNames.length > 0) {
+      const list = commandNames.map(name => `- \`/${name}\``).join('\n');
+      commandsSection = `\n\n## Commands\n\n${list}`;
+    }
+  }
+
   return `${DEV_SUITE_START_MARKER}
 # Dev-Suite Configuration
 
 ## Installed Agents
 
-${agentList}${customAgentsSection}${alwaysOnRouting}${scopedSection}${validationSection}
-
-## Commands
-
-- \`/init-project\` - Reconfigure dev-suite
-- \`/uninstall-dev-suite\` - Remove dev-suite
+${agentList}${customAgentsSection}${alwaysOnRouting}${scopedSection}${validationSection}${commandsSection}
 ${DEV_SUITE_END_MARKER}`;
+}
+
+/**
+ * Slash command names dev-suite installs into `.claude/commands`, without the
+ * `.md` extension.
+ *
+ * Derived from the same source `installCommands()` copies from, so the AGENTS.md
+ * list can never drift from what is actually on disk. Degrades to an empty list
+ * (and therefore no section) if the catalog cannot be read.
+ */
+function listProjectCommandNames(): string[] {
+  try {
+    return projectCommandFiles(getDevSuiteDir())
+      .map(f => f.replace(/\.md$/, ''))
+      .sort();
+  } catch (error) {
+    logger.warn('Could not list project commands — omitting the Commands section', { error });
+    return [];
+  }
 }
 
 /**
@@ -344,13 +423,26 @@ export function removePathScopedRules(
     .map(d => `${d}/`);
 
   for (const relPath of trackedRuleFiles) {
-    // Safety: only touch files inside a known rules directory
-    if (!rulesPrefixes.some(prefix => relPath.startsWith(prefix))) {
+    // Resolve first, THEN test containment. A bare `startsWith` on the raw
+    // string let `.claude/rules/../../../x.md` through, and the only remaining
+    // barrier was a marker every dev-suite rule file on the machine carries —
+    // so it deleted rule files in the user's *other* projects.
+    let absPath: string;
+    try {
+      absPath = validatePathWithinBase(path.join(projectPath, relPath), projectPath, false);
+    } catch {
       errors.push(`Skipped unexpected path: ${relPath}`);
       continue;
     }
 
-    const absPath = path.join(projectPath, relPath);
+    // `path.relative` returns backslashes on Windows; normalise before the
+    // prefix test or every legitimate file would be skipped there.
+    const normalized = path.relative(projectPath, absPath).split(path.sep).join('/');
+    if (!rulesPrefixes.some(prefix => normalized.startsWith(prefix))) {
+      errors.push(`Skipped unexpected path: ${relPath}`);
+      continue;
+    }
+
     if (!fs.existsSync(absPath)) continue;
 
     try {
@@ -368,4 +460,43 @@ export function removePathScopedRules(
   }
 
   return { removed, errors };
+}
+
+/**
+ * Custom agents a user created in this project, for the routing section.
+ *
+ * Lives here rather than in `management.service` because `install()` needs it
+ * too: a fresh install (or a Manage-tab resync, which now delegates to one)
+ * regenerated the routing from the catalog alone and dropped every custom agent
+ * the user had written.
+ */
+export function listCustomAgents(projectPath: string): CustomAgentSummary[] {
+  const customAgentsDir = targetPaths(projectPath).customAgentsDir;
+  const agents: CustomAgentSummary[] = [];
+  if (!fs.existsSync(customAgentsDir)) return agents;
+
+  try {
+    for (const entry of fs.readdirSync(customAgentsDir, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const content = fs.readFileSync(path.join(customAgentsDir, entry.name), 'utf-8');
+      if (!content.startsWith('---')) continue;
+      const endIdx = content.indexOf('---', 3);
+      if (endIdx <= 0) continue;
+
+      const frontmatter = content.substring(3, endIdx);
+      const nameMatch = frontmatter.match(/^name:\s*["']?([^"'\n]+)["']?/m);
+      const descMatch = frontmatter.match(/^description:\s*["']?([^"'\n]+)["']?/m);
+      if (!nameMatch?.[1]) continue;
+
+      agents.push({
+        id: entry.name.replace('.md', ''),
+        name: nameMatch[1].trim(),
+        description: descMatch?.[1]?.trim() || `Custom agent: ${nameMatch[1].trim()}`,
+      });
+    }
+  } catch (error: unknown) {
+    logger.warn('Failed to read custom agents', { error, context: { customAgentsDir } });
+  }
+
+  return agents;
 }

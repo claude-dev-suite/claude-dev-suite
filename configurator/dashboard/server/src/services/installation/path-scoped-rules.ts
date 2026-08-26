@@ -8,15 +8,17 @@
  * the *selection* — which categories, which globs, which agents — is identical,
  * and computed once here.
  *
- * Targets with no glob mechanism (Codex, Gemini — reference doc section 2.4) get
- * no writer and are skipped: their adapters degrade rather than emit something.
+ * Targets with no glob mechanism (Codex, Gemini, Kimi Code — reference doc
+ * section 2.4) get no writer and are skipped: their adapters degrade rather than
+ * emit something.
  */
 
 import * as fs from 'fs';
 import type { Agent } from '../../types.js';
 import { getCategoryPaths, isAlwaysOnCategory } from './category-paths.js';
 import { targetPaths } from '../targets/target-paths.js';
-import type { TargetId } from '../targets/target-layout.js';
+import { writeManagedFile } from './managed-file.js';
+import { getTargetLayout, type TargetId } from '../targets/target-layout.js';
 import {
   claudeCodeRule,
   copilotInstructionsRule,
@@ -33,9 +35,27 @@ const RULE_WRITERS: Partial<Record<TargetId, (spec: PathScopedRuleSpec) => strin
   cline: clineRule,
 };
 
-/** True when this target has a path-scoped rule format dev-suite can write. */
+/**
+ * True when this target has a path-scoped rule format dev-suite can write.
+ *
+ * Derived from the layout capability, which is the single declaration of this
+ * fact. It used to be `target in RULE_WRITERS`, so the same capability was
+ * encoded twice — in the descriptor and in this map — and the two agreed only
+ * by discipline. `writePathScopedRules` still looks the writer up in
+ * RULE_WRITERS, and the consistency of the two is now asserted by a test rather
+ * than assumed.
+ */
 export function supportsPathScopedRules(target: TargetId): boolean {
-  return target in RULE_WRITERS;
+  try {
+    return getTargetLayout(target).capabilities.pathScopedRules;
+  } catch {
+    return false;
+  }
+}
+
+/** Exposed so a test can assert RULE_WRITERS and the capability never diverge. */
+export function targetsWithRuleWriters(): TargetId[] {
+  return Object.keys(RULE_WRITERS) as TargetId[];
 }
 
 /**
@@ -75,7 +95,8 @@ export function computePathScopedRuleSpecs(installedAgents: Agent[]): PathScoped
 export function writePathScopedRules(
   target: TargetId,
   installedAgents: Agent[],
-  projectPath: string
+  projectPath: string,
+  previouslyManaged: ReadonlySet<string> = new Set()
 ): string[] {
   const writer = RULE_WRITERS[target];
   if (!writer) return [];
@@ -86,7 +107,15 @@ export function writePathScopedRules(
   const written: string[] = [];
   for (const spec of computePathScopedRuleSpecs(installedAgents)) {
     const relPath = paths.relRuleFile(spec.category);
-    fs.writeFileSync(paths.abs(relPath), writer(spec), 'utf-8');
+    // A rule file the user wrote in the same directory is not ours to replace;
+    // only a file the previous install recorded gets regenerated.
+    const outcome = writeManagedFile({
+      absPath: paths.abs(relPath),
+      relPath,
+      content: writer(spec),
+      previouslyManaged,
+    });
+    if (outcome === 'preserved') continue;
     written.push(relPath);
   }
   return written;
