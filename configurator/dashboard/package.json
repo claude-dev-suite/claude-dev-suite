@@ -125,6 +125,27 @@
         ]
       },
       {
+        "from": "../../templates",
+        "to": "dev-suite/templates",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../../rules",
+        "to": "dev-suite/rules",
+        "filter": [
+          "**/*.md"
+        ]
+      },
+      {
+        "from": "../../commands",
+        "to": "dev-suite/commands",
+        "filter": [
+          "**/*.md"
+        ]
+      },
+      {
         "from": "node-${arch}",
         "to": "node",
         "filter": [

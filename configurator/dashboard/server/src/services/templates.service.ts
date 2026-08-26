@@ -11,12 +11,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { fileURLToPath } from 'url';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 
-// ES Module dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import type {
   TemplateInfo,
   TemplateListItem,
@@ -29,6 +25,7 @@ import type {
 } from '../types/templates.js';
 import { getLogger } from '../utils/logger.js';
 import { timeOperation, TIMING_THRESHOLDS } from '../utils/performance.js';
+import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 
 // Custom timing threshold for template operations (not in TIMING_THRESHOLDS)
 const TEMPLATE_SCAN_THRESHOLD = 2000;
@@ -136,15 +133,28 @@ function generateAutoValue(strategy: string, variables: Record<string, string> =
   }
 }
 
+/**
+ * Subdirectory of a template that holds the files to scaffold.
+ *
+ * Templates are `{template}/template.json` + `{template}/files/**`; only the
+ * latter is copied into the generated project, with this prefix removed.
+ */
+const TEMPLATE_FILES_DIR = 'files';
+
 export class TemplatesService {
   private templatesDir: string;
   private templatesCache: CacheEntry<TemplateInfo[]> = { data: null, timestamp: 0 };
 
   constructor() {
-    // Templates are in the dev-suite root/templates folder
-    // When compiled, this file is at: server/dist/services/templates.service.js
-    // Path: dist/services/ -> dist/ -> server/ -> dashboard/ -> configurator/ -> dev-suite/
-    this.templatesDir = path.resolve(__dirname, '../../../../../templates');
+    // Resolved through getDevSuiteDir(), like every other catalog directory
+    // (rules.service.ts, installation/commands.ts).
+    //
+    // It used to be `path.resolve(__dirname, '../../../../../templates')`, a
+    // fixed hop count up from the compiled file. That layout only holds in a
+    // source checkout: in the packaged Electron app the catalog lives under
+    // `resources/dev-suite/`, so the walk landed somewhere that does not exist
+    // and the Templates panel was silently empty in every release build.
+    this.templatesDir = path.join(getDevSuiteDir(), 'templates');
     logger.debug('Templates directory resolved', { path: this.templatesDir });
   }
 
@@ -561,11 +571,20 @@ export class TemplatesService {
         // Skip template.json
         if (relativeFilePath === 'template.json') continue;
 
+        // Every shipped template keeps its content under `files/`; that prefix
+        // is the template's own layout, not part of the generated project. It
+        // was never stripped, so a scaffolded project came out as
+        // `<project>/files/package.json` instead of `<project>/package.json`.
+        const segments = relativeFilePath.split(/[\\/]/).filter(Boolean);
+        if (segments[0] === TEMPLATE_FILES_DIR) segments.shift();
+        if (segments.length === 0) continue;
+        const relativeFilePathInProject = segments.join('/');
+
         // Determine target path (remove .tmpl extension if present)
-        let targetRelativePath = relativeFilePath;
-        const isTmpl = relativeFilePath.endsWith('.tmpl');
+        let targetRelativePath = relativeFilePathInProject;
+        const isTmpl = relativeFilePathInProject.endsWith('.tmpl');
         if (isTmpl) {
-          targetRelativePath = relativeFilePath.slice(0, -5); // Remove .tmpl
+          targetRelativePath = relativeFilePathInProject.slice(0, -5); // Remove .tmpl
         }
 
         // Replace variables in file path (for dynamic file names)

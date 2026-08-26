@@ -23,6 +23,11 @@ function createSyntheticTemplatesDir(baseDir: string): string {
   const templatesDir = path.join(baseDir, 'templates');
   fs.mkdirSync(templatesDir, { recursive: true });
 
+  // NOTE: scaffoldable content goes under `<template>/files/`, matching the
+  // real templates in `templates/`. The fixture used to place files at the
+  // template root, which is why it could not detect that the `files/` prefix
+  // was never stripped from the generated project's paths.
+
   // Template 1: "simple-app" — pure files, no subdirs
   const simpleDir = path.join(templatesDir, 'simple-app');
   fs.mkdirSync(simpleDir, { recursive: true });
@@ -47,13 +52,18 @@ function createSyntheticTemplatesDir(baseDir: string): string {
       ],
     })
   );
+  const simpleFiles = path.join(simpleDir, 'files');
+  fs.mkdirSync(simpleFiles, { recursive: true });
   // A template file with variable substitution
   fs.writeFileSync(
-    path.join(simpleDir, 'README.md.tmpl'),
+    path.join(simpleFiles, 'README.md.tmpl'),
     '# {{projectName}}\n\n{{appTitle}}\n'
   );
   // A regular file
-  fs.writeFileSync(path.join(simpleDir, '.gitignore'), 'node_modules\n');
+  fs.writeFileSync(path.join(simpleFiles, '.gitignore'), 'node_modules\n');
+  // A nested file, so the prefix strip is exercised on more than one segment.
+  fs.mkdirSync(path.join(simpleFiles, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(simpleFiles, 'src', 'main.ts'), 'export {};\n');
 
   // Template 2: "fullstack-app" — frontend + backend structure
   const fullstackDir = path.join(templatesDir, 'fullstack-app');
@@ -363,6 +373,28 @@ describe('TemplatesService (synthetic templates dir)', () => {
       expect(result.success).toBe(true);
       expect(result.filesCreated.length).toBeGreaterThan(0);
       expect(fs.existsSync(projectTarget)).toBe(true);
+    });
+
+    it('strips the template files/ prefix from the generated project', async () => {
+      const projectTarget = path.join(tempBase, 'scaffolded-prefix');
+      fs.mkdirSync(projectTarget, { recursive: true });
+
+      const result = await service.scaffoldProject({
+        templateId: 'simple-app',
+        projectPath: projectTarget,
+        variables: { projectName: 'prefix-app', projectPath: projectTarget, appTitle: 'T' },
+      });
+
+      // Content lands at the project root, and nested paths keep their shape.
+      expect(fs.existsSync(path.join(projectTarget, 'README.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectTarget, '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(projectTarget, 'src', 'main.ts'))).toBe(true);
+
+      // The template's own layout must not leak into the project.
+      expect(fs.existsSync(path.join(projectTarget, 'files'))).toBe(false);
+      for (const created of result.filesCreated) {
+        expect(created.split(/[\\/]/)[0]).not.toBe('files');
+      }
     });
 
     it('should replace variables in .tmpl files', async () => {

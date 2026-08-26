@@ -19,8 +19,20 @@ describe('managedSurfaces', () => {
 
     expect(dirs).toEqual(['.claude']);
     // The set that reinstall backs up outside the .claude tree.
+    //
+    // `.gitignore` is in it because an install edits that file (the marked
+    // block that keeps credential-bearing MCP configs out of version control).
+    // Leaving it out meant a rollback restored everything else and left that
+    // edit behind, while logging "the project is unchanged".
     expect(files.sort()).toEqual(
-      ['.dev-suite-manifest.json', '.dev-suite.json', '.mcp.json', 'AGENTS.md', 'CLAUDE.md'].sort()
+      [
+        '.dev-suite-manifest.json',
+        '.dev-suite.json',
+        '.gitignore',
+        '.mcp.json',
+        'AGENTS.md',
+        'CLAUDE.md',
+      ].sort()
     );
     // .claude/settings.json is inside the .claude tree, so it is NOT listed as
     // a standalone file — the tree copy covers it.
@@ -50,6 +62,17 @@ describe('managedSurfaces', () => {
     // .cursor/mcp.json is under .cursor, so the tree copy covers it.
     expect(dirs).toContain('.cursor');
     expect(files).not.toContain('.cursor/mcp.json');
+  });
+
+  it('covers the Kimi tree and the .agents/skills mirror it depends on', () => {
+    const { dirs, files } = managedSurfaces(['kimi-code']);
+
+    expect(dirs).toContain('.kimi-code');
+    // .kimi-code/mcp.json is inside the tree copy, so it is not listed twice.
+    expect(files).not.toContain('.kimi-code/mcp.json');
+    // Kimi reads no `.claude/skills`; losing this mirror on rollback would
+    // leave it with agents and no skills at all.
+    expect(dirs).toContain('.agents/skills');
   });
 
   it('unions surfaces across multiple targets', () => {
