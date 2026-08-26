@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { McpServer } from '@/types';
 import { Modal, ModalFooter, Input, Card, Badge } from '../common';
 import { useComponentLogger } from '@/hooks/useComponentLogger';
+import { API_BASE } from '../../utils/api';
 
 export interface AddMcpModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export function AddMcpModal({
     if (isOpen) {
       const fetchServers = async () => {
         try {
-          const res = await fetch('/api/mcp-servers');
+          const res = await fetch(`${API_BASE}/api/mcp-servers`);
           if (res.ok) {
             const data = await res.json();
             setAllServers(data.servers || []);

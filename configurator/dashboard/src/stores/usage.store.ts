@@ -21,8 +21,19 @@ export interface AlertThreshold {
   enabled: boolean;
 }
 
+/**
+ * The usage monitor configuration as the client sees it.
+ *
+ * `adminApiKey` is WRITE-ONLY: `GET /api/usage/config` deliberately returns a
+ * masked view (`hasApiKey` + `apiKeyPreview`) and never the secret itself, so
+ * reading `config.adminApiKey` back is always `undefined`. The panel used to
+ * derive "is a key configured?" from it and therefore reported "no key" forever,
+ * even right after a successful save.
+ */
 export interface UsageConfig {
-  adminApiKey: string;
+  adminApiKey?: string;
+  hasApiKey?: boolean;
+  apiKeyPreview?: string;
   alertThresholds: AlertThreshold[];
   pollingIntervalMs: number;
 }
@@ -134,8 +145,12 @@ export const useUsageStore = create<UsageState>()(
             const body = await res.json().catch(() => ({ error: res.statusText }));
             throw new Error(body.error ?? `HTTP ${res.status}`);
           }
-          const data = (await res.json()) as UsageSummary;
-          set({ summary: data, loading: false }, false, 'fetchSummary/success');
+          // Both usage routes answer with the standard { success, data }
+          // envelope. Casting the envelope straight to UsageSummary left every
+          // field undefined, which is why the panel reported $0 regardless of
+          // the real spend.
+          const body = (await res.json()) as { data: UsageSummary };
+          set({ summary: body.data, loading: false }, false, 'fetchSummary/success');
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Failed to fetch usage summary';
           set({ error: message, loading: false }, false, 'fetchSummary/error');
@@ -152,8 +167,8 @@ export const useUsageStore = create<UsageState>()(
             const body = await res.json().catch(() => ({ error: res.statusText }));
             throw new Error(body.error ?? `HTTP ${res.status}`);
           }
-          const data = (await res.json()) as UsageConfig;
-          set({ config: data, configLoading: false }, false, 'fetchConfig/success');
+          const body = (await res.json()) as { data: UsageConfig };
+          set({ config: body.data, configLoading: false }, false, 'fetchConfig/success');
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Failed to fetch usage config';
           set({ error: message, configLoading: false }, false, 'fetchConfig/error');
@@ -166,13 +181,14 @@ export const useUsageStore = create<UsageState>()(
           const res = await fetch(`${API_BASE}/api/usage/config`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: projectPath, config }),
+            body: JSON.stringify({ projectPath, config }),
           });
           if (!res.ok) {
             const body = await res.json().catch(() => ({ error: res.statusText }));
             throw new Error(body.error ?? `HTTP ${res.status}`);
           }
-          set({ config, configSaving: false }, false, 'saveConfig/success');
+          set({ configSaving: false }, false, 'saveConfig/success');
+          await get().fetchConfig(projectPath);
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Failed to save usage config';
           set({ error: message, configSaving: false }, false, 'saveConfig/error');

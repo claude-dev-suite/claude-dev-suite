@@ -206,14 +206,28 @@ export class UsageService {
 
   /**
    * Persist usage config to `.dev-suite/usage-config.json`.
+   *
+   * `adminApiKey` is write-only across the API: `getMaskedConfig()` never sends
+   * it to the client, so a client round-tripping the config it was given cannot
+   * send it back. An **omitted** key therefore means "leave it as it is", and
+   * only an explicit empty string clears it. Without this, editing an alert
+   * threshold or the polling interval silently deleted the stored credential.
    */
   saveConfig(projectPath: string, config: UsageConfig): void {
     const resolved = resolveProjectPath(projectPath);
     const configPath = path.join(resolved, CONFIG_FILE);
     const dir = path.dirname(configPath);
 
+    const next: UsageConfig = { ...config };
+    if (next.adminApiKey === undefined) {
+      const existing = this.getConfig(resolved).adminApiKey;
+      if (existing) next.adminApiKey = existing;
+    } else if (next.adminApiKey === '') {
+      delete next.adminApiKey;
+    }
+
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    fs.writeFileSync(configPath, JSON.stringify(next, null, 2), 'utf-8');
     logger.info('Usage config saved', { path: configPath });
   }
 

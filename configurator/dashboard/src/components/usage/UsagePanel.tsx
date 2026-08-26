@@ -592,7 +592,8 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
   }, [projectPath, config?.pollingIntervalMs, fetchSummary]);
 
   // Derived values
-  const hasApiKey = !!(config?.adminApiKey);
+  // Server-derived: GET /api/usage/config returns a masked view, never the key.
+  const hasApiKey = !!config?.hasApiKey;
   const todayCost = summary?.cost?.today?.totalCostUsd ?? 0;
   const monthlyCost = summary?.cost?.monthly?.totalCostUsd ?? 0;
   const todayUsage = summary?.usage?.today;
@@ -908,13 +909,19 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
                 <div>
                   <p className="text-sm text-surface-200 font-medium">Admin API key configured</p>
                   <p className="text-xs text-surface-500">
-                    sk-ant-admin-...{config!.adminApiKey.slice(-6)}
+                    {config?.apiKeyPreview ?? 'sk-ant-admin-…'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => {
-                  if (config) void saveConfig(projectPath, { ...config, adminApiKey: '' });
+                  if (config) {
+                    void saveConfig(projectPath, {
+                      alertThresholds: config.alertThresholds,
+                      pollingIntervalMs: config.pollingIntervalMs,
+                      adminApiKey: '',
+                    });
+                  }
                 }}
                 className="px-3 py-1.5 text-xs text-surface-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
               >

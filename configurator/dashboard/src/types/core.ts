@@ -130,25 +130,66 @@ export interface GitRepoInfo {
 // ============================================
 
 /**
- * Installation manifest tracking all installed files
+ * Installation manifest, exactly as `POST /api/install` returns it.
+ *
+ * KEPT IN STEP WITH the service's `InstallManifest` (server/src/types.ts), which
+ * is what the route actually serialises. This declaration used to describe a
+ * different object entirely — `files: string[]`, plus `directories`,
+ * `devSuiteVersion` and `envVarsAdded` fields no service has ever produced — so
+ * `manifest.skipped` never reached the UI and `check-type-sync` kept two copies
+ * of a fiction perfectly in sync with each other. A contract test now asserts
+ * this against a real install result.
  */
 export interface InstallManifest {
   /** Version of the manifest schema */
   version: string;
   /** Timestamp of installation */
   installedAt: string;
-  /** Dev-suite version */
-  devSuiteVersion: string;
-  /** Relative paths of all installed files */
-  files: string[];
-  /** Relative paths of all created directories */
-  directories: string[];
-  /** Names of MCP servers installed */
-  mcpServers: string[];
+  /** Absolute path of the project this was installed into */
+  projectPath: string;
   /** Names of agents installed */
   agents: string[];
-  /** Names of env vars added to .env */
-  envVarsAdded: string[];
+  /** Names of MCP servers installed */
+  mcpServers: string[];
+  /** Ids of rule templates installed */
+  rules: string[];
+  /** Every file written, with its kind and origin */
+  files: InstalledFile[];
+  /**
+   * Capabilities an assistant could not receive, with the reason.
+   *
+   * The install pipeline reports controlled degradation here — Cline has no
+   * project MCP config, Codex and Gemini have no glob-activated rules — but the
+   * field was absent from this contract, so the whole mechanism stopped one
+   * layer short of the user. Optional: only present when something was skipped.
+   */
+  skipped?: InstallSkippedCapability[];
+}
+
+/**
+ * One file recorded by an install.
+ *
+ * MIRRORS server/src/types.ts::InstalledFile.
+ */
+export interface InstalledFile {
+  /** Project-relative path, POSIX separators */
+  path: string;
+  /** What kind of artifact this is */
+  type: string;
+  /** Where the content came from: an absolute source path, or 'generated' */
+  source: string;
+}
+
+/**
+ * One primitive an assistant could not receive during an install.
+ */
+export interface InstallSkippedCapability {
+  /** Target assistant id, e.g. `cline`, `codex`. */
+  target: string;
+  /** Primitive name, e.g. `mcp`, `rule-templates`, `native-agents`. */
+  capability: string;
+  /** Human-readable explanation, surfaced to the user. */
+  reason: string;
 }
 
 /**

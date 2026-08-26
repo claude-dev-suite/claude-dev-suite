@@ -4,6 +4,7 @@ import type { DetectionResponse, InstallationResponse } from '@/types';
 import { Button, Badge, Spinner } from '../common';
 import { PanelSection } from '../layout';
 import { API_BASE } from '@/utils/api';
+import { toDetectedStackPayload } from '@/utils/detected-stack';
 import clsx from 'clsx';
 
 export interface Step5InstallProps {
@@ -85,20 +86,18 @@ export function Step5Install({
           rules: selectedRules,
           targets: selectedAssistants,
           envVars,
-          detectedStack: detection ? {
-            projectType: detection.project_type,
-            frontend: detection.frontend,
-            backend: detection.backend,
-            database: detection.database,
-            testing: detection.testing,
-            isMonorepo: detection.is_monorepo,
-            confidence: detection.confidence,
-          } : undefined,
+          detectedStack: detection ? toDetectedStackPayload(detection) : undefined,
         }),
       });
 
       if (!installRes.ok) {
-        throw new Error('Installation failed');
+        // `/api/install` returns `{success:false, error}` with the real reason;
+        // replacing it with a fixed string left the user with nothing to act on.
+        const detail = await installRes
+          .json()
+          .then((body: { error?: string }) => body?.error)
+          .catch(() => undefined);
+        throw new Error(detail || `Installation failed (HTTP ${installRes.status})`);
       }
 
       const result: InstallationResponse = await installRes.json();
@@ -265,6 +264,37 @@ export function Step5Install({
             {installResult.summary && (
               <p className="mt-2 text-sm text-green-300">{installResult.summary}</p>
             )}
+          </div>
+        )}
+
+        {/* Capabilities an assistant could not receive.
+            The install pipeline has always produced this list; nothing rendered
+            it, so a user installing for Cline or Codex was never told which
+            primitives their assistant cannot take. */}
+        {installComplete && (installResult?.manifest?.skipped?.length ?? 0) > 0 && (
+          <div
+            className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg"
+            data-testid="skipped-capabilities"
+          >
+            <div className="flex items-center gap-2 text-amber-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <span className="font-medium">Not supported by every assistant</span>
+            </div>
+            <ul className="mt-2 space-y-1.5">
+              {installResult!.manifest!.skipped!.map((s, i) => (
+                <li key={`${s.target}-${s.capability}-${i}`} className="text-sm text-amber-200/90">
+                  <Badge variant="warning">{s.target}</Badge>{' '}
+                  <span className="text-amber-300/70">{s.capability}</span> — {s.reason}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
