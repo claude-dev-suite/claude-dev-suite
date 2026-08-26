@@ -35,7 +35,7 @@
     "helmet": "^8.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "shiki": "^4.0.2",
+    "shiki": "^4.4.3",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
