@@ -20,7 +20,7 @@ jobs:
         language: [javascript-typescript]
 
     env:
-      CODEQL_ACTION_EXTRA_OPTIONS: '{"database":{"init":["--search-path=.github/codeql/custom-queries"],"run-queries":["--search-path=.github/codeql/custom-queries"]}}'
+      CODEQL_ACTION_EXTRA_OPTIONS: '{"database":{"init":["--search-path=.github/codeql/custom-queries"],"run-queries":["--search-path=.github/codeql/custom-queries","--extension-packs=dev-suite/javascript-custom-queries"]}}'
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
