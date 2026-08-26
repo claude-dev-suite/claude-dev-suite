@@ -19,6 +19,7 @@ import { targetPaths } from './targets/target-paths.js';
 import { InstallationService } from './installation.service.js';
 import { recoverEnvVars, recoverSkillLoadingMode } from './installation/install-recovery.js';
 import { resolveProjectTargets } from './installation/uninstall.js';
+import { assertValidComponentId } from './installation/security-helpers.js';
 import { withProjectLock } from './installation/project-lock.js';
 import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 import { getLogger } from '../utils/logger.js';
@@ -131,7 +132,7 @@ export class ManagementService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
+    assertValidComponentId(agentId, 'agent ID');
     const devSuiteDir = getDevSuiteDir();
     const agentFile = this.findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
 
@@ -233,7 +234,7 @@ export class ManagementService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    if (!/^[a-zA-Z0-9_.-]+$/.test(agentId)) throw new Error('Invalid agent ID');
+    assertValidComponentId(agentId, 'agent ID');
     const paths = targetPaths(projectPath);
     const agentPath = paths.agentFile(agentId);
 
@@ -290,7 +291,7 @@ export class ManagementService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
+    assertValidComponentId(serverName, 'server name');
 
     const devSuiteDir = getDevSuiteDir();
     const serverSource = path.join(devSuiteDir, 'mcp-servers', serverName);
@@ -331,7 +332,7 @@ export class ManagementService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    if (!/^[a-zA-Z0-9_.-]+$/.test(serverName)) throw new Error('Invalid server name');
+    assertValidComponentId(serverName, 'server name');
 
     const paths = targetPaths(projectPath);
     const serverDir = paths.mcpServerDir(serverName);
