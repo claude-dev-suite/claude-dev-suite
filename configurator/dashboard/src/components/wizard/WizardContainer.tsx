@@ -312,6 +312,11 @@ export function WizardContainer({
                 recommendedMcpServers: recommendations?.mcpServers || [],
                 selectedAgents: recommendations?.agents || [],
                 selectedMcpServers: recommendations?.mcpServers || [],
+                // Detection means a (possibly different) project. Leaving the
+                // assistant selection behind carried the previous project's
+                // choice into this one; the Assistants step re-populates it from
+                // its own detection.
+                selectedAssistants: [],
               });
             }}
             loading={loading}

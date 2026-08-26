@@ -37,11 +37,19 @@ export function writeGeminiSettings(
 
   if (opts.existing && opts.existing.trim().length > 0) {
     try {
-      const parsed = JSON.parse(opts.existing);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        root = parsed as JsonObject;
+      // Strip a UTF-8 BOM (the Windows default) before parsing, and refuse a
+      // valid-but-wrong-shaped root instead of silently discarding the file.
+      const text = opts.existing.charCodeAt(0) === 0xfeff ? opts.existing.slice(1) : opts.existing;
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new McpConfigParseError(
+          opts.file ?? '.gemini/settings.json',
+          new Error('root is not a JSON object')
+        );
       }
+      root = parsed as JsonObject;
     } catch (e) {
+      if (e instanceof McpConfigParseError) throw e;
       throw new McpConfigParseError(opts.file ?? '.gemini/settings.json', e);
     }
   }

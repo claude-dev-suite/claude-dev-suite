@@ -13,6 +13,7 @@
  * | Copilot (VS Code) | `.vscode/mcp.json`    | `servers`    | `"stdio"`  |
  * | Copilot (CLI)     | `.github/mcp.json`    | `mcpServers` | `"local"`  |
  * | Cursor            | `.cursor/mcp.json`    | `mcpServers` | `"stdio"`  |
+ * | Kimi Code         | `.kimi-code/mcp.json` | `mcpServers` | omitted    |
  *
  * **Merge, don't clobber.** Unlike `.mcp.json`, which dev-suite has always
  * owned outright, these files usually already contain the user's own servers.
@@ -56,6 +57,19 @@ export interface McpMergeOptions {
 type JsonObject = Record<string, unknown>;
 
 /**
+ * Strip a UTF-8 BOM before parsing.
+ *
+ * `JSON.parse` rejects U+FEFF, so a BOM made every merge refuse the file with
+ * "not valid JSON" — and that is the Windows default (PowerShell `Out-File`,
+ * Notepad's "UTF-8 with BOM"), on a product that ships a Windows desktop app.
+ * It failed safe but told the user something untrue, and re-running never
+ * helped. Not re-emitted: dev-suite writes plain UTF-8.
+ */
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+/**
  * Merge dev-suite's servers into whatever the file already contains.
  *
  * @throws {McpConfigParseError} when existing content is present but unparseable —
@@ -71,19 +85,35 @@ function mergeUnderKey(
 
   if (opts.existing && opts.existing.trim().length > 0) {
     try {
-      const parsed = JSON.parse(opts.existing);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        root = parsed as JsonObject;
+      const parsed = JSON.parse(stripBom(opts.existing));
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        // Valid JSON of the wrong shape used to fall through to `{}`, quietly
+        // discarding the file — the one JSON path that lost data without
+        // throwing, so the adapters' skip-and-report branch never fired.
+        throw new McpConfigParseError(
+          opts.file ?? key,
+          new Error('root is not a JSON object')
+        );
       }
+      root = parsed as JsonObject;
     } catch (e) {
+      if (e instanceof McpConfigParseError) throw e;
       throw new McpConfigParseError(opts.file ?? key, e);
     }
   }
 
-  const existingServers =
-    root[key] && typeof root[key] === 'object' && !Array.isArray(root[key])
-      ? { ...(root[key] as JsonObject) }
-      : {};
+  const existingUnderKey = root[key];
+  if (
+    existingUnderKey !== undefined &&
+    (typeof existingUnderKey !== 'object' || existingUnderKey === null || Array.isArray(existingUnderKey))
+  ) {
+    // Same reasoning: `{"servers": [...]}` silently lost the array.
+    throw new McpConfigParseError(
+      opts.file ?? key,
+      new Error(`"${key}" is present but is not an object`)
+    );
+  }
+  const existingServers = existingUnderKey ? { ...(existingUnderKey as JsonObject) } : {};
 
   // Drop entries we used to manage but no longer install; leave foreign ones.
   for (const stale of opts.previouslyManaged ?? []) {
@@ -173,6 +203,33 @@ export function writeCursorMcpConfig(
   for (const [name, entry] of Object.entries(servers)) {
     converted[name] = {
       type: 'stdio',
+      command: entry.command,
+      args: entry.args,
+      ...(Object.keys(entry.env).length > 0 ? { env: entry.env } : {}),
+    };
+  }
+  return mergeUnderKey('mcpServers', converted, opts);
+}
+
+/**
+ * Kimi Code — `.kimi-code/mcp.json`.
+ *
+ * Same `mcpServers` key as Claude Code, and **no `type` discriminator**: the
+ * presence of `command` is what makes an entry stdio (`url` would make it
+ * HTTP/SSE). Adding `type: "stdio"` here would be inventing a field the docs
+ * don't define, so it is deliberately omitted — see reference doc section 3.8.
+ *
+ * Kimi's own file, not Claude's: it reads only `.kimi-code/mcp.json` (project)
+ * and `~/.kimi-code/mcp.json` (user), with the project entry winning. Empty
+ * `env` is dropped rather than written as `{}`, matching the other writers.
+ */
+export function writeKimiMcpConfig(
+  servers: Record<string, McpServerEntry>,
+  opts: McpMergeOptions = {}
+): string {
+  const converted: Record<string, unknown> = {};
+  for (const [name, entry] of Object.entries(servers)) {
+    converted[name] = {
       command: entry.command,
       args: entry.args,
       ...(Object.keys(entry.env).length > 0 ? { env: entry.env } : {}),

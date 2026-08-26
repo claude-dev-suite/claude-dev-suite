@@ -42,7 +42,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "parse_logs",
       description:
-        "Parse a log file and extract structured entries. Supports Spring Boot, Node.js (Winston/Pino), Python, and generic JSON formats. Auto-detects format if not specified.",
+        "Parse a log file into structured entries. Auto-detects Spring Boot, Winston/Pino, Python and JSON formats.",
       inputSchema: {
         type: "object",
         properties: {
@@ -60,7 +60,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "find_errors",
       description:
-        "Find and group errors/exceptions in a log file. Returns error groups by exception type, recent errors, and hourly timeline.",
+        "Group a log file's errors by exception type, with the recent errors and an hourly timeline.",
       inputSchema: {
         type: "object",
         properties: {
@@ -78,7 +78,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "analyze_patterns",
       description:
-        "Detect problematic patterns in logs (timeouts, connection issues, memory problems, etc.). Returns patterns with severity, suggestions, and examples.",
+        "Detect problem patterns in logs (timeouts, connection, memory) with severity, suggestions and examples.",
       inputSchema: {
         type: "object",
         properties: {
@@ -108,7 +108,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "correlate_events",
       description:
-        "Correlate events across multiple log files using request IDs, trace IDs, or custom fields. Useful for tracing requests through microservices.",
+        "Correlate events across several log files by request ID, trace ID or a custom field.",
       inputSchema: {
         type: "object",
         properties: {
@@ -191,7 +191,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "watch_logs",
       description:
-        "Real-time log monitoring with alerting. Start watching a file for new entries and get alerts on errors or custom patterns.",
+        "Watch a log file in real time and alert on errors or custom patterns.",
       inputSchema: {
         type: "object",
         properties: {

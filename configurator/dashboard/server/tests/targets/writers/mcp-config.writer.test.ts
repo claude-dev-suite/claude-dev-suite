@@ -14,6 +14,7 @@ import {
   writeVsCodeMcpConfig,
   writeCopilotCliMcpConfig,
   writeCursorMcpConfig,
+  writeKimiMcpConfig,
   McpConfigParseError,
 } from '../../../src/services/targets/writers/mcp-config.writer.js';
 import type { McpServerEntry } from '../../../src/services/targets/target-adapter.js';
@@ -111,6 +112,37 @@ describe('writeCursorMcpConfig', () => {
   });
 });
 
+describe('writeKimiMcpConfig', () => {
+  it('uses mcpServers with no type discriminator', () => {
+    const parsed = JSON.parse(writeKimiMcpConfig(SERVERS));
+
+    expect(Object.keys(parsed)).toEqual(['mcpServers']);
+    expect(parsed.mcpServers.documentation).toEqual({
+      command: 'node',
+      args: ['/abs/project/.mcp-servers/documentation/dist/index.js'],
+      env: { KB_BRANCH: 'main' },
+    });
+    // `type` is not part of Kimi's documented entry shape — inventing it would
+    // be guessing at a field the vendor never defined.
+    expect(parsed.mcpServers.documentation).not.toHaveProperty('type');
+  });
+
+  it('omits env entirely when there is nothing to set', () => {
+    const parsed = JSON.parse(writeKimiMcpConfig(NO_ENV));
+    expect(parsed.mcpServers['skill-loader']).not.toHaveProperty('env');
+  });
+
+  it('preserves the user\'s own Kimi servers when merging', () => {
+    const existing = JSON.stringify({
+      mcpServers: { 'user-http-server': { url: 'https://example.test/mcp' } },
+    });
+    const parsed = JSON.parse(writeKimiMcpConfig(SERVERS, { existing }));
+
+    expect(parsed.mcpServers['user-http-server']).toEqual({ url: 'https://example.test/mcp' });
+    expect(parsed.mcpServers.documentation).toBeDefined();
+  });
+});
+
 describe('merging with an existing file', () => {
   it('preserves servers dev-suite does not manage', () => {
     const existing = JSON.stringify({
@@ -188,6 +220,7 @@ describe('all writers', () => {
     ['vscode', writeVsCodeMcpConfig],
     ['copilot-cli', writeCopilotCliMcpConfig],
     ['cursor', writeCursorMcpConfig],
+    ['kimi-code', writeKimiMcpConfig],
   ] as const;
 
   it.each(writers)('%s keeps server args absolute', (_id, write) => {

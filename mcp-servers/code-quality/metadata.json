@@ -4,37 +4,19 @@
   "description": "Code quality analysis - complexity, duplication, style, anti-patterns, dead code, dependencies",
   "category": "analysis",
   "tools": [
-    {
-      "name": "analyze_complexity",
-      "description": "Analyze cyclomatic and cognitive complexity of functions"
-    },
-    {
-      "name": "find_duplicates",
-      "description": "Detect code duplication across files"
-    },
-    {
-      "name": "check_style",
-      "description": "Run unified linting (ESLint/Biome/Ruff/Checkstyle)"
-    },
-    {
-      "name": "detect_antipatterns",
-      "description": "Detect anti-patterns: god-class, long-method, deep-nesting"
-    },
-    {
-      "name": "find_dead_code",
-      "description": "Find unused exports, functions, and variables"
-    },
-    {
-      "name": "analyze_import_graph",
-      "description": "Analyze import graph and detect circular dependencies"
-    },
-    {
-      "name": "code_metrics",
-      "description": "Calculate LOC, comments ratio, file sizes, function counts"
-    }
+    "analyze_complexity",
+    "find_duplicates",
+    "check_style",
+    "detect_antipatterns",
+    "find_dead_code",
+    "analyze_import_graph",
+    "code_metrics"
   ],
   "shortDescription": "Code quality analysis",
   "envVars": [],
-  "recommendedFor": ["code-reviewer", "architect"],
+  "recommendedFor": [
+    "code-reviewer",
+    "architect"
+  ],
   "detectedWhen": []
 }

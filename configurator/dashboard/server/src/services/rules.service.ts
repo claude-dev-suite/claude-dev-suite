@@ -11,6 +11,23 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getDevSuiteDir } from '../utils/dev-suite-dir.js';
 
+/**
+ * A rule id is a bare filename stem, and it is interpolated straight into a
+ * path on both the read and the write side. Anything else is refused.
+ *
+ * The guard lives here rather than only in the request schema because the id
+ * list is also read back out of the project's own `.dev-suite.json` during a
+ * Sync (`reinstall.service.ts`), which never passes through the schema — a
+ * hostile or corrupt project file would otherwise reach the copy with
+ * `../../README` and overwrite a file outside the rules directory.
+ */
+const RULE_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+
+/** True when `ruleId` is safe to interpolate into a rule file path. */
+export function isValidRuleId(ruleId: unknown): ruleId is string {
+  return typeof ruleId === 'string' && ruleId.length <= 64 && RULE_ID_PATTERN.test(ruleId);
+}
+
 export interface RuleMetadata {
   id: string;
   name: string;
@@ -78,6 +95,7 @@ export class RulesService {
    * Returns null if not found.
    */
   findRuleFile(ruleId: string): string | null {
+    if (!isValidRuleId(ruleId)) return null;
     const rulesDir = path.join(getDevSuiteDir(), 'rules');
     for (const category of ['git', 'docs']) {
       const candidate = path.join(rulesDir, category, `${ruleId}.md`);

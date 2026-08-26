@@ -57,16 +57,25 @@ function tomlBareOrQuoted(key: string): string {
   return /^[A-Za-z0-9_-]+$/.test(key) ? key : tomlString(key);
 }
 
-/** True when a line opens a top-level table or array-of-tables. */
+/**
+ * True when a line opens a table or array-of-tables.
+ *
+ * A trailing comment is part of real-world config (`[tui]  # my theme`), and
+ * requiring the line to *end* with `]` used to misclassify those as ordinary
+ * body lines: the annotated table was absorbed into the section above it and
+ * deleted along with it, silently, because the result was still valid TOML.
+ */
 function isTableHeader(line: string): boolean {
-  const t = line.trim();
-  return t.startsWith('[') && t.endsWith(']');
+  return /^\s*\[\[?[^\]]*\]\]?\s*(?:#.*)?$/.test(line);
 }
 
 /** Extract the `<name>` from a `[mcp_servers.<name>]` / `.env` header, or null. */
 function managedServerName(header: string): string | null {
   const t = header.trim();
-  const m = t.match(/^\[mcp_servers\.([^.\]]+)(?:\.env)?\]$/);
+  // The comment tail stays anchored: an annotated managed header must still be
+  // recognised as ours, or the merge appends a duplicate table and TOML forbids
+  // a table being defined twice — Codex would then load no project config.
+  const m = t.match(/^\[mcp_servers\.([^.\]]+)(?:\.env)?\]\s*(?:#.*)?$/);
   if (!m || m[1] === undefined) return null;
   // Strip surrounding quotes if the name was quoted.
   const raw = m[1];

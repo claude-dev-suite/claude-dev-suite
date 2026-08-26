@@ -42,3 +42,30 @@ export function trackManifestFile(
     });
   }
 }
+
+/**
+ * Record a directory dev-suite installed.
+ *
+ * `trackManifestFile` hashes the path and skips anything it cannot read, so a
+ * directory raised EISDIR and was silently dropped — the manifest recorded zero
+ * skill directories even though every install writes dozens, which is why the
+ * `.agents/skills` mirror had no removal path.
+ *
+ * Directories carry no hash: drift detection is per-file, and a skill directory
+ * is rebuilt wholesale rather than merged.
+ */
+export function trackManifestDir(
+  extendedManifest: ExtendedManifest,
+  relativePath: string,
+  type: TrackedFile['type'],
+  source?: string,
+  target: TargetId = DEFAULT_TARGET
+): void {
+  extendedManifest.files.push({
+    path: relativePath,
+    hash: '',
+    type,
+    source,
+    target,
+  });
+}

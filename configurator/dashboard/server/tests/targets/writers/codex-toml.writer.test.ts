@@ -129,3 +129,94 @@ describe('writeCodexTomlMcp — escaping', () => {
     expect(out).toContain('args = ["a\\"b"]');
   });
 });
+
+/**
+ * Real-world config.toml files carry comments in every position, including on
+ * the table header itself. The line classifier used to require the line to end
+ * with `]`, so an annotated header was not a header at all:
+ *
+ *  - a user's `[mcp_servers.mine]  # my server` was absorbed into the section
+ *    above it and deleted with it — silently, because the output was still
+ *    valid TOML, and by default, because dev-suite appends its tables last;
+ *  - an annotated *managed* header was not recognised as ours, so the merge
+ *    appended a second copy of the table, which TOML forbids — Codex then
+ *    loads none of the project config while the adapter logs success.
+ */
+describe('codex TOML merge: comment-annotated headers', () => {
+  const server = { command: 'node', args: ['ds.js'], env: {} };
+
+  it('keeps a user table whose header carries a trailing comment', () => {
+    const existing = [
+      '[mcp_servers.documentation]',
+      'command = "node"',
+      'args = ["old.js"]',
+      '',
+      '[mcp_servers.mine]  # my own server, do not touch',
+      'command = "python"',
+      'args = ["mine.py"]',
+      '',
+    ].join('\n');
+
+    const out = writeCodexTomlMcp(
+      { documentation: server },
+      { existing, previouslyManaged: ['documentation'] }
+    );
+
+    expect(out).toContain('[mcp_servers.mine]  # my own server, do not touch');
+    expect(out).toContain('args = ["mine.py"]');
+    expect(out).toContain('[mcp_servers.documentation]');
+    expect(out).not.toContain('old.js');
+  });
+
+  it('does not duplicate a managed table whose header carries a comment', () => {
+    const existing = [
+      '[mcp_servers.documentation]  # added by dev-suite',
+      'command = "node"',
+      'args = ["old.js"]',
+      '',
+    ].join('\n');
+
+    const out = writeCodexTomlMcp(
+      { documentation: server },
+      { existing, previouslyManaged: ['documentation'] }
+    );
+
+    const occurrences = out.split('[mcp_servers.documentation]').length - 1;
+    expect(occurrences).toBe(1);
+    expect(out).toContain('args = ["ds.js"]');
+    expect(out).not.toContain('old.js');
+  });
+
+  it('keeps an annotated foreign table when dropping a deselected managed one', () => {
+    const existing = [
+      'model = "o3"',
+      '',
+      '[mcp_servers.gone]',
+      'command = "node"',
+      '',
+      '[tui]  # my theme block',
+      'theme = "dark"',
+      '',
+    ].join('\n');
+
+    const out = writeCodexTomlMcp({}, { existing, previouslyManaged: ['gone'] });
+
+    expect(out).toContain('model = "o3"');
+    expect(out).toContain('[tui]  # my theme block');
+    expect(out).toContain('theme = "dark"');
+    expect(out).not.toContain('mcp_servers.gone');
+  });
+
+  it('does not mistake a bracketed value for a table header', () => {
+    const existing = [
+      '[tui]',
+      'note = "see [docs] for details"',
+      '',
+    ].join('\n');
+
+    const out = writeCodexTomlMcp({ documentation: server }, { existing });
+
+    expect(out).toContain('note = "see [docs] for details"');
+    expect(out).toContain('[mcp_servers.documentation]');
+  });
+});

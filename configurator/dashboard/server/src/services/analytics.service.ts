@@ -146,8 +146,6 @@ export interface TokenUsageEntry {
   tokensInput: number;
   /** Number of output tokens generated */
   tokensOutput: number;
-  /** Estimated cost in USD (computed from model pricing approximations) */
-  costUsd?: number;
   /** Model used: haiku | sonnet | opus */
   model?: string;
   /** Whether the call completed successfully */
@@ -178,39 +176,26 @@ export interface TokenAggregatedRow {
   /** The grouping key value (agentId, skillPath, mcpTool, or model) */
   key: string;
   totalTokens: number;
-  totalCostUsd: number;
   callCount: number;
   avgTokensPerCall: number;
 }
 
 /**
- * Approximate USD pricing per 1M tokens (input).
- * These are rough estimates — document in docs/TOKEN-ANALYTICS.md.
+ * Cost is deliberately NOT computed here.
+ *
+ * This module records token counts, which are measured facts. It used to
+ * multiply them by a hardcoded per-model price table and store the product on
+ * each record — a fabricated number, frozen into history, that went stale the
+ * moment Anthropic changed a rate (and was stale: the table still carried 2025
+ * prices). Nothing in the product could correct it after the fact.
+ *
+ * Real cost already has a real source: `usage.service.ts` reads
+ * `token_cost_usd` / `total_cost_usd` from the Anthropic Admin API's cost
+ * report — actually billed amounts, per model and workspace. That is what the
+ * Usage panel shows. Per-agent or per-skill attribution of billed cost is not
+ * something the Admin API exposes, so this module reports tokens and leaves
+ * money to the panel that knows it.
  */
-const MODEL_INPUT_PRICE_PER_MTOK: Record<string, number> = {
-  haiku: 0.25,
-  sonnet: 3.0,
-  opus: 15.0,
-};
-
-/**
- * Approximate USD pricing per 1M tokens (output).
- */
-const MODEL_OUTPUT_PRICE_PER_MTOK: Record<string, number> = {
-  haiku: 1.25,
-  sonnet: 15.0,
-  opus: 75.0,
-};
-
-const DEFAULT_INPUT_PRICE = MODEL_INPUT_PRICE_PER_MTOK['sonnet'] ?? 3.0;
-const DEFAULT_OUTPUT_PRICE = MODEL_OUTPUT_PRICE_PER_MTOK['sonnet'] ?? 15.0;
-
-function estimateCostUsd(model: string | undefined, tokensInput: number, tokensOutput: number): number {
-  const normalizedModel = (model ?? '').toLowerCase();
-  const inputPrice = MODEL_INPUT_PRICE_PER_MTOK[normalizedModel] ?? DEFAULT_INPUT_PRICE;
-  const outputPrice = MODEL_OUTPUT_PRICE_PER_MTOK[normalizedModel] ?? DEFAULT_OUTPUT_PRICE;
-  return (tokensInput / 1_000_000) * inputPrice + (tokensOutput / 1_000_000) * outputPrice;
-}
 
 export class AnalyticsService {
   /**
@@ -655,8 +640,7 @@ export class AnalyticsService {
   /**
    * Record a token-usage event.
    *
-   * Automatically computes `costUsd` when `model` is set and the field is
-   * not already provided by the caller.
+   * Records token counts only — see the note above on why no cost is computed.
    *
    * Token tracking is opt-in.  Callers should check TOKEN_ANALYTICS_ENABLED
    * before calling this method, or rely on the route guard.
@@ -674,16 +658,10 @@ export class AnalyticsService {
 
     const data = this.readTokenUsageData(projectPath);
 
-    const costUsd =
-      entry.costUsd !== undefined
-        ? entry.costUsd
-        : estimateCostUsd(entry.model, entry.tokensInput, entry.tokensOutput);
-
     const newEntry: TokenUsageEntry = {
       id: `token-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       timestamp: new Date().toISOString(),
       ...entry,
-      costUsd,
     };
 
     data.entries.push(newEntry);
@@ -762,7 +740,7 @@ export class AnalyticsService {
   ): TokenAggregatedRow[] {
     const entries = this.getTokenUsage(projectPath, { since: opts.since });
 
-    const map = new Map<string, { tokens: number; cost: number; count: number }>();
+    const map = new Map<string, { tokens: number; count: number }>();
 
     for (const entry of entries) {
       let key: string;
@@ -781,9 +759,8 @@ export class AnalyticsService {
           break;
       }
 
-      const existing = map.get(key) ?? { tokens: 0, cost: 0, count: 0 };
+      const existing = map.get(key) ?? { tokens: 0, count: 0 };
       existing.tokens += entry.tokensInput + entry.tokensOutput;
-      existing.cost += entry.costUsd ?? 0;
       existing.count += 1;
       map.set(key, existing);
     }
@@ -793,7 +770,6 @@ export class AnalyticsService {
       rows.push({
         key,
         totalTokens: agg.tokens,
-        totalCostUsd: agg.cost,
         callCount: agg.count,
         avgTokensPerCall: agg.count > 0 ? Math.round(agg.tokens / agg.count) : 0,
       });

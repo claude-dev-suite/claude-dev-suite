@@ -135,9 +135,20 @@ export function applyHookMerge(
       }];
     }
 
+    // Replace an existing entry for the same matcher rather than appending:
+    // re-applying a feature (an upgrade re-run, a reinstall) used to stack a
+    // second identical hook, so the prompt fired twice per event.
     const eventHooks = settings.hooks[config.event];
     if (eventHooks) {
-      eventHooks.push(hookEntry);
+      const matcher = (hookEntry as { matcher?: string }).matcher;
+      const existingIdx = eventHooks.findIndex(
+        h => (h as { matcher?: string })?.matcher === matcher
+      );
+      if (existingIdx >= 0) {
+        eventHooks[existingIdx] = hookEntry;
+      } else {
+        eventHooks.push(hookEntry);
+      }
     }
 
     // Write settings

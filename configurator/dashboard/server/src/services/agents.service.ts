@@ -211,6 +211,16 @@ export class AgentsService {
 
   // ========== Private methods ==========
 
+  /**
+   * Map an `agents/<dir>` name to its category.
+   *
+   * Six directories were missing and fell through to `core`, which is always-on:
+   * their 17 agents therefore never got a path-scoped rule file, and the 58
+   * globs configured for them in `CATEGORY_PATHS` were unreachable. The `core`
+   * fallback stays — throwing would drop a whole subtree during the scan — but
+   * it now warns, because reaching it means a directory was added without a
+   * category.
+   */
   private mapCategory(dirName: string): AgentCategory {
     const categoryMap: Record<string, AgentCategory> = {
       core: 'core',
@@ -222,8 +232,22 @@ export class AgentsService {
       messaging: 'messaging',
       security: 'security',
       quality: 'quality',
+      mobile: 'mobile',
+      cloud: 'cloud',
+      data: 'data',
+      ai: 'data',
+      gamedev: 'gamedev',
+      industrial: 'industrial',
+      bitcoin: 'bitcoin',
     };
-    return categoryMap[dirName] || 'core';
+    const mapped = categoryMap[dirName];
+    if (!mapped) {
+      logger.warn('Agent directory has no category mapping — treated as always-on core', {
+        context: { dirName },
+      });
+      return 'core';
+    }
+    return mapped;
   }
 
   private parseAgentFile(filePath: string, fileName: string, category: AgentCategory): Agent | null {
@@ -279,6 +303,11 @@ export class AgentsService {
         }
       }
 
+      // `model:` drives real cost per invocation; the parser used to ignore it
+      // entirely, so nothing downstream could display or validate it.
+      const modelMatch = frontmatter.match(/^model:\s*["']?([^"'\n]+)["']?/m);
+      const model = modelMatch?.[1]?.trim();
+
       return {
         id: agentId,
         name,
@@ -288,6 +317,7 @@ export class AgentsService {
         coreSkills,
         extendedSkills,
         mcpServers,
+        ...(model ? { model } : {}),
         filePath,
       };
     } catch (error: unknown) {

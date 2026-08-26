@@ -1,6 +1,10 @@
 # Architect Multi-Domain Plan
 
-> **Status:** Design / analysis — not yet implemented.
+> **Status: ARCHIVED — implemented.** The architect agent carries the `systems/*` and
+> `ai-systems/*` skill families today, and the install-time frontmatter transform of §4.2
+> shipped. The banner below said "not yet implemented" while the document's own log
+> recorded the work as done; it is kept for the analysis, not as a plan.
+> The one item still open is the P2 knowledge-base fill for the thinner domains.
 > **Author:** investigation 2026-06-01.
 > **Scope:** make the `architect` agent competent across many architecture
 > families (not just web/enterprise), by decoupling skills from the agent via

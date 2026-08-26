@@ -7,13 +7,38 @@
     "fetch_docs",
     "list_versions",
     "search_docs",
-    "list_topics"
+    "list_topics",
+    "list_docs"
   ],
   "envVars": [
     {
       "name": "KB_REPO_URL",
       "description": "URL of the knowledge base git repository",
       "default": "https://github.com/claude-dev-suite/knowledge_base.git",
+      "required": false
+    },
+    {
+      "name": "KB_REPO_BRANCH",
+      "description": "Branch of the knowledge-base repository to read. Defaults to the repo default branch.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "KB_CACHE_PATH",
+      "description": "Directory for the on-disk knowledge-base cache. Defaults to a per-user cache directory.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "KB_CACHE_TTL",
+      "description": "Cache lifetime in seconds before the knowledge base is re-fetched. Defaults to 7200 (2 hours).",
+      "default": "7200",
+      "required": false
+    },
+    {
+      "name": "KB_ANALYTICS_PATH",
+      "description": "File that records which docs were fetched, for the Analytics panel. Unset disables recording.",
+      "default": "",
       "required": false
     }
   ],

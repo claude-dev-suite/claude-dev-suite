@@ -229,12 +229,13 @@ describe('ReinstallService', () => {
 
   it('previewReinstall counts managed skill dirs on disk (not from manifest)', async () => {
     await installBase();
-    // Skill dirs are not tracked in the manifest (a directory hashes to null),
-    // so this count must come from scanning .claude/skills/ on disk.
+    // Skill directories ARE recorded now — they carry no hash, which used to
+    // make the tracker drop them silently, leaving the mirror with no removal
+    // path. The count still comes from disk, because that is what gets rebuilt.
     const m = JSON.parse(
       fs.readFileSync(path.join(projectDir, '.dev-suite-manifest.json'), 'utf-8')
     ) as { files: Array<{ type: string }> };
-    expect(m.files.some(f => f.type === 'skill')).toBe(false);
+    expect(m.files.some(f => f.type === 'skill')).toBe(true);
 
     // Add a user custom skill that must NOT be counted.
     const customSkill = path.join(projectDir, '.claude', 'skills', 'custom', 'SKILL.md');

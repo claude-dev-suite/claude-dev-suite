@@ -27,7 +27,7 @@ const definedLayouts = Object.values(TARGET_LAYOUTS).filter(Boolean) as TargetLa
 
 describe('target layout descriptors', () => {
   it('defines at least the Tier 1 targets', () => {
-    expect(Object.keys(TARGET_LAYOUTS).sort()).toEqual(['claude-code', 'cline', 'codex', 'copilot', 'cursor', 'gemini']);
+    expect(Object.keys(TARGET_LAYOUTS).sort()).toEqual(['claude-code', 'cline', 'codex', 'copilot', 'cursor', 'gemini', 'kimi-code']);
   });
 
   it.each(definedLayouts.map(l => [l.id, l] as const))(
@@ -86,6 +86,25 @@ describe('target layout descriptors', () => {
     expect(getTargetLayout('copilot').mcpConfigFile).not.toBe('.mcp.json');
   });
 
+  it('gives Kimi Code the cross-tool skills dir and its own MCP file', () => {
+    const kimi = getTargetLayout('kimi-code');
+    // Kimi Code does not read `.claude/` at all — skills must come from the
+    // `.agents/skills` mirror, or the install silently reaches it with nothing.
+    expect(kimi.skillsDir).toBe('.agents/skills');
+    expect(kimi.capabilities.skillsSource).toBe('agents');
+    expect(kimi.instructionsFile).toBe(SHARED_INSTRUCTIONS_FILE);
+    expect(kimi.mcpConfigFile).toBe('.kimi-code/mcp.json');
+    expect(kimi.agentsDir).toBe('.kimi-code/agents');
+    // No glob rules, no committable settings/hooks — permanent gaps, not TODOs.
+    expect(kimi.capabilities.pathScopedRules).toBe(false);
+    expect(kimi.capabilities.settings).toBe(false);
+    expect(kimi.capabilities.hooks).toBe(false);
+  });
+
+  it('never routes Kimi Code MCP config through Claude Code\'s .mcp.json', () => {
+    expect(getTargetLayout('kimi-code').mcpConfigFile).not.toBe('.mcp.json');
+  });
+
   it('defaults to claude-code and reports the Tier 1 targets as implemented', () => {
     expect(DEFAULT_TARGET).toBe('claude-code');
     expect(isImplemented('claude-code')).toBe(true);
@@ -94,9 +113,10 @@ describe('target layout descriptors', () => {
     expect(isImplemented('gemini')).toBe(true);
     expect(isImplemented('codex')).toBe(true);
     expect(isImplemented('cline')).toBe(true);
+    expect(isImplemented('kimi-code')).toBe(true);
     // Tier 3 (windsurf) has no adapter yet.
     expect(isImplemented('windsurf')).toBe(false);
-    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'cline', 'codex', 'copilot', 'cursor', 'gemini']);
+    expect(listImplementedTargets().map(l => l.id).sort()).toEqual(['claude-code', 'cline', 'codex', 'copilot', 'cursor', 'gemini', 'kimi-code']);
   });
 
   it('throws for targets without a descriptor yet', () => {

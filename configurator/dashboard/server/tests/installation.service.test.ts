@@ -499,17 +499,31 @@ describe('InstallationService', () => {
       expect(settings.hooks).toEqual({ PreToolUse: [] });
     });
 
-    it('removes stale skill folders left by a previous install', async () => {
-      // Simulate a stale eager-mode install: nested folder with SKILL.md
+    it('removes the skill folders it owns and preserves everything else', async () => {
+      // Ownership is proven by the sentinel dev-suite writes into each folder it
+      // materialises, or by the previous manifest. It used to be inferred from
+      // "this folder contains a SKILL.md", which is equally true of a skill the
+      // user wrote — so a re-install deleted their work.
       const skillsDir = path.join(projectDir, '.claude', 'skills');
-      const staleNested = path.join(skillsDir, 'infrastructure', 'systemd');
-      fs.mkdirSync(staleNested, { recursive: true });
-      fs.writeFileSync(path.join(staleNested, 'SKILL.md'), '# stale\n');
-      // Simulate a stale lazy-mode install: flat folder
-      const staleFlat = path.join(skillsDir, 'old-flat-skill');
-      fs.mkdirSync(staleFlat, { recursive: true });
-      fs.writeFileSync(path.join(staleFlat, 'SKILL.md'), '# stale\n');
-      // Preserve a user-owned non-skill file
+
+      const ownedStale = path.join(skillsDir, 'old-flat-skill');
+      fs.mkdirSync(ownedStale, { recursive: true });
+      fs.writeFileSync(path.join(ownedStale, 'SKILL.md'), '# stale\n');
+      fs.writeFileSync(path.join(ownedStale, '.dev-suite-owned'), '# written by dev-suite\n');
+
+      // Recorded in a manifest from before sentinels existed — still ours.
+      const legacyStale = path.join(skillsDir, 'legacy-skill');
+      fs.mkdirSync(legacyStale, { recursive: true });
+      fs.writeFileSync(path.join(legacyStale, 'SKILL.md'), '# stale\n');
+      fs.writeFileSync(
+        path.join(projectDir, '.dev-suite-manifest.json'),
+        JSON.stringify({ files: [{ path: '.claude/skills/legacy-skill', type: 'skill' }] })
+      );
+
+      // The user's own skill, and a user file at the top level.
+      const userSkill = path.join(skillsDir, 'my-house-style');
+      fs.mkdirSync(userSkill, { recursive: true });
+      fs.writeFileSync(path.join(userSkill, 'SKILL.md'), '# mine\n');
       fs.writeFileSync(path.join(skillsDir, 'NOTES.md'), 'user notes');
 
       await installationService.install({
@@ -519,13 +533,30 @@ describe('InstallationService', () => {
         envVars: {},
       });
 
-      // Stale folders are gone
-      expect(fs.existsSync(staleNested)).toBe(false);
-      expect(fs.existsSync(staleFlat)).toBe(false);
-      // User-owned top-level file is preserved
+      expect(fs.existsSync(ownedStale)).toBe(false);
+      expect(fs.existsSync(legacyStale)).toBe(false);
+      expect(fs.existsSync(path.join(userSkill, 'SKILL.md'))).toBe(true);
       expect(fs.existsSync(path.join(skillsDir, 'NOTES.md'))).toBe(true);
-      // Fresh install still wrote the typescript skill
       expect(fs.existsSync(path.join(skillsDir, 'typescript', 'SKILL.md'))).toBe(true);
+    });
+
+    it('marks every skill folder it writes so the next install can recognise it', async () => {
+      await installationService.install({
+        projectPath: projectDir,
+        agents: ['typescript-expert'],
+        mcpServers: [],
+        envVars: {},
+      });
+
+      const skillsDir = path.join(projectDir, '.claude', 'skills');
+      const installed = fs
+        .readdirSync(skillsDir, { withFileTypes: true })
+        .filter(e => e.isDirectory());
+
+      expect(installed.length).toBeGreaterThan(0);
+      for (const dir of installed) {
+        expect(fs.existsSync(path.join(skillsDir, dir.name, '.dev-suite-owned'))).toBe(true);
+      }
     });
 
     it('explicit skillLoadingMode=eager bypasses lazy even when skill-loader auto-included', async () => {

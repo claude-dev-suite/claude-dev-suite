@@ -243,18 +243,19 @@ export class PackageInstallerService {
 
     const devSuiteDir = getDevSuiteDir();
 
-    // Find the agent file in dev-suite
-    const agentCategories = [
-      'core',
-      'frontend',
-      'backend',
-      'database',
-      'testing',
-      'infrastructure',
-      'messaging',
-      'security',
-      'quality',
-    ];
+    // Find the agent file in dev-suite. Scanned from disk rather than a
+    // hardcoded list: nine of the fifteen directories were listed, so mobile,
+    // cloud, data, gamedev, industrial and bitcoin agents could never be found.
+    const agentsRoot = path.join(devSuiteDir, 'agents');
+    let agentCategories: string[] = [];
+    try {
+      agentCategories = fs
+        .readdirSync(agentsRoot, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => e.name);
+    } catch {
+      agentCategories = [];
+    }
     let sourceAgentPath: string | null = null;
 
     for (const category of agentCategories) {

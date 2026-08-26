@@ -33,6 +33,11 @@ interface AssistantSpec {
   displayName: string;
   /** Project-relative files/dirs whose presence indicates this assistant. */
   markers: string[];
+  /**
+   * Markers dev-suite writes itself. Ignored once the project has a dev-suite
+   * manifest, because then their presence says nothing about what the user uses.
+   */
+  markersWrittenByUs?: string[];
 }
 
 /**
@@ -44,12 +49,27 @@ interface AssistantSpec {
  * descriptor, so the two cannot silently drift.
  */
 const ASSISTANT_SPECS: readonly AssistantSpec[] = Object.freeze([
-  { target: 'claude-code', displayName: 'Claude Code', markers: ['.claude', 'CLAUDE.md'] },
+  // `.claude` is written by dev-suite itself for every install, whichever
+  // assistants were selected — Copilot and Cursor read that substrate directly.
+  // Counting it as a Claude Code *presence* marker made every project dev-suite
+  // had ever touched look like a Claude Code project, so the wizard pre-selected
+  // it on re-runs regardless of what the user actually uses. `markersWrittenByUs`
+  // are ignored when a dev-suite manifest exists; a project with `.claude` and no
+  // manifest really is someone's Claude Code project.
+  {
+    target: 'claude-code',
+    displayName: 'Claude Code',
+    markers: ['.claude', 'CLAUDE.md'],
+    markersWrittenByUs: ['.claude', 'CLAUDE.md'],
+  },
   { target: 'copilot', displayName: 'GitHub Copilot', markers: ['.github/copilot-instructions.md', '.github/agents', '.github/instructions', '.vscode/mcp.json'] },
   { target: 'cursor', displayName: 'Cursor', markers: ['.cursor', '.cursorrules'] },
   { target: 'codex', displayName: 'OpenAI Codex CLI', markers: ['.codex'] },
   { target: 'gemini', displayName: 'Gemini CLI', markers: ['.gemini', 'GEMINI.md'] },
   { target: 'cline', displayName: 'Cline', markers: ['.clinerules', '.cline'] },
+  // `.kimi` is the legacy kimi-cli data dir. dev-suite targets Kimi Code, but a
+  // user on the old generation is still a Kimi user worth pre-selecting.
+  { target: 'kimi-code', displayName: 'Kimi Code', markers: ['.kimi-code', '.kimi'] },
   { target: 'windsurf', displayName: 'Devin Desktop (Windsurf)', markers: ['.devin', '.windsurf', '.windsurfrules'] },
 ]);
 
@@ -85,8 +105,15 @@ export class AssistantDetectionService {
 
     const installedTargets = this.readManifestTargets(projectPath);
 
+    const hasManifest = fs.existsSync(path.join(projectPath, '.dev-suite-manifest.json'));
+
     const results: DetectedAssistant[] = ASSISTANT_SPECS.map(spec => {
-      const found = spec.markers.filter(m => this.markerExists(projectPath, m));
+      // Markers dev-suite writes itself prove nothing about what the user uses
+      // once a manifest exists — the manifest's own target list does.
+      const selfWritten = new Set(hasManifest ? spec.markersWrittenByUs ?? [] : []);
+      const found = spec.markers
+        .filter(m => !selfWritten.has(m))
+        .filter(m => this.markerExists(projectPath, m));
       const devSuiteInstalled = installedTargets.includes(spec.target);
       return {
         target: spec.target,
@@ -128,7 +155,11 @@ export class AssistantDetectionService {
       const manifest = readJsonSync<{ targets?: TargetId[] }>(
         path.join(projectPath, '.dev-suite-manifest.json')
       );
-      return manifest?.targets ?? [];
+      // A manifest is data read off disk. `{"targets": 5}` used to reach
+      // `.includes()` and throw a TypeError straight out of the wizard's first
+      // request, blocking it entirely.
+      const raw: unknown = manifest?.targets;
+      return Array.isArray(raw) ? raw.filter((t): t is TargetId => typeof t === 'string') : [];
     } catch (error) {
       logger.warn('Failed to read manifest targets during assistant detection', {
         error,

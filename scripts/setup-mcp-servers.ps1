@@ -26,8 +26,24 @@ try {
     exit 1
 }
 
-# List of MCP servers to build
-$Servers = @("documentation", "database-query", "docker-manager", "api-tester")
+# List of MCP servers to build - derived from the npm workspaces so a new server
+# is picked up automatically, exactly like setup-mcp-servers.sh does.
+if (-not (Test-Path (Join-Path $McpServersDir "package.json"))) {
+    Write-Host "Error: mcp-servers/package.json not found" -ForegroundColor Red
+    exit 1
+}
+
+Push-Location $McpServersDir
+$Servers = @(& node -e "require('./package.json').workspaces.forEach(w => console.log(w))")
+Pop-Location
+
+if ($Servers.Count -eq 0) {
+    Write-Host "Error: Could not read workspaces from mcp-servers/package.json" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Found $($Servers.Count) MCP servers: $($Servers -join ', ')" -ForegroundColor Blue
+Write-Host ""
 
 # Track results
 $Built = 0

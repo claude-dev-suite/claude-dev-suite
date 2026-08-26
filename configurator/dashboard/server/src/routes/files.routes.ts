@@ -56,6 +56,16 @@ const SECRET_FILE_PATTERNS: Array<RegExp> = [
   /(?:^|\/)id_(?:rsa|ed25519|ecdsa|dsa|xmss)(?:\.pub)?$/i,
   // Generic *.secret / *.secrets files
   /\.secrets?$/i,
+  // Every assistant's MCP config: dev-suite bakes the wizard's env values —
+  // API keys, database URLs — straight into these. `.env` was denied while the
+  // same credential was served verbatim from `.cursor/mcp.json`.
+  /^\.mcp\.json$/i,
+  /^\.vscode\/mcp\.json$/i,
+  /^\.github\/mcp\.json$/i,
+  /^\.cursor\/mcp\.json$/i,
+  /^\.kimi-code\/mcp\.json$/i,
+  /^\.gemini\/settings\.json$/i,
+  /^\.codex\/config\.toml$/i,
 ];
 
 /**
@@ -71,7 +81,11 @@ export function isSecretFile(relPath: string): boolean {
 const ALLOWED_HIDDEN = new Set([
   '.env', '.env.local', '.env.example', '.gitignore', '.gitattributes',
   '.eslintrc', '.eslintrc.json', '.eslintrc.js', '.prettierrc',
-  '.prettierrc.json', '.editorconfig', '.claude',
+  '.prettierrc.json', '.editorconfig',
+  // Every assistant directory dev-suite writes into, not just Claude Code's —
+  // a multi-assistant install was largely invisible in the file tree.
+  '.claude', '.cursor', '.gemini', '.codex', '.clinerules', '.kimi-code',
+  '.agents', '.vscode', '.github',
 ]);
 
 // ============================================

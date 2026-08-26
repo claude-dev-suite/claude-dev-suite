@@ -676,7 +676,6 @@ export interface TokenUsageEntry {
   sessionId?: string;
   tokensInput: number;
   tokensOutput: number;
-  costUsd?: number;
   model?: string;
   success: boolean;
   durationMs?: number;
@@ -688,7 +687,6 @@ export interface TokenUsageEntry {
 export interface TokenAggregatedRow {
   key: string;
   totalTokens: number;
-  totalCostUsd: number;
   callCount: number;
   avgTokensPerCall: number;
 }

@@ -144,7 +144,12 @@ export function cursorMdcRule(spec: PathScopedRuleSpec): string {
     ...spec.globs.filter(g => !g.startsWith('*')),
     ...spec.globs.filter(g => g.startsWith('*')),
   ];
-  const globs = ordered.join(', ');
+  // Reordering alone is not enough: 7 of the 12 categories have *only*
+  // `*`-leading globs, so the value still opened with `*`. Quote whenever it
+  // does — a quoted scalar is unambiguous in every YAML parser, and Cursor's
+  // own examples quote multi-glob values.
+  const joined = ordered.join(', ');
+  const globs = joined.startsWith('*') ? `"${joined}"` : joined;
   const category = displayCategory(spec.category);
 
   return `---

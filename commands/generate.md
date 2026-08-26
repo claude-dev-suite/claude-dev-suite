@@ -19,7 +19,7 @@ Generate code components based on the current stack configuration.
 
 ## Process
 
-1. Read `.dev-suite.json` to understand current stack
+1. Read `AGENTS.md` and inspect the project itself to understand the stack. `.dev-suite.json` records only which agents, MCP servers and rules are installed — it holds no stack or path information.
 2. **Detect monorepo structure**:
    - Check if `project.isMonorepo` is `true`
    - Use `project.frontendPath` for frontend components (e.g., `frontend/`, `*-frontend/`)
@@ -40,7 +40,7 @@ For monorepo projects, the generator automatically detects the workspace:
 
 ```
 my-project/
-├── .dev-suite.json          # Contains frontendPath & backendPath
+├── .dev-suite.json          # Installed agents / MCP servers / rules (no paths)
 ├── gestionale-frontend/     # frontendPath
 │   └── src/components/      # Component generation target
 └── gestionale-backend/      # backendPath

@@ -12,13 +12,9 @@
  * Settings and hooks are not written (reported as skipped).
  */
 
-import { getLogger } from '../../../utils/logger.js';
 import { writePathScopedRules } from '../../installation/path-scoped-rules.js';
-import {
-  writeMcpConfigFile,
-  readExistingConfig,
-} from '../../installation/mcp-config-file.js';
-import { writeCursorMcpConfig, McpConfigParseError } from '../writers/mcp-config.writer.js';
+import { writeMergedMcpConfig } from '../../installation/mcp-config-file.js';
+import { writeCursorMcpConfig } from '../writers/mcp-config.writer.js';
 import { getTargetLayout, type TargetLayout } from '../target-layout.js';
 import type {
   TargetAdapter,
@@ -27,7 +23,6 @@ import type {
   SkippedCapability,
 } from '../target-adapter.js';
 
-const logger = getLogger('CursorAdapter');
 
 export class CursorAdapter implements TargetAdapter {
   readonly id = 'cursor' as const;
@@ -39,24 +34,21 @@ export class CursorAdapter implements TargetAdapter {
     const skipped: SkippedCapability[] = [];
 
     const relMcp = paths.relMcpConfigFile; // .cursor/mcp.json
-    try {
-      const content = writeCursorMcpConfig(ctx.mcpServers, {
-        existing: readExistingConfig(projectPath, relMcp),
+    skipped.push(...writeMergedMcpConfig({
+      projectPath,
+      relPath: relMcp,
+      target: this.id,
+      manifest,
+      extendedManifest,
+      render: existing => writeCursorMcpConfig(ctx.mcpServers, {
+        existing,
         previouslyManaged: plan.mcpCatalog,
         file: relMcp,
-      });
-      writeMcpConfigFile({ projectPath, relPath: relMcp, content, target: this.id, manifest, extendedManifest });
-    } catch (error) {
-      if (error instanceof McpConfigParseError) {
-        logger.warn('Existing .cursor/mcp.json is unparseable — left untouched', { error });
-        skipped.push({ capability: 'mcp', reason: `${relMcp} exists but is not valid JSON; left untouched` });
-      } else {
-        throw error;
-      }
-    }
+      }),
+    }));
 
     const installedAgents = plan.agentCatalog.filter(a => manifest.agents.includes(a.id));
-    const ruleFiles = writePathScopedRules('cursor', installedAgents, projectPath);
+    const ruleFiles = writePathScopedRules('cursor', installedAgents, projectPath, plan.previouslyManaged);
 
     if (plan.rules.length > 0) {
       skipped.push({

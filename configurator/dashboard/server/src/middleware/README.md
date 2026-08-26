@@ -143,8 +143,8 @@ export LOG_LEVEL=warn   # Show only warnings and errors
 
 ### Successful Request
 ```
-[http] [API] [abc-123]: → GET /api/health
-[http] [API] [abc-123]: ← 200 GET /api/health (5ms)
+[http] [API] [abc-123]: → GET /health
+[http] [API] [abc-123]: ← 200 GET /health (5ms)
 ```
 
 ### Slow Request
@@ -210,8 +210,10 @@ export function createServer(): Express {
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOG_LEVEL` | `info` | Winston log level |
-| `LOG_DIR` | Platform-specific | Log directory path |
 | `NODE_ENV` | `development` | Affects error detail in responses |
+
+The log directory is resolved per platform by `getLogDirectoryPath()` in
+`src/utils/logger.ts`; there is no environment override.
 
 ## Log Rotation
 

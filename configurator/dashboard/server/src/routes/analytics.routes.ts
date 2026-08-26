@@ -272,7 +272,6 @@ analyticsRoutes.post('/analytics/token-usage', (req: Request, res: Response) => 
       sessionId,
       tokensInput,
       tokensOutput,
-      costUsd,
       model,
       success: callSuccess,
       durationMs,
@@ -284,7 +283,6 @@ analyticsRoutes.post('/analytics/token-usage', (req: Request, res: Response) => 
       sessionId?: string;
       tokensInput: number;
       tokensOutput: number;
-      costUsd?: number;
       model?: string;
       success: boolean;
       durationMs?: number;
@@ -305,7 +303,6 @@ analyticsRoutes.post('/analytics/token-usage', (req: Request, res: Response) => 
       sessionId,
       tokensInput,
       tokensOutput,
-      costUsd,
       model,
       success: callSuccess ?? true,
       durationMs,

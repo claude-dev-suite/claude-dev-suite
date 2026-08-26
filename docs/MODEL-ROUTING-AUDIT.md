@@ -337,6 +337,12 @@ Estimated total scope of file edits: between **3 files** (HIGH-confidence only) 
 
 ### Final distribution (after Sprint 5)
 
+> Snapshot as of Sprint 5 (2026-05-04), not a live count — agents have been added since.
+> For the current distribution run:
+> `grep -h '^model:' agents/*/*.md | sort | uniq -c`, and
+> `grep -L '^model:' agents/*/*.md` for the ones with no override.
+
+
 | Model | Before Sprint 5 | After Sprint 5 | Net change |
 |---|---|---|---|
 | sonnet | 56 | 50 | -6 |

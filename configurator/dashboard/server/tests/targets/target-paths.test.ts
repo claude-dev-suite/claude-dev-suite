@@ -104,6 +104,18 @@ describe('TargetPaths — other targets', () => {
     expect(p.relMcpConfigFile).toBe('.cursor/mcp.json');
   });
 
+  it('uses the Kimi Code layout: brand agents dir, shared skills mirror', () => {
+    const p = targetPaths(ROOT, 'kimi-code');
+    expect(p.relAgentsDir).toBe('.kimi-code/agents');
+    expect(p.relAgentFile('react-expert')).toBe('.kimi-code/agents/react-expert.md');
+    expect(p.relSkillsDir).toBe('.agents/skills');
+    expect(p.relMcpConfigFile).toBe('.kimi-code/mcp.json');
+    expect(p.relInstructionsFile).toBe(SHARED_INSTRUCTIONS_FILE);
+    // No glob rules and no settings file — asking for them must fail loudly.
+    expect(() => p.relRulesDir).toThrow(/no rules directory/);
+    expect(() => p.relSettingsFile).toThrow(/no settings directory/);
+  });
+
   it('falls back to <agentsDir>/custom when a layout declares no custom dir', () => {
     const p = targetPaths(ROOT, 'copilot');
     expect(p.relCustomAgentsDir).toBe('.github/agents/custom');

@@ -99,6 +99,7 @@ describe('AssistantDetectionService', () => {
     expect(rows['cursor'].implemented).toBe(true);
     expect(rows['codex'].implemented).toBe(true);
     expect(rows['gemini'].implemented).toBe(true);
+    expect(rows['kimi-code'].implemented).toBe(true);
     expect(rows['windsurf'].implemented).toBe(false);
   });
 });

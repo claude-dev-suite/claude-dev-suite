@@ -9,6 +9,7 @@
 import type { StackInfo } from './core.js';
 import type { ReinstallHistoryEntry } from './reinstall.js';
 import type { TargetId } from '../services/targets/target-layout.js';
+import type { InstallSkippedCapability } from '../types.js';
 
 // ============================================
 // FEATURE REGISTRY TYPES
@@ -47,8 +48,13 @@ export interface HookMergeConfig {
   target: string;
   event: string;
   config: {
+    /**
+     * Subagent/tool matcher written straight into the hook entry. `'*'` (or an
+     * absent value) matches everything; for the SubagentStop features the real
+     * filtering is done by `promptTemplate`, which asks the model to decide
+     * whether the completed work warrants the follow-up agent.
+     */
     matcher?: string;
-    matcherBuilder?: string;
     promptTemplate?: string;
     hooks?: string[];
     timeout?: number;
@@ -224,10 +230,19 @@ export interface ExtendedManifest {
    */
   targets?: TargetId[];
   /**
-   * Relative paths of `.claude/rules/{category}.md` files written by dev-suite.
+   * Relative paths of every path-scoped rule file dev-suite wrote, across all
+   * targets — `.claude/rules/*.md`, `.github/instructions/*.instructions.md`,
+   * `.cursor/rules/*.mdc` and `.clinerules/*.md`. The name and the old comment
+   * said Claude Code only, while this is the sole record of the other four.
    * Used for clean uninstall. Missing field is treated as an empty array (backward compat).
    */
   installedRuleFiles?: string[];
+  /**
+   * Capabilities an assistant could not be given, with the reason — see
+   * `InstallManifest.skipped`. Recorded so a degradation survives the install
+   * run instead of ending in a log line nobody reads.
+   */
+  skipped?: InstallSkippedCapability[];
   /**
    * History of erase-and-replace reinstalls (distinct from feature `upgradeHistory`).
    * Missing field is treated as an empty array (backward compat).

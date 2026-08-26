@@ -10,6 +10,12 @@ and the date), then write the code.
 
 - **Verified**: 2026-07-22, against official vendor documentation and, where docs
   and source disagreed, against vendor source code.
+- **Extended**: 2026-07-28 with §3.8 Kimi Code, verified against Moonshot's
+  official docs. The same pass re-confirmed that **Claude Code still does not
+  read `AGENTS.md`** (<https://code.claude.com/docs/en/memory>): *"Claude Code
+  reads `CLAUDE.md`, not `AGENTS.md`."* Several third-party 2026 articles claim
+  it was added as a fallback — it was not, and the `@AGENTS.md` import pointer
+  remains load-bearing.
 - **Re-verify before**: starting any new adapter, or any release that changes
   generated output. These conventions move fast — several claims in this file
   were wrong six months ago.
@@ -154,6 +160,7 @@ the highest-value question.
 | Gemini CLI | **No** — needs `context.fileName` | `GEMINI.md` | Concatenated root-down + just-in-time |
 | Devin Desktop | **Yes**; a subdirectory file auto-becomes a glob rule for `<dir>/**` | `.devin/rules/` | File + directory forms both read |
 | Cline | **Yes**; also auto-detects `.cursorrules` and `.windsurfrules` | `.clinerules/` dir | All `.md`/`.txt` merged |
+| Kimi Code | **Yes**, root `AGENTS.md` | `.kimi-code/AGENTS.md` (project), `$KIMI_CODE_HOME/AGENTS.md` (global) | Injected as reference data; multi-file combining rule UNCONFIRMED |
 
 ### 2.2 Skills discovery — the fork
 
@@ -168,10 +175,20 @@ the highest-value question.
 | Gemini CLI | ❌ | ✅ (outranks own) | `.gemini/skills/` |
 | Devin Desktop | ⚠️ opt-in setting only, off by default | ✅ | `.windsurf/skills/` |
 | Cline | ✅ (by default) | not documented | `.cline/skills/`, `.clinerules/skills/` |
+| Kimi Code | ❌ | ✅ | `.kimi-code/skills/` |
+| Kimi CLI (legacy) | ✅ (brand group) | ✅ | `.kimi/skills/` |
 
 **Writing `.claude/skills/` + `.agents/skills/` covers every tool listed.** Neither
-alone does. Note Claude Code's collision precedence is **enterprise > personal >
-project** — *inverted* relative to the project-wins convention most tools use.
+alone does — and Kimi Code, the newest entry, does not widen the requirement: it
+reads `.agents/skills/`, which is already written for Codex and Gemini. Note
+Claude Code's collision precedence is **enterprise > personal > project** —
+*inverted* relative to the project-wins convention most tools use.
+
+The Kimi generations disagree with each other, which is the trap: the legacy
+**Kimi CLI** reads a "brand group" (`.kimi/skills` → `.claude/skills` →
+`.codex/skills`) and so picks up a Claude-Code-only install for free, while
+**Kimi Code** dropped `.claude/skills` entirely. An install that reached a Kimi
+CLI user does *not* reach the same user after they migrate.
 
 ### 2.3 Agent / subagent files
 
@@ -184,6 +201,13 @@ project** — *inverted* relative to the project-wins convention most tools use.
 | Gemini CLI | `.gemini/agents/*.md` | ❌ |
 | Devin Desktop | UNCONFIRMED | UNCONFIRMED |
 | Cline | `.cline/agents/` — **but `.cline/` is SDK/CLI/Kanban only, not the VS Code extension** | ❌ |
+| Kimi Code | `.kimi-code/agents/**/*.md` and `.agents/agents/**/*.md`, both recursive | ❌ |
+
+`.agents/agents/` is the only *generic* agent location any vendor documents, and
+so far **only Kimi documents it** — it is not the agent counterpart of
+`.agents/skills/` yet. Writing there buys no portability today, so dev-suite
+writes the brand path (`.kimi-code/agents/`) whose precedence is at least
+bounded by the documented scope order.
 
 **Copilot and Cursor need no agent writer** — they read `.claude/agents/` directly.
 The fidelity caveat: our installed agents carry Claude-native frontmatter
@@ -202,6 +226,7 @@ don't. Writing native per-target agent files recovers that and is otherwise opti
 | Gemini CLI | — | — | **No glob mechanism at all** |
 | Devin Desktop | `.devin/rules/*.md` | `trigger:` + `globs:` | `trigger` ∈ `always_on`/`glob`/`model_decision`/`manual` |
 | Cline | `.clinerules/*.md` | `paths:` | YAML list of globs |
+| Kimi Code | — | — | **No glob mechanism at all** |
 
 Four different keys and three different value shapes for one concept. This is the
 single richest source of silent breakage in the whole surface.
@@ -218,6 +243,8 @@ single richest source of silent breakage in the whole surface.
 | Gemini CLI | `.gemini/settings.json` | `mcpServers` | n/a (`command` implies stdio) |
 | Devin Desktop | `.devin/config.json` | `mcpServers` | CONFIRMED for Devin CLI, **PLAUSIBLE for Desktop** |
 | Cline | **None** — user-global only | — | — |
+| Kimi Code | `.kimi-code/mcp.json` | `mcpServers` | omit — `command` implies stdio |
+| Kimi CLI (legacy) | **None** — `~/.kimi/mcp.json` only | — | — |
 
 Note Copilot's two surfaces disagree on **both** the top-level key and the `type`
 value. One file cannot serve both.
@@ -502,6 +529,82 @@ Sources: <https://docs.cline.bot/customization/cline-rules>, `/skills`,
   PLAUSIBLE — **the docs contradict themselves**, with `/getting-started/config`
   listing `.cline/hooks/` instead. Verify before generating.
 
+### 3.8 Kimi Code (Moonshot AI)
+
+Sources: <https://moonshotai.github.io/kimi-code/en/customization/agents.html>,
+`/customization/skills.html`, `/customization/mcp.html`,
+`/configuration/config-files.html`; legacy generation at
+<https://moonshotai.github.io/kimi-cli/en/customization/skills.html> and
+`/customization/mcp.html`. Verified 2026-07-28.
+
+> **⚠ Two generations, different directories.** `kimi-cli` (data root `~/.kimi`,
+> project marker `.kimi/`) is being superseded by **Kimi Code** (`~/.kimi-code`,
+> project marker `.kimi-code/`, overridable with `KIMI_CODE_HOME`). The docs home
+> page states Kimi CLI *"is evolving into Kimi Code"* and points users at the new
+> project. dev-suite targets **Kimi Code only**; the differences that matter are
+> called out inline. "Kimi K3" is a *model*, not a configuration surface — it
+> changes nothing here. CONFIRMED
+
+- **Instructions**: reads the root `AGENTS.md` natively — no pointer file, no
+  settings key, nothing for dev-suite to write. Also reads `.kimi-code/AGENTS.md`
+  (project), `$KIMI_CODE_HOME/AGENTS.md` (global, default `~/.kimi-code/`) and
+  the generic `~/.agents/AGENTS.md`. Content is *"injected into the prompt as
+  reference data"*, unlike an agent-file body, which becomes the system prompt.
+  CONFIRMED. How several of these files combine (concatenate vs closest-wins) is
+  **UNCONFIRMED** — dev-suite writes a single root file, which is safe under any
+  reading.
+- **Skills**: project `.kimi-code/skills/` and `.agents/skills/`, resolved from
+  the project root (nearest `.git` ancestor); user `$KIMI_CODE_HOME/skills/` and
+  `~/.agents/skills/`. Scope precedence **Project > User > Extra > Built-in**.
+  **Does not read `.claude/skills/`** — the legacy Kimi CLI did, via a
+  first-match-wins brand group (`.kimi/skills` → `.claude/skills` →
+  `.codex/skills`) governed by `merge_all_available_skills` (default `true`).
+  CONFIRMED
+  Directory-form frontmatter is stricter than the open spec: *"both `name` and
+  `description` **must** be explicitly provided. Omitting either one will cause
+  parsing to fail."* Flat `.md` skills are also accepted, with the directory form
+  winning on a name collision. CONFIRMED
+- **Agents**: `.kimi-code/agents/` and `.agents/agents/` (project),
+  `$KIMI_CODE_HOME/agents/` and `~/.agents/agents/` (user), all scanned
+  **recursively** for `.md`. Extra roots via `extra_agent_dirs` in `config.toml`.
+  Scope order: explicit `--agent-file` > Project > Extra > User > Built-in.
+  Markdown with YAML frontmatter; **`description` is the only required field**.
+  Others: `name` (kebab-case, defaults to the filename), `whenToUse`, `override`,
+  `model_preference` (`primary`|`secondary`), `tools`, `disallowedTools`,
+  `subagents`. Built-in agent names are `coder`, `explore`, `plan`. CONFIRMED
+  **⚠ Two hazards, both load-bearing for a writer:**
+  1. **`override: true` replaces a built-in agent's entire system prompt.** A
+     project file named `agent.md` or `coder.md` with that flag takes over the
+     main agent. The docs warn to *"review `.kimi-code/agents/` and
+     `.agents/agents/` in unfamiliar repositories"* precisely because these files
+     come from the cloned repo. A generator must never emit `override`, and never
+     a name that collides with a built-in.
+  2. **The body is a template, not literal text**: *"it is rendered as a template
+     each time the prompt is built: `${var}` placeholders substitute live context
+     values"* (documented variables include `${base_prompt}`, `${skills}`,
+     `${agents_md}`). Agent prose containing `${…}` from code examples — shell
+     vars, JS template literals, `${{ secrets.X }}` in CI snippets — sits in that
+     substitution path. What Kimi does with an *unknown* placeholder is
+     **UNCONFIRMED**.
+- **MCP**: project `.kimi-code/mcp.json`, user `~/.kimi-code/mcp.json` (or
+  `$KIMI_CODE_HOME/mcp.json`); *"project-level entry takes precedence and
+  overrides the user-level entry."* JSON, key `mcpServers`. Stdio entries take
+  `command` + `args`, optional `env`, `cwd`, `enabled`, `startupTimeoutMs`,
+  `toolTimeoutMs`, `enabledTools`, `disabledTools`; HTTP/SSE use `url`,
+  `headers`, `bearerTokenEnvVar`, `transport`. No `type` discriminator for stdio.
+  CONFIRMED — this is the closest shape to Claude Code's `.mcp.json` of any
+  non-Claude target. **The legacy Kimi CLI has no project-level MCP file at all**
+  (`~/.kimi/mcp.json` only), so this capability arrived with Kimi Code.
+- **Path-scoped rules**: none. No `applyTo`/`globs`/`paths` mechanism exists;
+  scoping is by scope hierarchy only. CONFIRMED
+- **Settings / hooks / permissions**: TOML in `~/.kimi-code/config.toml`
+  (`[[hooks]]`, `[[permission.rules]]`, `[tools]`, `[models]`, …) — **user-level
+  only**. The one project-level TOML is `.kimi-code/local.toml`, created by
+  `/add-dir` for workspace paths and documented as machine-specific (*add to
+  `.gitignore`*). Nothing committable for dev-suite to write. CONFIRMED
+- **Commands**: no project-level slash-command directory documented. Skills are
+  invoked as `/skill:<name>`. CONFIRMED
+
 ---
 
 ## Part 4 — Silent-breakage traps
@@ -535,6 +638,15 @@ Ranked by how quietly they fail. Every one of these produces no error message.
     `.github/copilot-instructions.md` and (on the CLI) `CLAUDE.md` all load
     together. A pointer file that imports `AGENTS.md` can cause the same content
     to load twice on that surface.
+11. **Kimi Code dropped `.claude/skills`.** The legacy Kimi CLI read it as part
+    of its brand group, Kimi Code does not. The same project stops exposing its
+    skills the day the user migrates, with no error on either side — only
+    `.agents/skills/` reaches both. *(Added 2026-07-28.)*
+12. **Kimi agent bodies are `${var}` templates.** An agent file body is rendered
+    as a template on every prompt build. Prose carrying `${…}` from code examples
+    enters the substitution path, and unknown-placeholder behaviour is
+    undocumented — a corrupted system prompt would show up as degraded answers,
+    never as a parse error. *(Added 2026-07-28.)*
 
 ---
 
@@ -558,6 +670,11 @@ gracefully. Resolve one and move it into Part 3 with its source.
 | 10 | Devin Desktop project-level custom agent format | Devin agents — no writer until resolved |
 | 11 | `skillListingBudgetFraction` documented default | Claude Code settings — dev-suite sets 0.05 explicitly, so behaviour is deterministic regardless |
 | 12 | Exact version floors for any Codex/Gemini claim (both ship docs from `main` without per-release pinning) | All — establish by testing a pinned binary if a floor is needed |
+| 13 | How Kimi Code combines several `AGENTS.md` (root vs `.kimi-code/AGENTS.md` vs global): concatenate or closest-wins | Kimi instructions — dev-suite writes one root file, safe under either |
+| 14 | Precedence between `.kimi-code/agents` and `.agents/agents` (both are "Project" scope) | Kimi agents — write one location only, never both |
+| 15 | Whether any tool other than Kimi reads `.agents/agents/` | Cross-target agent writers — do not treat it as a standard yet |
+| 16 | What Kimi Code does with an **unknown** `${var}` in an agent body (substitute empty, leave literal, or error) | Kimi agent writer — bodies are copied verbatim; the adapter reports affected agents instead of rewriting prose. **Verify empirically before relying on native Kimi subagents** |
+| 17 | Version floor for every Kimi Code claim (docs are built from `main`, unversioned) | Kimi — establish by testing a pinned binary if a floor is needed |
 
 ---
 
@@ -580,6 +697,12 @@ Consequences of the matrices above, for implementers:
 - **Codex's trust gate and Devin's Desktop-vs-CLI ambiguity are the two places
   where a correct file still does nothing.** Both warrant a user-facing note in
   the install summary rather than silent success.
+- **Kimi Code costs almost nothing to support and was already half-supported.**
+  It reads the root `AGENTS.md` and `.agents/skills/` that Codex and Gemini
+  already require, so only two writers are target-specific: `.kimi-code/mcp.json`
+  (a near-copy of the Claude shape) and native agent files. It has no
+  glob-scoped rules and no committable settings/hooks — both are permanent
+  capability gaps to report, not gaps to fill.
 
 Capability flags live in `configurator/dashboard/server/src/services/targets/target-layout.ts`;
 paths resolve through `target-paths.ts`. When this document and those descriptors

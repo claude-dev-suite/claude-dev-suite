@@ -202,6 +202,45 @@ describe('multi-target install', () => {
     expect(exists('.mcp.json')).toBe(false);
   });
 
+  it('installs Kimi Code: .agents/skills mirror, own mcp.json, native subagents', async () => {
+    fs.mkdirSync(path.join(projectDir, '.kimi-code'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, '.kimi-code', 'mcp.json'),
+      JSON.stringify({ mcpServers: { 'user-own': { url: 'https://example.test/mcp' } } })
+    );
+
+    await install(['kimi-code']);
+
+    // Kimi reads neither `.claude/skills` nor `CLAUDE.md`: skills must arrive
+    // through the cross-tool mirror, instructions through AGENTS.md.
+    expect(exists('.agents/skills')).toBe(true);
+    expect(exists('AGENTS.md')).toBe(true);
+    expect(exists('CLAUDE.md')).toBe(false);
+    expect(exists('.mcp.json')).toBe(false);
+
+    const kimiMcp = readJson('.kimi-code/mcp.json');
+    expect(kimiMcp.mcpServers['user-own']).toEqual({ url: 'https://example.test/mcp' });
+    expect(kimiMcp.mcpServers['documentation']).toBeDefined();
+    // No `type` discriminator — Kimi infers stdio from `command`.
+    expect(kimiMcp.mcpServers['documentation']).not.toHaveProperty('type');
+
+    const agentPath = path.join(projectDir, '.kimi-code', 'agents', 'typescript-expert.md');
+    expect(fs.existsSync(agentPath)).toBe(true);
+    const agentFile = fs.readFileSync(agentPath, 'utf-8');
+    expect(agentFile).toContain('name: typescript-expert');
+    expect(agentFile).toContain('description:');
+    // Hijacking Kimi's built-in agents is the one thing this writer must never do.
+    expect(agentFile).not.toContain('override');
+    // Claude-specific source frontmatter must not leak through.
+    expect(agentFile).not.toContain('allowed-tools');
+    expect(agentFile).not.toContain('core_skills');
+
+    const manifest = readJson('.dev-suite-manifest.json');
+    expect(manifest.targets).toEqual(['kimi-code']);
+    const kimiFiles = manifest.files.filter((f: { target?: string }) => f.target === 'kimi-code');
+    expect(kimiFiles.some((f: { path: string }) => f.path === '.kimi-code/agents/typescript-expert.md')).toBe(true);
+  });
+
   it('leaves an unparseable existing MCP file untouched and reports it', async () => {
     fs.mkdirSync(path.join(projectDir, '.cursor'), { recursive: true });
     const garbage = '{ not json at all';

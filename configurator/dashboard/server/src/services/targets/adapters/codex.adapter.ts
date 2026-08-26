@@ -57,6 +57,13 @@ export class CodexAdapter implements TargetAdapter {
       reason: 'native Codex agent-role TOML is not generated yet; agent routing is in AGENTS.md',
     });
 
+    if (plan.rules.length > 0) {
+      skipped.push({
+        capability: 'rule-templates',
+        reason: 'Codex has no project-level rule mechanism; the selected rule templates were not written. Their guidance is summarised in AGENTS.md, which Codex reads natively',
+      });
+    }
+
     return { ruleFiles: [], validatorHookConfigured: false, skipped };
   }
 }

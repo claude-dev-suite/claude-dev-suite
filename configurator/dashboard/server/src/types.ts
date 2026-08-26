@@ -61,9 +61,23 @@ export interface Agent {
   /** Skills not preloaded — accessible on-demand via `skill-loader` MCP server (`list_skills` / `load_skill`). Empty unless the agent uses the new `core_skills:` / `extended_skills:` schema. */
   extendedSkills: string[];
   mcpServers: string[];
+  /**
+   * Model override from frontmatter (`sonnet` | `opus` | `haiku`), or undefined
+   * when the agent inherits the session default. Drives real cost, and the
+   * parser used not to read it at all — so the dashboard could not show it and
+   * no check could catch a typo.
+   */
+  model?: string;
   filePath: string;
 }
 
+/**
+ * Must stay in step with the directory names under `agents/` and with the keys
+ * of `CATEGORY_PATHS`. Six directories used to be missing here, so their agents
+ * silently mapped to `core` — which is always-on, so they got no path-scoped
+ * rule file and their globs were unreachable. `validate-catalog.mjs` now checks
+ * the three lists line up.
+ */
 export type AgentCategory =
   | 'core'
   | 'frontend'
@@ -73,7 +87,13 @@ export type AgentCategory =
   | 'infrastructure'
   | 'messaging'
   | 'security'
-  | 'quality';
+  | 'quality'
+  | 'mobile'
+  | 'cloud'
+  | 'data'
+  | 'gamedev'
+  | 'industrial'
+  | 'bitcoin';
 
 // MCP Server types
 export interface McpServer {
@@ -102,6 +122,13 @@ export interface EnvVarConfig {
 
 // Installation types
 export interface InstallConfig {
+  /**
+   * Snapshot the surfaces the install may overwrite, and restore them if it
+   * throws. Defaults to on; the reinstall flow sets it to false because it has
+   * already taken its own backup of the same paths.
+   */
+  createBackup?: boolean;
+
   projectPath: string;
   agents: string[];
   mcpServers: string[];
@@ -145,6 +172,25 @@ export interface InstallManifest {
   mcpServers: string[];
   rules: string[];
   files: InstalledFile[];
+  /**
+   * Everything an assistant could not be given, with the reason.
+   *
+   * The whole capability-degradation design exists so nothing is dropped
+   * silently — but every adapter's report used to end in a single `logger.info`
+   * and reach neither the API response, the manifest nor the UI, so in practice
+   * it *was* silent. Recorded here so the user can see it after the fact.
+   */
+  skipped?: InstallSkippedCapability[];
+}
+
+/** One capability an assistant could not be given, and why. */
+export interface InstallSkippedCapability {
+  /** The assistant this applies to. */
+  target: string;
+  /** Capability id, e.g. `mcp`, `agents`, `rule-templates`. */
+  capability: string;
+  /** Human-readable explanation, shown to the user verbatim. */
+  reason: string;
 }
 
 export interface InstalledFile {

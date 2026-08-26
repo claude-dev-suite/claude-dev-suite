@@ -18,7 +18,20 @@
     "replay_flow",
     "stress_test_flow"
   ],
-  "envVars": [],
+  "envVars": [
+    {
+      "name": "PERF_PROFILER_ALLOW_PRIVATE_URLS",
+      "description": "Set to \"true\" to allow profiling endpoints on private/loopback addresses. Off by default as an SSRF guard.",
+      "default": "false",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_ALLOW_RAW_CODE",
+      "description": "Set to \"true\" to allow benchmarking arbitrary code snippets. Off by default because it executes what it is given.",
+      "default": "false",
+      "required": false
+    }
+  ],
   "recommendedFor": [
     "performance-expert"
   ],

@@ -27,7 +27,10 @@ const tabs: TabConfig[] = [
   { id: 'live-performance', label: 'Live Performance', icon: 'M13 10V3L4 14h7v7l9-11h-7z', position: 'center', showWhen: 'installed' },
   { id: 'token-analytics', label: 'Token Analytics', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', position: 'center', showWhen: 'installed' },
   // Right side - setup (only when not installed)
-  { id: 'wizard', label: 'Setup Wizard', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4', position: 'right', showWhen: 'not-installed' },
+  // Always available: the wizard is the only place to choose target assistants,
+  // so hiding it after the first install left no way to add one — a Cursor user
+  // who later adopted Codex had to uninstall to reach the step.
+  { id: 'wizard', label: 'Setup Wizard', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4', position: 'right', showWhen: 'always' },
 ];
 
 export function Header() {

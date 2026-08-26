@@ -56,13 +56,35 @@ export interface InstallPlan {
   /** Full agent catalog, so adapters can resolve metadata without re-reading it. */
   agentCatalog: Agent[];
   /**
-   * Names of every MCP server dev-suite can install. Adapters that *merge* into
-   * a shared config file (e.g. Copilot's `.vscode/mcp.json`) use this to drop
-   * their own deselected entries while leaving the user's servers untouched.
+   * Server names dev-suite wrote into this project on the PREVIOUS install.
+   *
+   * Adapters that merge into a shared config pass it as `previouslyManaged` so a
+   * deselected server is dropped. It must not be the full catalog: a user whose
+   * own config already had a server dev-suite also ships (`documentation`, say)
+   * had it deleted on a *first* install, which is the opposite of the merge
+   * contract. Empty on a first install — nothing was ours yet.
    */
   mcpCatalog: string[];
   /** The assistants this install is targeting. */
   targets: TargetId[];
+  /**
+   * Relative paths dev-suite wrote on the *previous* install, read from the
+   * on-disk manifest before this one starts.
+   *
+   * Writers use it to tell "replace my own file" from "clobber the user's".
+   * Empty on a first install, which is exactly right: an existing file is then
+   * the user's by definition.
+   */
+  previouslyManaged: ReadonlySet<string>;
+  /**
+   * Agent files the previous install wrote, keyed by target id.
+   *
+   * Native subagent writers use it to delete the file of an agent that is no
+   * longer selected — without it a deselected `@qa-expert` stayed live in
+   * Gemini and Kimi forever, since the manifest is rebuilt from scratch and no
+   * removal path could see the leftover.
+   */
+  previousAgentFiles: ReadonlyMap<string, readonly string[]>;
 }
 
 /** A resolved MCP server entry, before it is serialized into a target's format. */

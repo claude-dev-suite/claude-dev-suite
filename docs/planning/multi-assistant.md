@@ -392,6 +392,45 @@ is fragile (easy to garble domain text) and can't be validated without a real
 CLI, so it stays deferred; shipping the body verbatim matches what the other
 `.claude/agents`-reading assistants already get.
 
+**4.3 — Kimi Code adapter** — **DONE 2026-07-28**
+Not in the original tier plan; added after a compatibility study of Moonshot's
+docs (§3.8 of the format reference, written before any code, per this repo's
+doc-first rule). Kimi Code turned out to be the cheapest target yet: it reads the
+root `AGENTS.md` natively and skills from `.agents/skills`, both already produced
+for Codex/Gemini, so only `.kimi-code/mcp.json` (JSON `mcpServers`, no `type`
+discriminator, merged) and native subagents `.kimi-code/agents/<id>.md` are
+Kimi-specific. `isImplemented` now includes `kimi-code`; seven assistants are
+selectable.
+
+Three decisions worth recording:
+- **`.kimi-code/agents/` over the generic `.agents/agents/`** — both are "Project"
+  scope with undocumented precedence, and no other vendor reads `.agents/agents/`
+  today, so the generic path buys no portability while risking double
+  registration.
+- **Never emit `override`, never a built-in name** (`agent`, `coder`, `explore`,
+  `plan`). Kimi's docs warn that a project agent file with `override: true`
+  replaces the main agent's entire system prompt — a generator that emits it
+  would turn every install into that attack. Enforced in the writer and tested.
+- **Kimi Code only, not legacy `kimi-cli`.** The legacy generation reads
+  `.claude/skills` (so it is already served by the substrate) and has no
+  project-level MCP config at all. Its `.kimi` directory is still a detection
+  marker so those users get pre-selected.
+
+*Known unknown, deliberately not worked around:* Kimi renders an agent body as a
+`${var}` template on every prompt build, and unknown-placeholder behaviour is
+undocumented. Agent prose carries `${...}` inside code examples; rewriting those
+examples would damage the content, so the adapter reports the affected agents as
+a skipped capability instead. Register entry 16 tracks the empirical check.
+
+*Surfaced while doing 4.3 — `SkippedCapability` never reaches the user.* Every
+adapter's `skipped[]` (Codex's trust gate, Cline's permanent MCP gap, Kimi's
+template-variable advisory) is only `logger.info`'d in `installation.service.ts`;
+`install()` returns no warnings channel and the wizard shows nothing. The
+degradation model is only half-built: adapters degrade correctly, but the user is
+never told. Wiring `skipped[]` into the install result and the wizard's summary
+step is a small, cross-cutting Phase 4 item — and it is what makes every
+"reported rather than silently missing" claim in this document actually true.
+
 **Remaining Phase 4**: Devin Desktop adapter (blocked on verifying Desktop reads
 `.devin/config.json` for MCP), native subagents for Codex (`.codex/agents/*.toml`
 with `deny_unknown_fields` — risky, needs real-CLI validation), **native Copilot

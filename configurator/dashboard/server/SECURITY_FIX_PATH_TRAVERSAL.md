@@ -1,5 +1,13 @@
 # Security Fix: Path Traversal Vulnerability (OWASP A01)
 
+> **Historical post-mortem.** This records a fix that shipped; it is not current
+> documentation. The authoritative implementation is
+> `src/utils/utilities.ts` (`resolveProjectPath`) and
+> `src/services/installation/security-helpers.ts` (`validatePathWithinBase`), with tests in
+> `tests/security-hardening.test.ts` / `tests/security-codeql.test.ts`. Do not copy code
+> out of this file.
+
+
 ## Vulnerability Summary
 
 **Severity:** CRITICAL
@@ -91,138 +99,17 @@ The fix implements **7 layers of security**:
 
 ### Fixed Code
 
-```typescript
-/**
- * Get allowed workspace roots for path validation
- */
-function getAllowedWorkspaceRoots(): string[] {
-  const roots: string[] = [];
+The implementation lives in `src/utils/utilities.ts` (`resolveProjectPath`, which resolves
+and bounds a project path) and `src/services/installation/security-helpers.ts`
+(`validatePathWithinBase`, `validateEntryName`, `validateAgentId`, `validateSkillPath`).
+Read it there.
 
-  const homeDir = process.env.HOME || process.env.USERPROFILE;
-  if (homeDir) {
-    roots.push(path.normalize(homeDir));
-  }
+An earlier revision of this document inlined a copy of the fix. That copy has been removed
+because it had already fallen behind the shipped code and used a weaker boundary check
+(a bare `startsWith`, which accepts `/workspace-evil` as being inside `/workspace`). The
+shipped version compares resolved paths segment-wise. Copying from a post-mortem is how a
+fixed vulnerability comes back.
 
-  roots.push(path.normalize(process.cwd()));
-
-  if (process.env.WORKSPACE_ROOT) {
-    roots.push(path.normalize(process.env.WORKSPACE_ROOT));
-  }
-
-  return roots;
-}
-
-/**
- * Check if path escapes allowed workspace boundaries
- */
-function isPathWithinAllowedRoots(resolvedPath: string, allowedRoots: string[]): boolean {
-  const normalizedPath = path.normalize(resolvedPath);
-
-  return allowedRoots.some(root => {
-    const normalizedRoot = path.normalize(root);
-    return normalizedPath.startsWith(normalizedRoot);
-  });
-}
-
-/**
- * Blocked system directories
- */
-const BLOCKED_SYSTEM_PATHS = [
-  '/etc',
-  '/boot',
-  '/sys',
-  '/proc',
-  '/dev',
-  'C:\\Windows',
-  'C:\\Program Files',
-  'C:\\Program Files (x86)',
-  '/System',
-  '/Library/System',
-];
-
-/**
- * Check if path attempts to access blocked system directories
- */
-function isBlockedSystemPath(resolvedPath: string): boolean {
-  const normalizedPath = path.normalize(resolvedPath).toLowerCase();
-
-  return BLOCKED_SYSTEM_PATHS.some(blocked => {
-    const normalizedBlocked = path.normalize(blocked).toLowerCase();
-    return normalizedPath.startsWith(normalizedBlocked);
-  });
-}
-
-/**
- * Validate project path with comprehensive security checks
- * CRITICAL: Prevents path traversal attacks (OWASP A01)
- */
-function validateProjectPath(projectPath: string): { valid: boolean; error?: string; path?: string } {
-  // 1. Basic validation
-  if (!projectPath || typeof projectPath !== 'string') {
-    console.warn('[Security] Path validation failed: empty or invalid type');
-    return { valid: false, error: 'Project path is required' };
-  }
-
-  // 2. Pre-resolution traversal check
-  if (projectPath.includes('..')) {
-    console.warn('[Security] Path traversal attempt blocked (pre-resolution):', projectPath);
-    return { valid: false, error: 'Path traversal not allowed' };
-  }
-
-  // 3. Resolve and normalize path
-  const resolvedPath = path.resolve(projectPath);
-  const normalizedPath = path.normalize(resolvedPath);
-
-  // 4. Post-resolution traversal check
-  if (normalizedPath.includes('..')) {
-    console.warn('[Security] Path traversal attempt blocked (post-resolution):', {
-      input: projectPath,
-      resolved: resolvedPath,
-      normalized: normalizedPath,
-    });
-    return { valid: false, error: 'Path traversal not allowed' };
-  }
-
-  // 5. ✅ CRITICAL: Workspace boundary validation
-  const allowedRoots = getAllowedWorkspaceRoots();
-  if (!isPathWithinAllowedRoots(normalizedPath, allowedRoots)) {
-    console.warn('[Security] Path escapes allowed workspace:', {
-      input: projectPath,
-      resolved: normalizedPath,
-      allowedRoots: allowedRoots,
-    });
-    return { valid: false, error: 'Path must be within allowed workspace directories' };
-  }
-
-  // 6. ✅ Block access to system directories
-  if (isBlockedSystemPath(normalizedPath)) {
-    console.warn('[Security] Blocked system path access attempt:', {
-      input: projectPath,
-      resolved: normalizedPath,
-    });
-    return { valid: false, error: 'Access to system directories is not allowed' };
-  }
-
-  // 7. Verify absolute path (defense in depth)
-  if (!path.isAbsolute(normalizedPath)) {
-    console.warn('[Security] Non-absolute path after resolution:', normalizedPath);
-    return { valid: false, error: 'Path must be absolute' };
-  }
-
-  // 8. Verify path exists
-  if (!fs.existsSync(normalizedPath)) {
-    return { valid: false, error: 'Path does not exist' };
-  }
-
-  // Success - log for audit trail
-  console.log('[Security] Path validation successful:', {
-    input: projectPath,
-    resolved: normalizedPath,
-  });
-
-  return { valid: true, path: normalizedPath };
-}
-```
 
 ## Security Benefits
 

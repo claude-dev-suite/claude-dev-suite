@@ -23,7 +23,7 @@
         "target": ".claude/settings.json",
         "event": "SubagentStop",
         "config": {
-          "matcherBuilder": "buildIntegrationValidatorMatcher",
+          "matcher": "*",
           "promptTemplate": "integration-validator-prompt"
         }
       }
@@ -111,7 +111,7 @@
         "target": ".claude/settings.json",
         "event": "SubagentStop",
         "config": {
-          "matcherBuilder": "buildSmokeTestMatcher",
+          "matcher": "*",
           "promptTemplate": "smoke-test-prompt"
         }
       }
@@ -158,7 +158,7 @@
         "target": ".claude/settings.json",
         "event": "SubagentStop",
         "config": {
-          "matcherBuilder": "buildPytestSmokeMatcher",
+          "matcher": "*",
           "promptTemplate": "pytest-smoke-prompt"
         }
       }

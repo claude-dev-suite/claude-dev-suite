@@ -2,7 +2,7 @@
  * Analytics Service Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AnalyticsService } from '../src/services/analytics.service.js';
 import type { TokenUsageEntry } from '../src/services/analytics.service.js';
 import { createTempDir, cleanupTempDir, createMockAnalyticsData } from './test-utils.js';
@@ -417,32 +417,43 @@ describe('AnalyticsService', () => {
       expect(entries[0].timestamp).toBeDefined();
     });
 
-    it('should auto-compute costUsd when not provided', () => {
+    it('records token counts and computes no cost at all', () => {
+      // This module used to multiply token counts by a hardcoded price table and
+      // store the product on each record — a fabricated figure, frozen into
+      // history, that went stale the moment a rate changed (and was stale: the
+      // table still held 2025 prices). Real spend comes from the Anthropic Admin
+      // API via usage.service, which reports amounts actually billed.
       analyticsService.recordTokenUsage(projectDir, {
         tokensInput: 1_000_000,
-        tokensOutput: 0,
+        tokensOutput: 500_000,
         model: 'haiku',
         success: true,
       });
 
       const entries = analyticsService.getTokenUsage(projectDir);
-      // Haiku input: $0.25/MTok → $0.25 for 1M input tokens
-      expect(entries[0].costUsd).toBeCloseTo(0.25, 4);
+      const latest = entries[entries.length - 1] as Record<string, unknown>;
+
+      expect(latest.tokensInput).toBe(1_000_000);
+      expect(latest.tokensOutput).toBe(500_000);
+      expect('costUsd' in latest).toBe(false);
     });
 
-    it('should preserve caller-supplied costUsd', () => {
+    it('aggregates tokens and calls, with no money in the result', () => {
       analyticsService.recordTokenUsage(projectDir, {
+        agentId: 'react-expert',
         tokensInput: 100,
-        tokensOutput: 100,
+        tokensOutput: 50,
         model: 'sonnet',
-        costUsd: 9.99,
         success: true,
       });
 
-      const entries = analyticsService.getTokenUsage(projectDir);
-      expect(entries[0].costUsd).toBe(9.99);
-    });
+      const rows = analyticsService.getAggregatedTokenUsage(projectDir, { groupBy: 'agent' });
+      const row = rows.find(r => r.key === 'react-expert');
 
+      expect(row).toBeDefined();
+      expect(row!.totalTokens).toBeGreaterThanOrEqual(150);
+      expect('totalCostUsd' in (row as unknown as Record<string, unknown>)).toBe(false);
+    });
     it('should accumulate multiple entries', () => {
       analyticsService.recordTokenUsage(projectDir, {
         agentId: 'agent-a',
