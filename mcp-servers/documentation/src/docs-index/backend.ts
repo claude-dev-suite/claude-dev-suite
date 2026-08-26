@@ -108,6 +108,53 @@ export const backendDocs: DocsRecord = {
     },
   },
 
+  // fastify and hono were listed in BACKEND_TECHNOLOGIES with no record, so
+  // every request for them errored: git mode found no KB directory and live
+  // mode had no entry to read a url from. No KB content exists for either —
+  // these entries make them live-only, which is how the index already treats
+  // technologies the KB has not covered.
+  fastify: {
+    routes: {
+      local: "fastify/routes.md",
+      url: "https://fastify.dev/docs/latest/Reference/Routes/",
+    },
+    hooks: {
+      local: "fastify/hooks.md",
+      url: "https://fastify.dev/docs/latest/Reference/Hooks/",
+    },
+    plugins: {
+      local: "fastify/plugins.md",
+      url: "https://fastify.dev/docs/latest/Reference/Plugins/",
+    },
+    validation: {
+      local: "fastify/validation.md",
+      url: "https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/",
+    },
+    testing: {
+      local: "fastify/testing.md",
+      url: "https://fastify.dev/docs/latest/Guides/Testing/",
+    },
+  },
+
+  hono: {
+    routing: {
+      local: "hono/routing.md",
+      url: "https://hono.dev/docs/api/routing",
+    },
+    context: {
+      local: "hono/context.md",
+      url: "https://hono.dev/docs/api/context",
+    },
+    middleware: {
+      local: "hono/middleware.md",
+      url: "https://hono.dev/docs/guides/middleware",
+    },
+    testing: {
+      local: "hono/testing.md",
+      url: "https://hono.dev/docs/guides/testing",
+    },
+  },
+
   // Python frameworks
   fastapi: {
     basics: {
@@ -117,6 +164,56 @@ export const backendDocs: DocsRecord = {
     database: {
       local: "fastapi/database.md",
       url: "https://fastapi.tiangolo.com/tutorial/sql-databases/",
+    },
+  },
+
+  // django and flask: same ghost situation as fastify/hono above. The
+  // /en/stable/ paths are live aliases, so they track releases.
+  django: {
+    routing: {
+      local: "django/routing.md",
+      url: "https://docs.djangoproject.com/en/stable/topics/http/urls/",
+    },
+    models: {
+      local: "django/models.md",
+      url: "https://docs.djangoproject.com/en/stable/topics/db/models/",
+    },
+    templates: {
+      local: "django/templates.md",
+      url: "https://docs.djangoproject.com/en/stable/topics/templates/",
+    },
+    testing: {
+      local: "django/testing.md",
+      url: "https://docs.djangoproject.com/en/stable/topics/testing/",
+    },
+    deployment: {
+      local: "django/deployment.md",
+      url: "https://docs.djangoproject.com/en/stable/howto/deployment/",
+    },
+  },
+
+  // Flask has no dedicated routing page — routing, url_for and request
+  // handling all live in Quickstart, so that is the topic key.
+  flask: {
+    quickstart: {
+      local: "flask/quickstart.md",
+      url: "https://flask.palletsprojects.com/en/stable/quickstart/",
+    },
+    blueprints: {
+      local: "flask/blueprints.md",
+      url: "https://flask.palletsprojects.com/en/stable/blueprints/",
+    },
+    templates: {
+      local: "flask/templates.md",
+      url: "https://flask.palletsprojects.com/en/stable/templating/",
+    },
+    testing: {
+      local: "flask/testing.md",
+      url: "https://flask.palletsprojects.com/en/stable/testing/",
+    },
+    deploying: {
+      local: "flask/deploying.md",
+      url: "https://flask.palletsprojects.com/en/stable/deploying/",
     },
   },
 
@@ -217,6 +314,32 @@ export const backendDocs: DocsRecord = {
     basics: {
       local: "mapstruct/basics.md",
       url: "https://mapstruct.org/documentation/stable/reference/html/",
+    },
+    cheatsheet: {
+      local: "mapstruct/quick-ref/cheatsheet.md",
+      url: "https://mapstruct.org/documentation/stable/reference/html/",
+    },
+    "advanced-patterns": {
+      local: "mapstruct/deep-docs/advanced-patterns.md",
+      url: "https://mapstruct.org/documentation/stable/reference/html/#_advanced_mapping_options",
+    },
+    "spring-boot-integration": {
+      local: "mapstruct/deep-docs/spring-boot-integration.md",
+      url: "https://mapstruct.org/documentation/stable/reference/html/#using-dependency-injection",
+    },
+  },
+
+  thymeleaf: {
+    "email-templates": {
+      local: "thymeleaf/deep-docs/email-templates.md",
+      url: "https://www.thymeleaf.org/doc/articles/springmail.html",
+    },
+  },
+
+  "apache-poi": {
+    "excel-export-service": {
+      local: "apache-poi/deep-docs/excel-export-service.md",
+      url: "https://poi.apache.org/components/spreadsheet/quick-guide.html",
     },
   },
 

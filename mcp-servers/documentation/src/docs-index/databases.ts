@@ -24,6 +24,15 @@ export const DATABASE_TECHNOLOGIES = [
   "spring-data-elasticsearch",
   "spring-data-neo4j",
   "spring-data-jdbc",
+  // SQL dialects & procedural languages
+  "sql-fundamentals",
+  "oracle",
+  "plsql",
+  "plpgsql",
+  "sqlserver",
+  "tsql",
+  // Schema migrations
+  "migrations",
 ] as const;
 
 export const databaseDocs: DocsRecord = {
@@ -266,6 +275,67 @@ export const databaseDocs: DocsRecord = {
     events: {
       local: "spring-data-jdbc/events.md",
       url: "https://docs.spring.io/spring-data/jdbc/reference/jdbc/entity-callbacks.html",
+    },
+  },
+
+  // The KB's SQL material is nominally vendor-neutral but its examples are
+  // PostgreSQL-flavoured (DISTINCT ON, ON CONFLICT, RETURNING), so the
+  // PostgreSQL manual is the honest upstream anchor here.
+  "sql-fundamentals": {
+    basics: {
+      local: "sql-fundamentals/basics.md",
+      url: "https://www.postgresql.org/docs/current/queries.html",
+    },
+    transactions: {
+      local: "sql-fundamentals/transactions.md",
+      url: "https://www.postgresql.org/docs/current/mvcc.html",
+    },
+  },
+
+  oracle: {
+    basics: {
+      local: "oracle/basics.md",
+      url: "https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/index.html",
+    },
+  },
+
+  plsql: {
+    basics: {
+      local: "plsql/basics.md",
+      url: "https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/index.html",
+    },
+  },
+
+  plpgsql: {
+    basics: {
+      local: "plpgsql/basics.md",
+      url: "https://www.postgresql.org/docs/current/plpgsql.html",
+    },
+  },
+
+  sqlserver: {
+    basics: {
+      local: "sqlserver/basics.md",
+      url: "https://learn.microsoft.com/en-us/sql/sql-server/",
+    },
+  },
+
+  tsql: {
+    basics: {
+      local: "tsql/basics.md",
+      url: "https://learn.microsoft.com/en-us/sql/t-sql/language-reference",
+    },
+  },
+
+  // Weak anchor, deliberately: the KB article is tool-agnostic (Flyway,
+  // Liquibase, Alembic, Prisma Migrate and Rails all get roughly equal
+  // billing) and most of it is vendor-neutral technique — expand/contract,
+  // lock-free index builds, batch migrations. Flyway is the tool its own
+  // examples use, so it is the closest thing to an upstream owner.
+  migrations: {
+    basics: {
+      local: "migrations/basics.md",
+      url: "https://documentation.red-gate.com/flyway",
     },
   },
 };

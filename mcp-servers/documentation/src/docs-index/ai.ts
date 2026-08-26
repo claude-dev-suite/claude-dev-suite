@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
  * AI integration documentation
- * Includes: RAG patterns, Vector databases
+ * Includes: RAG patterns, Vector databases, Claude API, MCP SDK
  */
 
 import type { DocsRecord } from "./types.js";
@@ -9,6 +9,8 @@ import type { DocsRecord } from "./types.js";
 export const AI_TECHNOLOGIES = [
   "rag-patterns",
   "vector-databases",
+  "anthropic",
+  "mcp-sdk",
 ] as const;
 
 export const aiDocs: DocsRecord = {
@@ -55,6 +57,60 @@ export const aiDocs: DocsRecord = {
     indexing: {
       local: "vector-databases/indexing.md",
       url: "https://www.pinecone.io/learn/vector-database/",
+    },
+  },
+
+  // Canonical host is platform.claude.com: both docs.anthropic.com and
+  // docs.claude.com now 301 there.
+  anthropic: {
+    basics: {
+      local: "anthropic/basics.md",
+      url: "https://platform.claude.com/docs/en/api/getting-started",
+    },
+    messages: {
+      local: "anthropic/messages.md",
+      url: "https://platform.claude.com/docs/en/api/messages",
+    },
+    streaming: {
+      local: "anthropic/streaming.md",
+      url: "https://platform.claude.com/docs/en/api/messages-streaming",
+    },
+    tools: {
+      local: "anthropic/tools.md",
+      url: "https://platform.claude.com/docs/en/docs/build-with-claude/tool-use/overview",
+    },
+    // Batches + prompt caching + token counting + retries: no single upstream
+    // page covers them, so this points at the features hub that indexes them.
+    advanced: {
+      local: "anthropic/advanced.md",
+      url: "https://platform.claude.com/docs/en/build-with-claude/overview",
+    },
+  },
+
+  "mcp-sdk": {
+    basics: {
+      local: "mcp-sdk/basics.md",
+      url: "https://modelcontextprotocol.io/docs/concepts/architecture",
+    },
+    server: {
+      local: "mcp-sdk/server.md",
+      url: "https://modelcontextprotocol.io/docs/develop/build-server",
+    },
+    client: {
+      local: "mcp-sdk/client.md",
+      url: "https://modelcontextprotocol.io/docs/develop/build-client",
+    },
+    tools: {
+      local: "mcp-sdk/tools.md",
+      url: "https://modelcontextprotocol.io/docs/concepts/tools",
+    },
+    resources: {
+      local: "mcp-sdk/resources.md",
+      url: "https://modelcontextprotocol.io/docs/concepts/resources",
+    },
+    prompts: {
+      local: "mcp-sdk/prompts.md",
+      url: "https://modelcontextprotocol.io/docs/concepts/prompts",
     },
   },
 };
