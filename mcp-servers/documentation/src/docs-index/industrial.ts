@@ -101,6 +101,16 @@ export const industrialDocs: DocsRecord = {
   },
 
   "bulk-engineering": {
+    // NE 148 and NE 150 are different recommendations, and the KB article is on
+    // NE 148 — "Requirements for Automation Engineering Interfaces for an
+    // Integrated Engineering Data Management". Nothing pointed at it: with no
+    // topic key, `resolveKbCoords` falls back to the tech key
+    // `bulk-engineering`, which is a directory rather than a file, so the
+    // article was visible through `list_topics` and impossible to request.
+    "namur-ne148": {
+      local: "bulk-engineering/namur-ne148.md",
+      url: "https://www.namur.net/en/recommendations/namur-recommendations/detail/ne-148.html",
+    },
     "namur-ne150": {
       local: "bulk-engineering/namur-ne150.md",
       url: "https://www.namur.net/en/publications/news-archive/ne-150-is-newly-published.html",
