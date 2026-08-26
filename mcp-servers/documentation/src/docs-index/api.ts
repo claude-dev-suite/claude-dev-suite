@@ -26,6 +26,10 @@ export const API_TECHNOLOGIES = [
 
 export const apiDocs: DocsRecord = {
   graphql: {
+    basics: {
+      local: "graphql/basics.md",
+      url: "https://graphql.org/learn/",
+    },
     schema: {
       local: "graphql/schema.md",
       url: "https://graphql.org/learn/schema/",
@@ -33,6 +37,16 @@ export const apiDocs: DocsRecord = {
     resolvers: {
       local: "graphql/resolvers.md",
       url: "https://graphql.org/learn/execution/",
+    },
+    // The KB file is "GraphQL Serving over HTTP" — kept keyed to its file
+    // stem for consistency with the rest of the index.
+    controllers: {
+      local: "graphql/controllers.md",
+      url: "https://graphql.org/learn/serving-over-http/",
+    },
+    "data-fetching": {
+      local: "graphql/data-fetching.md",
+      url: "https://graphql.org/learn/queries/",
     },
   },
 

@@ -30,6 +30,10 @@ export const TESTING_TECHNOLOGIES = [
   // Performance & Contract testing
   "load-testing",
   "contract-testing",
+  // JVM testing
+  "junit",
+  "jacoco",
+  "rest-assured",
 ] as const;
 
 export const testingDocs: DocsRecord = {
@@ -321,6 +325,39 @@ export const testingDocs: DocsRecord = {
     "consumer-driven": {
       local: "contract-testing/consumer-driven.md",
       url: "https://martinfowler.com/articles/consumerDrivenContracts.html",
+    },
+  },
+
+  // The JUnit user guide moved host: junit.org/junit5/docs/current/user-guide/
+  // now redirects to docs.junit.org, which is used directly here.
+  junit: {
+    cheatsheet: {
+      local: "junit/quick-ref/cheatsheet.md",
+      url: "https://docs.junit.org/current/writing-tests/intro.html",
+    },
+    "testing-strategies": {
+      local: "junit/deep-docs/testing-strategies.md",
+      url: "https://docs.junit.org/current/user-guide/",
+    },
+  },
+
+  jacoco: {
+    config: {
+      local: "jacoco/quick-ref/config.md",
+      url: "https://www.jacoco.org/jacoco/trunk/doc/maven.html",
+    },
+    "ci-integration": {
+      local: "jacoco/deep-docs/ci-integration.md",
+      url: "https://www.jacoco.org/jacoco/trunk/doc/integrations.html",
+    },
+  },
+
+  // rest-assured.io hosts no documentation itself — it links out to the
+  // GitHub wiki, which is the real usage guide.
+  "rest-assured": {
+    "spring-boot-testing": {
+      local: "rest-assured/deep-docs/spring-boot-testing.md",
+      url: "https://github.com/rest-assured/rest-assured/wiki/Usage",
     },
   },
 };

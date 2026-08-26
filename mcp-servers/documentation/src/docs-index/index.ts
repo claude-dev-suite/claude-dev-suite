@@ -8,6 +8,7 @@
 
 // Re-export types
 export type { DocEntry, DocsRecord } from "./types.js";
+import type { DocsRecord } from "./types.js";
 
 // Import all categories
 import { FRONTEND_TECHNOLOGIES, frontendDocs } from "./frontend.js";
@@ -43,6 +44,7 @@ import { GAMEDEV_2D_ART_TECHNOLOGIES, gamedev2dArtDocs } from "./gamedev-2d-art.
 import { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
 // Windows kernel & user-mode driver development
 import { WINDOWS_DRIVERS_TECHNOLOGIES, windowsDriversDocs } from "./windows-drivers.js";
+import { INDUSTRIAL_TECHNOLOGIES, industrialDocs } from "./industrial.js";
 // Low-level / systems & AI-integrated systems architecture
 import { SYSTEMS_TECHNOLOGIES, systemsDocs } from "./systems.js";
 import { AI_SYSTEMS_TECHNOLOGIES, aiSystemsDocs } from "./ai-systems.js";
@@ -81,6 +83,7 @@ export { GAMEDEV_2D_ART_TECHNOLOGIES, gamedev2dArtDocs } from "./gamedev-2d-art.
 export { BITCOIN_TECHNOLOGIES, bitcoinDocs } from "./bitcoin.js";
 // Windows kernel & user-mode driver development
 export { WINDOWS_DRIVERS_TECHNOLOGIES, windowsDriversDocs } from "./windows-drivers.js";
+export { INDUSTRIAL_TECHNOLOGIES, industrialDocs } from "./industrial.js";
 // Low-level / systems & AI-integrated systems architecture
 export { SYSTEMS_TECHNOLOGIES, systemsDocs } from "./systems.js";
 export { AI_SYSTEMS_TECHNOLOGIES, aiSystemsDocs } from "./ai-systems.js";
@@ -123,6 +126,7 @@ export const SUPPORTED_TECHNOLOGIES = [
   ...BITCOIN_TECHNOLOGIES,
   // Windows drivers
   ...WINDOWS_DRIVERS_TECHNOLOGIES,
+  ...INDUSTRIAL_TECHNOLOGIES,
   // Low-level / systems & AI-integrated systems
   ...SYSTEMS_TECHNOLOGIES,
   ...AI_SYSTEMS_TECHNOLOGIES,
@@ -134,7 +138,7 @@ export type Technology = (typeof SUPPORTED_TECHNOLOGIES)[number];
  * Combined documentation index
  * Merges all category docs into a single record for backward compatibility
  */
-export const docsIndex: Record<string, Record<string, { local: string; url: string }>> = {
+export const docsIndex: DocsRecord = {
   ...frontendDocs,
   ...metaFrameworkDocs,
   ...desktopDocs,
@@ -168,6 +172,8 @@ export const docsIndex: Record<string, Record<string, { local: string; url: stri
   ...bitcoinDocs,
   // Windows drivers
   ...windowsDriversDocs,
+  // Industrial automation / DCS
+  ...industrialDocs,
   // Low-level / systems & AI-integrated systems
   ...systemsDocs,
   ...aiSystemsDocs,
@@ -205,6 +211,7 @@ export const CATEGORY_MAP: Record<string, readonly string[]> = {
   "gamedev-2d-art": GAMEDEV_2D_ART_TECHNOLOGIES,
   bitcoin: BITCOIN_TECHNOLOGIES,
   "windows-drivers": WINDOWS_DRIVERS_TECHNOLOGIES,
+  industrial: INDUSTRIAL_TECHNOLOGIES,
   systems: SYSTEMS_TECHNOLOGIES,
   "ai-systems": AI_SYSTEMS_TECHNOLOGIES,
 };

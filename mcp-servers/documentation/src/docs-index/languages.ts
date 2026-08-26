@@ -100,6 +100,39 @@ export const languageDocs: DocsRecord = {
     },
   },
 
+  // `python` was listed in LANGUAGE_TECHNOLOGIES with no record at all, so
+  // fetch_docs("python", …) found no entry and live mode had no url to fall
+  // back to. Git mode already served these files via the key-derived path;
+  // these entries make them work in live mode and make the topics listable.
+  // Several topics are tool-led rather than stdlib: the url follows whatever
+  // the article actually teaches.
+  python: {
+    async: {
+      local: "python/async.md",
+      url: "https://docs.python.org/3/library/asyncio.html",
+    },
+    typing: {
+      local: "python/typing.md",
+      url: "https://docs.python.org/3/library/typing.html",
+    },
+    testing: {
+      local: "python/testing.md",
+      url: "https://docs.pytest.org/en/stable/",
+    },
+    packaging: {
+      local: "python/packaging.md",
+      url: "https://docs.astral.sh/uv/",
+    },
+    quality: {
+      local: "python/quality.md",
+      url: "https://docs.astral.sh/ruff/",
+    },
+    cli: {
+      local: "python/cli.md",
+      url: "https://typer.tiangolo.com/",
+    },
+  },
+
   rust: {
     ownership: {
       local: "rust/ownership.md",
@@ -124,6 +157,10 @@ export const languageDocs: DocsRecord = {
   },
 
   go: {
+    overview: {
+      local: "go/overview.md",
+      url: "https://go.dev/doc/",
+    },
     basics: {
       local: "go/basics.md",
       url: "https://go.dev/tour/",
@@ -143,6 +180,10 @@ export const languageDocs: DocsRecord = {
     testing: {
       local: "go/testing.md",
       url: "https://go.dev/doc/tutorial/add-a-test",
+    },
+    advanced: {
+      local: "go/advanced.md",
+      url: "https://go.dev/ref/spec",
     },
   },
 

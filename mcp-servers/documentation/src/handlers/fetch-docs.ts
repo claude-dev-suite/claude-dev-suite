@@ -72,6 +72,16 @@ export const handleFetchDocs: Handler = async (args, ctx): Promise<HandlerResult
     });
   }
 
+  // KB-only topic: no upstream page exists to fall back to (proprietary
+  // formats, in-house workflows, cross-vendor comparisons). Say so plainly
+  // rather than serving an unrelated page.
+  if (!entry.url) {
+    return jsonResponse({
+      error: `Topic "${topic}" for ${technology} has no live source`,
+      hint: "This topic exists only in the knowledge base. Enable Git mode with KB_REPO_URL to read it.",
+    });
+  }
+
   // Fetch from live URL
   const rawContent = await fetchLiveDocs(entry.url);
   const { content: processedContent, truncated, originalLength } = processContent(rawContent, {

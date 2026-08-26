@@ -54,6 +54,230 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`backup_restore` and `export_report`** confine their write paths to
   `DB_BACKUP_DIR` / `LOG_EXPORT_DIR` when those are set.
 
+### Added
+
+- **`validate-catalog.mjs` gained three assertions** that would each have caught
+  a shipped defect: every `agents/` directory must map to a category, every
+  `model:` must be one of the three supported values, and every MCP server's
+  `envVars[]` must declare what its source reads. All three metadata files that
+  were under-declaring env vars have been filled in, so the gate is clean.
+- **`AGENTS.md` is now generated as the primary instructions file**, with
+  `CLAUDE.md` reduced to a pointer that pulls it in via Claude Code's supported
+  `@AGENTS.md` import. `AGENTS.md` is the cross-assistant standard (read natively
+  by Copilot, Cursor, Codex, Windsurf, Zed and others), so a dev-suite install is
+  now understood by those assistants without any extra configuration, while
+  routing content stays in a single source of truth. Existing installations
+  migrate on the next install/sync: the routing section moves out of `CLAUDE.md`
+  and is replaced by the import. User content outside the dev-suite markers is
+  preserved in both files, and both are tracked in the manifest.
+- **Target layout descriptors** (`services/targets/target-layout.ts`): a single
+  source of truth for where each supported assistant expects its configuration
+  (directories, instructions file, MCP config, settings, hooks) plus capability
+  flags, so services stop hardcoding `.claude/`, `.mcp.json` and `CLAUDE.md`.
+  Every supported assistant has a descriptor and a full write path — see
+  `docs/planning/multi-assistant.md`.
+- **Gemini CLI and OpenAI Codex CLI are now installable targets.** Selecting
+  Gemini writes `.gemini/settings.json` — dev-suite's MCP servers plus a
+  `context.fileName` that makes Gemini read the shared `AGENTS.md` (which it
+  ignores by default). Selecting Codex writes its MCP servers as
+  `[mcp_servers.*]` TOML tables in `.codex/config.toml`, merged into the file so
+  the user's own tables and comments survive. Because Codex and Gemini read
+  neither `.claude/agents` nor `.claude/skills`, the installer mirrors the skills
+  tree to the cross-tool `.agents/skills` directory whenever a target that reads
+  it is selected — so both get the full skill set.
+- **Gemini gets native subagents.** Selecting Gemini now also generates a
+  `.gemini/agents/<id>.md` file per installed agent, so each dev-suite agent is a
+  delegatable `@`-agent in Gemini — the one target that previously got only
+  AGENTS.md routing (it reads neither `.claude/agents` nor the shared substrate).
+- **Cline is now an installable target.** It reads `AGENTS.md` and the
+  `.claude/skills` substrate directly, so dev-suite writes its path-scoped rules
+  to `.clinerules/*.md`. Cline has no committable MCP config (user-global only)
+  and its file-based agents apply only to the SDK/CLI, not the VS Code extension;
+  MCP, native agents and rule templates are reported as skipped capabilities
+  rather than silently missing.
+- **Kimi Code is now an installable target.** It reads the root `AGENTS.md`
+  natively and skills from the cross-tool `.agents/skills` mirror (the same one
+  Codex and Gemini use), so only two surfaces are Kimi-specific: MCP config in
+  `.kimi-code/mcp.json` (JSON, `mcpServers`, merged so the user's own servers and
+  HTTP entries survive) and native subagents in `.kimi-code/agents/<id>.md`. The
+  agent writer never emits `override` and refuses any id that would shadow a
+  Kimi built-in agent (`agent`, `coder`, `explore`, `plan`) — that combination is
+  how a repository takes over Kimi's main system prompt. Kimi has no glob-scoped
+  rules and no committable settings/hooks file (both are user-level
+  `~/.kimi-code/config.toml`), which the adapter reports as skipped capabilities
+  (logged, like every other adapter's — there is no user-facing summary channel
+  yet). Because Kimi bodies are `${...}` templates, agents whose prose contains
+  such sequences in code examples are reported the same way rather than silently
+  rewritten. Seven assistants — Claude Code, Copilot, Cursor, Gemini,
+  Codex, Cline, Kimi Code — are now selectable. Targets the current Kimi Code
+  generation (`.kimi-code/`); the legacy `kimi-cli` reads `.claude/skills`
+  anyway, and has no project-level MCP config at all.
+- **Wizard "Target Assistants" step.** The install wizard now has a step that
+  detects which AI assistants a project already uses, pre-selects the ones it
+  found (falling back to Claude Code), and lets the user choose which to generate
+  configuration for. The selection is sent to the install endpoint as `targets`.
+  The wizard's step definitions were centralised into one module, which also
+  fixed the sidebar step list that had silently fallen a step behind.
+- **GitHub Copilot and Cursor are now installable targets.** `install()` accepts
+  any combination of `claude-code`, `copilot` and `cursor` and writes each
+  assistant's own configuration: Copilot gets `.vscode/mcp.json` and
+  `.github/mcp.json` (its two MCP surfaces, with different keys and `type`
+  values) plus `.github/instructions/*`; Cursor gets `.cursor/mcp.json` and
+  `.cursor/rules/*.mdc`. `AGENTS.md` is written for all of them; the `CLAUDE.md`
+  import pointer only when Claude Code is selected. MCP config files are merged
+  with any servers the user already has, and an unparseable existing file is left
+  untouched rather than overwritten. The `.claude/agents` and `.claude/skills`
+  directories are written once as shared infrastructure that Copilot and Cursor
+  read directly, so agents and skills are available even in a Copilot- or
+  Cursor-only install.
+- **Multi-target install plumbing.** `install()` accepts a `targets` list and
+  runs one adapter per assistant, recording them in the manifest; the request
+  schema validates targets against the set that has a working adapter, so the
+  API cannot promise output it can't produce. Reinstall and its backup/rollback
+  became target-aware, which fixed two latent defects: agent-file basenames now
+  respect each target's extension (a hardcoded `.md` would have left `.agent` on
+  Copilot ids and broken orphan detection), and the backup now captures config
+  that lives outside a target's config directory (Copilot's `.vscode/mcp.json`
+  would otherwise have been missed on rollback). Only Claude Code is installable
+  today, so behaviour is unchanged; the plumbing is ready for the adapters.
+- **Per-assistant format writers** (`services/targets/writers/`): MCP
+  configuration and path-scoped agent routing, serialized into each assistant's
+  own format. These are the only two primitives that genuinely differ between
+  tools — Copilot and Cursor read `.claude/agents/` and `.claude/skills/`
+  directly, so agents and skills need no second write. The MCP writers merge
+  with any servers the user already configured rather than overwriting the file,
+  and refuse to silently discard a config they cannot parse. Not yet reachable
+  from the UI; the adapters that consume them land next.
+- **Target adapter seam** (`services/targets/target-adapter.ts` +
+  `targets/adapters/`): `install()` now resolves a tool-neutral `InstallPlan`
+  without touching disk, then hands it to one adapter per target. Claude Code is
+  the only implementation so far and reproduces its previous output exactly. The
+  Claude-specific behaviours moved with it — flat skill directories, the native
+  subagent frontmatter transform, and `skillListingBudgetFraction` — so an
+  assistant that reads `.claude/` directly inherits none of them.
+- **Target path resolver** (`services/targets/target-paths.ts`): turns a layout
+  descriptor into the concrete paths of one project, in both project-relative
+  POSIX form (what the manifest stores, so entries compare across platforms) and
+  absolute form (what filesystem calls need). Every path dev-suite writes now
+  derives from the descriptor instead of a hardcoded literal. Behaviour is
+  unchanged for Claude Code — the resolver reproduces exactly the paths written
+  before.
+- **Manifest target tagging**: `.dev-suite-manifest.json` records which
+  assistants a project was installed for (`targets`), and every tracked file
+  carries a `target`, so several assistants can share one project without
+  reinstall/erase crossing between them. Manifests written before this release
+  are attributed to `claude-code` automatically when read.
+
+- **Generated agent documentation.** `scripts/gen-capability-matrix.mjs` and
+  `scripts/gen-agents-reference.mjs` render `docs/AGENT-CAPABILITY-MATRIX.md` and
+  README's Agents Reference from agent frontmatter, via a shared reader
+  (`scripts/agent-catalog.mjs`) that expands `bundle:` references and verifies every
+  skill path exists. Both hand-written surfaces had drifted badly: the capability
+  matrix was wrong in every column (13 of 16 sampled skill names did not exist),
+  the README tables were missing 12 of 63 agents and three whole categories, and
+  both derived MCP access from the `mcp_servers:` field alone — which only 13
+  agents use, the rest declaring it through `mcp__<server>__*` in `allowed-tools`.
+  Both scripts run with `--check` in CI.
+- **`scripts/check-docs-sync.mjs`** — a CI gate asserting that prose matches the
+  machine-readable source: the wizard step count against `steps.ts`, the target
+  assistants against `IMPLEMENTED_TARGETS` and the adapter registry, the MCP server
+  list against the npm workspaces, and the launchers against the server's `main`.
+  Three of the ten worst findings in the coherence audit were exactly this drift.
+- **`validate-catalog.mjs` now also checks** that every `metadata.json` `tools[]`
+  holds strings, that it matches the tools the server registers with `ListTools`,
+  and (as a warning) that every `process.env.X` a server reads is declared in
+  `envVars[]`.
+- **The three output-filter hooks are documented.** `filter-test-output`,
+  `filter-lint` and `truncate-logs` shipped in `templates/hooks/` and
+  `CLAUDE_OUTPUT_FILTER_HOOKS` but appeared in no markdown file;
+  `docs/HOOKS-REFERENCE.md` now covers what each intercepts, what survives, and the
+  token saving.
+
+- **`scripts/validate-frontmatter.mjs` — frontmatter validity check, run in
+  CI.** Parses every frontmatter block under `agents/`, `commands/` and
+  `skills/` with `gray-matter` (the same parser the dashboard uses at runtime),
+  and fails on YAML that does not parse, on missing `name` / `description`, and
+  on keys whose type doesn't match the documented one — the `argument-hint`
+  array above included. `scripts/validate-catalog.mjs` could not catch this
+  class of bug: it reads frontmatter with a line-oriented regex that accepts
+  YAML a real parser rejects, and it only walks `agents/`.
+
+### Changed
+
+- **A per-project lock serialises every operation that rewrites the manifest.**
+  install, reinstall and the Manage tab's add/remove all run the same
+  read-plan-write sequence with the manifest written last, and nothing prevented
+  two of them overlapping. The lock is re-entrant, since reinstall and the Manage
+  operations delegate to `install()`.
+- **Incremental upgrades refuse a project that does not target Claude Code.**
+  Every path in `registry/features.json` is a `.claude/…` literal and nothing in
+  that engine consults the project's targets.
+- **New `@dev-suite/shared` workspace.** `mcp-servers/shared/` previously held
+  build output with no source and no consumers, which is why the guards meant to
+  live there were duplicated instead — three SSRF implementations and five copies
+  of the file-path check. It holds the source now, and the servers import it.
+- **`InstallManifest` in the client contract now describes what the route
+  actually returns.** It declared `files: string[]` plus `directories`,
+  `devSuiteVersion` and `envVarsAdded` — fields no service has ever produced — so
+  `check-type-sync` kept two copies of a fiction perfectly in sync with each
+  other while `manifest.skipped` never reached the UI.
+- **`validate-catalog` now cross-checks the hand-maintained tables against the
+  filesystem**: `STACK_TO_AGENTS`/`STACK_TO_MCP` against the real catalog, and
+  `bundle:` references and their contents against `skills/**`, which it skipped
+  outright before. It caught the `nuxt-expert` reference on its first run.
+- **Copilot's second MCP surface (`.github/mcp.json`) lives in the layout
+  descriptor** instead of being hardcoded in four modules, so
+  `sharedConfigCoverage()` — the gate whose job is catching exactly that — can
+  finally see it.
+- **`.dev-suite-analytics/` and `.dev-suite-live.json` are declared** in the
+  generated `.gitignore` block. They are written after an install by processes
+  the pipeline does not own, and belonged to no list at all.
+- **A request-scoped logger is now a real Winston child.** `createChildLogger`
+  built a whole new logger — a Console plus four rotating file transports plus
+  two process listeners — on every HTTP request.
+
+- **Instruction generation deduplicated.** `management.service` had its own copy
+  of the CLAUDE.md section builder that diverged from the installer's: it emitted
+  the older flat routing layout and was the only one that sanitized agent
+  descriptions. Both now use the installer's implementation, so regenerating
+  after adding/removing a component produces the same output as a fresh install,
+  and description sanitization (which strips constructs that could forge section
+  markers or inject prompts) applies on every path.
+- **Updates tab simplified to a single update mechanism.** The incremental
+  feature-upgrade UI (available-updates list, 3-way conflict detection/resolution,
+  selective apply, and upgrade history) was retired in favour of a version panel
+  (installed-in-project vs. available-from-source) on top of the transactional
+  **Reinstall / Sync** flow, which fully re-aligns a project to the current source
+  (backup + rollback, orphan removal, per-file Overwrite/Keep opt-out). The
+  now-unused `UpdateCard`, `ConflictModal`, `UpgradeHistoryList`, and `DiffViewer`
+  components were removed.
+
+- **`README.md` and `CLAUDE.md` rewritten where they described a world that no
+  longer exists**: the Generated Files list was Claude-only and wrong in both
+  directions for the other six adapters (now split into always-written and
+  per-target); the install wizard was documented as 5 steps when it has 7, omitting
+  Rules and Assistants; "Quick Mode" and "Non-Interactive Mode" documented
+  `--quick` / `--non-interactive` flags that no launcher parses, and are replaced
+  by the headless reinstall CLI that does exist; the `.dev-suite.json` example
+  showed stack, git and hook data the file has never contained; the Linux download
+  names matched no artifact electron-builder produces; CLAUDE.md's architecture
+  tree pointed at `registry/frameworks.json` and `scripts/lib/metadata-parser.sh`,
+  neither of which exists; its agent frontmatter example used bare skill names and
+  the obsolete flat `skills:` field; and its Service Map misdescribed rows and
+  omitted four `installation/` modules. The `121+ technologies` literal, which
+  violated the repo's own Anti-Staleness Rule at five sites, is gone.
+- **Documentation consolidated.** Six overlapping logging documents became two
+  colocated ones (`src/utils/logger.README.md`, `src/middleware/README.md`);
+  `LOGGER_MIGRATION.md`, `LOGGING.md`, `LOGGING_SUMMARY.md` and
+  `LOGGING_EXAMPLE.md` are removed. Both documented a `LOG_DIR` variable nothing
+  reads and a `/api/health` endpoint that is served at `/health`.
+  `SECURITY_FIX_PATH_TRAVERSAL.md` no longer inlines a copy of the fix — that copy
+  had drifted to a weaker `startsWith` boundary check than the shipped code, which
+  is how a fixed vulnerability comes back. Completed plans and version-pinned
+  campaign copy moved to `docs/archive/`.
+- **`presets/`** is marked as unwired: nine JSON files that no code reads, backing
+  a documented `/init-project <preset>` argument that was never implemented.
+
 ### Fixed
 
 - **An install deleted the user's own MCP servers from `.mcp.json`.** The Claude
@@ -138,53 +362,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **The Updates panel compared two identical constants** and showed "Up to date"
   permanently; **new-component discovery called a URL that does not exist** and
   swallowed the 404, so the "N new" badge never appeared.
-
-### Changed
-
-- **A per-project lock serialises every operation that rewrites the manifest.**
-  install, reinstall and the Manage tab's add/remove all run the same
-  read-plan-write sequence with the manifest written last, and nothing prevented
-  two of them overlapping. The lock is re-entrant, since reinstall and the Manage
-  operations delegate to `install()`.
-- **Incremental upgrades refuse a project that does not target Claude Code.**
-  Every path in `registry/features.json` is a `.claude/…` literal and nothing in
-  that engine consults the project's targets.
-- **New `@dev-suite/shared` workspace.** `mcp-servers/shared/` previously held
-  build output with no source and no consumers, which is why the guards meant to
-  live there were duplicated instead — three SSRF implementations and five copies
-  of the file-path check. It holds the source now, and the servers import it.
-- **`InstallManifest` in the client contract now describes what the route
-  actually returns.** It declared `files: string[]` plus `directories`,
-  `devSuiteVersion` and `envVarsAdded` — fields no service has ever produced — so
-  `check-type-sync` kept two copies of a fiction perfectly in sync with each
-  other while `manifest.skipped` never reached the UI.
-- **`validate-catalog` now cross-checks the hand-maintained tables against the
-  filesystem**: `STACK_TO_AGENTS`/`STACK_TO_MCP` against the real catalog, and
-  `bundle:` references and their contents against `skills/**`, which it skipped
-  outright before. It caught the `nuxt-expert` reference on its first run.
-- **Copilot's second MCP surface (`.github/mcp.json`) lives in the layout
-  descriptor** instead of being hardcoded in four modules, so
-  `sharedConfigCoverage()` — the gate whose job is catching exactly that — can
-  finally see it.
-- **`.dev-suite-analytics/` and `.dev-suite-live.json` are declared** in the
-  generated `.gitignore` block. They are written after an install by processes
-  the pipeline does not own, and belonged to no list at all.
-- **A request-scoped logger is now a real Winston child.** `createChildLogger`
-  built a whole new logger — a Console plus four rotating file transports plus
-  two process listeners — on every HTTP request.
-
-### Tests
-
-- Regression suites for each tier of the audit: `audit-2026-tier0.test.ts`
-  through `tier4`, plus `src/__tests__/audit-2026-tier1.test.tsx` and
-  `App.wizard-redirect.test.tsx` on the client, and per-server suites under
-  `mcp-servers/*/tests/`.
-- **Fixtures that could not detect the bug they covered were corrected.** The
-  templates fixture placed files at the template root rather than under `files/`,
-  which is why it could not see that the prefix was never stripped.
-
-
-### Fixed
 
 - **Token analytics no longer invents a cost.** It multiplied token counts by a
   per-model price table compiled into `analytics.service.ts` and stored the
@@ -412,6 +589,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   annotated *managed* header had the mirror-image bug, producing a duplicate table
   that TOML forbids, so Codex would load none of the project config while the
   adapter logged success.
+
+- **Five commands are no longer dropped by strict frontmatter parsers.**
+  `argument-hint` was written with bare brackets, which YAML does not read as
+  the documented string: `[project-path]` parses as the array
+  `["project-path"]` (`init-project`, `uninstall`, `uninstall-dev-suite`),
+  while `[--quick] [--verbose]` and `[version] — e.g. ...` are a flow sequence
+  followed by trailing content — invalid YAML that makes the *entire*
+  frontmatter block throw, taking `name`, `description` and `allowed-tools`
+  down with it (`health-check`, `release-promote`). Claude Code tolerated both
+  shapes, so this stayed invisible until GitHub Copilot CLI ≥1.0.65 tightened
+  its type check and silently stopped listing the commands. All five values are
+  now quoted. Reported and fixed by @thejesh23 in #112 / #113.
 - **Documentation MCP server: git-mode now reaches KB content that lives under a
   different path than its record keys.** `fetch_docs`/`list_topics` previously
   rebuilt the KB path from the `{technology}/{topic}` record keys, ignoring the
@@ -505,188 +694,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   it has been removed. `[1.9.0]` is marked as never tagged — only `v1.9.0-rc.1`
   was published.
 
-### Added
+### Tests
 
-- **`validate-catalog.mjs` gained three assertions** that would each have caught
-  a shipped defect: every `agents/` directory must map to a category, every
-  `model:` must be one of the three supported values, and every MCP server's
-  `envVars[]` must declare what its source reads. All three metadata files that
-  were under-declaring env vars have been filled in, so the gate is clean.
-- **`AGENTS.md` is now generated as the primary instructions file**, with
-  `CLAUDE.md` reduced to a pointer that pulls it in via Claude Code's supported
-  `@AGENTS.md` import. `AGENTS.md` is the cross-assistant standard (read natively
-  by Copilot, Cursor, Codex, Windsurf, Zed and others), so a dev-suite install is
-  now understood by those assistants without any extra configuration, while
-  routing content stays in a single source of truth. Existing installations
-  migrate on the next install/sync: the routing section moves out of `CLAUDE.md`
-  and is replaced by the import. User content outside the dev-suite markers is
-  preserved in both files, and both are tracked in the manifest.
-- **Target layout descriptors** (`services/targets/target-layout.ts`): a single
-  source of truth for where each supported assistant expects its configuration
-  (directories, instructions file, MCP config, settings, hooks) plus capability
-  flags, so services stop hardcoding `.claude/`, `.mcp.json` and `CLAUDE.md`.
-  Every supported assistant has a descriptor and a full write path — see
-  `docs/planning/multi-assistant.md`.
-- **Gemini CLI and OpenAI Codex CLI are now installable targets.** Selecting
-  Gemini writes `.gemini/settings.json` — dev-suite's MCP servers plus a
-  `context.fileName` that makes Gemini read the shared `AGENTS.md` (which it
-  ignores by default). Selecting Codex writes its MCP servers as
-  `[mcp_servers.*]` TOML tables in `.codex/config.toml`, merged into the file so
-  the user's own tables and comments survive. Because Codex and Gemini read
-  neither `.claude/agents` nor `.claude/skills`, the installer mirrors the skills
-  tree to the cross-tool `.agents/skills` directory whenever a target that reads
-  it is selected — so both get the full skill set.
-- **Gemini gets native subagents.** Selecting Gemini now also generates a
-  `.gemini/agents/<id>.md` file per installed agent, so each dev-suite agent is a
-  delegatable `@`-agent in Gemini — the one target that previously got only
-  AGENTS.md routing (it reads neither `.claude/agents` nor the shared substrate).
-- **Cline is now an installable target.** It reads `AGENTS.md` and the
-  `.claude/skills` substrate directly, so dev-suite writes its path-scoped rules
-  to `.clinerules/*.md`. Cline has no committable MCP config (user-global only)
-  and its file-based agents apply only to the SDK/CLI, not the VS Code extension;
-  MCP, native agents and rule templates are reported as skipped capabilities
-  rather than silently missing.
-- **Kimi Code is now an installable target.** It reads the root `AGENTS.md`
-  natively and skills from the cross-tool `.agents/skills` mirror (the same one
-  Codex and Gemini use), so only two surfaces are Kimi-specific: MCP config in
-  `.kimi-code/mcp.json` (JSON, `mcpServers`, merged so the user's own servers and
-  HTTP entries survive) and native subagents in `.kimi-code/agents/<id>.md`. The
-  agent writer never emits `override` and refuses any id that would shadow a
-  Kimi built-in agent (`agent`, `coder`, `explore`, `plan`) — that combination is
-  how a repository takes over Kimi's main system prompt. Kimi has no glob-scoped
-  rules and no committable settings/hooks file (both are user-level
-  `~/.kimi-code/config.toml`), which the adapter reports as skipped capabilities
-  (logged, like every other adapter's — there is no user-facing summary channel
-  yet). Because Kimi bodies are `${...}` templates, agents whose prose contains
-  such sequences in code examples are reported the same way rather than silently
-  rewritten. Seven assistants — Claude Code, Copilot, Cursor, Gemini,
-  Codex, Cline, Kimi Code — are now selectable. Targets the current Kimi Code
-  generation (`.kimi-code/`); the legacy `kimi-cli` reads `.claude/skills`
-  anyway, and has no project-level MCP config at all.
-- **Wizard "Target Assistants" step.** The install wizard now has a step that
-  detects which AI assistants a project already uses, pre-selects the ones it
-  found (falling back to Claude Code), and lets the user choose which to generate
-  configuration for. The selection is sent to the install endpoint as `targets`.
-  The wizard's step definitions were centralised into one module, which also
-  fixed the sidebar step list that had silently fallen a step behind.
-- **GitHub Copilot and Cursor are now installable targets.** `install()` accepts
-  any combination of `claude-code`, `copilot` and `cursor` and writes each
-  assistant's own configuration: Copilot gets `.vscode/mcp.json` and
-  `.github/mcp.json` (its two MCP surfaces, with different keys and `type`
-  values) plus `.github/instructions/*`; Cursor gets `.cursor/mcp.json` and
-  `.cursor/rules/*.mdc`. `AGENTS.md` is written for all of them; the `CLAUDE.md`
-  import pointer only when Claude Code is selected. MCP config files are merged
-  with any servers the user already has, and an unparseable existing file is left
-  untouched rather than overwritten. The `.claude/agents` and `.claude/skills`
-  directories are written once as shared infrastructure that Copilot and Cursor
-  read directly, so agents and skills are available even in a Copilot- or
-  Cursor-only install.
-- **Multi-target install plumbing.** `install()` accepts a `targets` list and
-  runs one adapter per assistant, recording them in the manifest; the request
-  schema validates targets against the set that has a working adapter, so the
-  API cannot promise output it can't produce. Reinstall and its backup/rollback
-  became target-aware, which fixed two latent defects: agent-file basenames now
-  respect each target's extension (a hardcoded `.md` would have left `.agent` on
-  Copilot ids and broken orphan detection), and the backup now captures config
-  that lives outside a target's config directory (Copilot's `.vscode/mcp.json`
-  would otherwise have been missed on rollback). Only Claude Code is installable
-  today, so behaviour is unchanged; the plumbing is ready for the adapters.
-- **Per-assistant format writers** (`services/targets/writers/`): MCP
-  configuration and path-scoped agent routing, serialized into each assistant's
-  own format. These are the only two primitives that genuinely differ between
-  tools — Copilot and Cursor read `.claude/agents/` and `.claude/skills/`
-  directly, so agents and skills need no second write. The MCP writers merge
-  with any servers the user already configured rather than overwriting the file,
-  and refuse to silently discard a config they cannot parse. Not yet reachable
-  from the UI; the adapters that consume them land next.
-- **Target adapter seam** (`services/targets/target-adapter.ts` +
-  `targets/adapters/`): `install()` now resolves a tool-neutral `InstallPlan`
-  without touching disk, then hands it to one adapter per target. Claude Code is
-  the only implementation so far and reproduces its previous output exactly. The
-  Claude-specific behaviours moved with it — flat skill directories, the native
-  subagent frontmatter transform, and `skillListingBudgetFraction` — so an
-  assistant that reads `.claude/` directly inherits none of them.
-- **Target path resolver** (`services/targets/target-paths.ts`): turns a layout
-  descriptor into the concrete paths of one project, in both project-relative
-  POSIX form (what the manifest stores, so entries compare across platforms) and
-  absolute form (what filesystem calls need). Every path dev-suite writes now
-  derives from the descriptor instead of a hardcoded literal. Behaviour is
-  unchanged for Claude Code — the resolver reproduces exactly the paths written
-  before.
-- **Manifest target tagging**: `.dev-suite-manifest.json` records which
-  assistants a project was installed for (`targets`), and every tracked file
-  carries a `target`, so several assistants can share one project without
-  reinstall/erase crossing between them. Manifests written before this release
-  are attributed to `claude-code` automatically when read.
-
-- **Generated agent documentation.** `scripts/gen-capability-matrix.mjs` and
-  `scripts/gen-agents-reference.mjs` render `docs/AGENT-CAPABILITY-MATRIX.md` and
-  README's Agents Reference from agent frontmatter, via a shared reader
-  (`scripts/agent-catalog.mjs`) that expands `bundle:` references and verifies every
-  skill path exists. Both hand-written surfaces had drifted badly: the capability
-  matrix was wrong in every column (13 of 16 sampled skill names did not exist),
-  the README tables were missing 12 of 63 agents and three whole categories, and
-  both derived MCP access from the `mcp_servers:` field alone — which only 13
-  agents use, the rest declaring it through `mcp__<server>__*` in `allowed-tools`.
-  Both scripts run with `--check` in CI.
-- **`scripts/check-docs-sync.mjs`** — a CI gate asserting that prose matches the
-  machine-readable source: the wizard step count against `steps.ts`, the target
-  assistants against `IMPLEMENTED_TARGETS` and the adapter registry, the MCP server
-  list against the npm workspaces, and the launchers against the server's `main`.
-  Three of the ten worst findings in the coherence audit were exactly this drift.
-- **`validate-catalog.mjs` now also checks** that every `metadata.json` `tools[]`
-  holds strings, that it matches the tools the server registers with `ListTools`,
-  and (as a warning) that every `process.env.X` a server reads is declared in
-  `envVars[]`.
-- **The three output-filter hooks are documented.** `filter-test-output`,
-  `filter-lint` and `truncate-logs` shipped in `templates/hooks/` and
-  `CLAUDE_OUTPUT_FILTER_HOOKS` but appeared in no markdown file;
-  `docs/HOOKS-REFERENCE.md` now covers what each intercepts, what survives, and the
-  token saving.
-
-### Changed
-
-- **Instruction generation deduplicated.** `management.service` had its own copy
-  of the CLAUDE.md section builder that diverged from the installer's: it emitted
-  the older flat routing layout and was the only one that sanitized agent
-  descriptions. Both now use the installer's implementation, so regenerating
-  after adding/removing a component produces the same output as a fresh install,
-  and description sanitization (which strips constructs that could forge section
-  markers or inject prompts) applies on every path.
-- **Updates tab simplified to a single update mechanism.** The incremental
-  feature-upgrade UI (available-updates list, 3-way conflict detection/resolution,
-  selective apply, and upgrade history) was retired in favour of a version panel
-  (installed-in-project vs. available-from-source) on top of the transactional
-  **Reinstall / Sync** flow, which fully re-aligns a project to the current source
-  (backup + rollback, orphan removal, per-file Overwrite/Keep opt-out). The
-  now-unused `UpdateCard`, `ConflictModal`, `UpgradeHistoryList`, and `DiffViewer`
-  components were removed.
-
-- **`README.md` and `CLAUDE.md` rewritten where they described a world that no
-  longer exists**: the Generated Files list was Claude-only and wrong in both
-  directions for the other six adapters (now split into always-written and
-  per-target); the install wizard was documented as 5 steps when it has 7, omitting
-  Rules and Assistants; "Quick Mode" and "Non-Interactive Mode" documented
-  `--quick` / `--non-interactive` flags that no launcher parses, and are replaced
-  by the headless reinstall CLI that does exist; the `.dev-suite.json` example
-  showed stack, git and hook data the file has never contained; the Linux download
-  names matched no artifact electron-builder produces; CLAUDE.md's architecture
-  tree pointed at `registry/frameworks.json` and `scripts/lib/metadata-parser.sh`,
-  neither of which exists; its agent frontmatter example used bare skill names and
-  the obsolete flat `skills:` field; and its Service Map misdescribed rows and
-  omitted four `installation/` modules. The `121+ technologies` literal, which
-  violated the repo's own Anti-Staleness Rule at five sites, is gone.
-- **Documentation consolidated.** Six overlapping logging documents became two
-  colocated ones (`src/utils/logger.README.md`, `src/middleware/README.md`);
-  `LOGGER_MIGRATION.md`, `LOGGING.md`, `LOGGING_SUMMARY.md` and
-  `LOGGING_EXAMPLE.md` are removed. Both documented a `LOG_DIR` variable nothing
-  reads and a `/api/health` endpoint that is served at `/health`.
-  `SECURITY_FIX_PATH_TRAVERSAL.md` no longer inlines a copy of the fix — that copy
-  had drifted to a weaker `startsWith` boundary check than the shipped code, which
-  is how a fixed vulnerability comes back. Completed plans and version-pinned
-  campaign copy moved to `docs/archive/`.
-- **`presets/`** is marked as unwired: nine JSON files that no code reads, backing
-  a documented `/init-project <preset>` argument that was never implemented.
+- Regression suites for each tier of the audit: `audit-2026-tier0.test.ts`
+  through `tier4`, plus `src/__tests__/audit-2026-tier1.test.tsx` and
+  `App.wizard-redirect.test.tsx` on the client, and per-server suites under
+  `mcp-servers/*/tests/`.
+- **Fixtures that could not detect the bug they covered were corrected.** The
+  templates fixture placed files at the template root rather than under `files/`,
+  which is why it could not see that the prefix was never stripped.
 
 ## [1.12.0] - 2026-07-02
 

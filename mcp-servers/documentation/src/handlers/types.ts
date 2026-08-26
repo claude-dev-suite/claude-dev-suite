@@ -78,7 +78,7 @@ export const CATEGORIES = [
   "infrastructure", "languages", "api", "auth", "desktop", "tooling",
   "standards", "observability", "architecture", "ai", "security", "ux",
   "rag", "retrieval", "embeddings", "vector-stores",
-  "document-processing", "rag-frameworks", "rag-ops",
+  "document-processing", "rag-frameworks", "rag-ops", "industrial",
 ] as const;
 
 export const ListDocsSchema = z.object({
