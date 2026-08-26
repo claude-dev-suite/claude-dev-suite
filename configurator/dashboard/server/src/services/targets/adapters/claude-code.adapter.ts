@@ -9,7 +9,8 @@
  * What stays here, because it has no analogue elsewhere:
  *  - **`skillListingBudgetFraction`** in `.claude/settings.json` — a Claude Code
  *    setting sized for dev-suite's core-skill count.
- *  - **`.mcp.json`** — Claude Code's MCP config, a file it owns outright.
+ *  - **`.mcp.json`** — Claude Code's MCP config. Shared with the user, so it is
+ *    merged, never overwritten (see the note at the write site).
  *  - **`.claude/rules/*.md`** — path-scoped routing (`paths:` frontmatter) plus
  *    any selected rule templates.
  *  - the integration-validator hook, which lives in `.claude/settings.json`.
@@ -22,6 +23,8 @@ import type { InstallManifest } from '../../../types.js';
 import type { ExtendedManifest } from '../../../types/index.js';
 import { HooksService } from '../../hooks.service.js';
 import { trackManifestFile } from '../../installation/manifest-tracking.js';
+import { validatePathWithinBase } from '../../installation/security-helpers.js';
+import { writeMergedMcpConfig } from '../../installation/mcp-config-file.js';
 import { writePathScopedRules } from '../../installation/path-scoped-rules.js';
 import { getTargetLayout, type TargetLayout } from '../target-layout.js';
 import type { TargetPaths } from '../target-paths.js';
@@ -52,20 +55,36 @@ export class ClaudeCodeAdapter implements TargetAdapter {
     // Rule templates the user selected (e.g. security.md) → `.claude/rules/`.
     await this.installRules(rules, paths, manifest);
 
-    // `.mcp.json` — owned outright by dev-suite for Claude Code, so overwritten
-    // wholesale rather than merged.
-    fs.writeFileSync(paths.mcpConfigFile, writeClaudeCodeMcpConfig(ctx.mcpServers));
-    manifest.files.push({ path: paths.relMcpConfigFile, type: 'config', source: 'generated' });
-    trackManifestFile(extendedManifest, projectPath, paths.relMcpConfigFile, 'config');
+    // `.mcp.json` — a *shared* config, merged like every other assistant's.
+    //
+    // This file used to be overwritten wholesale on the theory that dev-suite
+    // owned it outright. It does not: a user can add their own servers to it,
+    // and `uninstall.ts` already lists it under SHARED_CONFIGS and un-merges it
+    // key by key on removal. Install and uninstall therefore disagreed about who
+    // owned the file, and the install side won by deleting the user's entries.
+    // Merging here is what makes the two halves of the lifecycle agree.
+    const relMcp = paths.relMcpConfigFile; // .mcp.json
+    const skipped = writeMergedMcpConfig({
+      projectPath,
+      relPath: relMcp,
+      target: this.id,
+      manifest,
+      extendedManifest,
+      render: existing => writeClaudeCodeMcpConfig(ctx.mcpServers, {
+        existing,
+        previouslyManaged: plan.mcpCatalog,
+        file: relMcp,
+      }),
+    });
 
     const validatorHookConfigured = this.configureValidatorHook(
       projectPath, paths, manifest, extendedManifest, detectedStack
     );
 
     const installedAgents = plan.agentCatalog.filter(a => manifest.agents.includes(a.id));
-    const ruleFiles = writePathScopedRules('claude-code', installedAgents, projectPath);
+    const ruleFiles = writePathScopedRules('claude-code', installedAgents, projectPath, plan.previouslyManaged);
 
-    return { ruleFiles, validatorHookConfigured, skipped: [] };
+    return { ruleFiles, validatorHookConfigured, skipped };
   }
 
   /** Copy selected rule templates into the target's rules directory. */
@@ -81,11 +100,24 @@ export class ClaudeCodeAdapter implements TargetAdapter {
     const rulesService = new RulesService();
     for (const ruleId of rules) {
       const src = rulesService.findRuleFile(ruleId);
-      if (src) {
-        fs.copyFileSync(src, paths.ruleFile(ruleId));
-        manifest.rules.push(ruleId);
-        manifest.files.push({ path: paths.relRuleFile(ruleId), type: 'config', source: src });
+      if (!src) {
+        logger.warn('Skipped unknown or unsafe rule id', { context: { ruleId } });
+        continue;
       }
+      // Belt and braces: `findRuleFile` already refuses an unsafe id, but the
+      // destination is built by string interpolation, so bound it too.
+      let dest: string;
+      try {
+        dest = validatePathWithinBase(paths.ruleFile(ruleId), paths.rulesDir, false);
+      } catch {
+        logger.warn('Refused a rule whose destination escapes the rules directory', {
+          context: { ruleId },
+        });
+        continue;
+      }
+      fs.copyFileSync(src, dest);
+      manifest.rules.push(ruleId);
+      manifest.files.push({ path: paths.relRuleFile(ruleId), type: 'config', source: src });
     }
   }
 

@@ -670,6 +670,25 @@ export type ScaffoldProjectRequest = z.infer<typeof ScaffoldProjectRequestSchema
 const agentNamePattern = /^[a-z0-9-]+$/;
 
 /**
+ * A custom agent/skill id as it appears in a request.
+ *
+ * These ids are joined onto a directory to build a filesystem path, and
+ * `path.join` resolves `..` rather than rejecting it — so an unconstrained
+ * `z.string()` here let a request reach `rmSync`/`renameSync` outside the
+ * project. The service layer asserts the same shape (assertValidComponentId);
+ * this is the outer of the two gates, so a bad id is rejected as a 400 before
+ * any handler runs.
+ */
+const componentIdSchema = (label: string) =>
+  z
+    .string()
+    .min(1, `${label} is required`)
+    .regex(
+      /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/,
+      `${label} must start with a letter or digit and contain only letters, digits, hyphens and underscores (max 64 characters)`
+    );
+
+/**
  * Custom agent frontmatter schema
  */
 export const CustomAgentFrontmatterSchema = z.object({
@@ -700,7 +719,7 @@ export const ListCustomAgentsRequestSchema = z.object({
  */
 export const GetCustomAgentRequestSchema = z.object({
   path: z.string().min(1, 'Project path is required'),
-  id: z.string().min(1, 'Agent ID is required'),
+  id: componentIdSchema('Agent ID'),
 });
 
 /**
@@ -737,7 +756,7 @@ export const CreateCustomAgentGenerateRequestSchema = z.object({
  */
 export const UpdateCustomAgentRequestSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
-  agentId: z.string().min(1, 'Agent ID is required'),
+  agentId: componentIdSchema('Agent ID'),
   content: z.string().min(1, 'Agent content is required'),
   bypassWarnings: z.boolean().optional().default(false),
 });
@@ -747,7 +766,7 @@ export const UpdateCustomAgentRequestSchema = z.object({
  */
 export const DeleteCustomAgentRequestSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
-  agentId: z.string().min(1, 'Agent ID is required'),
+  agentId: componentIdSchema('Agent ID'),
 });
 
 /**
@@ -769,7 +788,7 @@ export const ListCustomSkillsRequestSchema = z.object({
  */
 export const GetCustomSkillRequestSchema = z.object({
   path: z.string().min(1, 'Project path is required'),
-  id: z.string().min(1, 'Skill ID is required'),
+  id: componentIdSchema('Skill ID'),
 });
 
 /**
@@ -791,7 +810,7 @@ export const CreateCustomSkillRequestSchema = z.object({
  */
 export const UpdateCustomSkillRequestSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
-  skillId: z.string().min(1, 'Skill ID is required'),
+  skillId: componentIdSchema('Skill ID'),
   name: z
     .string()
     .min(1, 'Skill name is required')
@@ -813,7 +832,7 @@ export const ValidateCustomSkillRequestSchema = z.object({
  */
 export const DeleteCustomSkillRequestSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
-  skillId: z.string().min(1, 'Skill ID is required'),
+  skillId: componentIdSchema('Skill ID'),
 });
 
 // Type exports for custom agents

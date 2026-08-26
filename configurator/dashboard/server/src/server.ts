@@ -84,22 +84,21 @@ export function createServer(): Express {
 
   // Security middleware
   //
-  // CSP note: this server is a JSON API — it never serves HTML or inline scripts.
-  // 'unsafe-inline' has been deliberately removed from script-src; there is no
-  // legitimate need for it here and its presence would weaken the policy for any
-  // browser that inspects the CSP header on API responses.
-  // style-src retains 'unsafe-inline' because the /health endpoint returns a
-  // plain JSON body — this directive has no practical effect, but is kept for
-  // forward-compatibility if a lightweight HTML error page is ever added.
+  // CSP note: this server serves the JSON API and, when a production build
+  // exists, the dashboard SPA (see frontend.ts). The Vite build emits no inline
+  // scripts, so 'unsafe-inline' stays out of script-src; style-src needs it
+  // because React components set inline styles and shiki injects them for
+  // syntax highlighting. The two Google Fonts hosts are the only remote origins
+  // index.html references.
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],        // 'unsafe-inline' removed — pure API server
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],        // no inline scripts in the Vite build
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", "data:", "blob:"],
         connectSrc: ["'self'", "ws://localhost:*", "ws://127.0.0.1:*"],
-        fontSrc: ["'self'"],
+        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -150,11 +149,22 @@ export function createServer(): Express {
     res.json(response);
   });
 
-  // Error handling middleware (MUST be last)
-  // Note: This is replaced by errorLogger middleware which provides better logging
-  app.use(errorLogger);
-
   return app;
+}
+
+/**
+ * Install the Express error handler.
+ *
+ * MUST be called *after* every route and the SPA fallback are mounted. Express
+ * dispatches error middleware in registration order, so registering it at the
+ * end of `createServer()` — before `registerRoutes()`/`mountFrontend()` ever ran —
+ * meant it sat ahead of every route and was never reached: thrown errors fell
+ * through to Express's default finalhandler, which serialises the stack trace
+ * into the response outside production. The M3 mitigation was inert in the real
+ * app while its unit test, which calls `errorLogger` directly, kept passing.
+ */
+export function installErrorHandler(app: Express): void {
+  app.use(errorLogger);
 }
 
 /**

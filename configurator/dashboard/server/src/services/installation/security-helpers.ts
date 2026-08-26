@@ -12,8 +12,31 @@ import { getLogger } from '../../utils/logger.js';
 const logger = getLogger('InstallationSecurity');
 
 /**
+ * Resolve the deepest ancestor of `p` that exists on disk.
+ *
+ * The symlink check below only fired when the *leaf* already existed, so a
+ * symlinked intermediate directory redirected every write underneath it: a
+ * junction at `<project>/.claude` sent 23 files — agents, commands, rules,
+ * skills, settings.json — outside the project, with no error. Canonicalising
+ * the deepest existing ancestor is what closes that.
+ */
+function deepestExisting(p: string): string {
+  let current = path.resolve(p);
+  for (;;) {
+    if (fs.existsSync(current)) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return current;
+    current = parent;
+  }
+}
+
+/**
  * SECURITY: Validate that a path stays within a base directory.
- * Resolves symlinks and prevents path traversal attacks.
+ *
+ * Rejects lexical traversal, then canonicalizes the deepest existing ancestor of
+ * the target so a symlinked *intermediate* directory cannot redirect the write —
+ * not just a symlinked leaf.
+ *
  * @param targetPath - The path to validate
  * @param baseDir - The directory the path must stay within
  * @param allowBase - Whether to allow paths equal to baseDir (default: true)
@@ -35,25 +58,30 @@ export function validatePathWithinBase(targetPath: string, baseDir: string, allo
     throw new Error(`SECURITY: Path traversal detected - "${targetPath}" escapes base directory`);
   }
 
-  // Additional check: if the path exists, resolve symlinks and verify again
-  if (fs.existsSync(resolvedTarget)) {
-    try {
-      const realPath = fs.realpathSync(resolvedTarget);
-      const realBase = fs.realpathSync(resolvedBase);
-      const realIsWithinBase = realPath.startsWith(realBase + path.sep);
-      const realIsEqualToBase = realPath === realBase;
+  // Canonicalize: realpath the deepest existing ancestor and re-append the tail
+  // that does not exist yet, then compare against the realpath'd base.
+  try {
+    const anchor = deepestExisting(resolvedTarget);
+    const tail = path.relative(anchor, resolvedTarget);
+    const realAnchor = fs.realpathSync(anchor);
+    const realTarget = tail ? path.resolve(realAnchor, tail) : realAnchor;
+    const realBase = fs.existsSync(resolvedBase) ? fs.realpathSync(resolvedBase) : resolvedBase;
 
-      if (!realIsWithinBase && !(allowBase && realIsEqualToBase)) {
-        throw new Error(`SECURITY: Symlink escape detected - "${targetPath}" resolves outside base directory`);
-      }
-    } catch (error: unknown) {
-      // If realpath fails on existing file, it's suspicious
-      if (error instanceof Error && !error.message.includes('SECURITY')) {
-        logger.warn('Failed to resolve real path', { error, context: { targetPath, baseDir } });
-      } else {
-        throw error;
-      }
+    const realIsWithinBase = realTarget.startsWith(realBase + path.sep);
+    const realIsEqualToBase = realTarget === realBase;
+
+    if (!realIsWithinBase && !(allowBase && realIsEqualToBase)) {
+      throw new Error(`SECURITY: Symlink escape detected - "${targetPath}" resolves outside base directory`);
     }
+  } catch (error: unknown) {
+    // A SECURITY error is the verdict; anything else means the path could not be
+    // canonicalized, and an uncheckable path is refused rather than trusted.
+    if (error instanceof Error && error.message.includes('SECURITY')) throw error;
+    logger.warn('Refusing a path that could not be canonicalized', {
+      error,
+      context: { targetPath, baseDir },
+    });
+    throw new Error(`SECURITY: could not canonicalize "${targetPath}" for validation`);
   }
 
   return resolvedTarget;
@@ -74,6 +102,36 @@ export function validateEntryName(name: string): boolean {
     return false;
   }
   return true;
+}
+
+/**
+ * The shape a user-supplied component id (custom agent, custom skill) must have.
+ *
+ * Must start alphanumeric, then alphanumerics, dashes and underscores, capped at
+ * 64 characters. Notably it admits no `.`, `/` or `\`, so an id can never
+ * contribute a path segment when joined onto a directory.
+ */
+export const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
+
+/**
+ * SECURITY: Assert a user-supplied component id is a single safe path segment.
+ *
+ * The create paths already validated ids against this pattern, but the read,
+ * update and delete paths did not: they interpolated the raw id straight into
+ * `path.join(dir, id)`, and `path.join` resolves `..` segments rather than
+ * rejecting them. `DELETE /api/custom-skills/..%2F..%2Fsrc` therefore reached a
+ * recursive `rmSync` outside the project, and the rename path reached a
+ * `renameSync` of an arbitrary directory. Every entry point now goes through
+ * here.
+ *
+ * @throws Error when the id is not a single safe segment
+ */
+export function assertValidComponentId(id: string, label = 'ID'): void {
+  if (typeof id !== 'string' || !VALID_COMPONENT_NAME.test(id)) {
+    throw new Error(
+      `Invalid ${label}: must start with a letter or digit and contain only letters, digits, hyphens and underscores (max 64 characters)`
+    );
+  }
 }
 
 /**

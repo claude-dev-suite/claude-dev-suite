@@ -25,6 +25,10 @@ import type {
   CustomSkillValidationResult,
 } from '../types/custom-agents.js';
 import { CustomAgentFrontmatterSchema } from '../validation/schemas.js';
+import {
+  VALID_COMPONENT_NAME,
+  assertValidComponentId,
+} from './installation/security-helpers.js';
 
 /**
  * Interface for dev-suite config with custom agents/skills
@@ -126,6 +130,10 @@ export class CustomAgentsService {
         const model = modelMatch[1].trim().toLowerCase();
         if (['sonnet', 'opus', 'haiku'].includes(model)) {
           result.model = model as CustomAgentModel;
+        } else {
+          // Silently ignoring an unknown value made the agent *display* as
+          // sonnet while its file said something else, so a typo was invisible.
+          result.modelWarning = `Unrecognised model "${model}" — expected sonnet, opus or haiku; the assistant's default will be used.`;
         }
       }
 
@@ -254,6 +262,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(agentId, 'agent ID');
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -334,7 +343,6 @@ export class CustomAgentsService {
     const agentId = frontmatter.name;
 
     // Validate agent ID to prevent path traversal
-    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
     if (!VALID_COMPONENT_NAME.test(agentId)) {
       return { success: false, error: 'Invalid agent name: use letters, numbers, hyphens, underscores (max 64 chars)' };
     }
@@ -395,6 +403,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(agentId, 'agent ID');
     // Check if agent exists
     const existingAgent = await this.getCustomAgent(projectPath, agentId);
     if (!existingAgent) {
@@ -428,7 +437,6 @@ export class CustomAgentsService {
     const newAgentId = frontmatter.name;
 
     // Validate new agent ID to prevent path traversal
-    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
     if (!VALID_COMPONENT_NAME.test(newAgentId)) {
       return { success: false, error: 'Invalid agent name: use letters, numbers, hyphens, underscores (max 64 chars)' };
     }
@@ -487,6 +495,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(agentId, 'agent ID');
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -571,6 +580,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(skillId, 'skill ID');
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
     const skillMdPath = path.join(skillDir, 'SKILL.md');
 
@@ -634,7 +644,6 @@ export class CustomAgentsService {
     }
 
     // Validate skill name to prevent path traversal
-    const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
     if (!VALID_COMPONENT_NAME.test(name)) {
       return { success: false, error: 'Invalid skill name: use letters, numbers, hyphens, underscores (max 64 chars)' };
     }
@@ -689,6 +698,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(skillId, 'skill ID');
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
 
     if (!fs.existsSync(skillDir)) {
@@ -731,6 +741,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    assertValidComponentId(skillId, 'skill ID');
 
     const oldSkillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
     if (!fs.existsSync(oldSkillDir)) {

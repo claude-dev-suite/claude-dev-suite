@@ -509,9 +509,34 @@ export class CodeGenService {
 
     for (const file of files) {
       try {
+        // Preserve the generator's directory structure. `path.basename` used to
+        // collapse `models/models.go`, `handlers/handlers.go` and
+        // `routes/routes.go` into one directory, each with a different package
+        // clause — `go build ./generated` then fails outright, and Java the same.
+        const relative = file.path.split(/[\/]/).filter(Boolean);
+        if (relative.some(seg => seg === '..' || seg === '.')) {
+          logger.warn('Skipping generated file with a traversing path', { data: { filePath: file.path } });
+          skipped.push(file.path);
+          continue;
+        }
+        // Generators emit paths already prefixed with the output directory;
+        // joining blindly would produce `generated/generated/models/models.go`.
+        //
+        // The whole prefix has to match, not just its last segment: comparing
+        // `relative[0]` against `outSegments.at(-1)` worked for a single-segment
+        // `generated/` but silently failed for the default `src/generated`,
+        // where the last segment is `generated` and the emitted path starts with
+        // `src`. Nothing was trimmed and every accepted file landed in
+        // `src/generated/src/generated/…`.
+        const outSegments = outputDir.split(/[\/]/).filter(Boolean);
+        const hasPrefix =
+          outSegments.length > 0 &&
+          relative.length > outSegments.length &&
+          outSegments.every((seg, i) => relative[i] === seg);
+        const trimmed = hasPrefix ? relative.slice(outSegments.length) : relative;
         const resolvedFilePath = path.isAbsolute(file.path)
           ? file.path
-          : path.join(baseOutputDir, path.basename(file.path));
+          : path.join(baseOutputDir, ...trimmed);
 
         const rootWithSep = resolvedProject.endsWith(path.sep) ? resolvedProject : resolvedProject + path.sep;
         if (resolvedFilePath.includes('..') || (!resolvedFilePath.startsWith(rootWithSep) && resolvedFilePath !== resolvedProject)) {

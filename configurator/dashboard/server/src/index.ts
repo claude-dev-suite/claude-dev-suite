@@ -5,9 +5,10 @@
  * Starts HTTP server on port 3456 and WebSocket server on port 3457
  */
 
-import { createServer } from './server.js';
+import { createServer, installErrorHandler } from './server.js';
 import { createWebSocketServer } from './websocket.js';
 import { registerRoutes } from './routes/index.js';
+import { mountFrontend } from './frontend.js';
 import { getLogger } from './utils/logger.js';
 import { config } from './config/index.js';
 
@@ -35,9 +36,20 @@ async function main() {
   // Register API routes
   registerRoutes(app);
 
+  // Serve the built dashboard UI (browser entry point). Must come after the API
+  // routes: the SPA fallback claims every remaining GET.
+  const uiServed = mountFrontend(app);
+
+  // Error handler last of all — Express dispatches error middleware in
+  // registration order, so anything mounted after it is never covered.
+  installErrorHandler(app);
+
   // Start HTTP server - bind to localhost only for security
   const httpServer = app.listen(HTTP_PORT, HOST, () => {
-    logger.info('HTTP server started', { url: `http://${HOST}:${HTTP_PORT}` });
+    logger.info('HTTP server started', {
+      url: `http://${HOST}:${HTTP_PORT}`,
+      serving: uiServed ? 'dashboard UI + API' : 'API only (UI not built)',
+    });
     if (HOST === '127.0.0.1' || HOST === 'localhost') {
       logger.info('Security: Server bound to localhost only');
     }
