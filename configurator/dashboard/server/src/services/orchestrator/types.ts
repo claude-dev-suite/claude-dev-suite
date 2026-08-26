@@ -45,6 +45,8 @@ export interface JobState {
   current: (Job & {
     currentSubTaskIndex: number;
     completedSubTasks: Record<string, string>;
+    /** @see Job.completedSubTaskOutputs */
+    completedSubTaskOutputs?: string[];
     currentOutputBuffer: string;
   }) | null;
   abortController: AbortController | null;
@@ -193,5 +195,7 @@ export interface SubTaskExecutionResult {
 export interface TrackedJob extends Job {
   currentSubTaskIndex: number;
   completedSubTasks: Record<string, string>;
+  /** @see Job.completedSubTaskOutputs */
+  completedSubTaskOutputs?: string[];
   currentOutputBuffer: string;
 }

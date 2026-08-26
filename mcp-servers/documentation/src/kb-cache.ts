@@ -71,8 +71,18 @@ export class KBCache {
    * Get cached file path
    */
   getCachePath(technology: string, file?: string): string {
-    const basePath = path.join(this.config.cachePath, technology);
-    return file ? path.join(basePath, file) : basePath;
+    const root = path.resolve(this.config.cachePath);
+    const basePath = path.join(root, technology);
+    const target = file ? path.join(basePath, file) : basePath;
+
+    // `path.join` resolves `..` rather than rejecting it, so a traversing
+    // technology or file name silently produced a path outside the cache root.
+    // Containment is asserted here, at the one place every cache path is built.
+    const resolved = path.resolve(target);
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+      throw new Error("Cache path escapes the cache directory");
+    }
+    return resolved;
   }
 
   /**

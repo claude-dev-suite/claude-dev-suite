@@ -6,7 +6,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { stat, readdir } from "fs/promises";
-import { join, isAbsolute } from "path";
+import { join, isAbsolute, resolve, sep } from "path";
 import { BackupRestoreSchema, jsonResponse, formatBytes, type Handler, type HandlerResult } from "./types.js";
 import { parseConnectionEnv } from "./db.js";
 
@@ -20,7 +20,17 @@ function validateTableName(name: string): string {
   return name;
 }
 
-/** Validate backup path to prevent path traversal */
+/**
+ * Validate a backup path.
+ *
+ * Absolute and traversal-free was never enough: `backup` writes wherever it is
+ * told (any absolute path outside the project), and `restore` in `plain` format
+ * feeds the file to `psql -f`, which executes whatever SQL it contains. Setting
+ * `DB_BACKUP_DIR` confines both operations to one directory.
+ *
+ * The confinement is opt-in so existing setups keep working; without it the
+ * historical behaviour is unchanged, and that is worth configuring away.
+ */
 function validateBackupPath(p: string): string {
   if (!isAbsolute(p)) {
     throw new Error("backupPath must be an absolute path");
@@ -28,6 +38,16 @@ function validateBackupPath(p: string): string {
   if (p.includes("..")) {
     throw new Error("backupPath must not contain '..'");
   }
+
+  const root = process.env.DB_BACKUP_DIR;
+  if (root && root.length > 0) {
+    const resolvedRoot = resolve(root);
+    const resolvedPath = resolve(p);
+    if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + sep)) {
+      throw new Error(`backupPath must be inside DB_BACKUP_DIR (${resolvedRoot})`);
+    }
+  }
+
   return p;
 }
 

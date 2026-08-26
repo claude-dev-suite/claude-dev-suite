@@ -58,7 +58,20 @@ export function resolveKbCoords(
     }
   }
 
-  return { dir: technology, topicStem: topic };
+  // Fallback: the raw docs-index keys. These reach `path.join` downstream, and
+  // `technology`/`topic` come straight off an unconstrained `z.string()` tool
+  // argument — so a `topic` of `../../../../etc/passwd` used to escape the KB
+  // root whenever the index lookup missed. `isSafeSegment` is applied to every
+  // segment here too, not only on the `local` branch.
+  const dir = isSafeSegment(technology) ? technology : "";
+  const topicStem = isSafeSegment(topic) ? topic : "";
+  if (!dir) {
+    throw new Error(`Invalid technology name: ${JSON.stringify(technology)}`);
+  }
+  if (topic.length > 0 && !topicStem) {
+    throw new Error(`Invalid topic name: ${JSON.stringify(topic)}`);
+  }
+  return { dir, topicStem };
 }
 
 /**

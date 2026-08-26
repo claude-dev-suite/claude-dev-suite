@@ -4,17 +4,7 @@
  */
 
 import { spawn } from 'child_process';
-import { isAbsolute, normalize } from 'path';
-
-/** Reject paths containing null bytes — defence against null-byte injection */
-function validateFilePath(filePath: string): void {
-  if (filePath.includes('\0')) {
-    throw new Error('Invalid file path: contains null byte');
-  }
-  if (!isAbsolute(normalize(filePath))) {
-    throw new Error('File path must be absolute');
-  }
-}
+import { validateFilePath } from '../utils/paths.js';
 
 /** Return the platform-appropriate executable name for npm-bundled CLI launchers */
 function cmd(name: string): string {

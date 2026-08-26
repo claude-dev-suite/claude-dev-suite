@@ -15,7 +15,14 @@
     "export_report",
     "watch_logs"
   ],
-  "envVars": [],
+  "envVars": [
+    {
+      "name": "LOG_EXPORT_DIR",
+      "description": "Directory that exported report paths must stay inside. Unset keeps the historical unconfined behaviour.",
+      "default": "",
+      "required": false
+    }
+  ],
   "recommendedFor": [
     "devops-expert",
     "qa-expert",

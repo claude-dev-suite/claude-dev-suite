@@ -20,6 +20,12 @@
       "description": "Database connection string",
       "default": "",
       "required": true
+    },
+    {
+      "name": "DB_BACKUP_DIR",
+      "description": "Directory that backup and restore paths must stay inside. Unset keeps the historical unconfined behaviour.",
+      "default": "",
+      "required": false
     }
   ],
   "recommendedFor": [
