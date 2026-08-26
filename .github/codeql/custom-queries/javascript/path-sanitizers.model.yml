@@ -1,0 +1,64 @@
+# CodeQL data extension: path-injection barriers for dev-suite's own validators.
+#
+# WHY THIS EXISTS
+#
+# `js/path-injection` flags ~130 sinks across the installation pipeline. They are
+# false positives of one systematic kind: the guard is real, but it lives one to
+# three lines above the sink in a shared helper, and CodeQL has no way to know
+# that helper validates anything.
+#
+#     const abs = resolveInsideProject(projectPath, rel);   // ← the guard
+#     if (!abs || !fs.existsSync(abs)) continue;
+#     if (fs.statSync(abs).isDirectory() && ...) fs.rmdirSync(abs);   // ← flagged
+#
+# Suppressing the rule would be wrong: this code has had two genuine traversals
+# (fixed in dd0ec86 — an unvalidated `skillId` reaching a recursive `rmSync`, and
+# an unvalidated `repoPath` reaching `.git/hooks`). The signal has to survive.
+# Naming the validators is what keeps it: a sink whose path did NOT come through
+# one of them still gets flagged, which is exactly the class that was real.
+#
+# NOTE ON THE FILE NEXT DOOR
+#
+# `PathSanitizers.qll` declares the same intent as `TaintedPath::Sanitizer`
+# subclasses, and is inert: a `.qll` library only takes effect when a query
+# imports it, and no query in `codeql/javascript-queries` imports this pack.
+# Verified empirically — `substrate.ts:378` reads `safeDest`, assigned directly
+# from `validatePathWithinBase()` seventeen lines earlier, and is still flagged.
+# `barrierModel` (CodeQL >= 2.25.2; CI runs 2.26.3) is the mechanism that applies.
+#
+# WHAT IS AND IS NOT CLAIMED HERE
+#
+# `validatePathWithinBase` and `resolveInsideProject` genuinely *confine* a path
+# to a base directory — modelling them is a statement of fact.
+#
+# `resolveProjectPath` is different and worth stating plainly: it canonicalises
+# and rejects `..`, but it does not confine the result to anything. Modelling it
+# as a barrier asserts this project's threat model — the dashboard is a
+# localhost-only, unauthenticated-by-design tool whose purpose is to write into a
+# directory the machine's owner names, so that directory is trusted input, not
+# attacker input. It does not weaken the checks that matter: a second tainted
+# value on the same path (an `agentId`, a `skillId`, a `repoPath`) reaches the
+# sink through its own flow and is still reported.
+#
+# Wrappers get this transitively and need no entry of their own —
+# `ReinstallService.safe()` returns `validatePathWithinBase(...)`, so its result
+# is already downstream of a barrier.
+
+extensions:
+  - addsTo:
+      pack: codeql/javascript-all
+      extensible: barrierModel
+    data:
+      # validatePathWithinBase(target, base, allowBase?) — rejects lexical
+      # traversal, then canonicalises the deepest existing ancestor so a
+      # symlinked *intermediate* directory cannot redirect the write either.
+      - ["file:configurator/dashboard/server/src/services/installation/security-helpers.ts", "Member[validatePathWithinBase].ReturnValue", "path-injection"]
+      - ["file:configurator/dashboard/server/src/services/installation/index.ts", "Member[validatePathWithinBase].ReturnValue", "path-injection"]
+
+      # resolveInsideProject(projectPath, relPath) — returns the absolute path
+      # only when it resolves inside the project, and `null` otherwise. Every
+      # caller checks for null before using it.
+      - ["file:configurator/dashboard/server/src/services/installation/uninstall.ts", "Member[resolveInsideProject].ReturnValue", "path-injection"]
+
+      # resolveProjectPath(raw) — see the threat-model note above.
+      - ["file:configurator/dashboard/server/src/utils/utilities.ts", "Member[resolveProjectPath].ReturnValue", "path-injection"]

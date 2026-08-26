@@ -1,3 +1,13 @@
+# CodeQL analysis configuration.
+#
+# `packs` lists what the analysis loads. The first entry is the standard query
+# suite; the second is this repository's own model pack, which contributes
+# `barrierModel` data extensions (see custom-queries/javascript/*.model.yml).
+# A model pack has no queries of its own — listing it here is what makes its
+# extensions apply, which is the step the previous configuration was missing.
+#
+# The pack is found through the `--search-path` set in .github/workflows/codeql.yml.
 packs:
   javascript-typescript:
     - codeql/javascript-queries
+    - dev-suite/javascript-custom-queries

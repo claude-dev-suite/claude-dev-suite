@@ -1,5 +1,10 @@
 name: dev-suite/javascript-custom-queries
 version: 1.0.0
 library: true
+# The data extension in `path-sanitizers.model.yml` declares `barrierModel`
+# entries, which live in the *library* pack (`codeql/javascript-all`) where the
+# dataflow configurations are defined — not in the query pack. This previously
+# targeted `codeql/javascript-queries`, which is where the queries live but not
+# the extensible predicates, so the extension had nothing to attach to.
 extensionTargets:
-  codeql/javascript-queries: "*"
+  codeql/javascript-all: "*"
