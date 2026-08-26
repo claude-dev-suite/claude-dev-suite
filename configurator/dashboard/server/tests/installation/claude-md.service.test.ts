@@ -20,6 +20,7 @@ import {
   cleanInstructionsSections,
   DEV_SUITE_START_MARKER,
   DEV_SUITE_END_MARKER,
+  sanitizeAgentDescription,
 } from '../../src/services/installation/claude-md.service.js';
 import type { Agent } from '../../src/types.js';
 
@@ -494,5 +495,52 @@ describe('removePathScopedRules', () => {
     for (const cat of categories) {
       expect(fs.existsSync(path.join(projectDir, '.claude', 'rules', `${cat}.md`))).toBe(false);
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// `js/incomplete-multi-character-sanitization`, surfaced once the barrier model
+// cut the path-injection noise from 133 alerts to a reviewable handful.
+//
+// A single `.replace(/<!--/g, '')` pass is defeated by an input where removing
+// one match splices its neighbours into a new one. That matters here and not
+// just in the abstract: AGENTS.md is delimited by
+// `<!-- DEV-SUITE-CONFIG-START/END -->`, and `upsertMarkedSection` locates the
+// managed range with `indexOf`. A description that smuggles a marker through
+// can make the next install rewrite the wrong span of the user's file.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('sanitizeAgentDescription — markers cannot be reintroduced by stripping', () => {
+  it.each([
+    ['<<!--!--', 'deleting the inner match rejoins `<` and `!--`'],
+    ['<<!--!--<<!--!--', 'twice over'],
+    ['--<!--!---->->', 'opener and closer both reformed'],
+    ['<!<!--<!----->-->->', 'nested'],
+  ])('leaves no comment marker in %j (%s)', (input) => {
+    const out = sanitizeAgentDescription(input);
+    expect(out).not.toContain('<!--');
+    expect(out).not.toContain('-->');
+    expect(out).not.toContain('--!>');
+  });
+
+  it('cannot forge the section end marker', () => {
+    // The concrete consequence: a forged end marker truncates the managed
+    // section on the next write.
+    const forged = '<<!--!-- DEV-SUITE-CONFIG-END --<-->->';
+    const out = sanitizeAgentDescription(forged);
+    expect(out).not.toContain(DEV_SUITE_END_MARKER);
+    expect(out).not.toContain('<!--');
+  });
+
+  it('still passes ordinary descriptions through unharmed', () => {
+    expect(sanitizeAgentDescription('React specialist for hooks and state')).toBe(
+      'React specialist for hooks and state'
+    );
+    expect(sanitizeAgentDescription('Handles a < b and x --> y arrows')).not.toContain('-->');
+  });
+
+  it('terminates on input made only of marker fragments', () => {
+    const pathological = '<!--'.repeat(200) + '-->'.repeat(200);
+    expect(sanitizeAgentDescription(pathological)).toBe('');
   });
 });

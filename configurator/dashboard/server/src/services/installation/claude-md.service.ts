@@ -217,16 +217,36 @@ ${DEV_SUITE_END_MARKER}`;
  */
 export function sanitizeAgentDescription(description: string): string {
   if (!description) return '';
-  return description
+
+  let out = description
     .replace(/[\r\n]+/g, ' ')
     .replace(/`{3,}/g, '')
     .replace(/~{3,}/g, '')
-    .replace(/`+/g, '')
-    .replace(/<!--[\s\S]*?(?:-->|--!>)/g, '')
-    .replace(/<!--/g, '')
-    .replace(/(?:-->|--!>)/g, '')
-    .replace(/^#+\s*/g, '')
-    .trim();
+    .replace(/`+/g, '');
+
+  // Comment markers are stripped to a FIXED POINT, not in a single pass.
+  //
+  // One `.replace(/<!--/g, '')` is defeated by an input where deleting a match
+  // splices its neighbours into a new one: in `<<!--!--` the `<!--` at index 1
+  // is removed, and the leftover `<` and `!--` join back into `<!--`. The whole
+  // job of this function is to guarantee no comment marker survives — AGENTS.md
+  // is delimited by `<!-- DEV-SUITE-CONFIG-START/END -->` and
+  // `upsertMarkedSection` finds that range with `indexOf`, so a description that
+  // smuggles a marker through can make the next install rewrite the wrong span
+  // of the user's file.
+  //
+  // Descriptions are short and every iteration strictly shrinks the string, so
+  // this settles in a couple of passes.
+  let previous: string;
+  do {
+    previous = out;
+    out = out
+      .replace(/<!--[\s\S]*?(?:-->|--!>)/g, '')
+      .replace(/<!--/g, '')
+      .replace(/(?:-->|--!>)/g, '');
+  } while (out !== previous);
+
+  return out.replace(/^#+\s*/g, '').trim();
 }
 
 /**
