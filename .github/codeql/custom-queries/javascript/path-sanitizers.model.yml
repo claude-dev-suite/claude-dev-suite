@@ -1,23 +1,23 @@
 # CodeQL data extension: path-injection barriers for dev-suite's own validators.
 #
 # ┌───────────────────────────────────────────────────────────────────────────┐
-# │ STATUS: the plumbing works, the model does not match yet.                 │
+# │ VERIFIED against a local CodeQL 2.26.3 database of this repository:       │
 # │                                                                           │
-# │ The pack now resolves and its extensions load — `analyze` passes and      │
-# │ `Resolving data extensions` no longer errors. But the alert count is      │
-# │ unchanged at 133, so these tuples are matching nothing.                   │
+# │                              without model    with model                  │
+# │   server/src (TypeScript)         414             42                      │
+# │   services/installation           136              3                      │
 # │                                                                           │
-# │ Unverified, and the likely suspects, in order:                            │
-# │   1. the `file:` type for a first-party TypeScript module — path form,    │
-# │      extension (.ts vs .js), or case                                      │
-# │   2. `Member[fn].ReturnValue` as an access path on a `file:` type         │
-# │   3. whether JS's TaintedPath configuration consumes `barrierModel` for   │
-# │      kind `path-injection` at all in CodeQL 2.26.3                        │
+# │ What survives is the point. The 42 remaining are in agents.service,       │
+# │ templates.service, custom-agents.service, files.routes, codegen.service — │
+# │ every one traced to a *route parameter* (an agent id, a skill id, a       │
+# │ template id), not to `projectPath`. That is precisely the flow that was   │
+# │ genuinely broken and fixed in dd0ec86, and it is still reported.          │
 # │                                                                           │
-# │ Finishing this needs the CodeQL CLI locally:                              │
-# │   codeql resolve extensions-by-pack --search-path=.github/codeql/...      │
-# │ which prints what actually resolved. Iterating through CI is ~4 minutes   │
-# │ per attempt with no diagnostic output, which is the wrong tool.           │
+# │ Reproduce:                                                                │
+# │   codeql database create <db> --language=javascript-typescript            │
+# │   codeql database analyze <db> <TaintedPath.ql> --format=csv \            │
+# │     --additional-packs=.github/codeql/custom-queries \                    │
+# │     --extension-packs=dev-suite/javascript-custom-queries                 │
 # └───────────────────────────────────────────────────────────────────────────┘
 #
 # WHY THIS EXISTS
