@@ -802,17 +802,26 @@ describe('R2 — SSRF numeric IP encoding normalisation', () => {
   });
 });
 
-// ─── R3: startsWith+path.sep — codegen.service.ts boundary check ─────────────
+// ─── R3: codegen.service.ts confines generated writes to the project ─────────
 
-describe('R3 — codegen.service.ts path boundary uses path.sep', () => {
-  it('codegen.service.ts source uses rootWithSep pattern', () => {
+describe('R3 — codegen.service.ts path boundary', () => {
+  it('routes the write through validatePathWithinBase, not a prefix comparison', () => {
     const src = fs.readFileSync(
       path.join(import.meta.dirname ?? __dirname, '../src/services/codegen.service.ts'),
       'utf-8',
     );
-    // The fix adds a rootWithSep variable; verify it is present
-    expect(src).toContain('rootWithSep');
-    expect(src).toContain('path.sep');
+    // This used to assert a `rootWithSep` variable, i.e. the original fix's
+    // `resolvedFilePath.startsWith(resolvedProject + path.sep)`. That compares
+    // un-canonicalised paths: a symlinked intermediate directory satisfies the
+    // prefix and redirects the write outside the project anyway. The shared
+    // guard realpaths the deepest existing ancestor before deciding, and is the
+    // function the CodeQL barrier model names — so pin the guard, not the shape
+    // of a comparison that no longer exists.
+    expect(src).toContain('validatePathWithinBase(resolvedFilePath, resolvedProject');
+    expect(src).not.toContain('rootWithSep');
+    // The write must use what the guard returned, never the unvalidated value.
+    expect(src).toContain('fs.writeFileSync(safeFilePath');
+    expect(src).not.toContain('fs.writeFileSync(resolvedFilePath');
   });
 });
 

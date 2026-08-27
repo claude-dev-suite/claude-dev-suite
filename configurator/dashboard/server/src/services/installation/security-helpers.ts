@@ -124,14 +124,24 @@ export const VALID_COMPONENT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
  * `renameSync` of an arbitrary directory. Every entry point now goes through
  * here.
  *
+ * Returns the id it validated. Callers that build a path from it should use the
+ * returned value rather than the argument they passed in: `js/path-injection`
+ * follows the variable, not the call, so a void assertion is invisible to it —
+ * a return value is the only thing `barrierModel` in
+ * `.github/codeql/custom-queries/javascript/path-sanitizers.model.yml` can
+ * attach to. The claim it encodes is a fact about `VALID_COMPONENT_NAME`: no
+ * `/`, no `\`, no `.`, so the result is a single path segment by construction.
+ *
  * @throws Error when the id is not a single safe segment
+ * @returns the validated id, unchanged
  */
-export function assertValidComponentId(id: string, label = 'ID'): void {
+export function assertValidComponentId(id: string, label = 'ID'): string {
   if (typeof id !== 'string' || !VALID_COMPONENT_NAME.test(id)) {
     throw new Error(
       `Invalid ${label}: must start with a letter or digit and contain only letters, digits, hyphens and underscores (max 64 characters)`
     );
   }
+  return id;
 }
 
 /**
