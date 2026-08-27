@@ -49,15 +49,12 @@ export const databaseDocs: DocsRecord = {
 
   mongodb: {
     queries: {
-      local: "mongodb/queries.md",
       url: "https://www.mongodb.com/docs/manual/crud/",
     },
     indexes: {
-      local: "mongodb/indexes.md",
       url: "https://www.mongodb.com/docs/manual/indexes/",
     },
     aggregation: {
-      local: "mongodb/aggregation.md",
       url: "https://www.mongodb.com/docs/manual/aggregation/",
     },
     production: {
@@ -68,11 +65,9 @@ export const databaseDocs: DocsRecord = {
 
   mysql: {
     queries: {
-      local: "mysql/queries.md",
       url: "https://dev.mysql.com/doc/refman/8.0/en/sql-statements.html",
     },
     indexes: {
-      local: "mysql/indexes.md",
       url: "https://dev.mysql.com/doc/refman/8.0/en/optimization-indexes.html",
     },
     production: {
@@ -83,11 +78,9 @@ export const databaseDocs: DocsRecord = {
 
   redis: {
     commands: {
-      local: "redis/commands.md",
       url: "https://redis.io/commands/",
     },
     patterns: {
-      local: "redis/patterns.md",
       url: "https://redis.io/docs/manual/patterns/",
     },
     production: {

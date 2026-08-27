@@ -107,7 +107,6 @@ export const frontendDocs: DocsRecord = {
       url: "https://tailwindcss.com/docs/configuration",
     },
     spacing: {
-      local: "tailwind/spacing.md",
       url: "https://tailwindcss.com/docs/customizing-spacing",
     },
   },
@@ -175,7 +174,6 @@ export const frontendDocs: DocsRecord = {
       url: "https://pinia.vuejs.org/core-concepts/",
     },
     composables: {
-      local: "pinia/composables.md",
       url: "https://pinia.vuejs.org/cookbook/composing-stores.html",
     },
   },

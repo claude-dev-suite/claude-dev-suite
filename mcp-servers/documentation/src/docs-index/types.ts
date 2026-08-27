@@ -4,7 +4,20 @@
  */
 
 export interface DocEntry {
-  local: string;
+  /**
+   * Where the article lives inside the knowledge base, relative to
+   * `knowledge/` (e.g. "bitcoin/protocol/consensus/overview.md"). Git mode
+   * derives its sparse-checkout coordinates from this rather than from the
+   * record keys, which frequently differ from the on-disk layout.
+   *
+   * Optional because a topic can be genuinely live-only: the KB never wrote an
+   * article for it and the upstream `url` is the whole answer. Naming a file
+   * that does not exist used to be the way those were spelled, which cost a
+   * failed sparse checkout and an error log on every request before the handler
+   * fell through to `url`. Omitting `local` says the same thing and skips the
+   * checkout. An entry must carry at least one of `local` and `url`.
+   */
+  local?: string;
   /**
    * Canonical upstream page, used as the live fallback when the KB copy is
    * unavailable.

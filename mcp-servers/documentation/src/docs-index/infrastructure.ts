@@ -100,7 +100,6 @@ export const infrastructureDocs: DocsRecord = {
       url: "https://docs.github.com/en/actions/using-workflows",
     },
     actions: {
-      local: "github-actions/actions.md",
       url: "https://docs.github.com/en/actions/creating-actions",
     },
     "ci-cd-patterns": {
@@ -332,16 +331,20 @@ export const infrastructureDocs: DocsRecord = {
     },
   },
 
+  // Both of these are single-topic keys with no KB article of their own. They
+  // used to name a file under `linux/`, which never existed but did give
+  // `list_topics` a KB directory to enumerate — it answered with the whole of
+  // `linux/`, i.e. the articles `linux-server` above already owns. Dropping
+  // the fake `local` also drops that listing, which was misattributing files
+  // rather than describing these topics.
   "server-performance": {
     "linux-performance-tuning": {
-      local: "linux/performance-tuning.md",
       url: "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
     },
   },
 
   "server-hardening": {
     "cis-benchmark": {
-      local: "linux/server-hardening.md",
       url: "https://www.cisecurity.org/cis-benchmarks/",
     },
   },

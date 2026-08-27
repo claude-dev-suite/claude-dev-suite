@@ -25,7 +25,6 @@ export const metaFrameworkDocs: DocsRecord = {
       url: "https://nextjs.org/docs/app/building-your-application/caching",
     },
     "server-components": {
-      local: "nextjs/server-components.md",
       url: "https://nextjs.org/docs/app/building-your-application/rendering/server-components",
     },
     "data-fetching": {

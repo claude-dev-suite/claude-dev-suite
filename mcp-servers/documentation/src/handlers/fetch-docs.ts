@@ -14,13 +14,20 @@ export const handleFetchDocs: Handler = async (args, ctx): Promise<HandlerResult
 
   const entry = docsIndex[technology]?.[topic];
 
+  // A known topic that declares no `local` has no KB article: the index says so
+  // explicitly, so skip git mode rather than sparse-checking out a directory to
+  // rediscover it. An unknown topic still tries the key-derived path — that is
+  // how a KB file the index has not caught up with is reachable.
+  const hasKbArticle = !entry || entry.local !== undefined;
+
   // On-demand KB mode with versioning support
-  if (ctx.kbMode === "git" && ctx.kbFetcher && ctx.versionResolver) {
+  if (ctx.kbMode === "git" && ctx.kbFetcher && ctx.versionResolver && hasKbArticle) {
     try {
       // Resolve the real KB location from the index `local` path (the record
       // keys often differ from the on-disk layout, e.g. technology
-      // "bitcoin-consensus" → "bitcoin/protocol/consensus/overview.md"). Falls
-      // back to the key-derived path when `local` is missing.
+      // "bitcoin-consensus" → "bitcoin/protocol/consensus/overview.md"). Only
+      // an unindexed topic gets here without one, and falls back to the
+      // key-derived path.
       const { dir, topicStem } = resolveKbCoords(entry?.local, technology, topic);
 
       // Fetch/cache the KB directory first

@@ -80,7 +80,6 @@ export const toolingDocs: DocsRecord = {
 
   vite: {
     basics: {
-      local: "vite/basics.md",
       url: "https://vite.dev/guide/",
     },
     config: {
@@ -88,15 +87,12 @@ export const toolingDocs: DocsRecord = {
       url: "https://vite.dev/config/",
     },
     "env-variables": {
-      local: "vite/env-variables.md",
       url: "https://vite.dev/guide/env-and-mode",
     },
     build: {
-      local: "vite/build.md",
       url: "https://vite.dev/guide/build",
     },
     plugins: {
-      local: "vite/plugins.md",
       url: "https://vite.dev/plugins/",
     },
     optimization: {
@@ -248,7 +244,6 @@ export const toolingDocs: DocsRecord = {
   // Validation
   zod: {
     basics: {
-      local: "zod/basics.md",
       url: "https://zod.dev/?id=basic-usage",
     },
     schemas: {
@@ -260,7 +255,6 @@ export const toolingDocs: DocsRecord = {
       url: "https://zod.dev/?id=parse",
     },
     transforms: {
-      local: "zod/transforms.md",
       url: "https://zod.dev/?id=transform",
     },
   },
