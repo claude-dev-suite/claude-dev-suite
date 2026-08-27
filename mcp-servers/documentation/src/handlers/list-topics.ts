@@ -12,9 +12,11 @@ export const handleListTopics: Handler = async (args, ctx): Promise<HandlerResul
 
   // Resolve the real KB directory from any topic's `local` path (they share the
   // same first segment) so technologies whose key differs from the on-disk
-  // directory still list correctly.
-  const firstTopic = Object.keys(docsIndex[technology] || {})[0];
-  const kbDir = resolveKbDir(docsIndex[technology]?.[firstTopic]?.local, technology);
+  // directory still list correctly. `local` is optional — a live-only topic
+  // omits it — so scan for the first topic that has one instead of trusting
+  // whichever happens to be first.
+  const entries = Object.values(docsIndex[technology] || {});
+  const kbDir = resolveKbDir(entries.find((e) => e?.local)?.local, technology);
 
   // Git mode - fetch from cached KB
   if (ctx.kbMode === "git" && ctx.kbFetcher) {

@@ -60,17 +60,59 @@ describe('docs-index', () => {
       });
     });
 
-    it('should give every topic a local, and a well-formed url when it has one', () => {
+    // Both fields are optional, for opposite reasons: a KB-only topic has no
+    // upstream page, and a live-only topic has no KB article. Neither may be
+    // absent at the same time — that entry names nothing at all.
+    it('gives every topic a local or a url, each well-formed when present', () => {
       Object.entries(docsIndex).forEach(([tech, topics]) => {
         Object.entries(topics).forEach(([topic, entry]) => {
-          expect(entry.local, `${tech}/${topic} local`).toBeTruthy();
-          expect(entry.local, `${tech}/${topic} local`).toMatch(/\.md$/);
-          // `url` is optional: KB-only topics have no upstream page.
+          expect(
+            entry.local !== undefined || entry.url !== undefined,
+            `${tech}/${topic} has neither local nor url`
+          ).toBe(true);
+          if (entry.local !== undefined) {
+            expect(entry.local, `${tech}/${topic} local`).toBeTruthy();
+            expect(entry.local, `${tech}/${topic} local`).toMatch(/\.md$/);
+          }
           if (entry.url !== undefined) {
             expect(entry.url, `${tech}/${topic} url`).toMatch(/^https?:\/\//);
           }
         });
       });
+    });
+
+    // A topic with no `local` is a deliberate statement that the KB never wrote
+    // the article — it makes `fetch_docs` skip git mode entirely. Pin the list
+    // so one cannot appear by someone forgetting the field on a real article.
+    it('only omits local where the KB genuinely has no article', () => {
+      const localless = Object.entries(docsIndex).flatMap(([tech, topics]) =>
+        Object.entries(topics)
+          .filter(([, entry]) => entry.local === undefined)
+          .map(([topic]) => `${tech}/${topic}`)
+      );
+
+      expect(localless.sort()).toEqual([
+        'bulk-engineering/namur-ne150',
+        'github-actions/actions',
+        'mongodb/aggregation',
+        'mongodb/indexes',
+        'mongodb/queries',
+        'mysql/indexes',
+        'mysql/queries',
+        'nextjs/server-components',
+        'pinia/composables',
+        'redis/commands',
+        'redis/patterns',
+        'server-hardening/cis-benchmark',
+        'server-performance/linux-performance-tuning',
+        'tailwindcss/spacing',
+        'vite/basics',
+        'vite/build',
+        'vite/env-variables',
+        'vite/plugins',
+        'zod/basics',
+        'zod/transforms',
+      ]);
     });
   });
 
@@ -90,7 +132,10 @@ describe('docs-index', () => {
 
       withDeepDives.forEach(([tech, topics]) => {
         const overview = topics.overview;
-        const dir = overview.local.slice(0, overview.local.lastIndexOf('/'));
+        // `e()`-generated records always carry a local; that is the point of
+        // the helper, and the assertion below would be vacuous without one.
+        expect(overview.local, `${tech}/overview local`).toBeDefined();
+        const dir = overview.local!.slice(0, overview.local!.lastIndexOf('/'));
 
         Object.entries(topics).forEach(([topic, entry]) => {
           if (topic === 'overview') return;

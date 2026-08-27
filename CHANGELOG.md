@@ -280,6 +280,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **20 documentation topics paid for a KB lookup that could never succeed.**
+  Their index entries named a `local` file the knowledge base does not have — in
+  every case an article the KB simply never wrote, with the real content already
+  reachable under another topic key, so there was nothing to repoint them to. Git
+  mode sparse-checked-out the directory anyway, failed, logged
+  `[KB] Git fetch failed, falling back to live:` and served the upstream `url` —
+  the right answer, at the cost of a wasted checkout and an error line on every
+  request. `DocEntry.local` is now optional and says the same thing by absence:
+  `fetch_docs` skips git mode for a known topic that declares none, and an
+  unindexed topic still tries the key-derived path. Verified against the live KB
+  with `scripts/audit-kb-index.mjs`: real mismatches 0, orphans 0, unreachable 0.
+  One behaviour change: `list_topics` in git mode no longer enumerates a KB
+  directory for `server-performance` and `server-hardening`, whose fake `local`
+  pointed into `linux/` and made them answer with the articles `linux-server`
+  owns. (#117)
 - **An install deleted the user's own MCP servers from `.mcp.json`.** The Claude
   Code adapter was the only one that wrote its MCP config without merging, while
   `uninstall.ts` lists that same file under `SHARED_CONFIGS` and un-merges it

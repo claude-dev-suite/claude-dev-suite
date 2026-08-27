@@ -111,8 +111,8 @@ export const industrialDocs: DocsRecord = {
       local: "bulk-engineering/namur-ne148.md",
       url: "https://www.namur.net/en/recommendations/namur-recommendations/detail/ne-148.html",
     },
+    // NE 150 has no KB article, so no `local`: it is served from NAMUR.
     "namur-ne150": {
-      local: "bulk-engineering/namur-ne150.md",
       url: "https://www.namur.net/en/publications/news-archive/ne-150-is-newly-published.html",
     },
     // No url: in-house generation workflow (template conventions, chunking
