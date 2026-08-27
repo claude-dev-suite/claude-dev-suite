@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- **A custom skill's rename target was not confined to the skills directory.**
+  `updateCustomSkill` asserts its `skillId`, but `name` — the rename target —
+  went straight into `path.join` and on to `renameSync` and `writeFileSync`. The
+  update route's Zod pattern rejects a separator, so this was not reachable
+  through the API; the point is that the service was depending on its caller for
+  the guarantee the id assertion beside it exists to state. The computed path now
+  goes through `validatePathWithinBase`, which confines it without re-validating
+  the name, so every name the route accepts keeps working.
 - **A generated file could be written outside the project through a symlinked
   directory.** `codegen.service.ts` confined its writes with
   `resolvedFilePath.startsWith(resolvedProject + path.sep)`, a comparison
@@ -316,7 +324,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   One behaviour change: `list_topics` in git mode no longer enumerates a KB
   directory for `server-performance` and `server-hardening`, whose fake `local`
   pointed into `linux/` and made them answer with the articles `linux-server`
-  owns. (#117)
+  owns. Both now skip git mode outright, on the same rule `fetch_docs` applies
+  per topic — a technology none of whose topics declares a `local` has no KB
+  directory, and going anyway costs a full sparse clone that only fails the
+  directory check afterwards, with nothing caching the failure. (#117)
 - **An install deleted the user's own MCP servers from `.mcp.json`.** The Claude
   Code adapter was the only one that wrote its MCP config without merging, while
   `uninstall.ts` lists that same file under `SHARED_CONFIGS` and un-merges it

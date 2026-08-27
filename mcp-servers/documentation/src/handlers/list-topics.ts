@@ -16,10 +16,20 @@ export const handleListTopics: Handler = async (args, ctx): Promise<HandlerResul
   // omits it — so scan for the first topic that has one instead of trusting
   // whichever happens to be first.
   const entries = Object.values(docsIndex[technology] || {});
-  const kbDir = resolveKbDir(entries.find((e) => e?.local)?.local, technology);
+  const kbLocal = entries.find((e) => e?.local)?.local;
+  const kbDir = resolveKbDir(kbLocal, technology);
+
+  // Same rule `fetch_docs` applies per topic: a technology the index describes,
+  // none of whose topics declares a `local`, has no KB directory to list. Going
+  // to git mode anyway costs a full `git clone --depth 1 --sparse` that only
+  // fails at the `fs.access` check *after* cloning — and nothing caches that
+  // failure, so it is paid again on every call. A technology the index does not
+  // describe at all still tries the key-derived path, which is how a KB
+  // directory the index has not caught up with stays listable.
+  const hasKbArticles = entries.length === 0 || kbLocal !== undefined;
 
   // Git mode - fetch from cached KB
-  if (ctx.kbMode === "git" && ctx.kbFetcher) {
+  if (ctx.kbMode === "git" && ctx.kbFetcher && hasKbArticles) {
     try {
       const files = await ctx.kbFetcher.fetch(kbDir);
       const versions = ctx.versionResolver

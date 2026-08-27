@@ -96,4 +96,21 @@ describe("list_topics KB directory resolution", () => {
 
     expect(fetch).toHaveBeenCalledWith("tailwind");
   });
+
+  it("skips the KB for a technology no topic of which declares a local", async () => {
+    // `server-hardening` is a single-topic key with no KB article. Its `local`
+    // used to name a file under `linux/` that never existed — the file was
+    // missing but the *directory* was real, so the fetch succeeded and listed
+    // articles belonging to `linux-server`. With the fake `local` gone, going to
+    // git mode would clone the whole KB only to fail the `fs.access` check, with
+    // nothing caching the failure — once per call.
+    expect(Object.values(docsIndex["server-hardening"]).some((e) => e.local)).toBe(false);
+
+    const { ctx, fetch } = gitCtx();
+    const body = parse(await handleListTopics({ technology: "server-hardening" }, ctx));
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(body.mode).toBe("live_only");
+    expect(body.topics).toEqual(["cis-benchmark"]);
+  });
 });

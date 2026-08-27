@@ -28,6 +28,7 @@ import { CustomAgentFrontmatterSchema } from '../validation/schemas.js';
 import {
   VALID_COMPONENT_NAME,
   assertValidComponentId,
+  validatePathWithinBase,
 } from './installation/security-helpers.js';
 
 /**
@@ -262,7 +263,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(agentId, 'agent ID');
+    agentId = assertValidComponentId(agentId, 'agent ID');
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -403,7 +404,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(agentId, 'agent ID');
+    agentId = assertValidComponentId(agentId, 'agent ID');
     // Check if agent exists
     const existingAgent = await this.getCustomAgent(projectPath, agentId);
     if (!existingAgent) {
@@ -495,7 +496,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(agentId, 'agent ID');
+    agentId = assertValidComponentId(agentId, 'agent ID');
     const filePath = path.join(this.getCustomAgentsDir(projectPath), `${agentId}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -580,7 +581,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(skillId, 'skill ID');
+    skillId = assertValidComponentId(skillId, 'skill ID');
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
     const skillMdPath = path.join(skillDir, 'SKILL.md');
 
@@ -698,7 +699,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(skillId, 'skill ID');
+    skillId = assertValidComponentId(skillId, 'skill ID');
     const skillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
 
     if (!fs.existsSync(skillDir)) {
@@ -741,7 +742,7 @@ export class CustomAgentsService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(skillId, 'skill ID');
+    skillId = assertValidComponentId(skillId, 'skill ID');
 
     const oldSkillDir = path.join(this.getCustomSkillsDir(projectPath), skillId);
     if (!fs.existsSync(oldSkillDir)) {
@@ -763,7 +764,20 @@ export class CustomAgentsService {
       };
     }
 
-    const newSkillDir = path.join(this.getCustomSkillsDir(projectPath), name);
+    // `skillId` is asserted above, but `name` is the rename *target* and reaches
+    // `renameSync` and `writeFileSync` by exactly the same route. The Zod pattern
+    // on the update route already rejects a separator, so this is defence in
+    // depth rather than a live hole — the point is that the service must not
+    // depend on its caller for that, which is the invariant the id assertion
+    // above exists to state. Confining the computed path rather than
+    // re-validating the name keeps every currently-accepted name working.
+    const skillsDir = this.getCustomSkillsDir(projectPath);
+    let newSkillDir: string;
+    try {
+      newSkillDir = validatePathWithinBase(path.join(skillsDir, name), skillsDir, false);
+    } catch {
+      return { success: false, error: `Invalid skill name '${name}'` };
+    }
     const isRename = skillId !== name;
 
     try {
