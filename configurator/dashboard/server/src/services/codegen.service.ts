@@ -16,6 +16,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
+import { validatePathWithinBase } from './installation/security-helpers.js';
 import { getLogger } from '../utils/logger.js';
 import type {
   CodeGenTechnology,
@@ -538,17 +539,32 @@ export class CodeGenService {
           ? file.path
           : path.join(baseOutputDir, ...trimmed);
 
-        const rootWithSep = resolvedProject.endsWith(path.sep) ? resolvedProject : resolvedProject + path.sep;
-        if (resolvedFilePath.includes('..') || (!resolvedFilePath.startsWith(rootWithSep) && resolvedFilePath !== resolvedProject)) {
-          logger.warn('Skipping file outside project boundary', { data: { filePath: resolvedFilePath } });
+        // The shared guard rather than a hand-rolled prefix comparison. Both
+        // reject lexical traversal and confine the write to the project, but
+        // `startsWith(root + sep)` compares un-canonicalised paths: a symlinked
+        // intermediate directory satisfies the prefix and still redirects the
+        // write outside. `validatePathWithinBase` realpaths the deepest existing
+        // ancestor before deciding, and refuses a path it cannot canonicalise.
+        // It is also the function `barrierModel` names, so the sink below is
+        // recognisably guarded instead of reading as an unchecked write.
+        let safeFilePath: string;
+        try {
+          // allowBase: false — the project root is a directory; a generated file
+          // resolving to it exactly is nothing this should try to write.
+          safeFilePath = validatePathWithinBase(resolvedFilePath, resolvedProject, false);
+        } catch (err) {
+          logger.warn('Skipping file outside project boundary', {
+            error: err,
+            data: { filePath: resolvedFilePath },
+          });
           skipped.push(file.path);
           continue;
         }
 
-        fs.mkdirSync(path.dirname(resolvedFilePath), { recursive: true });
-        fs.writeFileSync(resolvedFilePath, file.content, 'utf-8');
-        written.push(resolvedFilePath);
-        logger.debug('Written file', { data: { path: resolvedFilePath } });
+        fs.mkdirSync(path.dirname(safeFilePath), { recursive: true });
+        fs.writeFileSync(safeFilePath, file.content, 'utf-8');
+        written.push(safeFilePath);
+        logger.debug('Written file', { data: { path: safeFilePath } });
       } catch (err) {
         logger.error('Failed to write file', { error: err, data: { filePath: file.path } });
         skipped.push(file.path);

@@ -80,5 +80,19 @@ extensions:
       # caller checks for null before using it.
       - ["file:configurator/dashboard/server/src/services/installation/uninstall.ts", "Member[resolveInsideProject].ReturnValue", "path-injection"]
 
+      # assertValidComponentId(id, label) — throws unless the id matches
+      # VALID_COMPONENT_NAME, `^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`. No separator,
+      # no dot, so the result is a single path segment by construction; this is
+      # the guard added for the traversals fixed in dd0ec86.
+      #
+      # It used to return void, which no data extension can attach to —
+      # `barrierModel` marks a node, and an assertion produces none, while
+      # marking `Argument[0]` would not help because the flow continues from the
+      # variable rather than the call. It returns the validated id now, and the
+      # callers that build a path assign it back, so the value at the sink is
+      # the one this checked.
+      - ["file:configurator/dashboard/server/src/services/installation/security-helpers.ts", "Member[assertValidComponentId].ReturnValue", "path-injection"]
+      - ["file:configurator/dashboard/server/src/services/installation/index.ts", "Member[assertValidComponentId].ReturnValue", "path-injection"]
+
       # resolveProjectPath(raw) — see the threat-model note above.
       - ["file:configurator/dashboard/server/src/utils/utilities.ts", "Member[resolveProjectPath].ReturnValue", "path-injection"]

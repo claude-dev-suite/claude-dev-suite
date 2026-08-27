@@ -41,7 +41,10 @@ function focus(description) {
   const stop = flat.search(/\.\s|\.$/);
   let sentence = stop > 0 ? flat.slice(0, stop) : flat;
   if (sentence.length > 130) sentence = sentence.slice(0, 127).replace(/\s+\S*$/, '') + '…';
-  return sentence.replace(/\|/g, '\\|');
+  // Backslashes first: escaping `|` with a backslash while leaving existing
+  // backslashes alone turns a description's `\|` into `\\|`, which markdown
+  // renders as a literal backslash followed by a column break.
+  return sentence.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 }
 
 function render(agents) {

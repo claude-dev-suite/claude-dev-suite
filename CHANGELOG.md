@@ -10,6 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- **A generated file could be written outside the project through a symlinked
+  directory.** `codegen.service.ts` confined its writes with
+  `resolvedFilePath.startsWith(resolvedProject + path.sep)`, a comparison
+  between paths neither of which had been canonicalised — an intermediate
+  directory that is a symlink satisfies the prefix and redirects the write
+  anyway. It now goes through `validatePathWithinBase`, the same guard the
+  installation pipeline uses, which realpaths the deepest existing ancestor
+  before deciding and refuses a path it cannot canonicalise. The write uses the
+  value the guard returned, not the one it was handed.
 - **Two path traversals reaching destructive filesystem calls.** Custom
   agent/skill ids (`agentId`, `skillId`) were validated on the *create* path and
   nowhere else, so `DELETE /api/custom-skills/..%2F..%2Fsrc` reached a recursive
@@ -280,6 +289,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **The agent reference generator did not escape backslashes.** `focus()`
+  escaped `|` for the markdown table but left existing backslashes alone, so a
+  description containing `\|` became `\\|` — a literal backslash followed by a
+  column break. No current agent description reaches it, so the generated README
+  section is unchanged; the escaping is now correct for the one that will.
+  (CodeQL `js/incomplete-sanitization`)
+- **`assertValidComponentId` now returns the id it validated.** It returned
+  void, and `js/path-injection` follows the variable rather than the call, so
+  the guard was invisible to CodeQL and every `path.join` fed by an agent id or
+  server name in `management.service.ts` read as an unchecked write. The four
+  call sites there assign the result back, and the validator is named as a
+  barrier alongside the others. The check itself is unchanged; the value at the
+  sink is now demonstrably the checked one.
 - **20 documentation topics paid for a KB lookup that could never succeed.**
   Their index entries named a `local` file the knowledge base does not have — in
   every case an article the KB simply never wrote, with the real content already

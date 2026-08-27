@@ -132,7 +132,7 @@ export class ManagementService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(agentId, 'agent ID');
+    agentId = assertValidComponentId(agentId, 'agent ID');
     const devSuiteDir = getDevSuiteDir();
     const agentFile = this.findAgentFile(path.join(devSuiteDir, 'agents'), agentId + '.md');
 
@@ -234,7 +234,7 @@ export class ManagementService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(agentId, 'agent ID');
+    agentId = assertValidComponentId(agentId, 'agent ID');
     const paths = targetPaths(projectPath);
     const agentPath = paths.agentFile(agentId);
 
@@ -291,7 +291,7 @@ export class ManagementService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(serverName, 'server name');
+    serverName = assertValidComponentId(serverName, 'server name');
 
     const devSuiteDir = getDevSuiteDir();
     const serverSource = path.join(devSuiteDir, 'mcp-servers', serverName);
@@ -332,7 +332,7 @@ export class ManagementService {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    assertValidComponentId(serverName, 'server name');
+    serverName = assertValidComponentId(serverName, 'server name');
 
     const paths = targetPaths(projectPath);
     const serverDir = paths.mcpServerDir(serverName);
