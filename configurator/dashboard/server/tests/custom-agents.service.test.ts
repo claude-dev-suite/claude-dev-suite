@@ -976,6 +976,26 @@ Execute directly.
       expect(result.success).toBe(false);
       expect(result.error).toMatch(/already exists/i);
     });
+
+    // `skillId` is asserted at the top of the method; `name` is the rename
+    // target and reaches `renameSync`/`writeFileSync` the same way. The update
+    // route's Zod pattern rejects a separator, so this is the service refusing
+    // to depend on its caller rather than a reachable traversal.
+    it('refuses a rename target that escapes the custom skills directory', async () => {
+      await service.createCustomSkill(projectDir, 'escape-me', validSkillContent(), true);
+      const skillDir = path.join(projectDir, '.claude', 'skills', 'custom', 'escape-me');
+
+      const result = await service.updateCustomSkill(
+        projectDir, 'escape-me', '../../../pwned', validSkillContent(), true
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/invalid skill name/i);
+      // Nothing moved, and nothing was written outside the skills directory.
+      expect(fs.existsSync(skillDir)).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'pwned'))).toBe(false);
+      expect(fs.existsSync(path.join(projectDir, '.claude', 'pwned'))).toBe(false);
+    });
   });
 
   // =========================================================================
