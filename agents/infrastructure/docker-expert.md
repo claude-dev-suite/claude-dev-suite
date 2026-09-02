@@ -6,12 +6,12 @@ description: |
   unless explicitly asked for analysis only.
 model: haiku
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - infrastructure/docker
+extended_skills:
   - infrastructure/docker-compose
   - infrastructure/kubernetes
   - ci-cd/github-actions
-  # Container security hardening
   - security/container-security
 ---
 

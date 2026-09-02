@@ -5,8 +5,9 @@ description: |
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - languages/go
+extended_skills:
   - backend-frameworks/gin
   - backend-frameworks/fiber
   - backend-frameworks/echo
@@ -14,7 +15,6 @@ skills:
   - api-design/rest-api
   - api-design/grpc
   - testing/go-testing
-  # Production patterns
   - api-design/webhooks
   - api-design/pagination
   - best-practices/error-handling

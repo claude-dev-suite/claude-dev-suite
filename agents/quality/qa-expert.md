@@ -5,11 +5,11 @@ description: |
   Executes quality fixes directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Grep, Glob, Bash, mcp__documentation__*, mcp__code-quality__*
-skills:
+core_skills:
   - quality/common
+extended_skills:
   - quality/sonarqube
   - best-practices/clean-code
-  # Language-specific quality skills (load based on project stack)
   - quality/typescript-quality
   - quality/java-quality
   - quality/python-quality
@@ -18,9 +18,7 @@ skills:
   - quality/dotnet-quality
   - quality/php-quality
   - quality/kotlin-quality
-  # AI-generated code review
   - security/ai-code-security
-  # Testing strategies
   - testing/load-testing
   - testing/contract-testing
   - testing/jest

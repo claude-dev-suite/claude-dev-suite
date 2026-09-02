@@ -54,12 +54,22 @@ export function detectConflicts(
       if (settings?.hooks?.[config.event]) {
         // Check if a similar hook already exists
         const existingHooks = settings.hooks[config.event] ?? [];
+        // The matcher alone is not an identity: on `Stop` no entry has one, so
+        // every existing hook looked like a duplicate of the one being applied
+        // and the user was told to skip an upgrade that conflicts with nothing.
+        // The command (or prompt) is what makes two entries the same hook.
+        const incomingCommand = (config.config.hooks ?? [])[0];
         const hasSimilar = existingHooks.some((h: unknown) => {
-          if (typeof h === 'object' && h !== null) {
-            const hook = h as { matcher?: string };
-            return hook.matcher === config.config.matcher;
-          }
-          return false;
+          if (typeof h !== 'object' || h === null) return false;
+          const hook = h as { matcher?: string; hooks?: unknown[] };
+          if ((hook.matcher ?? '') !== (config.config.matcher ?? '')) return false;
+          if (typeof incomingCommand !== 'string') return true;
+          const first = Array.isArray(hook.hooks) ? hook.hooks[0] : undefined;
+          const existingCommand =
+            typeof first === 'string'
+              ? first
+              : (first as { command?: string } | undefined)?.command;
+          return existingCommand === incomingCommand;
         });
 
         if (hasSimilar) {

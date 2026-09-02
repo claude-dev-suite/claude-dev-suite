@@ -79,7 +79,11 @@ export class CopilotAdapter implements TargetAdapter {
     );
 
     const installedAgents = plan.agentCatalog.filter(a => manifest.agents.includes(a.id));
-    const ruleFiles = writePathScopedRules('copilot', installedAgents, projectPath, plan.previouslyManaged);
+    const ruleResult = writePathScopedRules('copilot', installedAgents, projectPath, plan.previouslyManaged, {
+      previousHashes: plan.previousFileHashes,
+      sectionHashes: plan.previousSectionHashes,
+      acknowledgedHashes: plan.acknowledgedFileHashes,
+    });
 
     if (plan.rules.length > 0) {
       skipped.push({
@@ -96,7 +100,7 @@ export class CopilotAdapter implements TargetAdapter {
       reason: 'agent definitions reach Copilot in VS Code (it reads .claude/agents); the Copilot CLI reads only .github/agents/*.agent.md, which is not generated — CLI routing comes from AGENTS.md',
     });
 
-    return { ruleFiles, validatorHookConfigured: false, skipped };
+    return { ruleFiles: [...ruleResult.written, ...ruleResult.drifted], driftedRuleFiles: ruleResult.drifted, validatorHookConfigured: false, skipped };
   }
 
   /**

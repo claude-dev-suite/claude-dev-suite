@@ -195,6 +195,71 @@ describe('applyHookMerge', () => {
     expect(tracked[0]?.hash).not.toBe(calculateFileHash(oldContent));
   });
 
+  describe('matcher-less events (Stop)', () => {
+    // `Stop` takes no matcher, so every entry on it has `matcher: undefined`.
+    // Replacing "the entry with the same matcher" therefore matched the FIRST
+    // Stop hook present — the integration validator, another feature, or the
+    // user's own — and overwrote it in place, with no error and no report,
+    // while the manifest still claimed the overwritten feature was installed.
+    const settingsPath = () => path.join(tempDir, '.claude', 'settings.json');
+    const readStop = () =>
+      (JSON.parse(fs.readFileSync(settingsPath(), 'utf-8')) as {
+        hooks?: { Stop?: Array<{ hooks?: Array<{ command?: string; prompt?: string }> }> };
+      }).hooks?.Stop ?? [];
+
+    const seedStopHook = (command: string) => {
+      fs.mkdirSync(path.join(tempDir, '.claude'), { recursive: true });
+      fs.writeFileSync(
+        settingsPath(),
+        JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command }] }] } })
+      );
+    };
+
+    it('appends beside an existing matcher-less Stop hook instead of replacing it', () => {
+      seedStopHook('node .claude/hooks/integration-validate.mjs warn');
+      const feature = makeHookFeature({
+        event: 'Stop',
+        config: { hooks: ['echo smoke-test'] },
+      });
+
+      const result = applyHookMerge(tempDir, feature, makeManifest(tempDir), registry, hooksService);
+
+      expect(result.success).toBe(true);
+      const stop = readStop();
+      expect(stop).toHaveLength(2);
+      expect(stop[0]?.hooks?.[0]?.command).toBe('node .claude/hooks/integration-validate.mjs warn');
+      expect(stop[1]?.hooks?.[0]?.command).toBe('echo smoke-test');
+    });
+
+    it('does not stack a second copy when the same feature is applied twice', () => {
+      // The reason the replace-in-place behaviour exists: re-running an upgrade
+      // must not fire the same hook twice per event.
+      const feature = makeHookFeature({
+        event: 'Stop',
+        config: { hooks: ['echo smoke-test'] },
+      });
+      fs.mkdirSync(path.join(tempDir, '.claude'), { recursive: true });
+      fs.writeFileSync(settingsPath(), '{}');
+
+      applyHookMerge(tempDir, feature, makeManifest(tempDir), registry, hooksService);
+      applyHookMerge(tempDir, feature, makeManifest(tempDir), registry, hooksService);
+
+      expect(readStop()).toHaveLength(1);
+    });
+
+    it('keeps two different Stop features side by side', () => {
+      fs.mkdirSync(path.join(tempDir, '.claude'), { recursive: true });
+      fs.writeFileSync(settingsPath(), '{}');
+      const smoke = makeHookFeature({ event: 'Stop', config: { hooks: ['echo smoke'] } }, { id: 'smoke-test-hook' });
+      const pytest = makeHookFeature({ event: 'Stop', config: { hooks: ['echo pytest'] } }, { id: 'pytest-smoke-hook' });
+
+      applyHookMerge(tempDir, smoke, makeManifest(tempDir), registry, hooksService);
+      applyHookMerge(tempDir, pytest, makeManifest(tempDir), registry, hooksService);
+
+      expect(readStop()).toHaveLength(2);
+    });
+  });
+
   it('handles integration-validator-hook via HooksService (success, configured)', () => {
     const feature = makeHookFeature(
       { target: '.claude/settings.json', event: 'PostToolUse', config: {} },

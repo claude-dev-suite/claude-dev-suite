@@ -22,13 +22,13 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import {
-  buildSkillIndex,
   checkSkillInvocable,
-  loadQuickRefBody,
+  resolveQuickRefPath,
   resolveSkillPath as resolveSkillPathLib,
   resolveSkillsDir,
-  type SkillEntry,
 } from "./lib.js";
+import { SkillIndex, DEFAULT_INDEX_TTL_MS } from "./skill-index.js";
+import { TtlCache } from "./ttl-cache.js";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -61,47 +61,21 @@ console.error(
 );
 
 // ---------------------------------------------------------------------------
-// In-memory cache with TTL
+// Skill index
 // ---------------------------------------------------------------------------
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = DEFAULT_INDEX_TTL_MS; // 5 minutes
 
-interface CacheEntry<T> {
-  value: T;
-  expiresAt: number;
-}
+/**
+ * Built once before the transport is connected, then refreshed in the
+ * background. Walking the skills tree is synchronous and takes hundreds of
+ * milliseconds, so doing it on a request path stalls every other request the
+ * SDK has already dispatched into this process.
+ */
+const skillIndex = new SkillIndex(SKILLS_DIR, { ttlMs: CACHE_TTL_MS });
 
-class TtlCache<T> {
-  private store = new Map<string, CacheEntry<T>>();
-
-  get(key: string): T | undefined {
-    const entry = this.store.get(key);
-    if (!entry) return undefined;
-    if (Date.now() > entry.expiresAt) {
-      this.store.delete(key);
-      return undefined;
-    }
-    return entry.value;
-  }
-
-  set(key: string, value: T): void {
-    this.store.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Index builder (cached wrapper around lib.buildSkillIndex)
-// ---------------------------------------------------------------------------
-
-const indexCache = new TtlCache<SkillEntry[]>();
-const INDEX_CACHE_KEY = "__index__";
-
-function buildIndex(): SkillEntry[] {
-  const cached = indexCache.get(INDEX_CACHE_KEY);
-  if (cached) return cached;
-  const entries = buildSkillIndex(SKILLS_DIR);
-  indexCache.set(INDEX_CACHE_KEY, entries);
-  return entries;
+function buildIndex() {
+  return skillIndex.get();
 }
 
 /**
@@ -116,7 +90,13 @@ function resolveSkillPath(skillPath: string): string {
 // File read with cache
 // ---------------------------------------------------------------------------
 
-const fileCache = new TtlCache<string>();
+/**
+ * Bounded: a long session that touched hundreds of skill bodies used to hold
+ * every one of them for the life of the process, in the server whose whole
+ * point is not keeping skills resident.
+ */
+const MAX_CACHED_FILES = 128;
+const fileCache = new TtlCache<string>(CACHE_TTL_MS, MAX_CACHED_FILES);
 
 function readCached(filePath: string): string {
   const cached = fileCache.get(filePath);
@@ -390,11 +370,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new Error("ref is required and must be a non-empty string");
       }
 
-      // loadQuickRefBody handles ref validation, path resolution, and read.
-      // It does an uncached read; for the production hot-path we keep the
-      // cache below by using readCached on the resolved file when the lib
-      // returns successfully. Simpler: just delegate (uncached read).
-      const content = loadQuickRefBody(skillPath.trim(), ref, SKILLS_DIR);
+      // Validation and path resolution stay in lib; the read goes through the
+      // same cache as load_skill, which this handler used to bypass entirely.
+      const refFile = resolveQuickRefPath(skillPath.trim(), ref, SKILLS_DIR);
+      const content = readCached(refFile);
 
       return {
         content: [
@@ -420,6 +399,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 });
+
+// Build the catalog before accepting requests, so the walk is never charged
+// to an agent's first tool call.
+const indexStart = Date.now();
+skillIndex.ensureBuilt();
+console.error(
+  `[skill-loader] Indexed ${buildIndex().length} skills in ${Date.now() - indexStart}ms`,
+);
 
 // Start server
 const transport = new StdioServerTransport();

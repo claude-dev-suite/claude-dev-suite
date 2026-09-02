@@ -6,8 +6,9 @@ description: |
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - desktop/tauri
+extended_skills:
   - languages/typescript
   - build-tools/vite
   - frontend-frameworks/svelte

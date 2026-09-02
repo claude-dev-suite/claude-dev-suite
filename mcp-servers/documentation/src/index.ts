@@ -6,6 +6,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import path from "path";
+import os from "os";
 import { fileURLToPath } from "url";
 import { KBCache } from "./kb-cache.js";
 import { KBFetcher } from "./kb-fetcher.js";
@@ -20,7 +21,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_KB_REPO = "https://github.com/claude-dev-suite/knowledge_base.git";
 const KB_REPO_URL = process.env.KB_REPO_URL || DEFAULT_KB_REPO;
 const KB_REPO_BRANCH = process.env.KB_REPO_BRANCH || "main";
-const KB_CACHE_PATH = process.env.KB_CACHE_PATH || path.join(process.cwd(), ".kb-cache");
+// Per-user cache directory, which is what `metadata.json` has always promised.
+// The default used to be `process.cwd()/.kb-cache`, so every project re-cloned
+// the whole knowledge base into its own tree — and, since the server's cwd is
+// whatever the host launched it from, the same project could end up with
+// several disjoint caches. One shared location per user fixes both.
+const KB_CACHE_PATH =
+  process.env.KB_CACHE_PATH || path.join(os.homedir(), ".dev-suite", "kb-cache");
 const KB_CACHE_TTL = parseInt(process.env.KB_CACHE_TTL || "7200", 10); // 2 hours default
 
 // Initialize on-demand KB fetcher (Git-based, no bundled fallback)

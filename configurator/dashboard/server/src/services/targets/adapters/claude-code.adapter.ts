@@ -22,6 +22,10 @@ import { getLogger } from '../../../utils/logger.js';
 import type { InstallManifest } from '../../../types.js';
 import type { ExtendedManifest } from '../../../types/index.js';
 import { HooksService } from '../../hooks.service.js';
+import {
+  INTEGRATION_VALIDATOR_MARK_SCRIPT,
+  INTEGRATION_VALIDATOR_DECIDE_SCRIPT,
+} from '../../hooks/hooks.constants.js';
 import { trackManifestFile } from '../../installation/manifest-tracking.js';
 import { validatePathWithinBase } from '../../installation/security-helpers.js';
 import { writeMergedMcpConfig } from '../../installation/mcp-config-file.js';
@@ -36,6 +40,9 @@ import type {
 } from '../target-adapter.js';
 
 const logger = getLogger('ClaudeCodeAdapter');
+
+/** The agent the integration-validation hook tells the session to delegate to. */
+const VALIDATOR_AGENT_ID = 'integration-validator-expert';
 
 export class ClaudeCodeAdapter implements TargetAdapter {
   readonly id = 'claude-code' as const;
@@ -82,9 +89,13 @@ export class ClaudeCodeAdapter implements TargetAdapter {
     );
 
     const installedAgents = plan.agentCatalog.filter(a => manifest.agents.includes(a.id));
-    const ruleFiles = writePathScopedRules('claude-code', installedAgents, projectPath, plan.previouslyManaged);
+    const ruleResult = writePathScopedRules('claude-code', installedAgents, projectPath, plan.previouslyManaged, {
+      previousHashes: plan.previousFileHashes,
+      sectionHashes: plan.previousSectionHashes,
+      acknowledgedHashes: plan.acknowledgedFileHashes,
+    });
 
-    return { ruleFiles, validatorHookConfigured, skipped };
+    return { ruleFiles: [...ruleResult.written, ...ruleResult.drifted], driftedRuleFiles: ruleResult.drifted, validatorHookConfigured, skipped };
   }
 
   /** Copy selected rule templates into the target's rules directory. */
@@ -131,13 +142,36 @@ export class ClaudeCodeAdapter implements TargetAdapter {
   ): boolean {
     if (!detectedStack) return false;
 
+    // The hook's whole message is "delegate to `integration-validator-expert`".
+    // If that agent was not selected, the instruction names something the
+    // session cannot invoke — verified in a real run, where the model reported
+    // the agent missing and validated by hand instead. Better to install
+    // nothing than to install a broken instruction.
+    if (!manifest.agents.includes(VALIDATOR_AGENT_ID)) {
+      logger.info('Skipped integration validation: its agent is not installed', {
+        context: { projectPath, agent: VALIDATOR_AGENT_ID },
+      });
+      return false;
+    }
+
     const hookResult = this.hooksService.configureIntegrationValidatorHook(projectPath, detectedStack);
     if (!hookResult.configured) return false;
 
     manifest.files.push({ path: paths.relSettingsFile, type: 'config', source: 'generated' });
     trackManifestFile(extendedManifest, projectPath, paths.relSettingsFile, 'config');
+
+    // Track the scripts too. They were written but never recorded, so uninstall
+    // walked past them and a reinstall could not tell they were ours.
+    for (const script of [INTEGRATION_VALIDATOR_MARK_SCRIPT, INTEGRATION_VALIDATOR_DECIDE_SCRIPT]) {
+      const rel = `${paths.relConfigDir}/hooks/${script}`;
+      manifest.files.push({ path: rel, type: 'config', source: 'generated' });
+      trackManifestFile(extendedManifest, projectPath, rel, 'config');
+    }
+
     extendedManifest.features['integration-validator-hook'] = {
-      version: '1.0.0',
+      // 2.0.0 marks the move off the SubagentStop prompt hook. The upgrade path
+      // keys migration off this version, so it must not silently stay at 1.0.0.
+      version: '2.0.0',
       appliedAt: new Date().toISOString(),
     };
     logger.info('Integration validator hook configured', { context: { projectPath } });

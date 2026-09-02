@@ -90,13 +90,19 @@ for (const id of Object.keys(bundles)) bundleIds.add(id);
 const agents = [];
 for (const file of agentFiles) {
   const rel = path.relative(ROOT, file);
-  const fm = parseFrontmatter(fs.readFileSync(file, 'utf-8'));
+  const content = fs.readFileSync(file, 'utf-8');
+  const fm = parseFrontmatter(content);
   if (!fm || !fm.name) {
     err(`${rel}: missing frontmatter or frontmatter "name"`);
     continue;
   }
+  // Everything after the closing `---`. The body is what the model is told to
+  // do; the frontmatter is what it is allowed to do. The gates below check the
+  // two agree.
+  const fmBlock = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  const body = fmBlock ? content.slice(fmBlock[0].length) : content;
   agentNames.add(fm.name);
-  agents.push({ rel, fm });
+  agents.push({ rel, fm, body });
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +268,72 @@ for (const ws of workspaces) {
 }
 
 // ---------------------------------------------------------------------------
+// Body-vs-tools consistency.
+//
+// `allowed-tools` is an allowlist, so an instruction the body gives that needs
+// a tool the frontmatter withholds is simply inert — and inert silently. Three
+// agents shipped that way: react-expert and vue-expert were both told to run
+// `npx vitest run` and re-run until green with no `Bash`, and
+// integration-validator-expert's entire delegate-fix-then-revalidate loop had
+// `Task` but no `Bash` on either end of it.
+//
+// False-positive control: fenced code blocks are stripped before matching.
+// A command inside a fence is very often illustrative — a snippet the agent is
+// meant to *write into a file*, or to show the user — whereas a real
+// instruction to execute reads as prose ("Run the tests", "use ESLint via
+// Bash", "delegate fix ... via Task"). Inline code spans are deliberately NOT
+// stripped: "run `npm test` first" is prose carrying a code span, and is
+// exactly what this gate exists to catch. The pattern set is intentionally
+// small and literal for the same reason — it is a tripwire for the phrasing the
+// fleet actually uses, not a general intent classifier.
+// ---------------------------------------------------------------------------
+
+{
+  const stripFences = (text) => text.replace(/```[\s\S]*?```/g, '');
+  const EXEC_RE = /npm run|npm test|pytest|npx |via Bash|Run the tests/i;
+  const DELEGATE_RE = /via Task|delegate fix|subagent_type/i;
+
+  /** `allowed-tools` is a flat comma-separated allowlist; compare whole tokens. */
+  const toolSet = (fm) =>
+    new Set(
+      String(fm['allowed-tools'] ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+    );
+
+  for (const { rel, fm, body } of agents) {
+    // Gate 3 — no unrestricted-by-omission agents. Without `allowed-tools` a
+    // subagent inherits every tool the session has, including Bash and Task,
+    // which is a permission grant nobody wrote down.
+    if (fm['allowed-tools'] === undefined) {
+      err(`${rel}: no "allowed-tools" — an agent without an allowlist inherits every tool`);
+      continue;
+    }
+
+    const tools = toolSet(fm);
+    const prose = stripFences(body ?? '');
+
+    // Gate 1 — body says "execute", frontmatter withholds Bash.
+    const exec = prose.match(EXEC_RE);
+    if (exec && !tools.has('Bash')) {
+      err(
+        `${rel}: body instructs execution (matched "${exec[0].trim()}") but allowed-tools has no Bash — ` +
+          `grant Bash, or remove the instruction and defer to verification-runner`
+      );
+    }
+
+    // Gate 2 — body says "delegate", frontmatter withholds Task.
+    const delegate = prose.match(DELEGATE_RE);
+    if (delegate && !tools.has('Task')) {
+      err(
+        `${rel}: body describes delegation (matched "${delegate[0].trim()}") but allowed-tools has no Task`
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Agent `model:` values. The field drives real cost per invocation and is
 // passed through to installed agents verbatim, but nothing validated it — a
 // typo shipped silently.
@@ -275,6 +347,13 @@ for (const ws of workspaces) {
     if (model === undefined) continue;
     if (!VALID_MODELS.has(String(model).trim())) {
       err(`${rel}: model "${model}" is not one of sonnet|opus|haiku`);
+    }
+    // Gate 4 — sonnet is the fleet default; anything else is a per-invocation
+    // cost or capability decision that should carry its reason in the file.
+    // A warning, not an error: the rationale is documentation, and inventing
+    // one to silence CI would be worse than the gap it papers over.
+    if (String(model).trim() !== 'sonnet' && fm.model_rationale === undefined) {
+      warn(`${rel}: model "${model}" differs from the sonnet default but declares no "model_rationale"`);
     }
   }
 }

@@ -856,7 +856,7 @@ Control the dashboard and orchestrator from Claude Code.
 
 <!-- BEGIN GENERATED: agents-reference -->
 
-Dev-suite ships **66 agents** across **15 categories**. Claude Code routes
+Dev-suite ships **67 agents** across **15 categories**. Claude Code routes
 to them automatically from the generated `AGENTS.md`; you can also call one by name.
 
 Skill assignments are omitted here because most agents carry dozens — see
@@ -871,7 +871,7 @@ per-agent skill and MCP breakdown. Both files are generated from agent frontmatt
 | **architect** | sonnet | Software architect for system design across domains — not just web/enterprise | `api-explorer`, `documentation` |
 | **claude-code-extension-expert** | sonnet | Creates and improves Claude Code extensions: skills, agents, hooks, MCP servers, and plugins | — |
 | **code-reviewer** | sonnet | Code review expert for quality, security, and best practices | `code-quality`, `documentation` |
-| **dashboard-refactor-expert** | default | Expert in rewriting the configurator dashboard | `code-quality`, `documentation` |
+| **dashboard-refactor-expert** | sonnet | Expert in rewriting the configurator dashboard | `code-quality`, `documentation` |
 | **documentation-expert** | haiku | Technical documentation expert | `documentation` |
 | **log-analyst** | haiku | Log analysis specialist for Spring Boot, Node.js, and Python applications | `documentation`, `log-analyzer` |
 | **nodejs-expert** | sonnet | Node.js runtime expert | `documentation`, `log-analyzer`, `performance-profiler` |
@@ -970,6 +970,7 @@ per-agent skill and MCP breakdown. Both files are generated from agent frontmatt
 | **integration-validator-expert** | sonnet | API integration validator with feedback loop orchestration | `api-explorer`, `documentation` |
 | **open-source-expert** | sonnet | Open source readiness expert for project configuration, licensing, community health, and compliance | `code-quality`, `documentation` |
 | **qa-expert** | sonnet | Quality Assurance expert for code quality, static analysis, and best practices | `code-quality`, `documentation` |
+| **verification-runner** | default | Runs the project's own verification commands — build, test, lint, type-check — and reports the raw output | — |
 
 ### Game Development
 

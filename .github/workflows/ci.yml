@@ -46,6 +46,11 @@ jobs:
       - name: Validate component frontmatter
         run: node scripts/validate-frontmatter.mjs
 
+      # Without this, an unmarked credential in metadata.json is written into MCP
+      # config files that the narrowed .gitignore block no longer covers.
+      - name: Validate MCP env secret flags
+        run: node scripts/validate-env-secrets.mjs
+
       - name: Check shared type sync
         run: node scripts/check-type-sync.mjs
 

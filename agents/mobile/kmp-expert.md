@@ -9,12 +9,13 @@ description: |
   unless explicitly asked for analysis only.
 model: opus
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
+  - mobile/kotlin-multiplatform
   - languages/kotlin
+extended_skills:
   - languages/swift
   - languages/uniffi
   - languages/java-foreign
-  - mobile/kotlin-multiplatform
   - frontend-frameworks/compose-multiplatform
   - build-tools/gradle-kmp
   - build-tools/rust-cross-compile

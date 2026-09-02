@@ -43,7 +43,8 @@
       "name": "ORCHESTRATOR_WS_TOKEN",
       "description": "Shared secret a client must present to drive the orchestrator WebSocket. Generated per process and printed to stderr when unset.",
       "default": "",
-      "required": false
+      "required": false,
+      "secret": true
     },
     {
       "name": "ORCHESTRATOR_WS_HOST",

@@ -13,6 +13,31 @@ vi.mock('../../src/services/reinstall.service.js');
 
 const PROJECT = '/home/user/proj';
 
+function mockDrift(overrides: Record<string, unknown> = {}) {
+  const report = {
+    projectPath: PROJECT,
+    scannedAt: '2026-09-01T00:00:00.000Z',
+    hasManifest: true,
+    files: [],
+    drifted: [],
+    acknowledged: [],
+    deleted: [],
+    hasActionableDrift: false,
+    counts: {
+      scanned: 3,
+      drifted: 0,
+      driftedOutsideSection: 0,
+      acknowledged: 0,
+      deleted: 0,
+      unknownBaseline: 0,
+      unmodified: 3,
+    },
+    ...overrides,
+  };
+  vi.mocked(ReinstallService.prototype.getDrift).mockResolvedValue(report as never);
+  return report;
+}
+
 function mockService(overrides: {
   preview?: Record<string, unknown>;
   execute?: Record<string, unknown>;
@@ -109,5 +134,119 @@ describe('reinstall CLI run()', () => {
     expect(ReinstallService.prototype.executeReinstall).toHaveBeenCalledWith(
       expect.objectContaining({ createBackup: false })
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// --drift (gating) and --promote (adoption)
+// ---------------------------------------------------------------------------
+
+describe('reinstall CLI drift gating', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+  });
+
+  it('exits 0 on a clean scan', async () => {
+    mockDrift();
+    expect(await run(['--project', PROJECT, '--drift'])).toBe(0);
+  });
+
+  it('exits 4 when unratified drift exists, so a pipeline can gate on it', async () => {
+    mockDrift({
+      hasActionableDrift: true,
+      drifted: [
+        {
+          path: 'AGENTS.md',
+          type: 'generated',
+          status: 'drift-in-section',
+          scope: 'managed-section',
+          baselineHash: 'a',
+          currentHash: 'b',
+          acknowledged: false,
+        },
+      ],
+      counts: {
+        scanned: 3,
+        drifted: 1,
+        driftedOutsideSection: 0,
+        acknowledged: 0,
+        deleted: 0,
+        unknownBaseline: 0,
+        unmodified: 2,
+      },
+    });
+    expect(await run(['--project', PROJECT, '--drift'])).toBe(4);
+  });
+
+  it('exits 1 when the project has no manifest to scan', async () => {
+    mockDrift({ hasManifest: false });
+    expect(await run(['--project', PROJECT, '--drift'])).toBe(1);
+  });
+
+  it('never reinstalls in --drift mode', async () => {
+    mockService();
+    mockDrift();
+    await run(['--project', PROJECT, '--drift']);
+    expect(ReinstallService.prototype.executeReinstall).not.toHaveBeenCalled();
+  });
+});
+
+describe('reinstall CLI --promote', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+  });
+
+  const modified = [
+    {
+      path: '.claude/agents/a.md',
+      type: 'agent',
+      manifestHash: 'a',
+      currentHash: 'b',
+      scope: 'file',
+      acknowledged: false,
+    },
+  ];
+
+  it('resolves a promoted path without needing --yes', async () => {
+    mockService({ preview: { modifiedManagedFiles: modified, requiresIntervention: true } });
+
+    const code = await run(['--project', PROJECT, '--promote', '.claude/agents/a.md']);
+
+    expect(code).toBe(0);
+    expect(ReinstallService.prototype.executeReinstall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resolutions: { '.claude/agents/a.md': 'promote' },
+      })
+    );
+  });
+
+  it('lets --promote win over --keep for the same path', async () => {
+    mockService({ preview: { modifiedManagedFiles: modified, requiresIntervention: true } });
+
+    await run([
+      '--project', PROJECT,
+      '--keep', '.claude/agents/a.md',
+      '--promote', '.claude/agents/a.md',
+    ]);
+
+    expect(ReinstallService.prototype.executeReinstall).toHaveBeenCalledWith(
+      expect.objectContaining({ resolutions: { '.claude/agents/a.md': 'promote' } })
+    );
+  });
+
+  it('does not block on a file a human already adopted', async () => {
+    mockService({
+      preview: {
+        modifiedManagedFiles: [{ ...modified[0], acknowledged: true }],
+        requiresIntervention: false,
+      },
+    });
+
+    // No --yes, no --keep: an adopted file is a settled decision, not a prompt.
+    expect(await run(['--project', PROJECT])).toBe(0);
   });
 });

@@ -7,9 +7,10 @@ description: |
   for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - mobile/react-native
+extended_skills:
+  - best-practices/token-optimization
   - mobile/flutter
   - mobile/expo
   - notifications/push-notifications

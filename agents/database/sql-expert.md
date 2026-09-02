@@ -6,21 +6,18 @@ description: |
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__database-query__execute_query
-skills:
-  - best-practices/token-optimization
-  # Core SQL
+core_skills:
   - databases/sql-fundamentals
+extended_skills:
+  - best-practices/token-optimization
   - databases/sql-advanced
-  # Procedural Extensions
   - databases/plpgsql
   - databases/plsql
   - databases/tsql
-  # Database-Specific
   - databases/postgresql
   - databases/mysql
   - databases/oracle
   - databases/sqlserver
-  # Migrations
   - databases/migrations
   - databases/flyway
 ---

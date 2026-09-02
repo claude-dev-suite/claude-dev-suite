@@ -9,10 +9,11 @@ description: |
   Executes code modifications directly unless explicitly asked for analysis only.
 model: opus
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
+  - mobile/android-native
+extended_skills:
   - languages/kotlin
   - mobile/jetpack-compose
-  - mobile/android-native
   - databases/sqlcipher
   - security/libsodium
   - security/age-encryption

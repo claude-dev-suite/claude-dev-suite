@@ -2,18 +2,42 @@
 /**
  * Analytics Logger for KB Usage Tracking
  *
- * Logs all KB calls to a JSON file for analytics and dashboard visualization.
- * Supports correlation with orchestrator jobs via timestamp proximity.
+ * Records every KB call so the dashboard's Analytics panel can show what was
+ * fetched, how long it took, and how it correlates with orchestrator jobs.
+ *
+ * The previous implementation re-serialised the ENTIRE history — up to ten
+ * thousand entries — and wrote it with `fs.writeFileSync` every 100ms. That is
+ * synchronous I/O on the event loop this process shares with every concurrent
+ * tool call, so under a burst of subagents the server stalled writing a log
+ * nobody was reading yet.
+ *
+ * The log is now append-only NDJSON written with `fs.promises.appendFile`:
+ * cost per entry is one short line regardless of history size, and nothing
+ * blocks the loop. History is rotated by file size rather than entry count.
+ *
+ * `kb-usage.json` is still produced, throttled and written tmp+rename, because
+ * the dashboard reads that file and shape. It is a projection of the NDJSON,
+ * not the source of truth.
  */
 
-import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
 
 // Configuration
 const DEFAULT_ANALYTICS_PATH = process.env.KB_ANALYTICS_PATH ||
   path.join(process.cwd(), ".dev-suite-analytics");
+/** Backward-compatible projection consumed by the dashboard. */
 const ANALYTICS_FILE = "kb-usage.json";
-const MAX_ENTRIES = 10000; // Rotate after this many entries
+/** Append-only source of truth. */
+const NDJSON_FILE = "kb-usage.ndjson";
+/** Entries kept in memory and mirrored into the JSON projection. */
+const MAX_ENTRIES = 10000;
+/** Rotate the NDJSON once it passes this size. */
+const MAX_NDJSON_BYTES = 8 * 1024 * 1024;
+/** Batching window for appends. */
+const FLUSH_INTERVAL_MS = 100;
+/** Minimum gap between rewrites of the JSON projection. */
+const MIRROR_INTERVAL_MS = 2000;
 
 export interface KBUsageEntry {
   id: string;
@@ -41,55 +65,68 @@ export interface KBAnalyticsData {
   entries: KBUsageEntry[];
 }
 
-class AnalyticsLogger {
+export class AnalyticsLogger {
   private analyticsPath: string;
   private filePath: string;
-  private cache: KBAnalyticsData | null = null;
+  private ndjsonPath: string;
+  /** Recent entries, for the in-process query API and the JSON projection. */
+  private entries: KBUsageEntry[] = [];
   private writeQueue: KBUsageEntry[] = [];
   private writeTimeout: NodeJS.Timeout | null = null;
   private initialized = false;
+  private initPromise: Promise<void> | null = null;
+  /** Serialises appends so two flushes cannot interleave inside the file. */
+  private flushChain: Promise<void> = Promise.resolve();
+  private mirrorDirty = false;
+  private mirrorPending = false;
+  private lastMirrorAt = 0;
+  private bytesWritten = 0;
 
-  constructor(analyticsPath?: string) {
+  private readonly maxBytes: number;
+
+  constructor(analyticsPath?: string, options: { maxBytes?: number } = {}) {
     this.analyticsPath = analyticsPath || DEFAULT_ANALYTICS_PATH;
     this.filePath = path.join(this.analyticsPath, ANALYTICS_FILE);
+    this.ndjsonPath = path.join(this.analyticsPath, NDJSON_FILE);
+    this.maxBytes = options.maxBytes ?? MAX_NDJSON_BYTES;
   }
 
   /**
-   * Initialize analytics directory and file
+   * Initialize analytics directory and load recent history.
    */
   async init(): Promise<void> {
     if (this.initialized) return;
+    // Concurrent tool calls all reach `log()` before startup finishes; they
+    // must share one initialisation, not race several.
+    if (!this.initPromise) this.initPromise = this.doInit();
+    return this.initPromise;
+  }
 
+  private async doInit(): Promise<void> {
     try {
-      // Create directory if it doesn't exist
-      if (!fs.existsSync(this.analyticsPath)) {
-        fs.mkdirSync(this.analyticsPath, { recursive: true });
-      }
+      await fsp.mkdir(this.analyticsPath, { recursive: true });
 
-      // Load existing data or create new file
-      if (fs.existsSync(this.filePath)) {
-        const content = fs.readFileSync(this.filePath, "utf-8");
-        this.cache = JSON.parse(content);
+      const fromNdjson = await this.readNdjson();
+      if (fromNdjson.length > 0) {
+        this.entries = fromNdjson;
       } else {
-        this.cache = {
-          version: "1.0.0",
-          lastUpdated: new Date().toISOString(),
-          entries: [],
-        };
-        this.saveSync();
+        // First run after the format change: carry the old file's history over
+        // so the dashboard does not appear to lose its history.
+        this.entries = await this.readLegacyJson();
+        if (this.entries.length > 0) {
+          const lines = this.entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
+          await fsp.writeFile(this.ndjsonPath, lines, "utf-8");
+          this.bytesWritten = Buffer.byteLength(lines);
+        }
       }
 
-      this.initialized = true;
       console.error(`[Analytics] Initialized at ${this.analyticsPath}`);
     } catch (error) {
       console.error(`[Analytics] Init failed:`, error);
       // Continue without analytics - don't break the server
+      this.entries = [];
+    } finally {
       this.initialized = true;
-      this.cache = {
-        version: "1.0.0",
-        lastUpdated: new Date().toISOString(),
-        entries: [],
-      };
     }
   }
 
@@ -114,6 +151,11 @@ class AnalyticsLogger {
       timestamp: new Date().toISOString(),
     };
 
+    this.entries.push(fullEntry);
+    if (this.entries.length > MAX_ENTRIES) {
+      this.entries.splice(0, this.entries.length - MAX_ENTRIES);
+    }
+
     this.writeQueue.push(fullEntry);
     this.scheduleWrite();
   }
@@ -125,41 +167,131 @@ class AnalyticsLogger {
     if (this.writeTimeout) return;
 
     this.writeTimeout = setTimeout(() => {
-      this.flushQueue();
       this.writeTimeout = null;
-    }, 100); // Batch writes every 100ms
+      void this.flush();
+    }, FLUSH_INTERVAL_MS);
+    // A pending flush must never hold the process open on its own.
+    this.writeTimeout.unref?.();
   }
 
   /**
-   * Flush pending writes to file
+   * Append queued entries. Chained so appends stay ordered and never overlap.
    */
-  private flushQueue(): void {
-    if (!this.cache || this.writeQueue.length === 0) return;
+  flush(): Promise<void> {
+    this.flushChain = this.flushChain.then(() => this.doFlush()).catch((error) => {
+      console.error(`[Analytics] Write failed:`, error);
+    });
+    return this.flushChain;
+  }
+
+  private async doFlush(): Promise<void> {
+    if (this.writeQueue.length === 0) return;
+
+    const batch = this.writeQueue;
+    this.writeQueue = [];
+
+    const payload = batch.map((e) => JSON.stringify(e)).join("\n") + "\n";
+    await fsp.mkdir(this.analyticsPath, { recursive: true });
+    await fsp.appendFile(this.ndjsonPath, payload, "utf-8");
+    this.bytesWritten += Buffer.byteLength(payload);
+
+    await this.rotateIfLarge();
+
+    this.mirrorDirty = true;
+    this.scheduleMirror();
+  }
+
+  /**
+   * Rotate by size: the current log becomes `.1`, replacing any previous `.1`.
+   * Two generations bound the disk cost without the cost of counting entries.
+   */
+  private async rotateIfLarge(): Promise<void> {
+    if (this.bytesWritten < this.maxBytes) return;
 
     try {
-      // Add queued entries
-      this.cache.entries.push(...this.writeQueue);
-      this.writeQueue = [];
+      const stat = await fsp.stat(this.ndjsonPath);
+      this.bytesWritten = stat.size;
+      if (stat.size < this.maxBytes) return;
 
-      // Rotate if too many entries
-      if (this.cache.entries.length > MAX_ENTRIES) {
-        const toRemove = this.cache.entries.length - MAX_ENTRIES;
-        this.cache.entries = this.cache.entries.slice(toRemove);
-      }
-
-      this.cache.lastUpdated = new Date().toISOString();
-      this.saveSync();
+      await fsp.rm(`${this.ndjsonPath}.1`, { force: true });
+      await fsp.rename(this.ndjsonPath, `${this.ndjsonPath}.1`);
+      this.bytesWritten = 0;
+      console.error(`[Analytics] Rotated ${NDJSON_FILE} at ${stat.size} bytes`);
     } catch (error) {
-      console.error(`[Analytics] Write failed:`, error);
+      console.error(`[Analytics] Rotation failed:`, error);
     }
   }
 
   /**
-   * Synchronous save to file
+   * Refresh the JSON projection the dashboard reads, at most every
+   * MIRROR_INTERVAL_MS and always asynchronously.
    */
-  private saveSync(): void {
-    if (!this.cache) return;
-    fs.writeFileSync(this.filePath, JSON.stringify(this.cache, null, 2));
+  private scheduleMirror(): void {
+    if (this.mirrorPending) return;
+    const wait = Math.max(0, MIRROR_INTERVAL_MS - (Date.now() - this.lastMirrorAt));
+    this.mirrorPending = true;
+    const timer = setTimeout(() => {
+      this.mirrorPending = false;
+      void this.writeMirror();
+    }, wait);
+    timer.unref?.();
+  }
+
+  private async writeMirror(): Promise<void> {
+    if (!this.mirrorDirty) return;
+    this.mirrorDirty = false;
+    this.lastMirrorAt = Date.now();
+
+    const data: KBAnalyticsData = {
+      version: "1.0.0",
+      lastUpdated: new Date().toISOString(),
+      entries: this.entries,
+    };
+
+    const tmp = `${this.filePath}.tmp-${process.pid}`;
+    try {
+      await fsp.writeFile(tmp, JSON.stringify(data, null, 2), "utf-8");
+      await fsp.rename(tmp, this.filePath);
+    } catch (error) {
+      await fsp.rm(tmp, { force: true }).catch(() => {});
+      console.error(`[Analytics] Mirror write failed:`, error);
+    }
+  }
+
+  /** Read the NDJSON log, keeping the most recent MAX_ENTRIES lines. */
+  private async readNdjson(): Promise<KBUsageEntry[]> {
+    let raw: string;
+    try {
+      raw = await fsp.readFile(this.ndjsonPath, "utf-8");
+      this.bytesWritten = Buffer.byteLength(raw);
+    } catch {
+      return [];
+    }
+
+    const out: KBUsageEntry[] = [];
+    for (const line of raw.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        // A truncated last line (a crash mid-append) costs one entry, not the
+        // whole file — which is the point of a line-oriented format.
+        out.push(JSON.parse(trimmed) as KBUsageEntry);
+      } catch {
+        // Skip unparseable line
+      }
+    }
+
+    return out.length > MAX_ENTRIES ? out.slice(out.length - MAX_ENTRIES) : out;
+  }
+
+  private async readLegacyJson(): Promise<KBUsageEntry[]> {
+    try {
+      const parsed = JSON.parse(await fsp.readFile(this.filePath, "utf-8")) as KBAnalyticsData;
+      const entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
+      return entries.length > MAX_ENTRIES ? entries.slice(entries.length - MAX_ENTRIES) : entries;
+    } catch {
+      return [];
+    }
   }
 
   /**
@@ -176,11 +308,7 @@ class AnalyticsLogger {
       await this.init();
     }
 
-    if (!this.cache) {
-      return { entries: [], total: 0 };
-    }
-
-    let entries = [...this.cache.entries];
+    let entries = [...this.entries];
 
     // Apply filters
     if (options?.technology) {
@@ -227,7 +355,9 @@ class AnalyticsLogger {
       await this.init();
     }
 
-    if (!this.cache || this.cache.entries.length === 0) {
+    const entries = this.entries;
+
+    if (entries.length === 0) {
       return {
         totalCalls: 0,
         byTechnology: {},
@@ -240,7 +370,6 @@ class AnalyticsLogger {
       };
     }
 
-    const entries = this.cache.entries;
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
 
@@ -290,11 +419,13 @@ class AnalyticsLogger {
    * Clear all analytics data
    */
   async clear(): Promise<void> {
-    if (!this.cache) return;
-
-    this.cache.entries = [];
-    this.cache.lastUpdated = new Date().toISOString();
-    this.saveSync();
+    this.entries = [];
+    this.writeQueue = [];
+    this.mirrorDirty = true;
+    this.bytesWritten = 0;
+    await fsp.rm(this.ndjsonPath, { force: true }).catch(() => {});
+    this.lastMirrorAt = 0;
+    await this.writeMirror();
   }
 }
 

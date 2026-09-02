@@ -12,8 +12,9 @@ description: |
   Executes test scaffolds directly unless asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - bitcoin/testing/regtest
+extended_skills:
   - bitcoin/testing/signet
   - bitcoin/testing/polar
   - bitcoin/testing/nigiri

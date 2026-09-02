@@ -11,8 +11,9 @@ description: |
   or AI-advisor prompts that must cite normative sources.
 model: sonnet
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash
-skills:
+core_skills:
   - industrial/membrane-ro-fundamentals
+extended_skills:
   - industrial/membrane-troubleshooting
   - industrial/membrane-economics-edi
   - industrial/membrane-pretreatment

@@ -3,8 +3,9 @@ name: freelance-engineer
 description: ABB Freelance DCS engineering specialist. Generates, modifies, and validates Freelance PRT, DMF, and CSV files. Creates motor/valve/analog control blocks and HMI displays from templates and tag databases. Use when generating Freelance engineering files or implementing bulk engineering workflows.
 model: sonnet
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
-skills:
+core_skills:
   - industrial/freelance-formats
+extended_skills:
   - industrial/isa-standards
   - industrial/bulk-engineering
 ---

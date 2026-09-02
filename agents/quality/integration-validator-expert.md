@@ -7,16 +7,15 @@ description: |
   Continues validation until all contracts align.
   Token-efficient: queries specific endpoints only.
 model: sonnet
-allowed-tools: Read, Grep, Glob, Task, mcp__documentation__*, mcp__api-explorer__*
-skills:
-  # Integration validation skills
+allowed-tools: Read, Grep, Glob, Bash, Task, mcp__documentation__*, mcp__api-explorer__*
+core_skills:
   - integration-validation/openapi-contract
+extended_skills:
   - integration-validation/type-generation
   - integration-validation/auth-flow-validation
   - integration-validation/error-contract
   - integration-validation/api-versioning
   - integration-validation/dto-sync-patterns
-  # Framework skills
   - api-integration/type-safe-api
   - api-integration/http-clients
   - state-management/tanstack-query

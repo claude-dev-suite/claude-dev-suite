@@ -34,6 +34,12 @@ vi.mock('../src/utils/logger.js', () => {
     wsLogger: logger,
     generateCorrelationId: vi.fn(() => 'test-correlation-id'),
     logger,
+    // Not used by the service under test, but reached at import time:
+    // job-queue.service imports credentials.service, which calls
+    // getLogger('CredentialsService') at module scope. A factory mock replaces
+    // the module wholesale, so an export missing here is a load-time failure of
+    // the whole suite rather than of the code that wanted it.
+    getLogger: vi.fn(() => logger),
   };
 });
 

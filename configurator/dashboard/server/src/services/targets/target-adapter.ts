@@ -77,6 +77,23 @@ export interface InstallPlan {
    */
   previouslyManaged: ReadonlySet<string>;
   /**
+   * `relPath` → content hash recorded by the previous install.
+   *
+   * Ownership alone is not enough to decide a write is safe: a file dev-suite
+   * installed and something else then edited is still "ours" by path, and used
+   * to be overwritten silently. With the hash, a writer can tell an untouched
+   * file (replace it) from a drifted one (back it up and report it).
+   */
+  previousFileHashes?: ReadonlyMap<string, string>;
+  /**
+   * `relPath` → hash of the marked span only, for files carrying the dev-suite
+   * markers. A whole-file hash is useless for those: it moves whenever the user
+   * edits their own prose around our section.
+   */
+  previousSectionHashes?: ReadonlyMap<string, string>;
+  /** `relPath` → hash a human ratified via `promote`; that content is replaceable. */
+  acknowledgedFileHashes?: ReadonlyMap<string, string>;
+  /**
    * Agent files the previous install wrote, keyed by target id.
    *
    * Native subagent writers use it to delete the file of an agent that is no
@@ -129,6 +146,12 @@ export interface TargetWriteContext {
  * installation/substrate.ts. Adapters contribute only their own format.
  */
 export interface TargetWriteResult {
+  /**
+   * Drifted rule files: still installed and still ours, but changed since we
+   * wrote them, so left in place. They belong in `ruleFiles` (or the stale
+   * prune deletes them) but must be recorded at their baseline hash.
+   */
+  driftedRuleFiles?: string[];
   /** Project-relative paths of path-scoped rule files written. */
   ruleFiles: string[];
   /** Whether the integration-validator hook was configured. */

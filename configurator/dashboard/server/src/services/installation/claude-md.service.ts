@@ -258,6 +258,47 @@ export function sanitizeAgentDescription(description: string): string {
  * assistant loads only when matching files are open. The index deliberately
  * avoids naming tool-specific rule paths so the section stays portable.
  */
+/**
+ * First sentence of a description, bounded.
+ *
+ * The always-on routing block carries a full multi-line description per agent,
+ * and that block is inherited by every subagent the session spawns — so it is
+ * one of the few parts of this file whose size is multiplied by the width of a
+ * fan-out. The first sentence is what routing actually needs; the rest is in
+ * the agent file, which the assistant loads when it delegates.
+ */
+function firstSentence(text: string, maxLen = 140): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  const stop = flat.search(/\.(\s|$)/);
+  const sentence = stop > 0 ? flat.slice(0, stop + 1) : flat;
+  if (sentence.length <= maxLen) return sentence;
+  return sentence.slice(0, maxLen - 1).trimEnd() + '…';
+}
+
+/**
+ * Compact capability tag for the agent index, e.g. ` [exec · deleg · haiku]`.
+ *
+ * An orchestrator picking an agent needs to know whether it can run a command
+ * or delegate before handing it work: several specialists have no `Bash`, so
+ * asking one of them to "run the tests and fix what fails" cannot succeed. The
+ * model is included because an agent's `model:` frontmatter overrides the
+ * session model, which is otherwise invisible from here.
+ */
+function capabilityTag(agent: Agent): string {
+  const caps = agent.capabilities;
+  const parts: string[] = [];
+  if (caps) {
+    if (caps.unrestricted) parts.push('all-tools');
+    else {
+      if (caps.canExecute) parts.push('exec');
+      if (caps.canDelegate) parts.push('deleg');
+      if (!caps.canEdit) parts.push('read-only');
+    }
+  }
+  if (agent.model) parts.push(agent.model);
+  return parts.length > 0 ? ` [${parts.join(' · ')}]` : '';
+}
+
 export function generateDevSuiteSection(opts: InstructionsSectionOptions): string {
   const { agents, customAgents = [], detectedStack, validatorHookConfigured = false } = opts;
 
@@ -267,7 +308,7 @@ export function generateDevSuiteSection(opts: InstructionsSectionOptions): strin
 
   // Full agent list (for the Installed Agents index)
   const agentList = agents.length > 0
-    ? agents.map((a) => `- \`@${a.id}\``).join('\n')
+    ? agents.map((a) => `- \`@${a.id}\`${capabilityTag(a)}`).join('\n')
     : '- No agents installed';
 
   // Custom (user-authored) agents are listed separately and never overwritten
@@ -280,9 +321,17 @@ export function generateDevSuiteSection(opts: InstructionsSectionOptions): strin
   // Always-on routing block (security, core, quality, mcp-config)
   let alwaysOnRouting = '';
   if (alwaysOnAgents.length > 0) {
-    const lines = alwaysOnAgents.map(
-      a => `- Use \`@${a.id}\` for: ${sanitizeAgentDescription(a.description)}`
-    );
+    // Trimming to the first sentence is a saving only where the full text can
+    // still be reached: assistants that load agent files have it one hop away.
+    // Codex and Cline load none, so AGENTS.md is the *only* routing signal they
+    // ever see, and the USE WHEN / DO NOT USE FOR triggers live past the first
+    // sentence. There, the full description stays.
+    const canRecoverDetail = anyTargetLoadsAgents(opts.targets ?? [DEFAULT_TARGET]);
+    const lines = alwaysOnAgents.map(a => {
+      const description = sanitizeAgentDescription(a.description);
+      const text = canRecoverDetail ? firstSentence(description) : description;
+      return `- Use \`@${a.id}\` for: ${text}`;
+    });
     // Codex and Cline read AGENTS.md but load no agent files, so `@id` is not
     // invocable there — presenting these as delegation targets described
     // something they cannot do. For them the same list is guidance: which
@@ -350,7 +399,34 @@ ${categoryLines.join('\n')}`;
       ? monitoredAgents.frontend.map(a => `\`${a}\``).join(', ')
       : 'None detected';
 
-    validationSection = `\n\n## API Integration Validation\n\nThis project uses \`integration-validator-expert\` to validate API contract consistency between frontend and backend.\n\n### How It Works\nAn automatic hook detects when API endpoints or frontend integrations are modified and triggers validation automatically.\n\n### Monitored Agents\n- **Backend**: ${backendList}\n- **Frontend**: ${frontendList}\n\n### What Gets Validated\n- Path/method correspondence between frontend calls and OpenAPI spec\n- Request/response type alignment\n- Required/optional field correctness\n\n### Trigger Conditions\nThe validator is triggered when:\n- Backend: Controller/route/handler modifications, new REST/GraphQL endpoints, DTO changes\n- Frontend: New API calls (fetch, axios, useQuery), API type modifications\n\nThe validator is NOT triggered for:\n- CSS/styling changes only\n- Text/label changes only\n- Internal refactoring without API changes\n- UI components without data fetching`;
+    // Describes the mechanism that actually exists. The previous text told
+    // every reader that "an automatic hook … triggers validation
+    // automatically", which was untrue twice over: the hook matched on
+    // subagent *name* so it never fired for a generically typed agent, and a
+    // prompt hook returning {"ok": false} feeds a reason back to the agent —
+    // it cannot invoke `integration-validator-expert` at all.
+    validationSection = `
+
+## API Integration Validation
+
+When a change touches the API surface — controllers, routes, handlers, DTOs,
+OpenAPI/GraphQL schemas, API clients, data-fetching code — this project asks for
+an integration check before the turn ends.
+
+Detection is path-based and runs after every file write, in the main session and
+inside subagents alike. The check itself runs **once per turn**, however many
+agents did the writing.
+
+When it fires, delegate to \`integration-validator-expert\`, which reconciles:
+- path and method correspondence between frontend calls and the backend contract
+- request/response type alignment
+- required vs optional field correctness
+
+It coordinates with the specialists detected for this stack — backend: ${backendList}; frontend: ${frontendList}.
+
+Nothing is asked for CSS-only, copy-only, internal refactors, or UI changes
+without data fetching: those paths never match. Set \`integrationValidation\` to
+\`"off"\` in \`.dev-suite.json\` to switch the check off entirely.`;
   }
 
   // Slash commands are Claude-Code-only: `installation/commands.ts` writes them
@@ -414,7 +490,10 @@ export function generatePathScopedRules(
   projectPath = resolveProjectPath(projectPath);
   if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
 
-  return writePathScopedRules('claude-code', installedAgents, projectPath);
+  const result = writePathScopedRules('claude-code', installedAgents, projectPath);
+  // A drifted file is still installed; the caller uses this list to decide what
+  // to prune, so leaving it out would delete it.
+  return [...result.written, ...result.drifted];
 }
 
 /**

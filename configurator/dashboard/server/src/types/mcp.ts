@@ -43,6 +43,16 @@ export interface EnvVarConfig {
   required: boolean;
   /** Default value if any */
   default: string;
+  /**
+   * True when the value is a credential rather than configuration.
+   *
+   * Declared in the server's `metadata.json` and enforced by
+   * `scripts/validate-env-secrets.mjs`. The wizard used to decide what to mask
+   * by looking for 'secret', 'password' or 'token' in the *name*, which left
+   * `DATABASE_URL` — the one credential a user always types by hand — rendered
+   * in a cleartext input.
+   */
+  secret?: boolean;
 }
 
 /**

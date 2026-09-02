@@ -6,8 +6,9 @@ description: |
   Use for type system questions, refactoring, and TypeScript best practices.
 model: sonnet
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*, mcp__code-quality__*
-skills:
+core_skills:
   - languages/typescript
+extended_skills:
   - quality/eslint-biome
   - quality/eslint
   - quality/typescript-eslint

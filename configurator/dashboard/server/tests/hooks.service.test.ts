@@ -471,8 +471,8 @@ describe('HooksService', () => {
 
         const settings = hooksService.readClaudeSettings(tempDir);
         const hooks = settings?.hooks as Record<string, unknown[]>;
-        const hook = hooks.PostToolUse[0] as { hooks: string[] };
-        expect(hook.hooks).toContain('echo "new"');
+        const hook = hooks.PostToolUse[0] as { hooks: Array<{ type: string; command: string }> };
+        expect(hook.hooks.map((h: unknown) => (h as { command?: string }).command)).toContain('echo "new"');
       });
 
       it('should fail for non-existent hook', () => {
@@ -647,141 +647,211 @@ describe('HooksService', () => {
 
   describe('Integration Validator Hook', () => {
     describe('configureIntegrationValidatorHook', () => {
-      it('should configure hook for React + Spring Boot stack', () => {
-        createMockProject(tempDir, {
-          packageJson: { name: 'test-project' },
-        });
+      // The service copies the scripts out of the dev-suite checkout; from a
+      // test we point at the repo explicitly instead of relying on the compiled
+      // file's position on disk.
+      const devSuiteRoot = path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..'
+      );
+      const stack = {
+        frontend: { framework: 'react', metaFramework: '' },
+        backend: { framework: 'spring-boot', runtime: 'java' },
+      };
+      const configure = (dir: string, level?: 'off' | 'warn' | 'block') =>
+        hooksService.configureIntegrationValidatorHook(dir, stack, { devSuiteRoot, level });
 
-        const result = hooksService.configureIntegrationValidatorHook(tempDir, {
-          frontend: { framework: 'react', metaFramework: '' },
-          backend: { framework: 'spring-boot', runtime: 'java' },
-        });
+      const handlers = (entry: unknown) =>
+        (entry as { hooks?: Array<{ type?: string; command?: string }> }).hooks ?? [];
 
+      it('registers a PostToolUse marker and a Stop decision, not a SubagentStop prompt', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+
+        const result = configure(tempDir);
         expect(result.success).toBe(true);
         expect(result.configured).toBe(true);
 
-        const settings = hooksService.readClaudeSettings(tempDir);
-        const hooks = settings?.hooks as Record<string, unknown[]>;
-        expect(hooks.SubagentStop).toBeDefined();
-        expect(hooks.SubagentStop.length).toBe(1);
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
 
-        const hook = hooks.SubagentStop[0] as { matcher: string; hooks: Array<{ type: string; prompt: string }> };
-        expect(hook.matcher).toContain('spring-boot-expert');
-        expect(hook.matcher).toContain('react-expert');
-        expect(hook.matcher).toContain('typescript-expert');
-        expect(hook.hooks[0].type).toBe('prompt');
-        expect(hook.hooks[0].prompt).toContain('API integration detected');
+        // The old design keyed off the *name* of the finishing subagent, so a
+        // generically typed agent never triggered it.
+        expect(hooks.SubagentStop).toBeUndefined();
+
+        expect(hooks.PostToolUse).toHaveLength(1);
+        const post = hooks.PostToolUse[0] as { matcher: string };
+        expect(post.matcher).toBe('Write|Edit|MultiEdit|NotebookEdit');
+        expect(handlers(hooks.PostToolUse[0])[0]?.command).toContain('mark-api-change.mjs');
+
+        expect(hooks.Stop).toHaveLength(1);
+        // `Stop` takes no matcher; declaring one would be silently ignored.
+        expect((hooks.Stop[0] as { matcher?: string }).matcher).toBeUndefined();
+        expect(handlers(hooks.Stop[0])[0]?.command).toContain('integration-validate.mjs');
       });
 
-      it('should configure hook for Vue + NestJS stack', () => {
-        createMockProject(tempDir, {
-          packageJson: { name: 'test-project' },
-        });
+      it('writes handler objects carrying a type, not bare strings', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+        configure(tempDir);
 
-        const result = hooksService.configureIntegrationValidatorHook(tempDir, {
-          frontend: { framework: 'vue', metaFramework: '' },
-          backend: { framework: 'nestjs', runtime: 'node' },
-        });
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        for (const event of ['PostToolUse', 'Stop']) {
+          for (const handler of handlers(hooks[event][0])) {
+            expect(handler.type).toBe('command');
+            expect(typeof handler.command).toBe('string');
+          }
+        }
+      });
 
+      it('copies both scripts into the project', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+        configure(tempDir);
+
+        expect(fs.existsSync(path.join(tempDir, '.claude', 'hooks', 'mark-api-change.mjs'))).toBe(true);
+        expect(fs.existsSync(path.join(tempDir, '.claude', 'hooks', 'integration-validate.mjs'))).toBe(true);
+      });
+
+      it('passes the level to the Stop script', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+        configure(tempDir, 'block');
+
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        expect(handlers(hooks.Stop[0])[0]?.command?.endsWith(' block')).toBe(true);
+      });
+
+      it('reads the level from .dev-suite.json when the caller does not pass one', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+        fs.writeFileSync(
+          path.join(tempDir, '.dev-suite.json'),
+          JSON.stringify({ integrationValidation: 'block' })
+        );
+
+        hooksService.configureIntegrationValidatorHook(tempDir, stack, { devSuiteRoot });
+
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        expect(handlers(hooks.Stop[0])[0]?.command?.endsWith(' block')).toBe(true);
+      });
+
+      it('defaults to the level that actually reaches the model', () => {
+        // Measured against a real session: under `warn` the model edited a
+        // controller and validated nothing; under `block`, same prompt and same
+        // project, it performed the reconciliation and cited the hook. A default
+        // that never fires is the failure this mechanism was rewritten to remove.
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+
+        hooksService.configureIntegrationValidatorHook(tempDir, stack, { devSuiteRoot });
+
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        expect(handlers(hooks.Stop[0])[0]?.command?.endsWith(' block')).toBe(true);
+      });
+
+      it('installs nothing when the project opts out', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+
+        const result = configure(tempDir, 'off');
         expect(result.success).toBe(true);
-        expect(result.configured).toBe(true);
-
-        const settings = hooksService.readClaudeSettings(tempDir);
-        const hooks = settings?.hooks as Record<string, unknown[]>;
-        const hook = hooks.SubagentStop[0] as { matcher: string };
-        expect(hook.matcher).toContain('nestjs-expert');
-        expect(hook.matcher).toContain('vue-expert');
+        expect(result.configured).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, '.claude', 'hooks', 'integration-validate.mjs'))).toBe(false);
       });
 
-      it('should configure hook for Next.js fullstack', () => {
-        createMockProject(tempDir, {
-          packageJson: { name: 'test-project' },
-        });
+      it('does not configure when no relevant stack was detected', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
 
-        const result = hooksService.configureIntegrationValidatorHook(tempDir, {
-          frontend: { framework: 'react', metaFramework: 'nextjs' },
-          backend: { framework: '', runtime: '' },
-        });
-
-        expect(result.success).toBe(true);
-        expect(result.configured).toBe(true);
-
-        const settings = hooksService.readClaudeSettings(tempDir);
-        const hooks = settings?.hooks as Record<string, unknown[]>;
-        const hook = hooks.SubagentStop[0] as { matcher: string };
-        expect(hook.matcher).toContain('nextjs-expert');
-        expect(hook.matcher).not.toContain('react-expert'); // Next.js overrides React
-      });
-
-      it('should not configure when no relevant stack detected', () => {
-        createMockProject(tempDir, {
-          packageJson: { name: 'test-project' },
-        });
-
-        const result = hooksService.configureIntegrationValidatorHook(tempDir, {
-          frontend: {},
-          backend: {},
-        });
+        const result = hooksService.configureIntegrationValidatorHook(
+          tempDir, { frontend: {}, backend: {} }, { devSuiteRoot }
+        );
 
         expect(result.success).toBe(true);
         expect(result.configured).toBe(false);
       });
 
-      it('should not duplicate hook if already configured', () => {
-        createMockProject(tempDir, {
-          packageJson: { name: 'test-project' },
-        });
+      it('is idempotent', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
 
-        // Configure first time
-        hooksService.configureIntegrationValidatorHook(tempDir, {
-          frontend: { framework: 'react' },
-          backend: { framework: 'spring-boot' },
-        });
+        configure(tempDir);
+        const second = configure(tempDir);
 
-        // Try to configure again
-        const result = hooksService.configureIntegrationValidatorHook(tempDir, {
-          frontend: { framework: 'react' },
-          backend: { framework: 'spring-boot' },
-        });
+        expect(second.success).toBe(true);
+        expect(second.configured).toBe(false);
 
-        expect(result.success).toBe(true);
-        expect(result.configured).toBe(false);
-
-        const settings = hooksService.readClaudeSettings(tempDir);
-        const hooks = settings?.hooks as Record<string, unknown[]>;
-        expect(hooks.SubagentStop.length).toBe(1); // Should still be 1
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        expect(hooks.PostToolUse).toHaveLength(1);
+        expect(hooks.Stop).toHaveLength(1);
       });
 
-      it('should append to existing hooks without overwriting', () => {
-        createMockProject(tempDir, {
-          packageJson: { name: 'test-project' },
-        });
-
-        // Create existing hooks
+      it('appends to existing hooks without overwriting them', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
         createMockClaudeSettings(tempDir, {
           PostToolUse: [{ matcher: 'Write', hooks: ['echo test'] }],
-          SubagentStop: [{ matcher: 'other-agent', hooks: ['echo other'] }],
         });
 
-        const result = hooksService.configureIntegrationValidatorHook(tempDir, {
-          frontend: { framework: 'react' },
-          backend: { framework: 'spring-boot' },
+        expect(configure(tempDir).configured).toBe(true);
+
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        expect(hooks.PostToolUse).toHaveLength(2);
+        expect(handlers(hooks.PostToolUse[0])[0]).toBe('echo test' as unknown);
+      });
+
+      it('migrates a project off the legacy SubagentStop prompt hook', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+        createMockClaudeSettings(tempDir, {
+          SubagentStop: [
+            {
+              matcher: 'react-expert|spring-boot-expert',
+              hooks: [{ type: 'prompt', prompt: 'Respond {"ok": false, "reason": "API integration detected: x"}', timeout: 30 }],
+            },
+            // A hook the user wrote themselves must survive the migration.
+            { matcher: 'my-agent', hooks: ['echo mine'] },
+          ],
         });
 
-        expect(result.success).toBe(true);
-        expect(result.configured).toBe(true);
+        expect(configure(tempDir).configured).toBe(true);
 
-        const settings = hooksService.readClaudeSettings(tempDir);
-        const hooks = settings?.hooks as Record<string, unknown[]>;
-
-        // Existing hooks should still be there
-        expect(hooks.PostToolUse).toBeDefined();
-        expect(hooks.PostToolUse.length).toBe(1);
-
-        // SubagentStop should have both existing and new hook
-        expect(hooks.SubagentStop.length).toBe(2);
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        expect(hooks.SubagentStop).toHaveLength(1);
+        expect((hooks.SubagentStop[0] as { matcher: string }).matcher).toBe('my-agent');
       });
     });
+
+    describe('removeIntegrationValidatorHook', () => {
+      const devSuiteRoot = path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..'
+      );
+
+      it('removes the entries, the scripts and the marker, leaving user hooks alone', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+        createMockClaudeSettings(tempDir, {
+          PostToolUse: [{ matcher: 'Write', hooks: ['echo mine'] }],
+        });
+        hooksService.configureIntegrationValidatorHook(
+          tempDir,
+          { frontend: { framework: 'react' }, backend: { framework: 'spring-boot' } },
+          { devSuiteRoot }
+        );
+        fs.writeFileSync(path.join(tempDir, '.claude', '.ds-api-touched'), 'src/api/x.ts\n');
+
+        const result = hooksService.removeIntegrationValidatorHook(tempDir);
+        expect(result.success).toBe(true);
+
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        expect(hooks.Stop).toBeUndefined();
+        expect(hooks.PostToolUse).toHaveLength(1);
+        expect(fs.existsSync(path.join(tempDir, '.claude', 'hooks', 'mark-api-change.mjs'))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, '.claude', '.ds-api-touched'))).toBe(false);
+      });
+
+      it('strips a surviving pre-2.0 SubagentStop entry', () => {
+        createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+        createMockClaudeSettings(tempDir, {
+          SubagentStop: [
+            { matcher: 'react-expert', hooks: [{ type: 'prompt', prompt: 'integration-validator check' }] },
+          ],
+        });
+
+        expect(hooksService.removeIntegrationValidatorHook(tempDir).success).toBe(true);
+
+        const hooks = hooksService.readClaudeSettings(tempDir)?.hooks as Record<string, unknown[]>;
+        expect(hooks.SubagentStop).toBeUndefined();
+      });
+    });
+
 
     describe('getMonitoredAgentsList', () => {
       it('should return correct agents for React + Spring Boot', () => {
@@ -1023,9 +1093,9 @@ describe('HooksService', () => {
         expect(hooks).toBeDefined();
         expect(Array.isArray(hooks['PreToolUse'])).toBe(true);
 
-        const hookEntry = hooks['PreToolUse'][0] as { matcher: string; hooks: string[] };
+        const hookEntry = hooks['PreToolUse'][0] as { matcher: string; hooks: Array<{ type: string; command: string }> };
         expect(hookEntry.matcher).toBe('Bash');
-        expect(hookEntry.hooks).toContain('.claude/hooks/filter-test-output.sh');
+        expect(hookEntry.hooks.map((h: unknown) => (h as { command?: string }).command)).toContain('.claude/hooks/filter-test-output.sh');
       });
 
       it('should install filter-lint hook correctly', () => {
@@ -1040,8 +1110,8 @@ describe('HooksService', () => {
 
         const settings = hooksService.readClaudeSettings(tempDir);
         const hooks = settings?.hooks as Record<string, unknown[]>;
-        const hookEntry = hooks['PreToolUse'][0] as { hooks: string[] };
-        expect(hookEntry.hooks).toContain('.claude/hooks/filter-lint.sh');
+        const hookEntry = hooks['PreToolUse'][0] as { hooks: Array<{ type: string; command: string }> };
+        expect(hookEntry.hooks.map((h: unknown) => (h as { command?: string }).command)).toContain('.claude/hooks/filter-lint.sh');
       });
 
       it('should install truncate-logs hook correctly', () => {
@@ -1056,8 +1126,8 @@ describe('HooksService', () => {
 
         const settings = hooksService.readClaudeSettings(tempDir);
         const hooks = settings?.hooks as Record<string, unknown[]>;
-        const hookEntry = hooks['PreToolUse'][0] as { hooks: string[] };
-        expect(hookEntry.hooks).toContain('.claude/hooks/truncate-logs.sh');
+        const hookEntry = hooks['PreToolUse'][0] as { hooks: Array<{ type: string; command: string }> };
+        expect(hookEntry.hooks.map((h: unknown) => (h as { command?: string }).command)).toContain('.claude/hooks/truncate-logs.sh');
       });
 
       it('should not break existing hooks when installing', () => {
@@ -1158,9 +1228,9 @@ describe('HooksService', () => {
         const hooks = settings?.hooks as Record<string, unknown[]>;
         expect(Array.isArray(hooks['PreToolUse'])).toBe(true);
         expect(hooks['PreToolUse']).toHaveLength(1);
-        const remaining = hooks['PreToolUse'][0] as { hooks: string[] };
-        expect(remaining.hooks).toContain('.claude/hooks/filter-lint.sh');
-        expect(remaining.hooks).not.toContain('.claude/hooks/filter-test-output.sh');
+        const remaining = hooks['PreToolUse'][0] as { hooks: Array<{ type: string; command: string }> };
+        expect(remaining.hooks.map((h: unknown) => (h as { command?: string }).command)).toContain('.claude/hooks/filter-lint.sh');
+        expect(remaining.hooks.map((h: unknown) => (h as { command?: string }).command)).not.toContain('.claude/hooks/filter-test-output.sh');
       });
 
       it('should be idempotent when hook is not installed', () => {

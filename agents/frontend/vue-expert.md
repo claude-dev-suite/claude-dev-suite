@@ -5,9 +5,10 @@ description: |
   and Vue ecosystem. Executes code modifications directly unless
   explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, mcp__documentation__*
-skills:
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
+core_skills:
   - frontend-frameworks/vue
+extended_skills:
   - meta-frameworks/nuxt
   - languages/typescript
   - styling/tailwindcss

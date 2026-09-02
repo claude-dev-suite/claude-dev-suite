@@ -49,6 +49,7 @@ const SYNCED_FILES = [
   'git.ts',
   'mcp.ts',
   'orchestrator.ts',
+  'drift.ts',
   'reinstall.ts',
   'release.ts',
 ];

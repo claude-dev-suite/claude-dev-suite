@@ -24,14 +24,12 @@ LINE_LIMIT="${DS_LOG_LINE_LIMIT:-100}"
 INPUT="$(cat)"
 
 if ! command -v jq &>/dev/null; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
-ORIGINAL_CMD="$(printf '%s' "$INPUT" | jq -r '.command // empty' 2>/dev/null || true)"
+ORIGINAL_CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
 
 if [ -z "$ORIGINAL_CMD" ]; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
@@ -43,7 +41,6 @@ is_log_cmd() {
 }
 
 if ! is_log_cmd "$ORIGINAL_CMD"; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
@@ -54,7 +51,6 @@ already_limited() {
 }
 
 if already_limited "$ORIGINAL_CMD"; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
@@ -63,4 +59,4 @@ fi
 FILTER_CMD="bash -c 'eval \"\$1\" 2>&1 | tail -${LINE_LIMIT}; echo \"--- output capped at ${LINE_LIMIT} lines by dev-suite truncate-logs hook ---\"' _ $(printf '%q' "$ORIGINAL_CMD")"
 
 printf '%s' "$INPUT" | jq --arg cmd "$FILTER_CMD" \
-  '{hookSpecificOutput: {updatedInput: {command: $cmd}}}'
+  '{hookSpecificOutput: {hookEventName: "PreToolUse", updatedInput: (.tool_input | .command = $cmd)}}'

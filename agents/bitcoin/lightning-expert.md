@@ -15,8 +15,9 @@ description: |
   RGB-LN), and Lightning attack mitigations.
 model: opus
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - bitcoin/lightning/bolts
+extended_skills:
   - bitcoin/lightning/channels
   - bitcoin/lightning/htlcs
   - bitcoin/lightning/routing

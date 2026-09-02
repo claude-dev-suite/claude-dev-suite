@@ -143,7 +143,11 @@ export class AgentSDKService {
         message: 'Authentication failed',
         userMessage: 'API authentication failed. Please check your API key configuration.',
         retryable: false,
-        suggestions: ['Verify your ANTHROPIC_API_KEY is set correctly', 'Check if the API key has expired'],
+        suggestions: [
+          'Open the Credentials tab and set an Anthropic API key (sk-ant-api…) or an OAuth token from `claude setup-token` (sk-ant-oat…)',
+          'Use Verify in the Credentials tab to confirm the credential is accepted',
+          'An Admin API key (sk-ant-admin…) cannot run the model — it only works for usage reporting',
+        ],
         originalError: errorMessage,
       };
     }

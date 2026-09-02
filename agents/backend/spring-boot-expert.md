@@ -6,9 +6,10 @@ description: |
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__api-tester__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - backend-frameworks/spring-boot
+extended_skills:
+  - best-practices/token-optimization
   - backend-frameworks/spring-data-jpa
   - backend-frameworks/spring-security
   - backend-frameworks/spring-validation
@@ -60,40 +61,31 @@ skills:
   - logging/logback
   - logging/slf4j
   - api-integration/openapi-generator
-  # API security
   - security/api-security
-  # Cross-cutting patterns
   - best-practices/resilience-patterns
   - best-practices/caching-strategies
   - best-practices/feature-flags
   - architecture/multitenancy
-  # Scheduling & jobs
   - infrastructure/cron-scheduling
   - infrastructure/job-queues
-  # Security & compliance
   - security/rate-limiting
   - security/cryptography
   - security/audit-logging
   - security/gdpr
-  # Testing
   - testing/load-testing
   - testing/contract-testing
-  # Communication & real-time
   - email/email-sending
   - notifications/push-notifications
   - real-time/sse
-  # API & cloud
   - api-design/grpc
   - cloud/aws
   - cloud/serverless
-  # Documents
   - utilities/pdf-generation
   - utilities/data-export
   - backend-frameworks/thymeleaf
   - databases/elasticsearch
   - utilities/apache-poi
   - quality/jacoco
-  # Production patterns
   - api-design/webhooks
   - api-design/pagination
   - best-practices/error-handling

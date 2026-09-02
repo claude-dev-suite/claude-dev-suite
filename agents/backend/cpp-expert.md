@@ -8,8 +8,9 @@ description: |
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - languages/cpp
+extended_skills:
   - build-tools/cmake
   - testing/googletest
   - quality/cpp-quality

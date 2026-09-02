@@ -6,22 +6,20 @@ description: |
   directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__api-tester__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - backend-frameworks/fastapi
+extended_skills:
+  - best-practices/token-optimization
   - languages/python
   - orm-odm/sqlalchemy
   - api-design/rest-api
   - api-design/openapi
   - testing/pytest
   - logging/structlog
-  # API security
   - security/api-security
-  # Real-time, background jobs
   - real-time/sse
   - infrastructure/job-queues
   - infrastructure/cron-scheduling
-  # Production patterns
   - api-design/webhooks
   - api-design/pagination
   - best-practices/error-handling

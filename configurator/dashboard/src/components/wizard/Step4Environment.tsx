@@ -12,6 +12,28 @@ export interface Step4EnvironmentProps {
   onEnvVarChange: (name: string, value: string) => void;
 }
 
+/**
+ * Whether this value must be masked in the UI.
+ *
+ * The declared `secret` flag from the server's metadata is the answer whenever
+ * it is present: it is the same flag `.gitignore` and the secret store act on,
+ * and `scripts/validate-env-secrets.mjs` fails the build when a credential-shaped
+ * variable lacks it. The name heuristic stays only as a fallback for env vars
+ * that carry no flag at all — a server the user added by hand — because for
+ * masking, guessing wrong towards "hide it" is the safe direction.
+ */
+function isSecretEnvVar(envVar: { name: string; secret?: boolean }): boolean {
+  if (typeof envVar.secret === 'boolean') return envVar.secret;
+  const name = envVar.name.toLowerCase();
+  return (
+    name.includes('secret') ||
+    name.includes('password') ||
+    name.includes('token') ||
+    name.includes('key') ||
+    name.includes('credential')
+  );
+}
+
 export function Step4Environment({
   projectPath,
   selectedMcpServers,
@@ -197,9 +219,7 @@ export function Step4Environment({
                     </div>
                     <p className="text-xs text-surface-400 mb-3">{envVar.description}</p>
                     <Input
-                      type={envVar.name.toLowerCase().includes('secret') ||
-                            envVar.name.toLowerCase().includes('password') ||
-                            envVar.name.toLowerCase().includes('token') ? 'password' : 'text'}
+                      type={isSecretEnvVar(envVar) ? 'password' : 'text'}
                       value={currentValue}
                       onChange={(e) => onEnvVarChange(envVar.name, e.target.value)}
                       placeholder={envVar.default || 'Enter value...'}

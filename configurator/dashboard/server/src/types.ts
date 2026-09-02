@@ -49,6 +49,26 @@ export interface GitProviderInfo {
 }
 
 // Agent types
+/**
+ * What an agent can actually do, derived from its `allowed-tools` frontmatter.
+ *
+ * The parser used to read that line only to pull MCP server names out of it and
+ * threw the tool list away, so nothing downstream knew that (say) a frontend
+ * expert has no `Bash` and therefore cannot run the tests its own body tells it
+ * to run. An orchestrator handing work to these agents needs this before it
+ * picks one, not after.
+ */
+export interface AgentCapabilityProfile {
+  /** Has `Bash`: can run builds, tests, linters. */
+  canExecute: boolean;
+  /** Has `Task`/`Agent`: can delegate to another subagent. */
+  canDelegate: boolean;
+  /** Has `Write`/`Edit`: can modify files, rather than only report. */
+  canEdit: boolean;
+  /** No `allowed-tools` at all — inherits every tool available to subagents. */
+  unrestricted: boolean;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -68,6 +88,8 @@ export interface Agent {
    * no check could catch a typo.
    */
   model?: string;
+  /** Derived from `allowed-tools`; see {@link AgentCapabilityProfile}. */
+  capabilities?: AgentCapabilityProfile;
   filePath: string;
 }
 
@@ -118,6 +140,18 @@ export interface EnvVarConfig {
   detectedValue?: string;
   source?: string;
   mcpServer?: string;
+  /**
+   * True when the value is a credential rather than configuration.
+   *
+   * This drives what lands in `.gitignore`: the install used to ignore every
+   * assistant's MCP config as soon as *any* env var had a value, so setting a
+   * port or a branch name was enough to hide `.codex/config.toml` and
+   * `.gemini/settings.json` — whole assistant configs, not just secrets — from
+   * git. Only entries marked here are secrets; `scripts/validate-env-secrets.mjs`
+   * fails the build if a `required` var, or one whose name looks like a
+   * credential, is missing the flag.
+   */
+  secret?: boolean;
 }
 
 // Installation types
@@ -354,7 +388,8 @@ export interface ClaudeHookEvent {
   name: string;
   description: string;
   hasMatcher: boolean;
-  matcherType?: 'tool' | 'type';
+  /** What the matcher is compared against: a tool name, a notification type, or a subagent type. */
+  matcherType?: 'tool' | 'type' | 'agent';
   matcherDescription?: string;
 }
 

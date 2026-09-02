@@ -13,3 +13,5 @@
 
 export { validateUrl, type SsrfOptions } from './ssrf.js';
 export { validateFilePath, assertWithinRoot } from './file-path.js';
+export { SingleFlight } from './single-flight.js';
+export { Semaphore } from './semaphore.js';

@@ -6,16 +6,14 @@ description: |
   explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Grep, Glob, Bash, mcp__documentation__*, mcp__security-scanner__*
-skills:
-  - best-practices/token-optimization
-  # Core OWASP skills
+core_skills:
   - security/owasp-top-10
+extended_skills:
+  - best-practices/token-optimization
   - security/owasp
   - security/supply-chain
   - security/secrets-management
-  # API Security (OWASP API Top 10, GraphQL)
   - security/api-security
-  # Language-specific security (load based on project stack)
   - security/java-security
   - security/python-security
   - security/dotnet-security
@@ -24,19 +22,15 @@ skills:
   - security/typescript-security
   - security/php-security
   - security/kotlin-security
-  # AI-generated code security
   - security/ai-code-security
-  # Infrastructure security
   - security/container-security
   - security/iac-security
-  # Authentication
   - authentication/jwt
   - authentication/oauth2
   - authentication/webauthn
   - backend-frameworks/spring-security
   - backend-frameworks/spring-session
   - best-practices/clean-code
-  # Application security patterns
   - security/rate-limiting
   - security/cryptography
   - security/audit-logging

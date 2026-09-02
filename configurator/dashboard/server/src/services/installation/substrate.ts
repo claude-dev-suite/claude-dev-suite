@@ -57,6 +57,10 @@ const logger = getLogger('SubstrateInstaller');
 export class SubstrateInstaller {
   /** Paths the previous install owned; empty on a first install. */
   private previouslyManaged: ReadonlySet<string> = new Set();
+  private previousFileHashes: ReadonlyMap<string, string> | undefined;
+  private previousSectionHashes: ReadonlyMap<string, string> | undefined;
+  private acknowledgedFileHashes: ReadonlyMap<string, string> | undefined;
+  private projectRoot = '';
   /** Agent ids whose destination file belonged to the user and was left alone. */
   private preservedAgents: string[] = [];
 
@@ -80,6 +84,10 @@ export class SubstrateInstaller {
     const { projectPath, devSuiteDir, agents, skillLoadingMode } = plan;
     const paths = targetPaths(projectPath, 'claude-code');
     this.previouslyManaged = plan.previouslyManaged;
+    this.previousFileHashes = plan.previousFileHashes;
+    this.previousSectionHashes = plan.previousSectionHashes;
+    this.acknowledgedFileHashes = plan.acknowledgedFileHashes;
+    this.projectRoot = plan.projectPath;
     this.preservedAgents = [];
 
     // Route the mkdir sinks through the guard too: an unvalidated mkdir into a
@@ -454,15 +462,31 @@ export class SubstrateInstaller {
       // `.claude/agents/<id>.md` may be the user's own — Copilot and Cursor read
       // this directory too, so people hand-write agents in it. Only replace a
       // file the previous install recorded as ours.
-      if (
-        writeManagedFile({
+      const outcome = writeManagedFile({
           absPath: destPath,
           relPath: paths.relAgentFile(agentId),
           content: installedContent,
           previouslyManaged: this.previouslyManaged,
-        }) === 'preserved'
-      ) {
+          previousHashes: this.previousFileHashes,
+          sectionHashes: this.previousSectionHashes,
+          acknowledgedHashes: this.acknowledgedFileHashes,
+          projectPath: this.projectRoot,
+        });
+      // 'drifted': the file changed after we wrote it, so it was backed up and
+      // left in place. Nothing was written, exactly as with 'preserved'.
+      if (outcome === 'preserved' || outcome === 'drifted') {
         this.preservedAgents.push(agentId);
+        if (outcome === 'drifted') {
+          // Still ours, so it stays in the manifest — otherwise uninstall would
+          // walk past it. Recorded at the baseline hash so the next scan still
+          // reports the drift instead of adopting it.
+          const rel = paths.relAgentFile(agentId);
+          manifest.files.push({ path: rel, type: 'agent', source: agentFile });
+          if (extendedManifest) {
+            trackManifestFile(extendedManifest, projectPath, rel, 'agent', agentFile,
+              undefined, this.previousFileHashes?.get(rel));
+          }
+        }
         return true;
       }
       manifest.files.push({ path: paths.relAgentFile(agentId), type: 'agent', source: agentFile });
@@ -561,15 +585,31 @@ export class SubstrateInstaller {
       // `.claude/agents/<id>.md` may be the user's own — Copilot and Cursor read
       // this directory too, so people hand-write agents in it. Only replace a
       // file the previous install recorded as ours.
-      if (
-        writeManagedFile({
+      const outcome = writeManagedFile({
           absPath: destPath,
           relPath: paths.relAgentFile(agentId),
           content: installedContent,
           previouslyManaged: this.previouslyManaged,
-        }) === 'preserved'
-      ) {
+          previousHashes: this.previousFileHashes,
+          sectionHashes: this.previousSectionHashes,
+          acknowledgedHashes: this.acknowledgedFileHashes,
+          projectPath: this.projectRoot,
+        });
+      // 'drifted': the file changed after we wrote it, so it was backed up and
+      // left in place. Nothing was written, exactly as with 'preserved'.
+      if (outcome === 'preserved' || outcome === 'drifted') {
         this.preservedAgents.push(agentId);
+        if (outcome === 'drifted') {
+          // Still ours, so it stays in the manifest — otherwise uninstall would
+          // walk past it. Recorded at the baseline hash so the next scan still
+          // reports the drift instead of adopting it.
+          const rel = paths.relAgentFile(agentId);
+          manifest.files.push({ path: rel, type: 'agent', source: agentFile });
+          if (extendedManifest) {
+            trackManifestFile(extendedManifest, projectPath, rel, 'agent', agentFile,
+              undefined, this.previousFileHashes?.get(rel));
+          }
+        }
         return true;
       }
       manifest.files.push({ path: paths.relAgentFile(agentId), type: 'agent', source: agentFile });

@@ -6,8 +6,9 @@ description: |
   Use for accessibility audits, remediation, and inclusive design.
 model: sonnet
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*
-skills:
+core_skills:
   - accessibility/wcag
+extended_skills:
   - accessibility/axe-core
   - testing/playwright
   - frontend-frameworks/react

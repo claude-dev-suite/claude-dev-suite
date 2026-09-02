@@ -22,6 +22,41 @@ interface GitHooksModalProps {
   onToggleAction: (hookType: HookType, action: string) => void;
 }
 
+/**
+ * What the matcher is compared against, per event.
+ *
+ * It is not always a tool name: `SubagentStop` matches the subagent's type, and
+ * `Stop` takes no matcher at all — anything typed there is dropped when the hook
+ * is written, so the field is disabled rather than silently ignored.
+ */
+const MATCHER_LABELS: Record<string, { label: string; placeholder: string; helper: string }> = {
+  PreToolUse: {
+    label: 'Matcher (tool name or pattern)',
+    placeholder: 'e.g. Bash, Write|Edit, .*',
+    helper: 'Tool name or regex. Leave empty to match every tool.',
+  },
+  PostToolUse: {
+    label: 'Matcher (tool name or pattern)',
+    placeholder: 'e.g. Write|Edit|MultiEdit',
+    helper: 'Tool name or regex. Leave empty to match every tool.',
+  },
+  SubagentStop: {
+    label: 'Matcher (subagent type)',
+    placeholder: 'e.g. code-reviewer, or a|b',
+    helper: 'Matches the subagent type. A generically typed subagent matches none of these — leave empty to match every subagent.',
+  },
+  Notification: {
+    label: 'Matcher (notification type)',
+    placeholder: 'e.g. permission',
+    helper: 'Notification type. Leave empty to match all.',
+  },
+  Stop: {
+    label: 'Matcher (not used for Stop)',
+    placeholder: '',
+    helper: 'Stop fires once per turn and takes no matcher.',
+  },
+};
+
 export function GitHooksModal({
   isOpen,
   onClose,
@@ -128,11 +163,12 @@ export function ClaudeHookFormModal({
     >
       <div className="space-y-4">
         <Input
-          label="Matcher (tool name or pattern)"
+          label={MATCHER_LABELS[form.event]?.label ?? 'Matcher'}
           value={form.matcher}
           onChange={(e) => onFormChange({ matcher: e.target.value })}
-          placeholder="e.g., Bash, Edit, *"
-          helperText="Use * for all tools, or specific tool names"
+          placeholder={MATCHER_LABELS[form.event]?.placeholder ?? ''}
+          helperText={MATCHER_LABELS[form.event]?.helper ?? ''}
+          disabled={form.event === 'Stop'}
           fullWidth
         />
         <Select

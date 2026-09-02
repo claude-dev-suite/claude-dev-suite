@@ -33,7 +33,11 @@ export class ClineAdapter implements TargetAdapter {
     const { plan, manifest } = ctx;
 
     const installedAgents = plan.agentCatalog.filter(a => manifest.agents.includes(a.id));
-    const ruleFiles = writePathScopedRules('cline', installedAgents, plan.projectPath, plan.previouslyManaged);
+    const ruleResult = writePathScopedRules('cline', installedAgents, plan.projectPath, plan.previouslyManaged, {
+      previousHashes: plan.previousFileHashes,
+      sectionHashes: plan.previousSectionHashes,
+      acknowledgedHashes: plan.acknowledgedFileHashes,
+    });
 
     const skipped: SkippedCapability[] = [
       {
@@ -53,6 +57,6 @@ export class ClineAdapter implements TargetAdapter {
       });
     }
 
-    return { ruleFiles, validatorHookConfigured: false, skipped };
+    return { ruleFiles: [...ruleResult.written, ...ruleResult.drifted], driftedRuleFiles: ruleResult.drifted, validatorHookConfigured: false, skipped };
   }
 }

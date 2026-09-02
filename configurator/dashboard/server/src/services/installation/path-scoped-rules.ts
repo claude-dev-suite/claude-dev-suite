@@ -88,23 +88,36 @@ export function computePathScopedRuleSpecs(installedAgents: Agent[]): PathScoped
 }
 
 /**
- * Write path-scoped rule files for one target and return their project-relative
- * paths (for the manifest's `installedRuleFiles`). A target without a rule
- * writer produces nothing.
+ * Write path-scoped rule files for one target.
+ *
+ * `written` are the files this run produced; `drifted` are files that changed
+ * since dev-suite wrote them and were therefore left alone (backed up first).
+ *
+ * The distinction matters beyond reporting: the caller prunes any previously
+ * recorded rule file that is not in `installedRuleFiles`, so dropping a drifted
+ * file from the result made the very run that refused to overwrite it delete it
+ * instead. Both lists belong in the manifest; only `written` may be recorded at
+ * its current content.
  */
 export function writePathScopedRules(
   target: TargetId,
   installedAgents: Agent[],
   projectPath: string,
-  previouslyManaged: ReadonlySet<string> = new Set()
-): string[] {
+  previouslyManaged: ReadonlySet<string> = new Set(),
+  drift?: {
+    previousHashes?: ReadonlyMap<string, string>;
+    sectionHashes?: ReadonlyMap<string, string>;
+    acknowledgedHashes?: ReadonlyMap<string, string>;
+  }
+): { written: string[]; drifted: string[] } {
   const writer = RULE_WRITERS[target];
-  if (!writer) return [];
+  if (!writer) return { written: [], drifted: [] };
 
   const paths = targetPaths(projectPath, target);
   fs.mkdirSync(paths.rulesDir, { recursive: true });
 
   const written: string[] = [];
+  const drifted: string[] = [];
   for (const spec of computePathScopedRuleSpecs(installedAgents)) {
     const relPath = paths.relRuleFile(spec.category);
     // A rule file the user wrote in the same directory is not ours to replace;
@@ -114,9 +127,22 @@ export function writePathScopedRules(
       relPath,
       content: writer(spec),
       previouslyManaged,
+      previousHashes: drift?.previousHashes,
+      sectionHashes: drift?.sectionHashes,
+      acknowledgedHashes: drift?.acknowledgedHashes,
+      projectPath,
     });
+    // 'drifted': the file changed since we wrote it and was left in place, with
+    // a copy in .dev-suite-backup/drift/. It is still ours and still installed,
+    // so it must survive the stale-file prune — but it is not recorded at this
+    // content, or the next scan would call the edit clean.
+    if (outcome === 'drifted') {
+      drifted.push(relPath);
+      continue;
+    }
+    // 'preserved': never ours to begin with. Not written, not tracked, not pruned.
     if (outcome === 'preserved') continue;
     written.push(relPath);
   }
-  return written;
+  return { written, drifted };
 }

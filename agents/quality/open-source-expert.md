@@ -5,13 +5,14 @@ description: |
   and compliance. Executes open-source setup directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__code-quality__*
-skills:
+core_skills:
+  - security/license-compliance
+extended_skills:
   - best-practices/open-source
   - best-practices/git-workflow
   - best-practices/clean-code
   - security/supply-chain
   - security/secrets-management
-  - security/license-compliance
 mcp_servers:
   - documentation
   - code-quality

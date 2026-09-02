@@ -13,11 +13,13 @@ import type { InstallConfig } from '../types.js';
 import { validateBody, validateQuery } from '../middleware/validateRequest.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { targetPaths } from '../services/targets/target-paths.js';
+import { materializeLocal } from '../services/installation/materialize-local.js';
 import {
   PrepareServersRequestSchema,
   InstallRequestSchema,
   UninstallRequestSchema,
   InstallStatusRequestSchema,
+  MaterializeLocalRequestSchema,
   AvailableCommandsRequestSchema,
 } from '../validation/schemas.js';
 
@@ -116,6 +118,30 @@ installationRoutes.get('/install-status', validateQuery(InstallStatusRequestSche
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Status check failed',
+    });
+  }
+});
+
+/**
+ * POST /api/materialize-local — rebuild this checkout's MCP configs.
+ *
+ * A git worktree contains only *tracked* files, so a project whose MCP config
+ * is gitignored (because it carries a credential) simply has none there: agents
+ * running in that worktree see a project with no dev-suite at all, silently.
+ * This rebuilds the configs from the committed manifest plus the machine-local
+ * secret store — no secret ever needs to be committed for a worktree to work.
+ */
+installationRoutes.post('/materialize-local', validateBody(MaterializeLocalRequestSchema), async (req: Request, res: Response) => {
+  try {
+    const projectPath = resolveProjectPath((req.body as { projectPath: string }).projectPath);
+    const result = await materializeLocal(projectPath);
+    // Never echo the values back — only what was written and whether secrets
+    // were available to write.
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Materialize failed',
     });
   }
 });

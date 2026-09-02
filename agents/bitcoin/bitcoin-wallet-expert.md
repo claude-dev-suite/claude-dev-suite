@@ -13,8 +13,9 @@ description: |
   Executes wallet logic directly unless asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - bitcoin/wallets/hd
+extended_skills:
   - bitcoin/wallets/coin-selection
   - bitcoin/wallets/fee-estimation
   - bitcoin/wallets/rbf-cpfp

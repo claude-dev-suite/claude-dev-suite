@@ -24,8 +24,9 @@ description: |
   a separate role, use `contract-validator`
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__code-quality__*
-skills:
+core_skills:
   - languages/csharp
+extended_skills:
   - testing/xunit
   - testing/contract-testing
   - systems/game-engine-architecture

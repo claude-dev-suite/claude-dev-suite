@@ -8,13 +8,11 @@ description: |
   Token-efficient: queries only relevant endpoints.
 model: sonnet
 allowed-tools: Read, Glob, Grep, Bash, Task, mcp__api-tester__http_request, mcp__api-tester__health_check, mcp__api-tester__batch_request, mcp__database-query__execute_query, mcp__database-query__list_tables, mcp__database-query__describe_table, mcp__docker-manager__docker_ps, mcp__docker-manager__docker_compose, mcp__docker-manager__docker_container, mcp__log-analyzer__find_errors, mcp__log-analyzer__tail_logs, mcp__log-analyzer__parse_logs, mcp__documentation__*
-skills:
-  # Smoke testing patterns
+core_skills:
   - testing/smoke-test
-  # Integration testing knowledge
+extended_skills:
   - testing/rest-assured
   - testing/testcontainers
-  # Best practices
   - best-practices/token-optimization
 mcp_servers:
   - api-tester

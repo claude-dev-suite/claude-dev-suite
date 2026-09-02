@@ -12,8 +12,8 @@ import { getLogger } from '../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { targetPaths } from './targets/target-paths.js';
-// HooksService available for future advanced hook operations
-// import { HooksService } from './hooks.service.js';
+import { HooksService } from './hooks.service.js';
+import { FILE_CHANGE_HOOK_SCRIPT } from './hooks/hooks.constants.js';
 import {
   AUTOMATION_RECIPES,
   getRecipeById,
@@ -632,6 +632,16 @@ export class RecipesService {
       hookCommand = command;
     }
 
+    // Recipes that react to a file write go through a shared Node helper: the
+    // payload arrives as JSON on stdin, and the variable these commands used to
+    // interpolate does not exist. Install it beside the other hook scripts.
+    if (typeof hookCommand === 'string' && hookCommand.includes(FILE_CHANGE_HOOK_SCRIPT)) {
+      const copied = new HooksService().installHookScript(projectPath, FILE_CHANGE_HOOK_SCRIPT);
+      if (!copied.success) {
+        return { success: false, error: copied.error };
+      }
+    }
+
     // Use the HooksService to add the hook
     const settingsPath = targetPaths(projectPath).settingsFile;
     const claudeDir = path.dirname(settingsPath);
@@ -668,11 +678,12 @@ export class RecipesService {
       hookEntry.matcher = impl.matcher;
     }
 
-    if (typeof hookCommand === 'object') {
-      hookEntry.hooks = [hookCommand];
-    } else {
-      hookEntry.hooks = [hookCommand];
-    }
+    // Each entry must be an object carrying a `type`. Bare strings appear in no
+    // version of the hook schema; they were written here and in every other
+    // writer until the schema was checked against the documentation.
+    hookEntry.hooks = [
+      typeof hookCommand === 'object' ? hookCommand : { type: 'command', command: hookCommand },
+    ];
 
     if (impl.timeout) {
       hookEntry.timeout = impl.timeout;

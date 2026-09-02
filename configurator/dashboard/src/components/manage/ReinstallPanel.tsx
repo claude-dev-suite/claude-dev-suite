@@ -2,9 +2,14 @@
 /**
  * Reinstall Panel
  *
- * Erase-and-replace reinstall/sync UI: shows the selection summary, locally
- * modified managed files (with per-file Overwrite/Keep opt-out), orphans to be
- * removed, and a transactional Reinstall action.
+ * Erase-and-replace reinstall/sync UI: shows the selection summary, a drift
+ * banner, locally modified managed files (with a per-file Overwrite / Keep /
+ * Adopt choice), orphans to be removed, and a transactional Reinstall action.
+ *
+ * The three-way choice exists because "keep" and "adopt" are genuinely
+ * different decisions: keeping is "not this run", adopting is "this content is
+ * correct now, stop asking". Collapsing them into one button either nags
+ * forever or silently suppresses a warning nobody remembers dismissing.
  */
 
 import { Button, Badge } from '../common';
@@ -21,6 +26,7 @@ export function ReinstallPanel({ projectPath }: ReinstallPanelProps) {
     isPreviewing,
     previewError,
     refreshPreview,
+    driftReport,
     executeResult,
     isExecuting,
     executeError,
@@ -61,6 +67,15 @@ export function ReinstallPanel({ projectPath }: ReinstallPanelProps) {
 
   const modified = previewResult?.modifiedManagedFiles ?? [];
   const orphans = previewResult?.orphansToRemove ?? [];
+  const drift = driftReport ?? previewResult?.drift ?? null;
+  const unresolved = modified.filter(f => !f.acknowledged);
+  const adopted = modified.filter(f => f.acknowledged);
+
+  const RESOLUTION_LABELS = {
+    overwrite: 'Overwrite',
+    keep: 'Keep (this time)',
+    promote: 'Adopt',
+  } as const;
 
   return (
     <div className="space-y-6">
@@ -76,6 +91,22 @@ export function ReinstallPanel({ projectPath }: ReinstallPanelProps) {
         </p>
       </div>
 
+      {/* Drift banner */}
+      {drift?.hasActionableDrift && (
+        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+          <h4 className="text-yellow-300 font-medium mb-1">
+            {drift.counts.drifted} managed {drift.counts.drifted === 1 ? 'file has' : 'files have'} changed since dev-suite wrote {drift.counts.drifted === 1 ? 'it' : 'them'}
+          </h4>
+          <p className="text-sm text-yellow-300/80">
+            Something outside the dashboard edited them — an agent, a script, or a hand edit.
+            Reinstalling overwrites the changes unless you keep or adopt each file below.
+            {drift.counts.driftedOutsideSection > 0 && (
+              <> {drift.counts.driftedOutsideSection} further {drift.counts.driftedOutsideSection === 1 ? 'file was' : 'files were'} edited outside the dev-suite markers — that is your own content and is left alone.</>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Selection summary */}
       {previewResult && (
         <div className="flex flex-wrap gap-2">
@@ -84,7 +115,8 @@ export function ReinstallPanel({ projectPath }: ReinstallPanelProps) {
           <Badge variant="default">{previewResult.selection.rules.length} rules</Badge>
           <Badge variant="default">{previewResult.skillDirsToRebuild} skill dirs rebuilt</Badge>
           {orphans.length > 0 && <Badge variant="warning">{orphans.length} to remove</Badge>}
-          {modified.length > 0 && <Badge variant="warning">{modified.length} modified</Badge>}
+          {unresolved.length > 0 && <Badge variant="warning">{unresolved.length} modified</Badge>}
+          {adopted.length > 0 && <Badge variant="default">{adopted.length} adopted</Badge>}
         </div>
       )}
 
@@ -106,20 +138,42 @@ export function ReinstallPanel({ projectPath }: ReinstallPanelProps) {
           <h4 className="text-sm font-medium text-surface-300 mb-2">
             Locally modified files — choose what to do
           </h4>
+          <p className="text-xs text-surface-500 mb-2">
+            <span className="text-surface-400">Overwrite</span> replaces the file ·
+            <span className="text-surface-400"> Keep</span> preserves it for this run only ·
+            <span className="text-surface-400"> Adopt</span> preserves it and marks the content as intentional.
+          </p>
           <div className="space-y-2">
             {modified.map(f => {
-              const choice = resolutions[f.path] ?? 'overwrite';
+              const choice = resolutions[f.path] ?? (f.acknowledged ? 'promote' : 'overwrite');
               return (
                 <div
                   key={f.path}
                   className="flex items-center justify-between p-3 bg-surface-800/50 rounded-lg"
                 >
-                  <span className="text-sm text-surface-300 font-mono truncate mr-4">{f.path}</span>
+                  <div className="min-w-0 mr-4">
+                    <span className="block text-sm text-surface-300 font-mono truncate">{f.path}</span>
+                    <span className="text-xs text-surface-500">
+                      {f.currentHash === '(deleted)'
+                        ? 'missing on disk — will be recreated'
+                        : f.scope === 'managed-section'
+                          ? 'changed inside the dev-suite markers'
+                          : 'whole file changed'}
+                      {f.acknowledged && ' · adopted earlier'}
+                    </span>
+                  </div>
                   <div className="flex gap-1 shrink-0">
-                    {(['overwrite', 'keep'] as const).map(opt => (
+                    {(['overwrite', 'keep', 'promote'] as const).map(opt => (
                       <button
                         key={opt}
                         onClick={() => setResolution(f.path, opt)}
+                        title={
+                          opt === 'overwrite'
+                            ? 'Replace with the version dev-suite generates'
+                            : opt === 'keep'
+                              ? 'Preserve this version for this run; it will be reported again next time'
+                              : 'Preserve this version and stop reporting it as drift'
+                        }
                         className={clsx(
                           'px-3 py-1 text-xs rounded-md transition-colors',
                           choice === opt
@@ -127,7 +181,7 @@ export function ReinstallPanel({ projectPath }: ReinstallPanelProps) {
                             : 'bg-surface-700 text-surface-300 hover:bg-surface-600'
                         )}
                       >
-                        {opt === 'overwrite' ? 'Overwrite' : 'Keep mine'}
+                        {RESOLUTION_LABELS[opt]}
                       </button>
                     ))}
                   </div>
@@ -144,7 +198,8 @@ export function ReinstallPanel({ projectPath }: ReinstallPanelProps) {
           <p className="font-medium">Reinstall complete.</p>
           <p>
             {executeResult.agentsReinstalled.length} agents, {executeResult.mcpReinstalled.length} MCP servers
-            reinstalled · {executeResult.orphansRemoved.length} removed · {executeResult.keptFiles.length} kept.
+            reinstalled · {executeResult.orphansRemoved.length} removed · {executeResult.keptFiles.length} kept
+            {(executeResult.promotedFiles?.length ?? 0) > 0 && ` · ${executeResult.promotedFiles?.length} adopted`}.
           </p>
           {executeResult.backupDir && (
             <p className="text-green-300/70 font-mono text-xs">backup: {executeResult.backupDir}</p>

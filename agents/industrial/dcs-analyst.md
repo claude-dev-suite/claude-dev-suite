@@ -3,8 +3,9 @@ name: dcs-analyst
 description: Analyzes DCS/PLC project files (ABB Freelance PRT, DMF, CSV; Siemens XML; Emerson FHX). Extracts structured data, maps tag databases, identifies patterns, and builds engineering inventories. Use when you need to understand project contents, extract tag lists, or reverse-engineer file structures.
 model: sonnet
 allowed-tools: Read, Grep, Glob, Bash, Agent
-skills:
+core_skills:
   - industrial/freelance-formats
+extended_skills:
   - industrial/isa-standards
   - industrial/dcs-platforms
 ---

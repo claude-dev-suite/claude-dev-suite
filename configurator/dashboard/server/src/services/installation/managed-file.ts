@@ -21,13 +21,24 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '../../utils/logger.js';
+import { comparisonHashOf, matchesAnyLineEnding } from './drift.service.js';
 
 const logger = getLogger('ManagedFile');
 
 const MANIFEST_FILE = '.dev-suite-manifest.json';
 
-/** Outcome of a guarded write. */
-export type ManagedWriteOutcome = 'written' | 'replaced' | 'preserved';
+/** Where a drifted file is copied before it is replaced. */
+export const DRIFT_BACKUP_DIR = '.dev-suite-backup/drift';
+
+/**
+ * Outcome of a guarded write.
+ *
+ * `drifted` is the case ownership-by-path alone could not see: the file IS
+ * ours, but its content changed since we wrote it and no human ratified the
+ * change. Overwriting it silently is how a concurrent agent's work disappears,
+ * so the write is refused, the content is backed up, and the caller reports it.
+ */
+export type ManagedWriteOutcome = 'written' | 'replaced' | 'preserved' | 'drifted';
 
 /**
  * Paths recorded in the project's manifest as it stands on disk, i.e. what
@@ -59,19 +70,110 @@ export function readPreviouslyManagedPaths(projectPath: string): Set<string> {
 }
 
 /**
- * Write `content` to `absPath` unless the file already exists and dev-suite did
- * not write it.
+ * Hashes the previous install recorded, so a write can tell "our file,
+ * untouched" from "our file, edited since".
  *
- * Returns what happened so the caller can report a preserved file as a skipped
- * capability rather than letting it pass silently.
+ * Ownership by path alone cannot: a `.claude/agents/*.md` an agent rewrote is
+ * still in the manifest, so it stayed "ours" and was replaced with no backup
+ * and no entry in `skipped`. Reading the recorded hash is what turns that into
+ * a visible event.
+ */
+export function readPreviousFileHashes(projectPath: string): {
+  hashes: Map<string, string>;
+  sectionHashes: Map<string, string>;
+  acknowledged: Map<string, string>;
+} {
+  const hashes = new Map<string, string>();
+  const sectionHashes = new Map<string, string>();
+  const acknowledged = new Map<string, string>();
+  const manifestPath = path.join(projectPath, MANIFEST_FILE);
+  if (!fs.existsSync(manifestPath)) return { hashes, sectionHashes, acknowledged };
+  try {
+    const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as { files?: unknown };
+    if (!Array.isArray(parsed.files)) return { hashes, sectionHashes, acknowledged };
+    for (const file of parsed.files) {
+      if (!file || typeof file !== 'object') continue;
+      const entry = file as {
+        path?: unknown;
+        hash?: unknown;
+        sectionHash?: unknown;
+        acknowledgedHash?: unknown;
+      };
+      if (typeof entry.path !== 'string') continue;
+      const rel = entry.path.split(path.sep).join('/');
+      if (typeof entry.hash === 'string' && entry.hash) hashes.set(rel, entry.hash);
+      // Recorded for files carrying the dev-suite markers: the only baseline the
+      // section comparison below can legitimately be measured against.
+      if (typeof entry.sectionHash === 'string' && entry.sectionHash) {
+        sectionHashes.set(rel, entry.sectionHash);
+      }
+      if (typeof entry.acknowledgedHash === 'string' && entry.acknowledgedHash) {
+        acknowledged.set(rel, entry.acknowledgedHash);
+      }
+    }
+  } catch {
+    // Unreadable manifest: no baselines, so no file can be judged drifted and
+    // the pre-existing behaviour applies unchanged.
+  }
+  return { hashes, sectionHashes, acknowledged };
+}
+
+/**
+ * Copy a drifted file aside before anything else can touch it.
+ *
+ * Lives under the project's own backup directory rather than beside the file:
+ * a `.bak` dropped into `.claude/agents/` would itself be read as an agent.
+ */
+function backupDriftedFile(projectPath: string, relPath: string, absPath: string): string | null {
+  try {
+    const dest = path.join(projectPath, ...DRIFT_BACKUP_DIR.split('/'), ...relPath.split('/'));
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(absPath, dest);
+    return `${DRIFT_BACKUP_DIR}/${relPath}`;
+  } catch (error: unknown) {
+    logger.error('Could not back up a drifted managed file', { error, context: { path: relPath } });
+    return null;
+  }
+}
+
+/**
+ * Write `content` to `absPath` unless the file already exists and dev-suite did
+ * not write it — or wrote it, but somebody has edited it since.
+ *
+ * Returns what happened so the caller can report a preserved or drifted file as
+ * a skipped capability rather than letting it pass silently.
+ *
+ * Drift detection is opt-in through `previousHashes`: with no baselines the
+ * function behaves exactly as before (our file is replaced), so callers that
+ * have not been wired up keep their existing semantics.
  */
 export function writeManagedFile(args: {
   absPath: string;
   relPath: string;
   content: string;
   previouslyManaged: ReadonlySet<string>;
+  /**
+   * `relPath` → hash recorded by the previous install. Supply it (via
+   * `readPreviousFileHashes`) to enable the `drifted` outcome.
+   */
+  previousHashes?: ReadonlyMap<string, string>;
+  /** `relPath` → hash of the marked span only, for files that carry the markers. */
+  sectionHashes?: ReadonlyMap<string, string>;
+  /** `relPath` → hash a human ratified with `promote`; such content is replaceable. */
+  acknowledgedHashes?: ReadonlyMap<string, string>;
+  /** Project root, required to place the drift backup. */
+  projectPath?: string;
 }): ManagedWriteOutcome {
-  const { absPath, relPath, content, previouslyManaged } = args;
+  const {
+    absPath,
+    relPath,
+    content,
+    previouslyManaged,
+    previousHashes,
+    sectionHashes,
+    acknowledgedHashes,
+    projectPath,
+  } = args;
   const normalized = relPath.split(path.sep).join('/');
 
   if (fs.existsSync(absPath)) {
@@ -79,6 +181,16 @@ export function writeManagedFile(args: {
       logger.warn('Preserved a file dev-suite does not own', { context: { path: normalized } });
       return 'preserved';
     }
+
+    if (isDrifted(absPath, normalized, previousHashes, acknowledgedHashes, sectionHashes)) {
+      const root = projectPath ?? deriveProjectRoot(absPath, relPath);
+      const backup = root ? backupDriftedFile(root, normalized, absPath) : null;
+      logger.warn('Refused to overwrite a managed file that changed since we wrote it', {
+        context: { path: normalized, backup: backup ?? '(backup failed)' },
+      });
+      return 'drifted';
+    }
+
     fs.mkdirSync(path.dirname(absPath), { recursive: true });
     fs.writeFileSync(absPath, content, 'utf-8');
     return 'replaced';
@@ -87,6 +199,50 @@ export function writeManagedFile(args: {
   fs.mkdirSync(path.dirname(absPath), { recursive: true });
   fs.writeFileSync(absPath, content, 'utf-8');
   return 'written';
+}
+
+/** True when the on-disk content differs from the recorded baseline and nobody ratified it. */
+function isDrifted(
+  absPath: string,
+  normalized: string,
+  previousHashes: ReadonlyMap<string, string> | undefined,
+  acknowledgedHashes: ReadonlyMap<string, string> | undefined,
+  sectionHashes?: ReadonlyMap<string, string>
+): boolean {
+  const baseline = previousHashes?.get(normalized);
+  // No baseline means no judgement: never invent drift from missing data.
+  if (!baseline) return false;
+
+  let current: string;
+  try {
+    current = fs.readFileSync(absPath, 'utf-8');
+  } catch {
+    return false;
+  }
+
+  if (matchesAnyLineEnding(current, baseline)) return false;
+
+  const ratified = acknowledgedHashes?.get(normalized);
+  if (ratified && matchesAnyLineEnding(current, ratified)) return false;
+
+  // A marked file's whole-file hash moves with the user's own prose, so fall
+  // back to comparing only the span we own — against the section baseline, not
+  // the whole-file one. Comparing it against `baseline` could never match, so
+  // this branch used to be unreachable.
+  const { hash, scope } = comparisonHashOf(current);
+  if (scope === 'managed-section') {
+    const sectionBaseline = sectionHashes?.get(normalized);
+    if (sectionBaseline && hash === sectionBaseline) return false;
+    if (ratified && hash === ratified) return false;
+  }
+
+  return true;
+}
+
+/** Best-effort project root from an absolute path and the relative path under it. */
+function deriveProjectRoot(absPath: string, relPath: string): string | null {
+  const suffix = relPath.split('/').join(path.sep);
+  return absPath.endsWith(suffix) ? absPath.slice(0, absPath.length - suffix.length) || null : null;
 }
 
 /**

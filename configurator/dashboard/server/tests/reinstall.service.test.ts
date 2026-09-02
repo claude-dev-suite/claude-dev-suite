@@ -14,6 +14,8 @@ import {
 } from './test-utils.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { calculateFileHash } from '../src/services/installation/file-operations.js';
+import { clearDriftCache, computeSectionHash } from '../src/services/installation/drift.service.js';
 
 describe('ReinstallService', () => {
   let reinstallService: ReinstallService;
@@ -30,6 +32,9 @@ describe('ReinstallService', () => {
     reinstallService = new ReinstallService();
     installationService = new InstallationService();
     process.env.DEV_SUITE_DIR = devSuiteDir;
+    // Temp dirs churn fast enough that a stale mtime+size hit is possible; the
+    // cache is a performance device, never a source of truth.
+    clearDriftCache();
   });
 
   afterEach(() => {
@@ -41,6 +46,28 @@ describe('ReinstallService', () => {
 
   const installBase = (agents = ['typescript-expert']) =>
     installationService.install({ projectPath: projectDir, agents, mcpServers: [], envVars: {}, skillLoadingMode: 'eager' });
+
+  /**
+   * Backfill `sectionHash` on the marked instruction files.
+   *
+   * `InstallationService` still records them through its own private
+   * `trackFile`, which does not compute a section hash — only the shared
+   * `trackManifestFile` does. Until that call site delegates, a real install
+   * leaves these entries with no section baseline, so they scan as
+   * `unknown-baseline`. This puts the manifest in the state the wired-up
+   * install produces, so the preview contract below is tested for real.
+   */
+  const backfillSectionHashes = () => {
+    const manifestPath = path.join(projectDir, '.dev-suite-manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    for (const file of manifest.files) {
+      const abs = path.join(projectDir, ...String(file.path).split('/'));
+      if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) continue;
+      const section = computeSectionHash(fs.readFileSync(abs, 'utf-8'));
+      if (section) file.sectionHash = section;
+    }
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  };
 
   const readDevSuiteJson = () =>
     JSON.parse(fs.readFileSync(path.join(projectDir, '.dev-suite.json'), 'utf-8'));
@@ -110,28 +137,117 @@ describe('ReinstallService', () => {
     expect(after).toContain('DEV-SUITE-CONFIG-START');
   });
 
-  it('opt-out keep preserves a locally modified managed agent and re-tracks its hash', async () => {
+  // CONTRACT CHANGE: `keep` used to overwrite the manifest hash with the user's
+  // content, which silenced the file forever and destroyed the only record of
+  // what dev-suite had written. It now means "not this run": the file survives,
+  // the manifest keeps the canonical hash, and the next scan reports it again.
+  // Adopting an edit permanently is `promote`.
+  it('opt-out keep preserves the edit for this run and keeps the canonical hash', async () => {
     await installBase();
+    const rel = '.claude/agents/typescript-expert.md';
     const agentPath = path.join(projectDir, '.claude', 'agents', 'typescript-expert.md');
-    const edited = fs.readFileSync(agentPath, 'utf-8') + '\n<!-- user tweak -->\n';
+    const canonical = fs.readFileSync(agentPath, 'utf-8');
+    const edited = canonical + '\n<!-- user tweak -->\n';
     fs.writeFileSync(agentPath, edited);
 
     // preview should flag it
     const preview = await reinstallService.previewReinstall(projectDir);
-    expect(preview.modifiedManagedFiles.map(f => f.path)).toContain('.claude/agents/typescript-expert.md');
+    expect(preview.modifiedManagedFiles.map(f => f.path)).toContain(rel);
+    expect(preview.requiresIntervention).toBe(true);
 
     const result = await reinstallService.executeReinstall({
       projectPath: projectDir,
-      resolutions: { '.claude/agents/typescript-expert.md': 'keep' },
+      resolutions: { [rel]: 'keep' },
     });
 
     expect(result.success).toBe(true);
-    expect(result.keptFiles).toContain('.claude/agents/typescript-expert.md');
+    expect(result.keptFiles).toContain(rel);
+    expect(result.promotedFiles ?? []).not.toContain(rel);
     expect(fs.readFileSync(agentPath, 'utf-8')).toBe(edited);
 
-    // a fresh preview should NOT flag it anymore (hash re-tracked)
+    const entry = result.newManifest?.files.find(f => f.path === rel);
+    expect(entry?.acknowledgedHash).toBeUndefined();
+    expect(entry?.hash).toBe(calculateFileHash(canonical));
+
+    // Still reported, because nobody said the edit was intentional.
+    clearDriftCache();
     const preview2 = await reinstallService.previewReinstall(projectDir);
-    expect(preview2.modifiedManagedFiles.map(f => f.path)).not.toContain('.claude/agents/typescript-expert.md');
+    const again = preview2.modifiedManagedFiles.find(f => f.path === rel);
+    expect(again).toBeDefined();
+    expect(again?.acknowledged).toBe(false);
+  });
+
+  it('promote adopts the edit: acknowledgedHash is recorded and hash stays canonical', async () => {
+    await installBase();
+    const rel = '.claude/agents/typescript-expert.md';
+    const agentPath = path.join(projectDir, '.claude', 'agents', 'typescript-expert.md');
+    const canonical = fs.readFileSync(agentPath, 'utf-8');
+    const edited = canonical + '\n<!-- deliberate, adopted -->\n';
+    fs.writeFileSync(agentPath, edited);
+
+    const result = await reinstallService.executeReinstall({
+      projectPath: projectDir,
+      resolutions: { [rel]: 'promote' },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.promotedFiles).toContain(rel);
+    expect(fs.readFileSync(agentPath, 'utf-8')).toBe(edited);
+
+    const entry = result.newManifest?.files.find(f => f.path === rel);
+    // The two questions stay separately answerable: `hash` is still what
+    // dev-suite wrote, `acknowledgedHash` is what a human adopted.
+    expect(entry?.hash).toBe(calculateFileHash(canonical));
+    expect(entry?.acknowledgedHash).toBe(calculateFileHash(edited));
+    expect(entry?.acknowledgedAt).toBeTruthy();
+
+    // Reported for visibility, but settled — no decision needed.
+    clearDriftCache();
+    const preview = await reinstallService.previewReinstall(projectDir);
+    const listed = preview.modifiedManagedFiles.find(f => f.path === rel);
+    expect(listed?.acknowledged).toBe(true);
+    expect(preview.requiresIntervention).toBe(false);
+  });
+
+  // CONTRACT CHANGE: instruction files are tracked as `generated`, which
+  // classify() maps to 'skip', so preview never looked at their hash. An agent
+  // rewriting the routing section of AGENTS.md produced no signal at all.
+  it('reports drift inside the AGENTS.md markers, scoped to the managed section', async () => {
+    await installBase();
+    backfillSectionHashes();
+    const agentsMd = path.join(projectDir, 'AGENTS.md');
+    const content = fs.readFileSync(agentsMd, 'utf-8');
+    expect(content.indexOf('<!-- DEV-SUITE-CONFIG-START -->')).toBeGreaterThanOrEqual(0);
+    fs.writeFileSync(
+      agentsMd,
+      content.replace(
+        '<!-- DEV-SUITE-CONFIG-START -->',
+        '<!-- DEV-SUITE-CONFIG-START -->\nAn agent injected this line.'
+      )
+    );
+    clearDriftCache();
+
+    const preview = await reinstallService.previewReinstall(projectDir);
+    const entry = preview.modifiedManagedFiles.find(f => f.path === 'AGENTS.md');
+    expect(entry).toBeDefined();
+    expect(entry?.scope).toBe('managed-section');
+    expect(entry?.acknowledged).toBe(false);
+    expect(preview.requiresIntervention).toBe(true);
+
+    // Drift is NOT an erase category: AGENTS.md must never enter the erase set.
+    expect(preview.filesToReplace).not.toContain('AGENTS.md');
+  });
+
+  it('does not report prose the user added outside the AGENTS.md markers', async () => {
+    await installBase();
+    backfillSectionHashes();
+    const agentsMd = path.join(projectDir, 'AGENTS.md');
+    fs.appendFileSync(agentsMd, '\n## My notes\nRun the tests before pushing.\n');
+    clearDriftCache();
+
+    const preview = await reinstallService.previewReinstall(projectDir);
+    expect(preview.modifiedManagedFiles.map(f => f.path)).not.toContain('AGENTS.md');
+    expect(preview.drift?.counts.driftedOutsideSection).toBeGreaterThan(0);
   });
 
   it('overwrites a locally modified managed agent by default (no opt-out)', async () => {

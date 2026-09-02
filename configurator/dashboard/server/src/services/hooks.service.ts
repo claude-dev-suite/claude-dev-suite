@@ -6,6 +6,7 @@
  * This is a facade that delegates to specialized sub-services.
  */
 
+import type { IntegrationValidationLevel } from './hooks/hooks.constants.js';
 import type {
   HuskyStatus,
   HookInfo,
@@ -190,9 +191,31 @@ export class HooksService {
     detectedStack: {
       frontend?: { framework?: string; metaFramework?: string };
       backend?: { framework?: string; runtime?: string };
-    }
+    },
+    options?: { level?: IntegrationValidationLevel; devSuiteRoot?: string }
   ): { success: boolean; configured: boolean; error?: string } {
-    return this.claudeHooks.configureIntegrationValidatorHook(projectPath, detectedStack);
+    return this.claudeHooks.configureIntegrationValidatorHook(projectPath, detectedStack, options);
+  }
+
+  /** Install one of dev-suite's hook scripts into a project's `.claude/hooks/`. */
+  installHookScript(
+    projectPath: string,
+    scriptFile: string,
+    devSuiteRoot?: string
+  ): { success: boolean; relCommand?: string; error?: string } {
+    return this.claudeHooks.installHookScript(projectPath, scriptFile, devSuiteRoot);
+  }
+
+  /**
+   * Remove API integration validation — both hook entries, both scripts, the
+   * marker, and any surviving pre-2.0 `SubagentStop` entry.
+   *
+   * Uninstall used to leave that entry behind forever: it only un-merged
+   * `skillListingBudgetFraction` from settings.json, so a project that had ever
+   * been installed kept firing a model call per subagent.
+   */
+  removeIntegrationValidatorHook(projectPath: string): { success: boolean; error?: string } {
+    return this.claudeHooks.removeIntegrationValidatorHook(projectPath);
   }
 
   getMonitoredAgentsList(detectedStack: {

@@ -170,6 +170,36 @@ export interface TrackedFile {
    * support) — see `migrateManifestTargets`.
    */
   target?: TargetId;
+  /**
+   * SHA256 of ONLY the span between `<!-- DEV-SUITE-CONFIG-START -->` and
+   * `<!-- DEV-SUITE-CONFIG-END -->`, with CRLF normalised to LF and the
+   * trailing newline stripped.
+   *
+   * For `AGENTS.md`/`CLAUDE.md` the whole-file `hash` cannot answer "did our
+   * content change?": the user's own prose lives in the same file and changes
+   * legitimately, so every edit looked like drift and none could be
+   * distinguished from an agent rewriting the generated section. Hashing the
+   * marked span makes the question decidable — drift inside the markers is by
+   * definition not a user edit.
+   *
+   * Absent on files with no markers, and on manifests written before this
+   * field existed; an absent value means "no baseline", never "drift".
+   */
+  sectionHash?: string;
+  /**
+   * Hash of content a human explicitly adopted (the `promote` resolution).
+   *
+   * Nothing on disk can tell us *who* wrote a file, so drift detection asks the
+   * decidable question instead: has a human ratified this content? Current hash
+   * equal to this means "already decided, stop reporting it"; anything else is
+   * unratified. Compared against the same span `sectionHash` covers when the
+   * file has markers, and against `hash` otherwise.
+   *
+   * Absent means nothing is ratified — the conservative default.
+   */
+  acknowledgedHash?: string;
+  /** ISO timestamp of the ratification that recorded `acknowledgedHash`. */
+  acknowledgedAt?: string;
 }
 
 /**

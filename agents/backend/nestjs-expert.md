@@ -6,9 +6,10 @@ description: |
   unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__api-tester__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - backend-frameworks/nestjs
+extended_skills:
+  - best-practices/token-optimization
   - orm-odm/prisma
   - languages/typescript
   - api-design/rest-api
@@ -17,9 +18,7 @@ skills:
   - logging/pino
   - logging/winston
   - api-integration/axios
-  # API security
   - security/api-security
-  # Real-time, background jobs, caching
   - real-time/socket-io
   - infrastructure/job-queues
   - best-practices/caching-strategies
@@ -28,7 +27,6 @@ skills:
   - api-integration/openapi-codegen
   - orm-odm/typeorm
   - validation/class-validator
-  # Production patterns
   - api-design/webhooks
   - api-design/pagination
   - best-practices/error-handling
