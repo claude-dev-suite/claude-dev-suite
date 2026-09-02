@@ -28,6 +28,28 @@ const logger = getLogger('FeatureApplier');
 /**
  * Apply a hook-merge feature
  */
+/**
+ * A stable identity for one hook entry, derived from its first handler.
+ *
+ * Two features on the same matcher-less event are different hooks; two runs of
+ * the same feature are the same hook. Only the handler can tell them apart, and
+ * it needs no extra key written into the user's settings file. Tolerates the
+ * bare-string handler shape written by older versions.
+ */
+function hookEntrySignature(entry: unknown): string {
+  const handlers = (entry as { hooks?: unknown[] })?.hooks;
+  const first = Array.isArray(handlers) ? handlers[0] : undefined;
+  if (typeof first === 'string') return `command:${first}`;
+  if (first && typeof first === 'object') {
+    const h = first as { type?: string; command?: string; prompt?: string };
+    if (typeof h.command === 'string') return `command:${h.command}`;
+    // Prompts are long; a prefix is enough to separate two features and stable
+    // across re-applications of the same one.
+    if (typeof h.prompt === 'string') return `prompt:${h.prompt.slice(0, 120)}`;
+  }
+  return '';
+}
+
 export function applyHookMerge(
   projectPath: string,
   feature: Feature,
@@ -126,7 +148,12 @@ export function applyHookMerge(
     }
 
     if (config.config.hooks) {
-      hookEntry.hooks = config.config.hooks;
+      // Each entry must be an object carrying a `type`; the registry stores
+      // plain command strings, so wrap them here rather than writing a shape
+      // that appears in no version of the hook schema.
+      hookEntry.hooks = config.config.hooks.map(h =>
+        typeof h === 'string' ? { type: 'command', command: h } : h
+      );
     } else if (config.config.promptTemplate && registry.promptTemplates) {
       hookEntry.hooks = [{
         type: 'prompt',
@@ -135,14 +162,23 @@ export function applyHookMerge(
       }];
     }
 
-    // Replace an existing entry for the same matcher rather than appending:
+    // Replace an existing entry for the same feature rather than appending:
     // re-applying a feature (an upgrade re-run, a reinstall) used to stack a
     // second identical hook, so the prompt fired twice per event.
+    //
+    // Identity cannot be the matcher alone. On `Stop` there is no matcher, so
+    // every entry compares equal to every other: applying a Stop feature
+    // overwrote whatever matcher-less Stop hook was already there — the
+    // integration validator, another feature, or the user's own. The first
+    // handler is what actually distinguishes them.
     const eventHooks = settings.hooks[config.event];
     if (eventHooks) {
       const matcher = (hookEntry as { matcher?: string }).matcher;
+      const signature = hookEntrySignature(hookEntry);
       const existingIdx = eventHooks.findIndex(
-        h => (h as { matcher?: string })?.matcher === matcher
+        h =>
+          ((h as { matcher?: string })?.matcher ?? '') === (matcher ?? '') &&
+          hookEntrySignature(h) === signature
       );
       if (existingIdx >= 0) {
         eventHooks[existingIdx] = hookEntry;

@@ -39,6 +39,8 @@ const SENSITIVE_FIELDS = [
   'token',
   'apikey',       // matches apiKey, api_key, adminApiKey, etc. via includes()
   'api_key',
+  'credential',   // matches credential, credentials, anthropicCredential
+
   'adminapikey',
   'admin_api_key',
   'secret',

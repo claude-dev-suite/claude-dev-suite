@@ -8,18 +8,35 @@
  * `.mcp.json` at all) came back with `{}` and every API key the user had entered
  * in the wizard was wiped on the next reinstall, silently.
  *
- * Reading across every selected target fixes that, and makes the Manage tab able
- * to re-run an install without losing credentials.
+ * Reading across every selected target fixed that — but only where the config
+ * files exist. They are gitignored when they carry a secret, so a fresh
+ * `git worktree` (what a fan-out of isolated agents runs in) has none of them,
+ * and the same wipe came back through a door the earlier fix did not cover.
+ *
+ * So the *store* is now the system of record for secret values:
+ * `~/.dev-suite/env/<id>.json`, outside the repository and outside any
+ * worktree (see installation/secret-store.ts). The config-file scan below is
+ * kept as the legacy path — it is how every project installed before the store
+ * existed still recovers — and the first recovery that finds a secret there
+ * writes it into the store, so each project migrates itself exactly once. Keep
+ * that fallback for at least one minor release.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { getDevSuiteDir } from '../../utils/dev-suite-dir.js';
 import { getLogger } from '../../utils/logger.js';
 import {
   DEFAULT_TARGET,
   mcpConfigFilesFor,
   type TargetId,
 } from '../targets/target-layout.js';
+import {
+  SecretEnvStore,
+  collectSecretEnvNames,
+  isLikelySecretName,
+  secretEnvStore,
+} from './secret-store.js';
 
 const logger = getLogger('InstallRecovery');
 
@@ -55,15 +72,44 @@ function serverMap(root: Record<string, unknown>): Record<string, unknown> {
   return {};
 }
 
+export interface RecoverEnvOptions {
+  /** Override the process-wide store; tests point this at a temp `$HOME`. */
+  store?: SecretEnvStore;
+  /**
+   * dev-suite checkout, used to read which variables the catalog declares
+   * `secret: true`. Defaults to `getDevSuiteDir()`; when neither is resolvable
+   * the name heuristic in secret-store.ts decides on its own, which errs toward
+   * treating a variable as secret.
+   *
+   * It matters: `DATABASE_URL`, the one variable the wizard forces a human to
+   * type, matches no name pattern. Only the catalog knows it is a credential.
+   */
+  devSuiteDir?: string;
+  /** Set false to skip the one-shot migration (a read-only inspection). */
+  migrate?: boolean;
+}
+
 /**
- * Every environment variable dev-suite baked into any selected assistant's MCP
- * config. Later targets do not overwrite an earlier non-empty value.
+ * Every environment variable dev-suite can recover for this project.
+ *
+ * Order of authority:
+ *  1. `~/.dev-suite/env/<id>.json` — the secret store, which survives a
+ *     worktree, a `.gitignore` the user deleted, and a wiped config file.
+ *  2. The MCP config of each selected target, for values the store does not
+ *     hold: non-secret settings live only there by design, and pre-store
+ *     projects have their secrets there too.
+ *
+ * Later targets do not overwrite an earlier non-empty value, and nothing
+ * overwrites the store.
  */
 export function recoverEnvVars(
   projectPath: string,
-  targets: readonly TargetId[] = [DEFAULT_TARGET]
+  targets: readonly TargetId[] = [DEFAULT_TARGET],
+  options: RecoverEnvOptions = {}
 ): Record<string, string> {
-  const out: Record<string, string> = {};
+  const store = options.store ?? secretEnvStore;
+  const out: Record<string, string> = { ...store.read(projectPath) };
+  const fromStore = new Set(Object.keys(out));
 
   for (const rel of mcpFilesFor(targets)) {
     const abs = path.join(projectPath, ...rel.split('/'));
@@ -104,7 +150,62 @@ export function recoverEnvVars(
     }
   }
 
+  if (options.migrate !== false) {
+    migrateSecretsToStore(projectPath, out, fromStore, store, options.devSuiteDir);
+  }
+
   return out;
+}
+
+/** The dev-suite checkout, or `null` when it cannot be resolved (never throws). */
+function resolveDevSuiteDir(): string | null {
+  try {
+    return getDevSuiteDir();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * One-shot migration: any secret recovered from a config file, and not already
+ * in the store, is written to the store.
+ *
+ * Runs on every recovery but writes only when something new appears, so it is
+ * idempotent and costs one file read per call after the first. The config file
+ * keeps its literal value — the assistants dev-suite supports do not uniformly
+ * document `${env:VAR}` interpolation, so removing it would break the servers —
+ * which is why the `.gitignore` block remains for exactly those files.
+ */
+function migrateSecretsToStore(
+  projectPath: string,
+  recovered: Record<string, string>,
+  alreadyStored: ReadonlySet<string>,
+  store: SecretEnvStore,
+  devSuiteDir?: string
+): void {
+  const declared = collectSecretEnvNames(devSuiteDir ?? resolveDevSuiteDir() ?? '');
+
+  const migrating: Record<string, string> = {};
+  for (const [name, value] of Object.entries(recovered)) {
+    if (alreadyStored.has(name)) continue;
+    if (!declared.has(name) && !isLikelySecretName(name)) continue;
+    if (typeof value !== 'string' || value.trim().length === 0) continue;
+    migrating[name] = value;
+  }
+
+  const names = Object.keys(migrating);
+  if (names.length === 0) return;
+
+  try {
+    store.merge(projectPath, migrating);
+    logger.info('Migrated secrets from MCP config into the protected store', {
+      context: { names, projectPath },
+    });
+  } catch (error: unknown) {
+    // A failed migration must never fail the recovery — the values are already
+    // in `recovered`, and the install can proceed exactly as it did before.
+    logger.warn('Could not migrate recovered secrets into the store', { error });
+  }
 }
 
 /**

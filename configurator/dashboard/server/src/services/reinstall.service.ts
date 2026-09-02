@@ -48,7 +48,6 @@ import {
   DEV_SUITE_VERSION,
   loadManifest,
   saveManifest,
-  calculateFileHashFromPath,
 } from './upgrade/index.js';
 import {
   copyDirSync,
@@ -56,6 +55,14 @@ import {
   validatePathWithinBase,
   validateEntryName,
 } from './installation/index.js';
+import {
+  scanDrift,
+  readDriftDiff,
+  comparisonHashOf,
+  clearDriftCache,
+} from './installation/drift.service.js';
+import { carryForwardAcknowledgements } from './installation/manifest-tracking.js';
+import type { DriftDiff, DriftEntry, DriftReport } from '../types/drift.js';
 import type {
   InstallConfig,
   DetectionResult,
@@ -113,11 +120,15 @@ export class ReinstallService {
     const selection = this.resolveSelection(projectPath, manifest);
     const files = manifest.files ?? [];
 
-    const modifiedManagedFiles: ReinstallModifiedFile[] = [];
     const filesToReplace: string[] = [];
     const orphansToRemove: string[] = [];
 
     for (const file of files) {
+      // NOTE: this loop answers "what does the ERASE phase do with this file?".
+      // Drift is a separate dimension, computed below over EVERY tracked file —
+      // including the `generated`/`shared` ones this loop skips. The two must
+      // never share an enum: mapping `AGENTS.md` into a managed erase category
+      // to make it visible would make `erase()` delete it.
       const category = this.classify(file);
       if (category === 'shared' || category === 'skip') continue;
 
@@ -132,33 +143,18 @@ export class ReinstallService {
       if (this.isOrphan(file, selection)) {
         orphansToRemove.push(file.path);
       }
-
-      // Drift detection (only meaningful for files that still exist + have a hash)
-      const fullPath = this.safe(projectPath, file.path);
-      const currentHash = calculateFileHashFromPath(fullPath);
-
-      // A file the user deleted hashes to null and used to fall through both
-      // branches, so the preview could report drift but never absence — and the
-      // reinstall then silently recreated it with no mention.
-      if (!currentHash && file.hash && !fs.existsSync(fullPath)) {
-        modifiedManagedFiles.push({
-          path: file.path,
-          type: file.type,
-          manifestHash: file.hash,
-          currentHash: '(deleted)',
-        });
-        continue;
-      }
-
-      if (currentHash && file.hash && currentHash !== file.hash) {
-        modifiedManagedFiles.push({
-          path: file.path,
-          type: file.type,
-          manifestHash: file.hash,
-          currentHash,
-        });
-      }
     }
+
+    // Drift detection over the whole manifest. `AGENTS.md`, `CLAUDE.md`,
+    // `.claude/settings.json` and `.mcp.json` were invisible here before: their
+    // hashes were recorded and never read back, so an agent rewriting the
+    // generated section of AGENTS.md produced no signal anywhere.
+    const drift = scanDrift(projectPath, manifest);
+    const modifiedManagedFiles: ReinstallModifiedFile[] = [
+      ...drift.drifted,
+      ...drift.deleted,
+      ...drift.acknowledged,
+    ].map(entry => this.toModifiedFile(entry));
 
     return {
       hasValidManifest: true,
@@ -167,7 +163,41 @@ export class ReinstallService {
       orphansToRemove,
       filesToReplace,
       skillDirsToRebuild: this.countManagedSkillDirs(projectPath),
-      requiresIntervention: modifiedManagedFiles.length > 0,
+      // Ratified content is listed but settled — it must not keep blocking the
+      // CLI or nagging in the UI, or `promote` would mean nothing.
+      requiresIntervention: modifiedManagedFiles.some(f => !f.acknowledged),
+      drift,
+    };
+  }
+
+  /**
+   * Scan a project for drift without computing a full reinstall preview.
+   *
+   * Cheap enough for the Manage tab to poll: `scanDrift` skips any file whose
+   * mtime and size are unchanged.
+   */
+  async getDrift(projectPath: string): Promise<DriftReport> {
+    projectPath = this.guardPath(projectPath);
+    return scanDrift(projectPath, loadManifest(projectPath));
+  }
+
+  /**
+   * Read-only diff of one tracked file against the catalog version dev-suite
+   * would write. Never mutates, and never stores content in the manifest.
+   */
+  async getDriftDiff(projectPath: string, relPath: string): Promise<DriftDiff> {
+    projectPath = this.guardPath(projectPath);
+    return readDriftDiff(projectPath, loadManifest(projectPath), relPath);
+  }
+
+  private toModifiedFile(entry: DriftEntry): ReinstallModifiedFile {
+    return {
+      path: entry.path,
+      type: entry.type as TrackedFile['type'],
+      manifestHash: entry.baselineHash,
+      currentHash: entry.currentHash,
+      scope: entry.scope,
+      acknowledged: entry.acknowledged,
     };
   }
 
@@ -179,6 +209,10 @@ export class ReinstallService {
     const projectPath = this.guardPath(request.projectPath);
     const resolutions = request.resolutions ?? {};
     const shouldBackup = request.createBackup !== false;
+
+    // Every file this run touches is about to change; a stale mtime+size hit
+    // would let a later scan read a hash from before the reinstall.
+    clearDriftCache();
 
     const manifest = loadManifest(projectPath);
     if (!manifest) {
@@ -198,14 +232,22 @@ export class ReinstallService {
     const priorReinstallHistory = manifest.reinstallHistory ?? [];
 
     // Determine kept (opt-out) files and snapshot their content.
+    //
+    // `keep` and `promote` preserve the same bytes; they differ only in what is
+    // recorded afterwards. `keep` is "not this time", so the file is reported
+    // again on the next scan; `promote` ratifies the content so it stops being
+    // reported at all.
     const keptFiles: string[] = [];
+    const promotedFiles: string[] = [];
     const keptSnapshots = new Map<string, Buffer>();
     for (const [relPath, decision] of Object.entries(resolutions)) {
-      if ((decision as ReinstallFileResolution) !== 'keep') continue;
+      const resolution = decision as ReinstallFileResolution;
+      if (resolution !== 'keep' && resolution !== 'promote') continue;
       const full = this.safe(projectPath, relPath);
       if (fs.existsSync(full)) {
         keptSnapshots.set(relPath, fs.readFileSync(full));
         keptFiles.push(relPath);
+        if (resolution === 'promote') promotedFiles.push(relPath);
       }
     }
 
@@ -251,16 +293,29 @@ export class ReinstallService {
       if (!newManifest) {
         throw new Error('Manifest missing after install — install did not complete');
       }
+      // Ratifications survive the rebuilt manifest: install() writes a brand-new
+      // one, so without this every `promote` would be forgotten and the same
+      // adopted content reported as drift on the next scan.
+      carryForwardAcknowledgements(manifest.files, newManifest);
+
+      const promoted = new Set(promotedFiles);
       for (const relPath of keptFiles) {
         const snapshot = keptSnapshots.get(relPath);
         if (!snapshot) continue;
         const full = this.safe(projectPath, relPath);
         fs.mkdirSync(path.dirname(full), { recursive: true });
         fs.writeFileSync(full, snapshot);
-        // Re-track the user's hash so future previews don't flag it forever.
-        const keptHash = calculateFileHashFromPath(full);
+
         const entry = newManifest.files.find(f => f.path === relPath);
-        if (entry && keptHash) entry.hash = keptHash;
+        if (!entry || !promoted.has(relPath)) continue;
+
+        // Record the ratification WITHOUT touching `hash`. Overwriting `hash`
+        // with the user's content (the old behaviour for `keep`) destroyed the
+        // only record of what dev-suite actually wrote, so nothing downstream
+        // could still tell "our output" from "content a human adopted".
+        const { hash } = comparisonHashOf(snapshot.toString('utf-8'));
+        entry.acknowledgedHash = hash;
+        entry.acknowledgedAt = new Date().toISOString();
       }
 
       // ---- VERIFY ----
@@ -274,10 +329,12 @@ export class ReinstallService {
         mcpReinstalled: selection.mcpServers,
         orphansRemoved,
         keptFiles,
+        promotedFiles,
         backupDir,
       };
       newManifest.reinstallHistory = [...priorReinstallHistory, historyEntry];
       saveManifest(projectPath, newManifest);
+      clearDriftCache();
 
       logger.info('Reinstall complete', {
         context: {
@@ -286,6 +343,7 @@ export class ReinstallService {
           mcp: selection.mcpServers.length,
           orphansRemoved: orphansRemoved.length,
           keptFiles: keptFiles.length,
+          promoted: promotedFiles.length,
           warnings: verifyWarnings.length,
         },
       });
@@ -297,6 +355,7 @@ export class ReinstallService {
         mcpReinstalled: selection.mcpServers,
         orphansRemoved,
         keptFiles,
+        promotedFiles,
         verifyWarnings,
         newManifest,
       };

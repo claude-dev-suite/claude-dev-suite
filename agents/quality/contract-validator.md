@@ -23,8 +23,9 @@ description: |
   premise
 model: sonnet
 allowed-tools: Read, Grep, Glob, mcp__documentation__*, mcp__code-quality__*
-skills:
+core_skills:
   - testing/contract-testing
+extended_skills:
   - best-practices/clean-code
   - best-practices/error-handling
   - best-practices/token-optimization

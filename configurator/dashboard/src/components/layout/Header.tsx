@@ -8,7 +8,7 @@ import { ReleaseUpdateBanner } from '../common/ReleaseUpdateBanner';
 import { useTutorial } from '../../hooks/useTutorial';
 import { API_BASE } from '../../utils/api';
 
-export type PanelType = 'wizard' | 'orchestrator' | 'code-review' | 'codegen' | 'usage' | 'live-performance' | 'token-analytics';
+export type PanelType = 'wizard' | 'orchestrator' | 'code-review' | 'codegen' | 'usage' | 'live-performance' | 'token-analytics' | 'credentials';
 
 interface TabConfig {
   id: PanelType;
@@ -26,6 +26,10 @@ const tabs: TabConfig[] = [
   { id: 'usage', label: 'Usage', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', position: 'center', showWhen: 'installed' },
   { id: 'live-performance', label: 'Live Performance', icon: 'M13 10V3L4 14h7v7l9-11h-7z', position: 'center', showWhen: 'installed' },
   { id: 'token-analytics', label: 'Token Analytics', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', position: 'center', showWhen: 'installed' },
+  // Always available: the orchestrator needs an Anthropic credential before it
+  // can run at all, so gating this on `installed` would hide the fix for the
+  // very error a fresh install hits first.
+  { id: 'credentials', label: 'Credentials', icon: 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z', position: 'right', showWhen: 'always' },
   // Right side - setup (only when not installed)
   // Always available: the wizard is the only place to choose target assistants,
   // so hiding it after the first install left no way to add one — a Cursor user

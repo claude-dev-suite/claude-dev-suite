@@ -6,9 +6,10 @@ description: |
   unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__docker-manager__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - infrastructure/docker
+extended_skills:
+  - best-practices/token-optimization
   - infrastructure/docker-compose
   - infrastructure/kubernetes
   - ci-cd/github-actions
@@ -18,17 +19,14 @@ skills:
   - backend-frameworks/spring-cloud-config
   - security/secrets-management
   - security/supply-chain
-  # Infrastructure security
   - security/container-security
   - security/iac-security
-  # Cloud & IaC
   - infrastructure/terraform
   - cloud/aws
   - cloud/azure
   - cloud/gcp
   - cloud/serverless
   - best-practices/caching-strategies
-  # Monorepo & observability
   - build-tools/nx
   - build-tools/turborepo
   - observability/opentelemetry

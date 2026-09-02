@@ -150,9 +150,23 @@ export class KimiAdapter implements TargetAdapter {
         relPath,
         content,
         previouslyManaged: plan.previouslyManaged,
+        previousHashes: plan.previousFileHashes,
+        sectionHashes: plan.previousSectionHashes,
+        acknowledgedHashes: plan.acknowledgedFileHashes,
+        projectPath: plan.projectPath,
       });
-      if (outcome === 'preserved') {
+      // 'drifted' is reported alongside 'preserved': in both cases the file on
+      // disk is not what we would have written, and we did not overwrite it.
+      if (outcome === 'preserved' || outcome === 'drifted') {
         preserved.push(agent.id);
+        if (outcome === 'drifted') {
+          // A drifted file is still ours: it must stay tracked, or the orphan
+          // pruner below deletes the very file we just refused to overwrite.
+          // It is recorded at its baseline hash so it stays flagged as drifted.
+          this.track(manifest, extendedManifest, plan.projectPath, relPath, agent.filePath,
+            plan.previousFileHashes?.get(relPath));
+          writtenNow.add(relPath);
+        }
         continue;
       }
       this.track(manifest, extendedManifest, plan.projectPath, relPath, agent.filePath);
@@ -191,9 +205,10 @@ export class KimiAdapter implements TargetAdapter {
     extendedManifest: ExtendedManifest,
     projectPath: string,
     relPath: string,
-    source: string
+    source: string,
+    hashOverride?: string
   ): void {
     manifest.files.push({ path: relPath, type: 'agent', source });
-    trackManifestFile(extendedManifest, projectPath, relPath, 'agent', source, this.id);
+    trackManifestFile(extendedManifest, projectPath, relPath, 'agent', source, this.id, hashOverride);
   }
 }

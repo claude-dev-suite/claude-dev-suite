@@ -6,9 +6,10 @@ description: |
   multiple services to identify issues and provide actionable insights.
 model: haiku
 allowed-tools: Read, Grep, Glob, Bash, mcp__log-analyzer__parse_logs, mcp__log-analyzer__find_errors, mcp__log-analyzer__analyze_patterns, mcp__log-analyzer__aggregate_stats, mcp__log-analyzer__correlate_events, mcp__log-analyzer__tail_logs, mcp__documentation__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - logging/java
+extended_skills:
+  - best-practices/token-optimization
   - logging/nodejs
   - logging/python
 ---

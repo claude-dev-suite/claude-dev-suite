@@ -19,7 +19,8 @@
       "name": "DATABASE_URL",
       "description": "Database connection string",
       "default": "",
-      "required": true
+      "required": true,
+      "secret": true
     },
     {
       "name": "DB_BACKUP_DIR",

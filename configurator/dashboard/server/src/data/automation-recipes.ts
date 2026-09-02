@@ -97,7 +97,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: 'npx prettier --write "$CLAUDE_FILE_PATHS" 2>/dev/null || npx biome format --write "$CLAUDE_FILE_PATHS" 2>/dev/null || true',
+      command: 'node .claude/hooks/on-file-change.mjs -- npx prettier --write',
     },
   },
   {
@@ -133,7 +133,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: '[[ "$CLAUDE_FILE_PATHS" =~ \\.(js|jsx|ts|tsx)$ ]] && npx eslint --fix "$CLAUDE_FILE_PATHS" || true',
+      command: 'node .claude/hooks/on-file-change.mjs --ext .js,.jsx,.ts,.tsx -- npx eslint --fix',
     },
   },
   {
@@ -164,7 +164,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: '[[ "$CLAUDE_FILE_PATHS" =~ \\.(ts|tsx)$ ]] && npx tsc --noEmit || true',
+      command: 'node .claude/hooks/on-file-change.mjs --ext .ts,.tsx --no-file -- npx tsc --noEmit',
     },
   },
   {
@@ -193,7 +193,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       event: 'PostToolUse',
       matcher: 'Write|Edit',
       // Cross-platform: biome organizes imports, prettier as fallback
-      command: 'npx biome check --apply "$CLAUDE_FILE_PATHS" 2>/dev/null || npx prettier --write "$CLAUDE_FILE_PATHS" 2>/dev/null || true',
+      command: 'node .claude/hooks/on-file-change.mjs -- npx biome check --apply',
     },
   },
   {
@@ -218,7 +218,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       event: 'PostToolUse',
       matcher: 'Write|Edit',
       // Cross-platform using npx prettier which handles whitespace normalization
-      command: 'npx prettier --write "$CLAUDE_FILE_PATHS" --prose-wrap preserve 2>/dev/null || true',
+      command: 'node .claude/hooks/on-file-change.mjs --ext .md,.mdx -- npx prettier --prose-wrap preserve --write',
     },
   },
 
@@ -254,7 +254,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PreToolUse',
       matcher: 'Write|Edit',
-      command: 'if echo "$CLAUDE_FILE_PATHS" | grep -qE "(\\.env|\\.credentials|secrets|private|id_rsa|\\.pem)"; then echo "BLOCKED: Cannot modify sensitive files" >&2; exit 1; fi',
+      command: 'node .claude/hooks/on-file-change.mjs --contains ".env,.credentials,secrets,private,id_rsa,.pem" --block "Cannot modify sensitive files"',
     },
   },
   {
@@ -314,7 +314,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: '[[ "$CLAUDE_FILE_PATHS" =~ package\\.json$ ]] && npm audit --audit-level=moderate || true',
+      command: 'node .claude/hooks/on-file-change.mjs --endswith "package.json" --no-file -- npm audit --audit-level=moderate',
     },
   },
 
@@ -542,7 +542,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: '[[ "$CLAUDE_FILE_PATHS" =~ (schema\\.prisma|drizzle\\.config|migrations) ]] && (npx prisma validate 2>/dev/null || npx drizzle-kit check 2>/dev/null) || true',
+      command: 'node .claude/hooks/on-file-change.mjs --endswith "schema.prisma" -- npx prisma validate --schema {file}',
     },
   },
 
@@ -576,7 +576,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: '[[ "$CLAUDE_FILE_PATHS" =~ Assets/.*\\.cs$ ]] && (dotnet csharpier "$CLAUDE_FILE_PATHS" 2>/dev/null || dotnet format --include "$CLAUDE_FILE_PATHS" 2>/dev/null) || true',
+      command: 'node .claude/hooks/on-file-change.mjs --ext .cs --contains "assets/" -- dotnet csharpier',
     },
   },
   {

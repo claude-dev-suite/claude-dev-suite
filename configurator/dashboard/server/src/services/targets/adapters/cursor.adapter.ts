@@ -48,7 +48,11 @@ export class CursorAdapter implements TargetAdapter {
     }));
 
     const installedAgents = plan.agentCatalog.filter(a => manifest.agents.includes(a.id));
-    const ruleFiles = writePathScopedRules('cursor', installedAgents, projectPath, plan.previouslyManaged);
+    const ruleResult = writePathScopedRules('cursor', installedAgents, projectPath, plan.previouslyManaged, {
+      previousHashes: plan.previousFileHashes,
+      sectionHashes: plan.previousSectionHashes,
+      acknowledgedHashes: plan.acknowledgedFileHashes,
+    });
 
     if (plan.rules.length > 0) {
       skipped.push({
@@ -58,6 +62,6 @@ export class CursorAdapter implements TargetAdapter {
     }
     skipped.push({ capability: 'settings', reason: 'no project-level settings file is written for Cursor' });
 
-    return { ruleFiles, validatorHookConfigured: false, skipped };
+    return { ruleFiles: [...ruleResult.written, ...ruleResult.drifted], driftedRuleFiles: ruleResult.drifted, validatorHookConfigured: false, skipped };
   }
 }

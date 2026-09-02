@@ -6,6 +6,16 @@ const liveCache = new Map<string, { content: string; timestamp: number }>();
 const LIVE_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 /**
+ * Hard ceiling on a single documentation fetch.
+ *
+ * `fetch` has no default timeout. A docs host that accepts the connection and
+ * then stalls left the handler pending forever, and the tool call with it —
+ * one hung agent per stalled URL, none of them ever failing over to the
+ * cached copy. A bounded failure is strictly better than an unbounded wait.
+ */
+const LIVE_FETCH_TIMEOUT_MS = 15_000;
+
+/**
  * Fetch documentation from live URL and extract main content
  */
 export async function fetchLiveDocs(url: string): Promise<string> {
@@ -21,6 +31,7 @@ export async function fetchLiveDocs(url: string): Promise<string> {
         "User-Agent": "Dev-Suite-Documentation-Bot/1.0",
         Accept: "text/html,application/xhtml+xml",
       },
+      signal: AbortSignal.timeout(LIVE_FETCH_TIMEOUT_MS),
     });
 
     if (!response.ok) {

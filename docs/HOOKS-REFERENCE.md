@@ -1581,12 +1581,22 @@ Claude Code supports hooks that run during interactions with Claude.
 
 **Matcher**: Tool name (regex). E.g.: `Write|Edit`, `Bash`, `.*` (all)
 
-**Environment variables**:
-- `$CLAUDE_TOOL_INPUT` - JSON with the tool input
+**Payload**: a JSON object on **stdin**, not environment variables. The fields
+a hook needs are `tool_name` and `tool_input` (whose shape is tool-specific:
+`tool_input.command` for Bash, `tool_input.file_path` for Write/Edit). The
+payload also carries `session_id`, `cwd`, `permission_mode` and, inside a
+subagent, `agent_id` and `agent_type`.
+
+> There is **no** `$CLAUDE_TOOL_INPUT` and **no** `$CLAUDE_FILE_PATHS`. Hooks
+> written against those variables read an empty string and silently do nothing —
+> which is exactly what dev-suite's own output-filter hooks did until they were
+> corrected. The environment variables Claude Code does define are
+> `$CLAUDE_PROJECT_DIR`, `$CLAUDE_PLUGIN_ROOT` and `$CLAUDE_EFFORT`.
 
 **Exit code**:
 - `0` = proceed
-- `non-zero` = block the tool
+- `2` = block the tool; stderr is shown to Claude
+- other non-zero = non-blocking error
 
 #### Use Cases
 
@@ -1596,7 +1606,7 @@ Claude Code supports hooks that run during interactions with Claude.
 # Block modification of sensitive configuration files
 protected_files="\.env|config/secrets|credentials"
 
-if echo "$CLAUDE_TOOL_INPUT" | grep -qE "$protected_files"; then
+if jq -r '.tool_input.file_path // empty' | grep -qE "$protected_files"; then
   echo "Blocked: Cannot modify protected files"
   exit 1
 fi
@@ -1610,7 +1620,7 @@ exit 0
 # For the Bash tool, require confirmation for dangerous commands
 dangerous_commands="rm -rf|drop table|truncate|delete from"
 
-if echo "$CLAUDE_TOOL_INPUT" | grep -qiE "$dangerous_commands"; then
+if jq -r '.tool_input.command // empty' | grep -qiE "$dangerous_commands"; then
   echo "Warning: Potentially dangerous command detected"
   read -p "Continue? (y/N) " confirm
   [ "$confirm" != "y" ] && exit 1
@@ -1626,7 +1636,8 @@ exit 0
 log_file="$HOME/.claude-operations.log"
 
 timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$timestamp] Tool: $CLAUDE_TOOL - Input: $CLAUDE_TOOL_INPUT" >> "$log_file"
+payload=$(cat)
+echo "[$timestamp] Tool: $(printf '%s' "$payload" | jq -r '.tool_name') - Input: $(printf '%s' "$payload" | jq -c '.tool_input')" >> "$log_file"
 
 exit 0
 ```
@@ -1639,9 +1650,15 @@ exit 0
 
 **Matcher**: Tool name (regex)
 
-**Environment variables**:
-- `$CLAUDE_FILE_PATHS` - Paths of modified files (for Write/Edit)
-- `$CLAUDE_TOOL_INPUT` - JSON with the tool input
+**Payload**: a JSON object on **stdin** (see PreToolUse above), plus
+`tool_output`. The modified file is `tool_input.file_path` — one path per
+invocation, not a list.
+
+**Exit code**: `0` = success; `2` = show stderr to Claude (the tool has already
+run, so nothing is blocked); other non-zero = non-blocking error.
+
+> Hooks configured here also run **inside subagents**, so a PostToolUse hook
+> sees every write in the session, whichever agent made it.
 
 #### Use Cases
 
@@ -1649,12 +1666,9 @@ exit 0
 ```bash
 #!/bin/sh
 # Automatically format modified files
-if [ -n "$CLAUDE_FILE_PATHS" ]; then
-  for file in $CLAUDE_FILE_PATHS; do
-    if echo "$file" | grep -qE '\.(js|ts|jsx|tsx|json|css|md)$'; then
-      npx prettier --write "$file"
-    fi
-  done
+file=$(jq -r '.tool_input.file_path // empty')
+if echo "$file" | grep -qE '\.(js|ts|jsx|tsx|json|css|md)$'; then
+  npx prettier --write "$file"
 fi
 
 exit 0
@@ -1664,12 +1678,9 @@ exit 0
 ```bash
 #!/bin/sh
 # Run lint on modified files
-if [ -n "$CLAUDE_FILE_PATHS" ]; then
-  js_files=$(echo "$CLAUDE_FILE_PATHS" | tr ' ' '\n' | grep -E '\.(js|ts|jsx|tsx)$')
-
-  if [ -n "$js_files" ]; then
-    echo "$js_files" | xargs npx eslint --fix
-  fi
+file=$(jq -r '.tool_input.file_path // empty')
+if echo "$file" | grep -qE '\.(js|ts|jsx|tsx)$'; then
+  npx eslint --fix "$file"
 fi
 
 exit 0
@@ -1679,9 +1690,8 @@ exit 0
 ```bash
 #!/bin/sh
 # Update ctags index after modifications
-if [ -n "$CLAUDE_FILE_PATHS" ]; then
-  ctags -a $CLAUDE_FILE_PATHS 2>/dev/null
-fi
+file=$(jq -r '.tool_input.file_path // empty')
+[ -n "$file" ] && ctags -a "$file" 2>/dev/null
 
 exit 0
 ```
@@ -1690,10 +1700,8 @@ exit 0
 ```bash
 #!/bin/sh
 # Desktop notification when Claude modifies files
-if [ -n "$CLAUDE_FILE_PATHS" ]; then
-  count=$(echo "$CLAUDE_FILE_PATHS" | wc -w)
-  notify-send "Claude" "Modified $count file(s)"
-fi
+file=$(jq -r '.tool_input.file_path // empty')
+[ -n "$file" ] && notify-send "Claude" "Modified $file"
 
 exit 0
 ```
@@ -1766,7 +1774,21 @@ exit 0
 
 **Runs**: When a Claude subagent finishes.
 
-**Matcher**: None
+**Matcher**: the subagent's `agent_type` — an exact name, a `a|b` list, or a
+regex. Omit it to match every subagent.
+
+> A matcher listing agent *names* only fires for subagents invoked under exactly
+> those names. A generically typed subagent — what a parallel fan-out uses —
+> matches none of them. dev-suite's API integration validation was written that
+> way and never fired; it now keys off file paths on `PostToolUse` instead.
+
+**Payload**: JSON on stdin, including `agent_id`, `agent_type` and
+`last_assistant_message`.
+
+**Cost warning**: this event fires once **per finishing subagent**. A prompt-type
+hook here costs one model call each time, so a 16-wide fan-out pays 16 of them
+per wave. Prefer a deterministic `PostToolUse` marker plus a single `Stop`
+decision when the check is per-turn rather than per-agent.
 
 #### Use Cases
 
@@ -1892,8 +1914,8 @@ git commit --no-verify -m "Emergency fix"
 | pre-receive | Server: before update | Yes | stdin |
 | update | Server: per ref | Yes | $1=ref, $2=old, $3=new |
 | post-receive | Server: after update | No | stdin |
-| PreToolUse | Claude: before tool | Yes | $CLAUDE_TOOL_INPUT |
-| PostToolUse | Claude: after tool | No | $CLAUDE_FILE_PATHS |
-| Notification | Claude: notification | No | $CLAUDE_NOTIFICATION |
-| Stop | Claude: end of response | No | - |
-| SubagentStop | Claude: end of subagent | No | - |
+| PreToolUse | Claude: before tool | Yes (tool name) | stdin JSON: tool_name, tool_input |
+| PostToolUse | Claude: after tool | Yes (tool name) | stdin JSON: + tool_output |
+| Notification | Claude: notification | Yes (type) | stdin JSON |
+| Stop | Claude: end of response | No | stdin JSON: stop_hook_active |
+| SubagentStop | Claude: end of subagent | Yes (agent type) | stdin JSON: agent_type |

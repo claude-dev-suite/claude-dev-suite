@@ -32,9 +32,21 @@ import {
   sharedConfigsFor,
   unmergeSharedConfig,
 } from './installation/uninstall.js';
+import { HooksService } from './hooks.service.js';
 import { installCommands } from './installation/commands.js';
 import { updateGitignore, removeGitignoreBlock } from './installation/gitignore.js';
 import {
+  collectSecretEnvNames,
+  secretValuesIn,
+  splitSecretEnvVars,
+  secretEnvStore,
+} from './installation/secret-store.js';
+import { detectWorktree } from './installation/worktree.js';
+import { loadManifest } from './upgrade/upgrade-utils.js';
+import { scanDrift } from './installation/drift.service.js';
+import { trackManifestFile, carryForwardAcknowledgements } from './installation/manifest-tracking.js';
+import {
+  readPreviousFileHashes,
   readPreviouslyManagedPaths,
   readPreviousAgentFilesByTarget,
   readPreviouslyManagedMcpServers,
@@ -51,7 +63,6 @@ import {
   validatePathWithinBase,
   validateEntryName,
   getDevSuiteDir,
-  calculateFileHashFromPath,
   copyDirSync,
   getServerEnvVars,
   updateInstructions,
@@ -106,6 +117,37 @@ function denormalizeStackInfo(stored: unknown): DetectionResult | undefined {
     isMonorepo: false,
     confidence: 0,
   };
+}
+
+/**
+ * Keys in `.dev-suite.json` that belong to the user, not to the installer.
+ *
+ * The file is rebuilt from the install request every time, so anything the
+ * install does not know about is dropped. `integrationValidation` is the knob
+ * the generated AGENTS.md tells people to set, and it was erased by the next
+ * install or Sync — one of three independent reasons it never worked.
+ *
+ * Listed explicitly rather than merged wholesale: a stale `agents` or `targets`
+ * array surviving an install is exactly the bug this file's rebuild prevents.
+ */
+const USER_OWNED_CONFIG_KEYS = ['integrationValidation'] as const;
+
+function readUserOwnedConfigKeys(configPath: string): Record<string, unknown> {
+  try {
+    if (!fs.existsSync(configPath)) return {};
+    const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    const preserved: Record<string, unknown> = {};
+    for (const key of USER_OWNED_CONFIG_KEYS) {
+      if (existing[key] !== undefined) preserved[key] = existing[key];
+    }
+    return preserved;
+  } catch (error: unknown) {
+    logger.warn('Could not read .dev-suite.json to preserve user settings', {
+      error,
+      context: { configPath },
+    });
+    return {};
+  }
 }
 
 export class InstallationService {
@@ -312,8 +354,31 @@ export class InstallationService {
       // Read before the write phase: the manifest is rewritten last, so this is
       // the only chance to learn what the previous install owned.
       previouslyManaged: readPreviouslyManagedPaths(projectPath),
+      ...(() => {
+        const { hashes, sectionHashes, acknowledged } = readPreviousFileHashes(projectPath);
+        return {
+          previousFileHashes: hashes,
+          previousSectionHashes: sectionHashes,
+          acknowledgedFileHashes: acknowledged,
+        };
+      })(),
       previousAgentFiles: readPreviousAgentFilesByTarget(projectPath),
     };
+
+    // ---- What changed under us since the last install ----
+    // writeManagedFile() refuses to clobber a drifted file and backs it up, but
+    // a run that quietly preserves half a dozen files would otherwise look like
+    // a clean install. Scanning before the write phase gives the log (and the
+    // Manage tab, via GET /api/reinstall/drift) something to say.
+    const preWriteDrift = scanDrift(projectPath, loadManifest(projectPath));
+    if (preWriteDrift.hasActionableDrift) {
+      logger.warn('Managed files changed since the last install; they will be preserved, not overwritten', {
+        context: {
+          projectPath,
+          drifted: preWriteDrift.drifted.map(entry => entry.path),
+        },
+      });
+    }
 
     // ---- Backup before the first byte is written ----
     // The manifest is written last, so a throw part-way through used to leave
@@ -360,7 +425,7 @@ export class InstallationService {
       // classifies by `file.target`, so those files fell outside drift
       // detection, outside the per-file "keep my version" opt-out, and outside
       // the target-scoped backup.
-      const ruleFilesByTarget: Array<{ relPath: string; target: TargetId }> = [];
+      const ruleFilesByTarget: Array<{ relPath: string; target: TargetId; drifted?: boolean }> = [];
       const skippedCapabilities: InstallSkippedCapability[] = [];
       let validatorHookConfigured = false;
       for (const target of targets) {
@@ -372,8 +437,9 @@ export class InstallationService {
           manifest,
           extendedManifest,
         });
+        const driftedRules = new Set(writeResult.driftedRuleFiles ?? []);
         for (const relPath of writeResult.ruleFiles) {
-          ruleFilesByTarget.push({ relPath, target: adapter.id });
+          ruleFilesByTarget.push({ relPath, target: adapter.id, drifted: driftedRules.has(relPath) });
         }
         validatorHookConfigured = validatorHookConfigured || writeResult.validatorHookConfigured;
         for (const skipped of writeResult.skipped) {
@@ -404,7 +470,15 @@ export class InstallationService {
         targets,
       };
       const devSuiteJsonPath = path.join(projectPath, '.dev-suite.json');
-      fs.writeFileSync(devSuiteJsonPath, JSON.stringify(devSuiteConfig, null, 2));
+      // `.dev-suite.json` is rebuilt from the install request, so any key the
+      // user edited by hand was silently dropped on the next install or Sync.
+      // `integrationValidation` is the one the docs tell people to set, and it
+      // was erased every time. Carry forward what the install does not own.
+      const preservedConfig = readUserOwnedConfigKeys(devSuiteJsonPath);
+      fs.writeFileSync(
+        devSuiteJsonPath,
+        JSON.stringify({ ...devSuiteConfig, ...preservedConfig }, null, 2)
+      );
       manifest.files.push({ path: '.dev-suite.json', type: 'config', source: 'generated' });
       this.trackFile(extendedManifest, projectPath, '.dev-suite.json', 'config');
 
@@ -433,8 +507,15 @@ export class InstallationService {
       // preview can spot a local edit and the per-file "keep my version"
       // opt-out can protect it. Only `installedRuleFiles` recorded them before,
       // and that list is invisible to drift detection.
-      for (const { relPath, target } of ruleFilesByTarget) {
-        this.trackFile(extendedManifest, projectPath, relPath, 'config', 'generated', target);
+      for (const { relPath, target, drifted } of ruleFilesByTarget) {
+        // A drifted rule file stays in the manifest — otherwise the stale prune
+        // above deletes the file this run deliberately preserved — but it is
+        // recorded at the hash we last wrote, so it keeps reporting as drifted
+        // until someone decides.
+        this.trackFile(
+          extendedManifest, projectPath, relPath, 'config', 'generated', target,
+          drifted ? plan.previousFileHashes?.get(relPath) : undefined
+        );
       }
 
       // Keep the credentials the user typed in the wizard, and the local
@@ -443,7 +524,18 @@ export class InstallationService {
       // Deliberately NOT tracked in `manifest.files`: that list is the uninstall
       // delete-set, and `.gitignore` is the user's file. Uninstall strips only
       // dev-suite's marked block from it.
-      updateGitignore(projectPath, targets, Object.keys(envVars ?? {}).length > 0);
+      // Persist the credentials outside the repo before anything is ignored:
+      // the store is what a worktree, a fresh clone or a later sync recovers
+      // from. Reading them back out of the MCP configs was the only mechanism,
+      // and it silently wiped every credential when those configs were absent.
+      const secretEnvNames = collectSecretEnvNames(devSuiteDir);
+      secretEnvStore.merge(projectPath, splitSecretEnvVars(envVars ?? {}, secretEnvNames).secrets);
+
+      // Ignore only the configs that actually carry a secret value. The old
+      // test was "any env var has a value", so setting a port or a branch name
+      // was enough to hide whole assistant configs (.codex/config.toml,
+      // .gemini/settings.json) from git.
+      updateGitignore(projectPath, targets, secretValuesIn(envVars ?? {}, secretEnvNames));
 
       // Write instructions: AGENTS.md holds the shared section (every Tier 1
       // assistant reads it natively). The CLAUDE.md import pointer is written only
@@ -472,6 +564,11 @@ export class InstallationService {
         manifest.skipped = skippedCapabilities;
         extendedManifest.skipped = skippedCapabilities;
       }
+
+      // An edit the user adopted (`promote`) is recorded on the previous
+      // manifest. Rebuilding the manifest from scratch would drop it, so every
+      // install from the wizard or the Manage tab would re-flag the same file.
+      carryForwardAcknowledgements(loadManifest(projectPath)?.files, extendedManifest);
 
       // The manifest is written once, last: it is the record of everything above,
       // so writing it earlier would describe a state that may not have been reached.
@@ -594,6 +691,22 @@ export class InstallationService {
       removed.push('.gitignore (dev-suite block)');
     }
 
+    // Integration validation lives in settings.json as hook entries, plus two
+    // scripts and a marker file. None of that was ever removed: un-merging only
+    // knew about `skillListingBudgetFraction`, so an uninstalled project kept a
+    // Stop/PostToolUse hook pointing at scripts that no longer existed — and,
+    // before 2.0, kept firing a model call per subagent forever.
+    if (targets.includes('claude-code')) {
+      try {
+        const hooks = new HooksService();
+        const outcome = hooks.removeIntegrationValidatorHook(projectPath);
+        if (outcome.success) removed.push('.claude/hooks (integration validation)');
+        else if (outcome.error) errors.push(`Failed to remove integration validation: ${outcome.error}`);
+      } catch (e) {
+        errors.push(`Failed to remove integration validation: ${e}`);
+      }
+    }
+
     // Un-merge every config file dev-suite shares with the user: remove our own
     // entries, keep theirs, and delete the file only when nothing of theirs is
     // left. Never a blanket unlink — these files hold the user's own MCP
@@ -712,6 +825,17 @@ export class InstallationService {
       }
     }
 
+    // The credentials live outside the project, so nothing in the walk above
+    // touches them. Un-merging `.mcp.json` used to remove the only copy on
+    // disk; with the store, an uninstall that leaves it behind means a later
+    // Sync silently resurrects credentials the user thought they had removed.
+    try {
+      secretEnvStore.clear(projectPath);
+      removed.push('~/.dev-suite/env (stored credentials)');
+    } catch (e) {
+      errors.push(`Failed to clear the stored credentials: ${e}`);
+    }
+
     // Remove dev-suite's own bookkeeping last: if anything above threw, the
     // manifest is still on disk and the uninstall can be retried.
     const configFiles = ['.dev-suite.json', '.dev-suite-manifest.json'];
@@ -733,7 +857,17 @@ export class InstallationService {
   /**
    * Get installation status
    */
-  async getStatus(projectPath: string): Promise<{ installed: boolean; manifest?: InstallManifest }> {
+  async getStatus(projectPath: string): Promise<{
+    installed: boolean;
+    manifest?: InstallManifest;
+    /**
+     * Set when this checkout is a linked git worktree. A worktree only contains
+     * *tracked* files, so an install whose MCP config is gitignored is simply
+     * not there — agents run against a project with no dev-suite at all. Saying
+     * so lets the caller offer to materialize it instead of degrading mutely.
+     */
+    worktree?: ReturnType<typeof detectWorktree>;
+  }> {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
@@ -745,7 +879,8 @@ export class InstallationService {
 
     try {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as InstallManifest;
-      return { installed: true, manifest };
+      const worktree = detectWorktree(projectPath);
+      return { installed: true, manifest, ...(worktree.isWorktree ? { worktree } : {}) };
     } catch (error: unknown) {
       logger.warn('Failed to read installation manifest', {
         error,
@@ -769,20 +904,15 @@ export class InstallationService {
     relativePath: string,
     type: TrackedFile['type'],
     source?: string,
-    target: TargetId = DEFAULT_TARGET
+    target: TargetId = DEFAULT_TARGET,
+    /** See {@link trackManifestFile}: records a baseline instead of the current bytes. */
+    hashOverride?: string
   ): void {
-    const fullPath = path.join(projectPath, relativePath);
-    const hash = calculateFileHashFromPath(fullPath);
-
-    if (hash) {
-      extendedManifest.files.push({
-        path: relativePath,
-        hash,
-        type,
-        source,
-        target,
-      });
-    }
+    // Delegate rather than push directly: the shared tracker also computes the
+    // `sectionHash` for files carrying the dev-suite markers. Without it
+    // AGENTS.md and CLAUDE.md have no baseline for their generated section, so
+    // drift inside the markers can never be detected.
+    trackManifestFile(extendedManifest, projectPath, relativePath, type, source, target, hashOverride);
   }
 
   /**

@@ -6,8 +6,9 @@ description: |
   directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - meta-frameworks/nextjs
+extended_skills:
   - frontend-frameworks/react
   - languages/typescript
   - styling/tailwindcss

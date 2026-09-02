@@ -94,6 +94,10 @@ export const UninstallRequestSchema = z.object({
   projectPath: z.string().min(1, 'Project path is required'),
 });
 
+export const MaterializeLocalRequestSchema = z.object({
+  projectPath: z.string().min(1),
+});
+
 export const InstallStatusRequestSchema = z.object({
   path: z.string().min(1, 'Project path is required'),
 });
@@ -970,3 +974,43 @@ export const SaveUsageConfigRequestSchema = z.object({
 export type AlertThresholdRequest = z.infer<typeof AlertThresholdSchema>;
 export type UsageConfigRequest = z.infer<typeof UsageConfigSchema>;
 export type SaveUsageConfigRequest = z.infer<typeof SaveUsageConfigRequestSchema>;
+
+// ============================================
+// ANTHROPIC RUNTIME CREDENTIAL SCHEMAS
+// ============================================
+
+/**
+ * `auto` asks the server to classify by prefix; the explicit kinds are the
+ * escape hatch for a credential whose prefix we do not recognise.
+ */
+export const CredentialKindSchema = z.enum(['api_key', 'oauth_token', 'auto']);
+
+/**
+ * Anthropic secrets are ~100-200 characters. The upper bound keeps a pasted
+ * file or a whole shell profile from reaching the credential store.
+ */
+const CredentialValueSchema = z
+  .string()
+  .min(1, 'Credential is required')
+  .max(500, 'Credential is too long to be an Anthropic API key or OAuth token');
+
+export const SaveCredentialRequestSchema = z.object({
+  credential: CredentialValueSchema,
+  kind: CredentialKindSchema.optional(),
+});
+
+/**
+ * Every field is optional: an empty body means "verify whatever credential is
+ * currently in effect". The `.default({})` makes a request with no body at all
+ * parse instead of failing validation.
+ */
+export const VerifyCredentialRequestSchema = z
+  .object({
+    credential: CredentialValueSchema.optional(),
+    kind: CredentialKindSchema.optional(),
+  })
+  .default({});
+
+// Type exports
+export type SaveCredentialRequest = z.infer<typeof SaveCredentialRequestSchema>;
+export type VerifyCredentialRequest = z.infer<typeof VerifyCredentialRequestSchema>;

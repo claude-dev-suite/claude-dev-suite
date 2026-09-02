@@ -282,11 +282,17 @@ export function loadSkillBody(skillPath: string, skillsDir: string): string {
 }
 
 /**
- * Load a quick-ref file (e.g. quick-ref/basics.md) for a skill. The `ref`
- * argument MUST be a simple filename — slashes, backslashes, and `..` are
- * rejected to prevent traversal out of the skill's quick-ref/ directory.
+ * Resolve and validate the path of a quick-ref file, without reading it.
+ *
+ * Split out from `loadQuickRefBody` so the server can route the read through
+ * its own cache: `load_quick_ref` used to bypass the cache entirely and hit
+ * the disk on every call, including the repeated calls a fan-out of subagents
+ * makes for the same reference.
+ *
+ * The `ref` argument MUST be a simple filename — slashes, backslashes, and
+ * `..` are rejected to prevent traversal out of the skill's quick-ref/ dir.
  */
-export function loadQuickRefBody(
+export function resolveQuickRefPath(
   skillPath: string,
   ref: string,
   skillsDir: string,
@@ -318,5 +324,18 @@ export function loadQuickRefBody(
         "Check that the file exists in the skill's quick-ref/ directory.",
     );
   }
-  return fs.readFileSync(refFile, "utf-8");
+  return refFile;
+}
+
+/**
+ * Load a quick-ref file (e.g. quick-ref/basics.md) for a skill.
+ *
+ * Uncached read; the server prefers `resolveQuickRefPath` plus its own cache.
+ */
+export function loadQuickRefBody(
+  skillPath: string,
+  ref: string,
+  skillsDir: string,
+): string {
+  return fs.readFileSync(resolveQuickRefPath(skillPath, ref, skillsDir), "utf-8");
 }

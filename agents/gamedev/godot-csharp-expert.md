@@ -22,9 +22,10 @@ description: |
   `sim-core-expert`, whose whole point is not knowing the engine exists
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - languages/csharp
   - systems/game-engine-architecture
+extended_skills:
   - testing/xunit
   - best-practices/clean-code
   - best-practices/performance

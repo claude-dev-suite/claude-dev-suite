@@ -72,6 +72,28 @@ mcp_servers:                    # Optional explicit list, in addition to allowed
 ---
 ```
 
+`allowed-tools` is **required** — an agent without it inherits every tool by
+omission rather than by design, and `validate-catalog.mjs` now fails on it. The
+same gate fails an agent whose body gives execution instructions without `Bash`,
+or delegates without `Task`: three shipped agents were instructed to run test
+suites they had no way to run.
+
+Prefer **one** `core_skills` entry. A subagent's `skills:` frontmatter injects
+the **full body** of each listed skill at startup (~1.8k tokens each), in every
+subagent spawned from that agent — so the cost multiplies with the width of a
+fan-out. Core is the skill the agent cannot work without on its first turn;
+everything else goes to `extended_skills` and is one `Skill` call away.
+
+Both halves of that are measured, not inferred, so they do not need re-deriving:
+a probe agent declaring one 41 KB skill and holding no file-reading tools quoted
+a sentinel from the **last line** of that skill's body, while the same agent
+without the declaration saw nothing — and the declaration cost ~17.7k additional
+cache-creation tokens. The same undeclared agent then loaded the same skill
+through the `Skill` tool and saw the sentinel, so `extended_skills` costs a
+round trip, not the skill. Installed agents always receive `Skill` in `tools`
+(`toInstalledAgentContent`, `grantSkillTool`), which is what makes the extended
+tier reachable at all.
+
 Skill entries are directory paths under `skills/`, not bare names: `frontend-frameworks/react`
 resolves to `skills/frontend-frameworks/react/SKILL.md`. `validate-catalog.mjs` fails on a path
 that does not exist. An agent with 60+ skills can collapse them with `- bundle:<namespace>/<name>`
@@ -141,6 +163,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `codegen.service.ts` | Spec-driven code generation pipeline with validation and AI refinement |
 | `rules.service.ts` | List available project rule templates from the `rules/` directory |
 | `usage.service.ts` | Fetch usage/billing data from the Anthropic Admin API for the Usage panel |
+| `credentials.service.ts` | Store, mask, and verify the Anthropic credential the Agent SDK runs the model with — API key or `setup-token` OAuth token, kept in `~/.dev-suite/credentials.json` and layered over `process.env` per call via the SDK's `options.env`. Distinct from the per-project Admin API key `usage.service.ts` uses: that one only reports usage and cannot run the model |
 | `agent-bundles.ts` | Expand `bundle:` skill references in agent frontmatter into concrete skill directory lists |
 | `targets/target-layout.ts` | Per-assistant layout descriptors (directories, instructions/MCP/settings files) + capability flags; the single source of truth for target paths. **Formats these descriptors encode are specified in `docs/ASSISTANT-FORMAT-REFERENCE.md` — read it before touching any target adapter, and never research assistant formats independently** |
 | `targets/target-paths.ts` | Resolve a layout descriptor into one project's concrete paths (relative POSIX for the manifest, absolute for filesystem calls) |
@@ -158,6 +181,10 @@ Path: `configurator/dashboard/server/src/services/`
 | `installation/manifest-tracking.ts` | Record written files (with hash and target) in the extended manifest; shared by the service and every adapter |
 | `installation/commands.ts` | Copy the project-facing slash commands into `.claude/commands` (Claude Code only) and track them; maintainer-only commands are excluded |
 | `installation/uninstall.ts` | Safe removal: un-merges the files dev-suite shares with the user (`AGENTS.md`, `.codex/config.toml`, every MCP config) instead of deleting them, bounds-checks every manifest path, and walks owned trees file by file so `custom/` and foreign skills survive |
+| `installation/drift.service.ts` | Classify every tracked file against its manifest baseline (`drift-in-section`, `acknowledged`, `deleted`, …). Nothing locks a project while concurrent agents edit it, so a managed file can change under an install; for marker-delimited files only the span between the markers is compared, since the user's prose around it changes legitimately |
+| `installation/secret-store.ts` | Per-project credential store in `~/.dev-suite/env/<id>.json` (0600). The only recovery path used to be reading values back out of the MCP configs, which a worktree does not have — so a reinstall there wiped them |
+| `installation/worktree.ts` | Detect a linked git worktree. It contains only *tracked* files, so a gitignored MCP config is simply absent and agents run against a project with no dev-suite unless something says so |
+| `installation/materialize-local.ts` | Rebuild this checkout's MCP configs from the committed manifest plus the local secret store — the fix for the worktree case, with no secret committed |
 | `installation/project-lock.ts` | Serialise every operation that rewrites a project's installation (install, reinstall, add/remove). Re-entrant, because reinstall and the Manage tab delegate to `install()` — the manifest is written last, so two overlapping runs produced a record describing neither |
 | `installation/write-guard.ts` | Snapshot the surfaces an install may overwrite, and restore them if it throws — the manifest is written last, so without this a failed install left untracked files behind |
 | `installation/managed-file.ts` | Write a file only when dev-suite owns it: reads the previous manifest so a hand-written `.gemini/agents/*.md`, `.claude/agents/*.md` or rule file is preserved and reported, never clobbered |
@@ -253,6 +280,8 @@ Areas that carry non-obvious invariants, worth reading before changing the code 
 | `installation/write-guard.test.ts` | A failed install rolls back to byte-identical state and leaves no manifest, so `getStatus()` and disk agree |
 | `installation/managed-file.test.ts` | A hand-written agent or rule file is preserved, not recorded as dev-suite's, and survives the later uninstall |
 | `installation/rule-id-safety.test.ts` | A traversing rule id cannot overwrite a project file, from either the wizard or a Sync reading the project's own `.dev-suite.json` |
+| `hooks/*.test.ts` | Every hook script executed against real payloads, and — for the output filters — the command they *emit* run in a fresh shell. The bugs they cover are payload-shape and handoff bugs: hooks reading `.command` and `$CLAUDE_FILE_PATHS`, neither of which Claude Code sends, and an emitted command whose argument stayed an unexpanded variable. No service-level unit test can see either |
+| `installation/drift.service.test.ts` | Drift verdicts: inside vs outside the markers, ratified content, a manifest predating `sectionHash` raising nothing, CRLF not reading as a change |
 | `security-hardening.test.ts`, `security-codeql.test.ts`, `git-security.test.ts` | Hook-script and branch injection, `shell:false`, IPv6 SSRF ranges, symlink escape, timing-safe WS token, path-injection and ReDoS regressions |
 | `mcp-servers/*/tests/security.test.ts` | Per-server guards: Zod arg validation, KB branch validator, the SELECT-only read-only transaction |
 
@@ -261,7 +290,9 @@ Areas that carry non-obvious invariants, worth reading before changing the code 
 ```bash
 node scripts/audit-mcp-descriptions.mjs   # MCP tool descriptions <= 120 chars unless justified
 node scripts/validate-catalog.mjs         # agent/skill/MCP metadata consistency
+node scripts/validate-frontmatter.mjs     # YAML frontmatter shape across agents, commands, skills
 node scripts/check-type-sync.mjs          # shared types in sync between client and server
+node scripts/validate-env-secrets.mjs     # every credential-shaped env var is flagged `secret`
 node scripts/gen-capability-matrix.mjs --check   # docs/AGENT-CAPABILITY-MATRIX.md is current
 node scripts/gen-agents-reference.mjs --check    # README Agents Reference is current
 node scripts/check-docs-sync.mjs          # prose matches steps.ts / IMPLEMENTED_TARGETS / workspaces

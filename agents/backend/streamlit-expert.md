@@ -7,9 +7,10 @@ description: |
   directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - backend-frameworks/streamlit
+extended_skills:
+  - best-practices/token-optimization
   - languages/python
   - data-processing/pandas
   - data-validation/pydantic

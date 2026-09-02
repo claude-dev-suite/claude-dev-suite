@@ -6,9 +6,10 @@ description: |
   analysis only.
 model: sonnet
 allowed-tools: Read, Grep, Glob, Bash, mcp__performance-profiler__profile_script, mcp__performance-profiler__profile_function, mcp__performance-profiler__benchmark_code, mcp__performance-profiler__analyze_memory, mcp__performance-profiler__measure_startup, mcp__performance-profiler__find_bottlenecks, mcp__performance-profiler__attach_profiler, mcp__performance-profiler__profile_endpoint, mcp__performance-profiler__list_java_processes, mcp__performance-profiler__import_har, mcp__performance-profiler__list_flows, mcp__performance-profiler__replay_flow, mcp__performance-profiler__stress_test_flow, mcp__documentation__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - profiling/nodejs
+extended_skills:
+  - best-practices/token-optimization
   - profiling/java
   - profiling/python
   - best-practices/performance
@@ -17,7 +18,6 @@ skills:
   - best-practices/caching-strategies
   - testing/load-testing
   - observability/opentelemetry
-  # Database performance (N+1, query optimization, connection pooling)
   - databases/postgresql
   - backend-frameworks/spring-data-jpa
 ---

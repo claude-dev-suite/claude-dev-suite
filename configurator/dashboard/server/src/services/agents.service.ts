@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { Agent, McpServer, EnvVarConfig, AgentCategory } from '../types.js';
+import type { Agent, AgentCapabilityProfile, McpServer, EnvVarConfig, AgentCategory } from '../types.js';
 import { parseYamlDescription } from '../utils/yaml-utils.js';
 import { timeOperation, TIMING_THRESHOLDS } from '../utils/performance.js';
 import { getLogger } from '../utils/logger.js';
@@ -23,6 +23,31 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 interface CacheEntry<T> {
   data: T | null;
   timestamp: number;
+}
+
+
+/**
+ * Derive an {@link AgentCapabilityProfile} from an `allowed-tools` CSV.
+ *
+ * A missing line means the agent inherits every tool — that is a real state
+ * (one shipped agent was in it by omission, not by design), so it is reported
+ * as `unrestricted` rather than silently treated as "has everything".
+ *
+ * `Agent` is accepted alongside `Task` because two industrial agents declare it
+ * that way; whichever name the harness uses, the intent is delegation.
+ */
+function computeCapabilities(allowedTools: string | undefined): AgentCapabilityProfile {
+  if (!allowedTools || !allowedTools.trim()) {
+    return { canExecute: true, canDelegate: true, canEdit: true, unrestricted: true };
+  }
+  const tools = allowedTools.split(',').map(t => t.trim()).filter(Boolean);
+  const has = (name: string) => tools.some(t => t === name || t.startsWith(name + ':'));
+  return {
+    canExecute: has('Bash'),
+    canDelegate: has('Task') || has('Agent'),
+    canEdit: has('Write') || has('Edit') || has('MultiEdit'),
+    unrestricted: false,
+  };
 }
 
 export class AgentsService {
@@ -183,6 +208,9 @@ export class AgentsService {
                   description: envVar.description || '',
                   required: envVar.required || false,
                   default: envVar.default || '',
+                  // Without this the wizard falls back to guessing from the
+                  // name, and renders credentials in a cleartext input.
+                  secret: envVar.secret === true,
                   detectedValue,
                   source,
                   mcpServer: serverName,
@@ -279,6 +307,9 @@ export class AgentsService {
       // Parse MCP servers from allowed-tools
       const mcpServers: string[] = [];
       const allowedToolsMatch = frontmatter.match(/^allowed-tools:\s*(.+)$/m);
+      // The same line also says what the agent can *do*. Deriving it here keeps
+      // one source of truth: the frontmatter, not a hand-maintained table.
+      const capabilities = computeCapabilities(allowedToolsMatch?.[1]);
       if (allowedToolsMatch?.[1]) {
         const tools = allowedToolsMatch[1].split(',').map((t) => t.trim());
         for (const tool of tools) {
@@ -318,6 +349,7 @@ export class AgentsService {
         extendedSkills,
         mcpServers,
         ...(model ? { model } : {}),
+        capabilities,
         filePath,
       };
     } catch (error: unknown) {
@@ -357,6 +389,7 @@ export class AgentsService {
             description: (ev.description as string) || '',
             required: (ev.required as boolean) || false,
             default: (ev.default as string) || '',
+            secret: ev.secret === true,
           }));
         }
       } catch (error: unknown) {

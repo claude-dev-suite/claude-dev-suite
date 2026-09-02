@@ -6,9 +6,10 @@ description: |
   unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - frontend-frameworks/angular
+extended_skills:
+  - best-practices/token-optimization
   - frontend-frameworks/angular-routing
   - frontend-frameworks/angular-forms
   - frontend-frameworks/angular-http

@@ -7,8 +7,9 @@ description: |
   modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - messaging/kafka
+extended_skills:
   - messaging/rabbitmq
   - messaging/activemq
   - messaging/sqs
@@ -22,7 +23,6 @@ skills:
   - backend-frameworks/spring-integration
   - backend-frameworks/spring-kafka
   - backend-frameworks/spring-amqp
-  # Messaging integration testing
   - testing/messaging-testing-kafka
   - testing/messaging-testing-rabbitmq
   - testing/messaging-testing

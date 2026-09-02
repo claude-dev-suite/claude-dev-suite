@@ -73,6 +73,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`verification-runner` agent.** The canonical verification stage for a
+  multi-agent fan-out: `Read, Grep, Glob, Bash, Task`, no `model:` so it
+  inherits the session's, and a body that runs build/test/lint and reports raw
+  output without fixing anything. Specialist agents that only read and write
+  source hand the run to it instead of claiming a suite passes.
+- **Drift detection.** `drift.service.ts` classifies every tracked file
+  (`unmodified`, `drift-in-section`, `drift-outside-section`, `acknowledged`,
+  `deleted`, `unknown-baseline`), exposed as `GET /api/reinstall/drift`, a
+  banner in the Manage tab, and `dev-suite-reinstall --drift` with a non-zero
+  exit so a pipeline can gate on it. Reconciliation adds a third choice beside
+  overwrite and keep: **adopt** (`--promote`), which records the current content
+  as ratified so it stops being reported. A manifest written before this exists
+  reports `unknown-baseline` and raises nothing.
+- **Worktree awareness and `POST /api/materialize-local`.** A linked git
+  worktree contains only tracked files, so an install whose MCP config is
+  gitignored is simply absent there — agents run against a project with no
+  dev-suite and nothing says so. `getStatus()` now reports the worktree, and
+  materialization rebuilds the local configs from the committed manifest plus
+  the machine-local secret store.
+- **Agent capability profiles.** `allowed-tools` was parsed only to extract MCP
+  server names and the tool list was discarded, so nothing downstream knew which
+  agents can execute or delegate. The profile is derived from the same line and
+  surfaced in the generated agent index (`[exec · deleg · sonnet]`), so an
+  orchestrator can tell a leaf agent from one that can run its own verification
+  — and an agent's `model:` override, which silently beats the session model,
+  is visible.
+- **Four catalog gates in `validate-catalog.mjs`**: a body that gives execution
+  instructions without `Bash`, a body that delegates without `Task`, a missing
+  `allowed-tools`, and a non-default `model:` with no `model_rationale:`.
+
+- **The Anthropic credential the orchestrator runs on is now settable from the
+  dashboard.** Launched from the GUI, Electron does not inherit the shell's
+  exported `ANTHROPIC_API_KEY`, so Orchestrator chat and jobs failed on auth
+  with no way to fix it from the UI. A new Credentials panel stores either an
+  API key (`sk-ant-api…`) or a `claude setup-token` OAuth token
+  (`sk-ant-oat…`) in `~/.dev-suite/credentials.json` (0600, reported from the
+  file's own mode rather than assumed from the platform, because `chmod` fails
+  silently on some network and non-POSIX mounts), and `credentials.service.ts`
+  layers it over `process.env`
+  per call through the SDK's `options.env` — a key saved while the app is
+  running applies to the next message, with no restart. `GET/PUT/DELETE
+  /api/credentials` and `POST /api/credentials/verify` back it; verify probes a
+  read-only Anthropic endpoint so a bad credential is distinguishable from a
+  failing chat turn. The secret is write-only: every response carries the
+  masked `CredentialStatus`, and `credential`/`credentials` are redacted by the
+  request logger and the Winston formatter. This is deliberately not the Admin
+  API key behind the Usage panel — that one is per-project and only ever
+  reaches `/v1/organizations/…`; an `sk-ant-admin…` key cannot run the model,
+  and the auth-failure hint in `agent-sdk.service.ts` now says so. The panel is
+  careful about what it cannot see: a machine authenticated through
+  `claude login` has no env var and no stored credential, and the Orchestrator
+  works anyway, so "no credential" says the CLI may still be logged in rather
+  than predicting a failure.
 - **`validate-catalog.mjs` gained three assertions** that would each have caught
   a shipped defect: every `agents/` directory must map to a category, every
   `model:` must be one of the three supported values, and every MCP server's
@@ -221,6 +274,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Only one skill is preloaded per agent, and the whole catalog moved to
+  `core_skills:`/`extended_skills:`.** A subagent's `skills:` frontmatter
+  injects the **full body** of each listed skill at startup — roughly 1.8k
+  tokens each — so three preloaded skills cost about 6k tokens in every subagent
+  spawned from that agent, multiplied by the width of a fan-out. The cap for
+  legacy flat lists is now 1, and the 55 agents that used one were migrated to
+  an explicit tier split. The choice was previously positional: 17 of them
+  burned a preload slot on `best-practices/token-optimization`. Everything else
+  stays one `Skill` call away.
+  (`skillListingBudgetFraction` is unrelated and unchanged: it caps skill
+  *descriptions* in the main session, is not paid per subagent, and lowering it
+  saves nothing.)
+- **The always-on routing block in `AGENTS.md` carries one sentence per agent**
+  instead of the full description. That block is inherited by every subagent, so
+  it is one of the few parts of the file whose size multiplies with fan-out.
+- **The KB cache lives in `~/.dev-suite/kb-cache`**, not in each project's
+  working directory — matching what its own metadata always claimed, and shared
+  across projects instead of re-cloned per project. `.mcp-servers/` is now
+  gitignored (it is a rebuildable ~15 MB of bundles).
+
 - **A per-project lock serialises every operation that rewrites the manifest.**
   install, reinstall and the Manage tab's add/remove all run the same
   read-plan-write sequence with the manifest written last, and nothing prevented
@@ -296,6 +369,288 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   a documented `/init-project <preset>` argument that was never implemented.
 
 ### Fixed
+
+- **Drift reported a clean project as dirty, and offered to undo its own
+  merge.** dev-suite writes three kinds of file: ones it owns outright, ones
+  where it owns a marked span, and ones where it owns only some *keys* — every
+  assistant's MCP config, `.claude/settings.json`, `.codex/config.toml`. Only the
+  first two were modelled, so the third was compared by whole-file hash: adding
+  your own MCP server, the edit the writers exist to preserve, was reported as
+  drift, failed `dev-suite-reinstall --drift` with exit 4, and made a Sync ask
+  for confirmation. Worse, offering Keep or Adopt on one of them would have
+  restored its pre-run bytes over the merge the same run had just produced —
+  reverting, for instance, a server that Sync had added seconds earlier. They now
+  carry a `merged` scope: reported for visibility, never actionable, because
+  judging them needs the merge re-run rather than a hash.
+- **The section-hash fallback could never match.** `isDrifted` compared the hash
+  of a marked span against `previousHashes`, which is filled only from the
+  whole-file digest — two different things, never equal. The branch existed to
+  stop a user's own prose around `AGENTS.md`'s generated section from reading as
+  drift, and could not do it. The manifest's `sectionHash` is now read and
+  threaded to the writers alongside the whole-file one. Nothing routes a marked
+  file through that path today, which is why it went unnoticed; it is the stated
+  protection for `AGENTS.md` and `CLAUDE.md` when something does.
+
+- **The built-in hook templates still needed `jq`.** They were rewritten onto
+  shell preludes in the same release that moved the new hooks to Node precisely
+  to escape that dependency — so on a stock Windows install, the stated primary
+  platform, every one of them exited 0 without doing anything. `block-env` was
+  the sharp case: a `PreToolUse` guard whose only job is to exit 2 could never
+  block, while the dashboard listed it as active protection for `.env` files.
+  All six now run one of two Node primitives, `on-file-change.mjs` and the new
+  `on-bash-command.mjs`, and `applyClaudeTemplate` installs the script a
+  template names before writing the entry that points at it — a template
+  referencing a missing script being the same inert hook in another disguise.
+- **Three recipes ran a command that could not work.** The file path is appended
+  when no `{file}` placeholder is present, which is right for a formatter and
+  wrong for anything whose positional slot means something else: `npm audit
+  <path>` reads the path as a subcommand and exits with a usage error, and
+  `tsc --noEmit <file>` makes tsc ignore `tsconfig.json` entirely, so every
+  write to a `.tsx` file in a React project produced a wall of spurious errors.
+  A `--no-file` flag covers both; `prisma validate` takes `--schema {file}`, and
+  its match no longer fires on Drizzle projects it cannot help.
+- **Adopting a drifted file and then reinstalling destroyed the adopted
+  content.** The panel displayed `promote` as the selected choice for an
+  already-ratified file but never put it in `resolutions`, so a user who agreed
+  with what they saw and pressed Reinstall sent nothing — and ratified content is
+  deliberately replaceable, so `install()` overwrote it. The default now travels
+  with the request instead of only being drawn.
+- **Materializing a project wiped the environment values it did not have.** The
+  MCP writer replaces a managed server entry wholesale, and only the secret store
+  was consulted: on a project installed before that store existed, one run
+  removed the credential from `.mcp.json` with no backup, and non-secret settings
+  were lost on every run. Existing values are recovered before rendering, and the
+  "could not restore" report is now per server rather than firing only when the
+  store is completely empty.
+- **A lock holder could delete someone else's lock.** `release()` removed the
+  directory unconditionally, so a holder whose work outran the TTL — a clone plus
+  a sparse checkout plus a copy is not far off 60s — came back to a lock that had
+  been reclaimed and re-taken, and freed it for a third caller while the current
+  holder still believed it held it; both then published into the same cache path
+  and one rename failed. Acquisition now records a token and release checks it.
+  Reclaiming a stale lock is also atomic: observing staleness and removing the
+  directory were two steps, so two waiters could both reclaim, the second one
+  deleting the first one's fresh lock. The steal is a `rename` — exactly one
+  waiter wins it.
+- **A git submodule was reported as a worktree.** Submodules use the same
+  `.git`-as-a-file mechanism, pointing at `.git/modules/<name>`, so opening the
+  dashboard on one claimed the checkout was a worktree missing its local files
+  and steered the user towards materialization. Only a gitdir under
+  `.git/worktrees/` counts.
+- **A drift diff returned the contents of files it does not track.** `readDriftDiff`
+  read the file before checking the manifest, so `GET /api/reinstall/diff` with
+  `file=.env` returned it. Bounded to the project and to localhost, but the
+  endpoint is documented as a diff for one *tracked* file.
+
+- **The default validation level did nothing, and this was settled by running
+  it.** A real headless Claude Code session against a real React + NestJS
+  project, twice with the same prompt: under `warn` the model edited a
+  controller and validated nothing; under `block` it performed the
+  reconciliation and cited the hook. Neither plain stdout nor the
+  `systemMessage` JSON channel reaches the model from a `Stop` hook that exits
+  0. The default is now `block` — an default that never fires is the failure
+  this mechanism was rewritten to remove — and `warn` is documented for what it
+  is: a note to the user that the model never sees. The path patterns were
+  narrowed first, so there is less to pay for.
+- **The hook told sessions to delegate to an agent that need not be installed.**
+  The same real run reported it, unprompted and twice: `integration-validator-expert`
+  was not among the selected agents, so the instruction named something the
+  session could not invoke, and the model validated by hand instead. The hook is
+  no longer installed when its agent is not.
+
+- **The "Block Sensitive File Edits" recipe never blocked anything.** It grepped
+  `$CLAUDE_FILE_PATHS`, which Claude Code does not define, so the pattern was
+  matched against an empty string and never fired — while the dashboard listed
+  it as active protection for `.env`, `id_rsa` and `.pem`. It also used
+  `exit 1`, which the hook contract treats as a non-blocking error, so even a
+  matching path would not have stopped the write. Eight other recipes had the
+  same phantom variable and formatted, linted and audited nothing. All nine now
+  go through one primitive, `templates/hooks/on-file-change.mjs`, which reads
+  the documented stdin payload and exits 2 to block. It is Node, not shell plus
+  `jq`: a stock Windows install has neither.
+- **Recipe hooks were written as bare strings**, the shape corrected everywhere
+  else in this release but missed here — `recipes.service.ts` was a second
+  writer of `.claude/settings.json` that no one had looked at.
+- **A file path containing a space or an ampersand was split in half.** The
+  recipe primitive runs commands with `shell: true` (needed for the `npx` and
+  `npm` shims on Windows), and Node then flattens the argument vector into a
+  command line without quoting it, so a project under `C:\My Project` formatted
+  the wrong file or none. Arguments are quoted per platform now.
+- **`integrationValidation` never worked, in three independent ways.** The key
+  was erased from `.dev-suite.json` by every install and Sync, because that file
+  is rebuilt from the install request; the level was frozen into the hook's
+  command line, and the installer short-circuits once the hook exists, so
+  `warn` → `block` was written nowhere; and the script never read the file at
+  all. The level is now read fresh on every turn, with the command-line value as
+  the default, and the install carries user-owned keys forward.
+- **The API-surface check fired on every SvelteKit and Remix page.** `route` and
+  `router` are how backends name their surface, but those frameworks put all UI
+  under a routes directory — so moving a button asked for an API validation,
+  which is the fastest way to teach people to dismiss the prompt. Pages are now
+  excluded unless they are the server half (`+server.`, `.server.`), and
+  Django/DRF and FastAPI idioms (`serializers.py`, `urls.py`, `views.py`,
+  `schemas.py`) were added. Seventeen realistic paths across five stacks are
+  pinned in the tests.
+- **The drift backups and the API marker were in no ignore list.**
+  `.dev-suite-backup/drift/` has no suffix, so the existing
+  `.dev-suite-backup-*/` glob never matched it, and `.claude/.ds-api-touched` is
+  rewritten on every turn that touches an API file. Both were untracked noise in
+  `git status`, one `git add -A` from being committed.
+- **Uninstall left the stored credentials behind.** They live outside the
+  project, so nothing in the removal walk touched them — and a later Sync
+  resurrected credentials the user believed they had removed. Un-merging
+  `.mcp.json` used to be what deleted the only copy on disk.
+- **`materializeLocal` wrote MCP configs outside the project lock and without
+  refreshing `.gitignore`.** It writes the same files an install does, so
+  running it concurrently produced a config describing neither, and it restored
+  credentials into files whose ignore entries nothing had updated.
+- **Trimming the always-on routing to one sentence lost the routing signal on
+  Codex and Cline.** Those assistants load no agent files, so AGENTS.md is the
+  only thing they ever see, and the USE WHEN / DO NOT USE FOR triggers live past
+  the first sentence. The trim now applies only where the full text is one hop
+  away.
+
+- **Two output-filter hooks replaced the command they were meant to filter with
+  nothing.** `filter-lint.sh` and `filter-test-output.sh` assembled the rewritten
+  command inside a quoted heredoc, so `"$ORIGINAL_CMD"` survived as a literal
+  into the string Claude Code runs — in a shell where that variable does not
+  exist. `eval ""` executed nothing and the filter printed its "(no errors
+  found)" summary and exited 0: a green result for a suite that never ran. The
+  bug was unreachable while the scripts read the wrong payload field, and
+  correcting the payload activated it. They now append the command outside the
+  quoted region with `printf '%q'`, as `truncate-logs.sh` always did. The new
+  tests execute the *emitted* command in a fresh shell, which is the only
+  arrangement that can tell the two behaviours apart, and pin the exit code.
+- **An unwritable KB cache hung the documentation server permanently.**
+  `dir-lock` reported "someone else holds it" and "I cannot create it at all"
+  identically, and the staleness check then saw no lock directory and reported
+  progress — so the retry loop jumped over its own deadline forever. It ran
+  inside the clone semaphore, so the permit was never released and after two
+  such fetches the server stopped answering for every technology. The attempt
+  is now three-valued: unusable gives up at once (the caller proceeds unlocked,
+  which the module always intended), and the deadline is checked on every path.
+- **A secret the serialiser had to escape was not recognised, so its config was
+  left out of `.gitignore`.** The scan compared the value the user typed against
+  the bytes on disk, but every writer escapes: a password containing a
+  backslash, a quote or a newline is present in escaped form and a raw
+  `includes` misses it. `DATABASE_URL` — the one credential the wizard makes a
+  human type — is exactly where such characters come from. The comparison now
+  covers the JSON and TOML forms as well.
+- **Ignoring a config git already tracks does nothing, and nothing said so.**
+  The block tells users which configs are committable, they commit them, and
+  only later add a server needing a credential — at which point the new entry is
+  a no-op. The install now warns, naming the files and the remedy. It does not
+  run `git rm --cached` on the user's behalf.
+- **The wizard rendered credentials in a cleartext input.** Masking was decided
+  by looking for 'secret', 'password' or 'token' in the variable *name*, which
+  `DATABASE_URL` does not contain. The declared `secret` flag now reaches the
+  client and drives it, with the name heuristic kept only for env vars that
+  carry no flag.
+- **Applying a `Stop` feature silently deleted another `Stop` hook.** Feature
+  application replaced "the entry with the same matcher", but `Stop` takes no
+  matcher, so every entry compared equal to every other: applying
+  `smoke-test-hook` overwrote the integration-validation hook (or the user's own)
+  with no error, while the manifest still recorded the overwritten feature as
+  installed. Identity is now the matcher plus the first handler, in both the
+  applier and the conflict detector — which had the same wrong identity and
+  reported a duplicate against a hook that was not one.
+- **A drifted rule file was deleted by the same run that refused to overwrite
+  it.** The stale-file prune keys off the list of files written this run, and a
+  drifted file is deliberately not written, so leaving it out of the result made
+  the install delete it — strictly worse than the overwrite it replaced, since
+  an overwrite is recoverable from the catalog and a delete of the user's
+  content is not. `writePathScopedRules` now reports written and drifted
+  separately: both stay in the manifest, only the written ones are recorded at
+  their current content.
+
+- **Hooks were written against a payload contract that does not exist, so
+  several of them silently did nothing.** Claude Code delivers a JSON object on
+  stdin; there is no `$CLAUDE_FILE_PATHS` and no `$CLAUDE_TOOL_INPUT`. All three
+  shipped output-filter scripts read `.command` instead of `.tool_input.command`
+  and so passed every command through unfiltered, and six hook templates plus
+  three registry features interpolated the non-existent variables. The scripts,
+  the templates and the features now read the documented payload, and the
+  handler entries are written as `{ "type": "command", "command": … }` objects
+  rather than the bare strings that appear in no version of the hook schema.
+  `docs/HOOKS-REFERENCE.md` documented the same non-existent variables and has
+  been corrected alongside them.
+- **API integration validation never ran, and cost a model call per subagent
+  when it did fire.** It was a `SubagentStop` prompt hook whose matcher was a
+  list of agent *names*, so a generically typed subagent — what a parallel
+  fan-out uses — matched nothing. When it did match, a `{"ok": false}` reply
+  only fed a reason back to the finishing subagent; nothing in it could invoke
+  `integration-validator-expert`. It is now deterministic: a `PostToolUse`
+  script marks writes to API-surface paths (hooks in `settings.json` run inside
+  subagents too, so this is independent of agent naming) and a `Stop` script
+  makes one decision per turn from that marker — sixteen concurrent subagents
+  collapse into a single check instead of sixteen model calls. Level is
+  `warn` (default), `block` or `off` via `integrationValidation` in
+  `.dev-suite.json`. Both scripts are Node, not bash: the bash hooks need `jq`,
+  which a stock Windows install does not have.
+- **`SubagentStop` was declared as taking no matcher**, so `addClaudeHook` and
+  `updateClaudeHook` dropped a matcher the user had typed and the hook then
+  fired for every subagent. It matches on `agent_type`; the event descriptor,
+  the reference doc and the matcher field in the Manage tab now say so, and the
+  field is disabled for `Stop`, which genuinely takes none.
+- **The `smoke-test` and `pytest-smoke` features fired a model call per
+  finishing subagent.** Both were `SubagentStop` with `matcher: "*"`, so a
+  16-wide fan-out paid 32 prompt evaluations per wave, each with a 30s timeout.
+  They now run on `Stop`: once per turn, and on that event a `{"ok": false}`
+  reply actually resumes the main agent, which is what both were trying to
+  express.
+- **Uninstall left the integration-validator hook behind forever.** It
+  un-merged only `skillListingBudgetFraction` from `settings.json`, so the hook
+  entry survived removal and the install path short-circuited whenever it saw
+  its own entry — a project that had ever been installed kept it permanently.
+  Removal now strips the entries, the scripts and the marker, including the
+  pre-2.0 `SubagentStop` entry, and install actively migrates it away.
+- **A managed file edited after installation was overwritten with no backup and
+  no report.** `writeManagedFile` decided ownership by path membership in the
+  previous manifest, so a `.claude/agents/*.md` that an agent had rewritten was
+  still "ours" and was replaced silently — the case a parallel fan-out makes
+  routine. Ownership is now checked against the recorded hash: a drifted file is
+  copied to `.dev-suite-backup/drift/`, left in place, reported, and kept in the
+  manifest at its *baseline* hash so it stays flagged until a human decides.
+- **`AGENTS.md` and `CLAUDE.md` had no drift baseline at all.** They are tracked
+  as `generated`, which the reinstall preview mapped to `skip`, so the recorded
+  hash was never read back. They now carry a `sectionHash` over the span between
+  the dev-suite markers only — the user's own prose outside them changes
+  legitimately and must not read as drift.
+- **Setting any environment variable hid whole assistant configs from git.** The
+  install ignored every MCP config as soon as `envVars` was non-empty, so a port
+  or a branch name was enough to gitignore `.codex/config.toml` and
+  `.gemini/settings.json` — complete assistant configurations, not just
+  secrets. `EnvVarConfig` now carries a `secret` flag, only files containing an
+  actual secret value are ignored, and `scripts/validate-env-secrets.mjs` fails
+  the build if a credential-shaped variable is missing the flag.
+- **A reinstall from a git worktree wiped every credential.** Environment values
+  were recovered by reading them back out of the MCP configs, which a worktree
+  does not contain (they are gitignored). They are now stored per project in
+  `~/.dev-suite/env/<id>.json` (0600), with the config-reading path kept as a
+  migrating fallback.
+- **The KB cache could return "file not found" while it was being refreshed.**
+  `kb-fetcher` did `rm -rf` + `mkdir` + copy without atomicity, so a concurrent
+  reader saw a directory that had ceased to exist mid-read. Publishing is now a
+  staging directory plus a rename, fetches for the same technology are
+  single-flighted, clones are capped at two at a time with backoff and jitter,
+  and a missing technology is negatively cached instead of re-cloning on every
+  call from every agent.
+- **`.timestamps.json` lost updates under concurrency**, and a truncated write
+  made the entire cache read as stale, triggering a fresh storm of clones.
+  Metadata is now per technology, written tmp-then-rename.
+- **`EADDRINUSE` killed the whole `dashboard-bridge` MCP server.** Nothing
+  handled `'error'` on the HTTP or WebSocket server, so a second session
+  starting the bridge took down the MCP process and every agent got transport
+  errors. It now logs one line and continues as an MCP server. Dashboard probes
+  also gained a 1.5s timeout and a 30s reachability cache, so sixteen agents
+  make one attempt rather than sixteen.
+- **Three agents were told to do things their tools forbade.** `react-expert`
+  and `vue-expert` are instructed to run the test suite but had no `Bash`;
+  `integration-validator-expert` delegates a fix and re-validates but had `Task`
+  without `Bash`, so its loop could not close on either side. All three now have
+  it. `code-reviewer` keeps no `Bash` — it is read-only by role — and its body
+  no longer claims otherwise. `dashboard-refactor-expert` had no `allowed-tools`
+  at all, inheriting every tool by omission rather than by design.
 
 - **The agent reference generator did not escape backslashes.** `focus()`
   escaped `|` for the markdown table but left existing backslashes alone, so a

@@ -32,6 +32,9 @@ const LivePerformancePanel = lazy(() =>
 const TokenAnalyticsPanel = lazy(() =>
   import('./components/analytics/TokenAnalyticsPanel').then(module => ({ default: module.TokenAnalyticsPanel }))
 );
+const CredentialsPanel = lazy(() =>
+  import('./components/credentials/CredentialsPanel').then(module => ({ default: module.CredentialsPanel }))
+);
 
 export function App() {
   const logger = getLogger('App');
@@ -245,6 +248,26 @@ export function App() {
             >
               <Suspense fallback={<LoadingPanel message="Loading Code Generator..." />}>
                 <CodeGenPanel projectPath={projectPath} onStartRefinement={handleStartReview} />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        )}
+
+        {/* Credentials panel — deliberately not gated on projectPath/isInstalled:
+            the Anthropic credential is global, and a user whose orchestrator
+            fails to authenticate must be able to reach it from anywhere. */}
+        {currentPanel === 'credentials' && (
+          <div className="h-full">
+            <ErrorBoundary
+              fallback={
+                <ErrorFallback
+                  showHomeButton={true}
+                  onHome={() => setCurrentPanel('orchestrator')}
+                />
+              }
+            >
+              <Suspense fallback={<LoadingPanel message="Loading Credentials..." />}>
+                <CredentialsPanel />
               </Suspense>
             </ErrorBoundary>
           </div>

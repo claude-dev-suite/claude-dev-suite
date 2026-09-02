@@ -5,7 +5,7 @@ description: |
   and performance optimization. Executes code modifications directly
   unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, mcp__documentation__*
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
 core_skills:
   - frontend-frameworks/react
   - frontend-frameworks/react-hooks

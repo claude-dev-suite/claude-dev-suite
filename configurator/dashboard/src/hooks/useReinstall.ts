@@ -15,6 +15,7 @@ import type {
   ReinstallExecuteRequest,
   ReinstallFileResolution,
 } from '@/types';
+import type { DriftReport } from '@/types/drift';
 import { getLogger } from '@/utils/logger';
 
 const logger = getLogger('useReinstall');
@@ -29,6 +30,16 @@ export interface UseReinstallResult {
   isPreviewing: boolean;
   previewError: string | null;
   refreshPreview: () => Promise<void>;
+
+  /**
+   * Managed files that changed since dev-suite wrote them. Fetched separately
+   * from the preview so a caller that only wants the banner (the Manage tab)
+   * does not pay for a full reinstall preview.
+   */
+  driftReport: DriftReport | null;
+  isScanningDrift: boolean;
+  driftError: string | null;
+  refreshDrift: () => Promise<void>;
 
   executeResult: ReinstallExecuteResult | null;
   isExecuting: boolean;
@@ -58,6 +69,16 @@ export function useReinstall(options: UseReinstallOptions): UseReinstallResult {
   );
 
   const {
+    data: driftReport,
+    loading: isScanningDrift,
+    error: driftError,
+    refetch: refetchDrift,
+  } = useApi<DriftReport>(
+    `/api/reinstall/drift?path=${encodeURIComponent(projectPath)}`,
+    { skip: !projectPath }
+  );
+
+  const {
     loading: isExecuting,
     error: executeError,
     mutate: executeMutate,
@@ -75,15 +96,30 @@ export function useReinstall(options: UseReinstallOptions): UseReinstallResult {
     await refetchPreview();
   }, [refetchPreview]);
 
+  const refreshDrift = useCallback(async () => {
+    invalidateCache('/api/reinstall/drift');
+    await refetchDrift();
+  }, [refetchDrift]);
+
   const reinstall = useCallback(
     async (createBackup = true): Promise<ReinstallExecuteResult | null> => {
       logger.info('Executing reinstall', { projectPath, createBackup });
       resetExecute();
       setExecuteResult(null);
 
+      // Files the user already adopted default to `promote` in the UI. That
+      // default has to travel with the request: sending nothing means "no
+      // resolution", and install() then replaces content the panel had just
+      // shown as kept.
+      const effective: Record<string, ReinstallFileResolution> = {};
+      for (const file of previewResult?.modifiedManagedFiles ?? []) {
+        if (file.acknowledged) effective[file.path] = 'promote';
+      }
+      Object.assign(effective, resolutions);
+
       const result = await executeMutate({
         projectPath,
-        resolutions: Object.keys(resolutions).length > 0 ? resolutions : undefined,
+        resolutions: Object.keys(effective).length > 0 ? effective : undefined,
         createBackup,
       });
 
@@ -91,12 +127,13 @@ export function useReinstall(options: UseReinstallOptions): UseReinstallResult {
         setExecuteResult(result);
         // Refresh dependent views.
         invalidateCache('/api/reinstall/preview');
+        invalidateCache('/api/reinstall/drift');
         invalidateCache('/api/install-status');
-        await refetchPreview();
+        await Promise.all([refetchPreview(), refetchDrift()]);
       }
       return result;
     },
-    [projectPath, resolutions, executeMutate, resetExecute, refetchPreview]
+    [projectPath, resolutions, previewResult, executeMutate, resetExecute, refetchPreview, refetchDrift]
   );
 
   return {
@@ -104,6 +141,10 @@ export function useReinstall(options: UseReinstallOptions): UseReinstallResult {
     isPreviewing,
     previewError,
     refreshPreview,
+    driftReport: driftReport ?? null,
+    isScanningDrift,
+    driftError,
+    refreshDrift,
     executeResult,
     isExecuting,
     executeError,

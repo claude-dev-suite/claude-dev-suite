@@ -59,7 +59,9 @@ describe('flattenSkillName', () => {
 });
 
 describe('parseAgentSkillsStructured', () => {
-  it('legacy `skills:` (≤ cap) — all entries become core, extended empty', () => {
+  it('legacy `skills:` — only the first entry is preloaded', () => {
+    // The cap is 1 because each core skill is injected whole into every
+    // subagent spawned from the agent. See LEGACY_SKILLS_CORE_CAP.
     const content = `---
 name: legacy-agent
 description: Test
@@ -69,12 +71,12 @@ skills:
 ---
 # body`;
     const result = parseAgentSkillsStructured(content, 'legacy-agent');
-    expect(result.core).toEqual(['frontend-frameworks/react', 'languages/typescript']);
-    expect(result.extended).toEqual([]);
+    expect(result.core).toEqual(['frontend-frameworks/react']);
+    expect(result.extended).toEqual(['languages/typescript']);
     expect(result.all).toEqual(['frontend-frameworks/react', 'languages/typescript']);
   });
 
-  it('legacy `skills:` (> cap) — first 3 become core, rest fall through to extended', () => {
+  it('legacy `skills:` (> cap) — the rest fall through to extended', () => {
     const content = `---
 name: heavy-legacy
 description: Test
@@ -88,8 +90,8 @@ skills:
 ---
 # body`;
     const result = parseAgentSkillsStructured(content, 'heavy-legacy');
-    expect(result.core).toEqual(['one', 'two', 'three']);
-    expect(result.extended).toEqual(['four', 'five', 'six']);
+    expect(result.core).toEqual(['one']);
+    expect(result.extended).toEqual(['two', 'three', 'four', 'five', 'six']);
     // .all remains the full union, in the original order
     expect(result.all).toEqual(['one', 'two', 'three', 'four', 'five', 'six']);
   });

@@ -6,8 +6,9 @@ description: |
   unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - testing/playwright
+extended_skills:
   - languages/typescript
   - best-practices/clean-code
   - accessibility/axe-core

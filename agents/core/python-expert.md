@@ -7,18 +7,17 @@ description: |
   explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - languages/python
+extended_skills:
+  - best-practices/token-optimization
   - infrastructure/python-packaging
   - best-practices/python-quality
   - testing/pytest
-  # AI & data
   - ai-integration/langchain
   - ai-integration/vector-databases
   - ai-integration/rag-patterns
   - data/etl-pipelines
-  # Python web frameworks
   - backend-frameworks/django
   - backend-frameworks/flask
   - logging/python

@@ -12,8 +12,9 @@ description: |
   Executes operational changes directly unless asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - bitcoin/core/rpc
+extended_skills:
   - bitcoin/core/operations
   - bitcoin/core/descriptors-wallet
   - bitcoin/core/indexes

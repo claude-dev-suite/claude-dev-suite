@@ -12,6 +12,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { WebSocket } from 'ws';
 import { getProjectPath } from '../../utils/constants.js';
+import { credentialsService } from '../credentials.service.js';
 import { wsLogger, generateCorrelationId } from '../../utils/logger.js';
 import type {
   ChatOutputPayload,
@@ -267,6 +268,13 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
         prompt: finalPrompt,
         options: {
           cwd: pathValidation.path!,
+          // Credential saved from the dashboard, layered over process.env.
+          // Electron launched from the GUI does not inherit the shell's
+          // exported ANTHROPIC_API_KEY, which left chat failing on auth with
+          // no way to fix it from the UI. Read per call so a key set while the
+          // app is running applies to the next message. `options.env` REPLACES
+          // the environment wholesale, so process.env must be spread in.
+          env: credentialsService.buildAgentEnv(),
           resume: useResume,
           // Load CLAUDE.md and project settings from the target project.
           // Append a small instruction so the assistant doesn't silently drop
@@ -515,7 +523,7 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY BEFORE PROCEEDING:
               this.wsClientService.broadcast({
                 type: 'chat_output',
                 payload: {
-                  text: `\x1b[33m⚠️  Claude did not return any response. Possible causes: missing/invalid ANTHROPIC_API_KEY, network issue, or the prompt was too short for the 'claude_code' system preset (try a more concrete coding task).\x1b[0m\n`,
+                  text: `\x1b[33m⚠️  Claude did not return any response. Possible causes: no valid Anthropic credential (set one in the Credentials tab), network issue, or the prompt was too short for the 'claude_code' system preset (try a more concrete coding task).\x1b[0m\n`,
                   raw: true,
                   contentType: 'text',
                 } as ChatOutputPayload,

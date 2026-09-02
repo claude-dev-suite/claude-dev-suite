@@ -5,7 +5,75 @@
 
 import fs from "fs/promises";
 import Fuse from "fuse.js";
+import { SingleFlight } from "@dev-suite/shared";
 import type { KBCache } from "../kb-cache.js";
+
+interface SearchDoc {
+  technology: string;
+  topic: string;
+  content: string;
+}
+
+/**
+ * The Fuse index, memoized against the cache's fetch signature.
+ *
+ * Every `search_docs` call used to read EVERY markdown file of EVERY cached
+ * technology off disk and build a fresh Fuse index — tens of megabytes of I/O
+ * and a full tokenisation pass, repeated once per concurrent subagent. The
+ * corpus only changes when a technology is re-fetched, which is exactly what
+ * `KBCache.getSignature()` reports, so the index is rebuilt then and only then.
+ */
+let memoizedIndex: { signature: string; fuse: Fuse<SearchDoc> } | null = null;
+
+/** Concurrent searches arriving on a cold index build it once, not N times. */
+const indexBuilds = new SingleFlight<Fuse<SearchDoc>>();
+
+/** Drop the memoized index. Exposed for tests. */
+export function resetSearchIndex(): void {
+  memoizedIndex = null;
+}
+
+async function loadDocs(cache: KBCache): Promise<SearchDoc[]> {
+  const docs: SearchDoc[] = [];
+
+  for (const tech of await cache.listCachedTechnologies()) {
+    const files = await cache.listFiles(tech);
+    for (const file of files) {
+      try {
+        const filePath = cache.getCachePath(tech, file);
+        const content = await fs.readFile(filePath, "utf-8");
+        docs.push({ technology: tech, topic: file.replace(/\.md$/, ""), content });
+      } catch {
+        // Skip if file can't be read
+      }
+    }
+  }
+
+  return docs;
+}
+
+async function getIndex(cache: KBCache): Promise<Fuse<SearchDoc>> {
+  const signature = await cache.getSignature();
+  if (memoizedIndex && memoizedIndex.signature === signature) {
+    return memoizedIndex.fuse;
+  }
+
+  return indexBuilds.run(signature, async () => {
+    // Re-check: a build for this signature may have completed while we waited.
+    if (memoizedIndex && memoizedIndex.signature === signature) {
+      return memoizedIndex.fuse;
+    }
+
+    const docs = await loadDocs(cache);
+    const fuse = new Fuse(docs, {
+      keys: ["content", "topic", "technology"],
+      threshold: 0.4,
+      includeScore: true,
+    });
+    memoizedIndex = { signature, fuse };
+    return fuse;
+  });
+}
 
 /**
  * Search in Git cache for matching content
@@ -16,47 +84,27 @@ export async function searchInCache(
   technologies?: string[],
   maxResults = 5
 ): Promise<Array<{ technology: string; topic: string; excerpt: string; score: number }>> {
-  const results: Array<{ technology: string; topic: string; content: string }> = [];
+  const fuse = await getIndex(cache);
 
-  // Get cached technologies
-  const cachedTechs = await cache.listCachedTechnologies();
-  const techsToSearch = technologies?.length
-    ? cachedTechs.filter((t) => technologies.includes(t))
-    : cachedTechs;
+  // Filtering happens on the results rather than on the corpus, so one index
+  // serves every combination of `technologies` a caller asks for. Fuse is
+  // asked for more than `maxResults` because the filter runs after scoring.
+  const filter = technologies?.length ? new Set(technologies) : null;
+  const hits = fuse.search(query, filter ? undefined : { limit: maxResults });
 
-  // Load content from each cached technology
-  for (const tech of techsToSearch) {
-    const files = await cache.listFiles(tech);
-    for (const file of files) {
-      try {
-        const filePath = cache.getCachePath(tech, file);
-        const content = await fs.readFile(filePath, "utf-8");
-        results.push({ technology: tech, topic: file.replace(".md", ""), content });
-      } catch {
-        // Skip if file can't be read
-      }
-    }
+  const out: Array<{ technology: string; topic: string; excerpt: string; score: number }> = [];
+  for (const hit of hits) {
+    if (filter && !filter.has(hit.item.technology)) continue;
+    out.push({
+      technology: hit.item.technology,
+      topic: hit.item.topic,
+      excerpt: extractExcerpt(hit.item.content, query),
+      score: hit.score || 0,
+    });
+    if (out.length >= maxResults) break;
   }
 
-  if (results.length === 0) {
-    return [];
-  }
-
-  // Use Fuse.js for fuzzy search
-  const fuse = new Fuse(results, {
-    keys: ["content", "topic", "technology"],
-    threshold: 0.4,
-    includeScore: true,
-  });
-
-  const searchResults = fuse.search(query);
-
-  return searchResults.slice(0, maxResults).map((result) => ({
-    technology: result.item.technology,
-    topic: result.item.topic,
-    excerpt: extractExcerpt(result.item.content, query),
-    score: result.score || 0,
-  }));
+  return out;
 }
 
 /**

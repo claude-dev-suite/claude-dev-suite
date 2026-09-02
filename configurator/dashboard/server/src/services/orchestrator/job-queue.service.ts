@@ -13,6 +13,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { getProjectPath } from '../../utils/constants.js';
+import { credentialsService } from '../credentials.service.js';
 import { wsLogger, generateCorrelationId } from '../../utils/logger.js';
 import type {
   Job,
@@ -153,6 +154,11 @@ export class JobQueueService {
       prompt,
       options: {
         cwd: projectPath,
+        // Credential saved from the dashboard, layered over process.env. Read
+        // per call so a key set while the app is running takes effect on the
+        // next job instead of after a restart. `options.env` REPLACES the
+        // environment wholesale, so process.env must be spread in.
+        env: credentialsService.buildAgentEnv(),
         systemPrompt: { type: 'preset', preset: 'claude_code' },
         settingSources: ['project'],
         allowedTools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'Task', 'WebFetch', 'WebSearch'],

@@ -6,8 +6,9 @@ description: |
   Use for documenting code, APIs, and creating project documentation.
 model: haiku
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*
-skills:
+core_skills:
   - documentation/jsdoc-tsdoc
+extended_skills:
   - documentation/jsdoc
   - languages/typescript
   - quality/common

@@ -5,8 +5,9 @@ description: |
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - languages/deno
+extended_skills:
   - backend-frameworks/fresh
   - backend-frameworks/oak
   - api-design/rest-api

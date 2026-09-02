@@ -12,8 +12,9 @@ description: |
   proposals. Returns analysis-grade responses for protocol-level decisions.
 model: opus
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
+core_skills:
   - bitcoin/protocol/consensus
+extended_skills:
   - bitcoin/protocol/transactions
   - bitcoin/protocol/scripts
   - bitcoin/protocol/segwit

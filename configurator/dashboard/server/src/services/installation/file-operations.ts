@@ -164,19 +164,28 @@ export interface ParsedAgentSkills {
 }
 
 /**
- * Defensive cap for unmigrated agents that still declare a single legacy
- * `skills:` list. When `core_skills:` is missing, the first
- * `LEGACY_SKILLS_CORE_CAP` entries become core (preloaded for Claude Code's
- * Level 1 description budget), the rest fall through to extended (reachable
- * via `skill-loader`). Without this cap, an unmigrated agent with 25+ skills
- * (e.g. spring-boot-expert) would single-handedly consume the entire ~1%
- * `skillListingBudgetFraction` budget and cause the *"N descriptions
- * dropped"* warning.
+ * Defensive cap for agents that still declare a single legacy `skills:` list —
+ * user-authored custom agents, now that the shipped catalog is fully migrated.
+ * When `core_skills:` is missing, the first `LEGACY_SKILLS_CORE_CAP` entries
+ * become core, the rest fall through to extended (reachable via `skill-loader`).
+ *
+ * The cap is 1, and the reason is not the description budget this comment used
+ * to cite. `skills:` in an installed agent's frontmatter preloads the **full
+ * body** of each listed skill into that subagent's context at startup — not the
+ * description. At a mean SKILL.md body of roughly 1.8k tokens, three preloaded
+ * skills cost about 6k tokens in *every* subagent spawned from that agent, and
+ * a parallel fan-out multiplies that by the number of agents. One core skill is
+ * the one the agent cannot do its job without on the first turn; everything else
+ * is one `Skill` tool call away, which costs a round trip instead of a tax on
+ * every spawn.
+ *
+ * (`skillListingBudgetFraction`, by contrast, is a main-session ceiling on skill
+ * *descriptions*. It is not paid per subagent and lowering it saves nothing.)
  *
  * Agents that explicitly declare `core_skills:` bypass this cap — the cap is
  * a safety net for legacy frontmatters, not a global ceiling.
  */
-export const LEGACY_SKILLS_CORE_CAP = 3;
+export const LEGACY_SKILLS_CORE_CAP = 1;
 
 /**
  * Parse a YAML list block like `skills:` / `core_skills:` / `extended_skills:`
@@ -247,10 +256,10 @@ export function parseAgentSkillsStructured(content: string, agentId = 'unknown')
     core = parseYamlSkillList(frontmatter, 'core_skills', agentId);
     extended = parseYamlSkillList(frontmatter, 'extended_skills', agentId);
   } else {
-    // Backward compat for legacy `skills:`. We cap how many become core to
-    // protect Claude Code's Level 1 description budget — see
-    // LEGACY_SKILLS_CORE_CAP. The remainder still ships with the agent but
-    // is reachable on demand via `skill-loader` MCP rather than preloaded.
+    // Backward compat for legacy `skills:`. We cap how many become core
+    // because every core skill is preloaded whole into each subagent spawned
+    // from this agent — see LEGACY_SKILLS_CORE_CAP. The remainder still ships
+    // with the agent but is reachable on demand via `skill-loader` MCP.
     const legacy = parseYamlSkillList(frontmatter, 'skills', agentId);
     core = legacy.slice(0, LEGACY_SKILLS_CORE_CAP);
     extended = legacy.slice(LEGACY_SKILLS_CORE_CAP);

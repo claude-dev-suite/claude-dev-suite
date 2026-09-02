@@ -3,12 +3,13 @@ name: automation-architect
 description: Designs automation strategies for bulk DCS/PLC engineering projects. Plans implementation architecture, selects approaches, maps cross-platform requirements, and designs the overall pipeline from engineering databases to generated project files. Use when planning the automation system, making architectural decisions, or designing the implementation roadmap.
 model: opus
 allowed-tools: Read, Grep, Glob, Bash, Agent
-skills:
+core_skills:
+  - industrial/bulk-engineering
+extended_skills:
   - industrial/freelance-formats
   - industrial/isa-standards
   - industrial/dcs-platforms
   - industrial/iec61131
-  - industrial/bulk-engineering
   - data-processing/pandas
   - data-validation/pydantic
 ---

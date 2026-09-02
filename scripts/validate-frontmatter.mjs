@@ -98,6 +98,12 @@ function checkType(rel, key, value) {
   }
 
   if (expected === 'string[]') {
+    // A key present with nothing under it is YAML null, and for the skill lists
+    // that is a meaningful statement: "deliberately none". An agent that
+    // preloads no skill still reaches its extended tier through the Skill tool.
+    if (value === null && (key === 'core_skills' || key === 'extended_skills' || key === 'skills')) {
+      return;
+    }
     if (!Array.isArray(value)) {
       err(`${rel}: "${key}" must be a list, got ${typeOf(value)} ${describe(value)}`);
       return;

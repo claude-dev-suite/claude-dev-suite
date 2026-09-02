@@ -6,9 +6,10 @@ description: |
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__api-tester__*
-skills:
-  - best-practices/token-optimization
+core_skills:
   - backend-frameworks/aspnet-core
+extended_skills:
+  - best-practices/token-optimization
   - backend-frameworks/aspnet-minimal-api
   - backend-frameworks/aspnet-middleware
   - backend-frameworks/aspnet-signalr
@@ -26,7 +27,6 @@ skills:
   - api-design/swagger-dotnet
   - best-practices/resilience-patterns
   - best-practices/caching-strategies
-  # Production patterns
   - api-design/webhooks
   - api-design/pagination
   - best-practices/error-handling

@@ -24,15 +24,13 @@ INPUT="$(cat)"
 
 # Require jq
 if ! command -v jq &>/dev/null; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
 # Extract the command field
-ORIGINAL_CMD="$(printf '%s' "$INPUT" | jq -r '.command // empty' 2>/dev/null || true)"
+ORIGINAL_CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
 
 if [ -z "$ORIGINAL_CMD" ]; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
@@ -46,7 +44,6 @@ is_test_cmd() {
 
 if ! is_test_cmd "$ORIGINAL_CMD"; then
   # Not a test command — pass through unchanged
-  printf '%s' "$INPUT"
   exit 0
 fi
 
@@ -65,10 +62,15 @@ echo "$__cmd_output" | grep -E \
 echo "--- last 20 lines ---"
 echo "$__cmd_output" | tail -20
 exit $__exit
-' _ "$ORIGINAL_CMD"
+'
 FILTER
 )"
 
+# Append the original command as a single quoted argument. This has to happen
+# out here: inside the quoted heredoc above it would stay a literal and expand
+# to nothing in the shell that finally runs the command.
+FILTER_CMD="$FILTER_CMD _ $(printf '%q' "$ORIGINAL_CMD")"
+
 # Emit the modified tool_input JSON
 printf '%s' "$INPUT" | jq --arg cmd "$FILTER_CMD" \
-  '{hookSpecificOutput: {updatedInput: {command: $cmd}}}'
+  '{hookSpecificOutput: {hookEventName: "PreToolUse", updatedInput: (.tool_input | .command = $cmd)}}'

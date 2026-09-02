@@ -616,7 +616,14 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
       return;
     }
     if (!apiKeyInput.startsWith('sk-ant-admin')) {
-      setKeyError('Admin API keys must start with "sk-ant-admin"');
+      // A plain API key pasted here is the common mistake, and "must start with
+      // sk-ant-admin" alone left users assuming their key was broken rather
+      // than that it belongs to a different API entirely.
+      setKeyError(
+        apiKeyInput.startsWith('sk-ant-api') || apiKeyInput.startsWith('sk-ant-oat')
+          ? 'That is the credential that runs the model, not an Admin API key. Set it in the Credentials tab. This field needs an Admin API key (sk-ant-admin…), which is a separate key that only reads usage and cost data.'
+          : 'Admin API keys must start with "sk-ant-admin". This is not the same key that runs the model — that one goes in the Credentials tab.',
+      );
       return;
     }
     setKeyError(null);
@@ -745,7 +752,8 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
                   Configure your Anthropic Admin API key to enable usage monitoring
                 </p>
                 <p className="text-xs text-yellow-400/70 mt-0.5">
-                  An Admin API key is required to access usage and billing data.{' '}
+                  An Admin API key is required to access usage and billing data. It is a separate
+                  key from the one that runs the model — that one lives in the Credentials tab.{' '}
                   <button
                     onClick={() => safeOpenExternal('https://console.anthropic.com/settings/api-keys')}
                     className="underline hover:text-yellow-300 transition-colors"

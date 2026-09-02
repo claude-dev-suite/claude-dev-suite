@@ -24,6 +24,16 @@ import {
   CLAUDE_HOOK_EVENTS,
   CLAUDE_HOOK_TEMPLATES,
   CLAUDE_OUTPUT_FILTER_HOOKS,
+  FILE_CHANGE_HOOK_SCRIPT,
+  BASH_COMMAND_HOOK_SCRIPT,
+  STALE_DOCS_HOOK_SCRIPT,
+  INTEGRATION_VALIDATOR_MARK_SCRIPT,
+  INTEGRATION_VALIDATOR_DECIDE_SCRIPT,
+  INTEGRATION_VALIDATOR_TOOL_MATCHER,
+  API_TOUCHED_MARKER_REL,
+  HOOK_SCRIPT_RUNNER,
+  DEFAULT_INTEGRATION_VALIDATION_LEVEL,
+  type IntegrationValidationLevel,
 } from './hooks.constants.js';
 
 // ============================================
@@ -54,6 +64,81 @@ function validateHookCommand(command: string): void {
         'Only alphanumeric characters and _ . / @ : = - [ ] " \' , + are permitted.',
     );
   }
+}
+
+/**
+ * How assertive integration validation should be in this project.
+ *
+ * Read from `.dev-suite.json` so the choice survives a reinstall and is visible
+ * next to the rest of the project's dev-suite configuration. An absent or
+ * unrecognised value falls back to the default rather than throwing: a
+ * malformed config should not be able to break an install.
+ */
+export function readIntegrationValidationLevel(projectPath: string): IntegrationValidationLevel {
+  try {
+    const configPath = path.join(projectPath, '.dev-suite.json');
+    if (!fs.existsSync(configPath)) return DEFAULT_INTEGRATION_VALIDATION_LEVEL;
+    const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+      integrationValidation?: unknown;
+    };
+    const value = parsed.integrationValidation;
+    if (value === 'off' || value === 'warn' || value === 'block') return value;
+  } catch {
+    // Unreadable or malformed .dev-suite.json — use the default.
+  }
+  return DEFAULT_INTEGRATION_VALIDATION_LEVEL;
+}
+
+/** One entry of a hook's `hooks` array, as Claude Code expects it on disk. */
+type HookHandler =
+  | { type: 'command'; command: string; timeout?: number }
+  | { type: 'prompt'; prompt: string; timeout?: number };
+
+/**
+ * Wrap command strings in the documented handler shape.
+ *
+ * Every writer here used to push bare strings (`hooks: ["./script.sh"]`), which
+ * appears in no version of the hook schema — each entry must be an object
+ * carrying a `type`. Reading still accepts the old shape so projects written by
+ * earlier versions keep working; only new writes are corrected.
+ */
+function toHookHandlers(commands: Array<string | HookHandler>): HookHandler[] {
+  return commands.map(c => (typeof c === 'string' ? { type: 'command' as const, command: c } : c));
+}
+
+/** The command of a handler, tolerating the legacy bare-string form. */
+function handlerCommand(handler: unknown): string | null {
+  if (typeof handler === 'string') return handler;
+  if (typeof handler === 'object' && handler !== null) {
+    const h = handler as { type?: string; command?: string };
+    if ((h.type === 'command' || h.type === undefined) && typeof h.command === 'string') {
+      return h.command;
+    }
+  }
+  return null;
+}
+
+/**
+ * The hook scripts a template's commands name.
+ *
+ * Derived from the command strings rather than declared separately, so a
+ * template cannot drift away from the script it depends on.
+ */
+function scriptsReferencedBy(template: { hooks: Array<{ hooks?: unknown[] }> }): string[] {
+  const known = [
+    FILE_CHANGE_HOOK_SCRIPT,
+    BASH_COMMAND_HOOK_SCRIPT,
+    STALE_DOCS_HOOK_SCRIPT,
+  ];
+  const found = new Set<string>();
+  for (const entry of template.hooks ?? []) {
+    for (const handler of entry.hooks ?? []) {
+      const command = typeof handler === 'string' ? handler : handlerCommand(handler);
+      if (!command) continue;
+      for (const script of known) if (command.includes(script)) found.add(script);
+    }
+  }
+  return [...found];
 }
 
 export class ClaudeHooksService {
@@ -122,7 +207,7 @@ export class ClaudeHooksService {
       for (let i = 0; i < eventHooks.length; i++) {
         const hookConfig = eventHooks[i] as {
           matcher?: string;
-          hooks?: Array<string | { type?: string; prompt?: string; timeout?: number }>;
+          hooks?: Array<string | { type?: string; command?: string; prompt?: string; timeout?: number }>;
           timeout?: number
         };
 
@@ -130,8 +215,11 @@ export class ClaudeHooksService {
         const commands: ClaudeHookUI['commands'] = [];
         if (hookConfig.hooks) {
           for (const hook of hookConfig.hooks) {
-            if (typeof hook === 'string') {
-              commands.push(hook);
+            const asCommand = handlerCommand(hook);
+            if (asCommand !== null) {
+              // Covers both the current { type: 'command', command } shape and
+              // the bare strings written by earlier versions.
+              commands.push(asCommand);
             } else if (typeof hook === 'object' && hook.type === 'prompt' && hook.prompt) {
               commands.push({
                 type: 'prompt',
@@ -216,7 +304,7 @@ export class ClaudeHooksService {
     }
 
     const newHook: Record<string, unknown> = {
-      hooks: hookConfig.commands || [],
+      hooks: toHookHandlers(hookConfig.commands || []),
     };
 
     const eventInfo = CLAUDE_HOOK_EVENTS[event];
@@ -246,7 +334,7 @@ export class ClaudeHooksService {
       return { success: false, error: 'No hooks configured' };
     }
 
-    const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: string[]; timeout?: number }>>;
+    const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: Array<string | HookHandler>; timeout?: number }>>;
     const parts = hookId.split('-');
     const event = parts[0];
     const indexStr = parts[1];
@@ -278,7 +366,7 @@ export class ClaudeHooksService {
       }
 
       const newHook: Record<string, unknown> = {
-        hooks: hookConfig.commands || oldHook.hooks,
+        hooks: toHookHandlers(hookConfig.commands ?? (oldHook.hooks as Array<string | HookHandler>) ?? []),
       };
 
       const newEventInfo = CLAUDE_HOOK_EVENTS[hookConfig.event];
@@ -302,7 +390,7 @@ export class ClaudeHooksService {
       }
 
       if (hookConfig.commands) {
-        hook.hooks = hookConfig.commands;
+        hook.hooks = toHookHandlers(hookConfig.commands);
       }
 
       const eventInfo = CLAUDE_HOOK_EVENTS[event];
@@ -337,7 +425,7 @@ export class ClaudeHooksService {
       return { success: false, error: 'No hooks configured' };
     }
 
-    const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: string[]; timeout?: number }>>;
+    const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: Array<string | HookHandler>; timeout?: number }>>;
     const parts = hookId.split('-');
     const event = parts[0];
     const indexStr = parts[1];
@@ -375,6 +463,17 @@ export class ClaudeHooksService {
       return { success: false, error: 'Template not found' };
     }
 
+    // Every built-in template now runs one of the hook primitives, so the
+    // script has to be in the project before the entry pointing at it is
+    // written. A template that references a missing script is exactly the kind
+    // of silently-inert hook this rewrite exists to remove.
+    for (const script of scriptsReferencedBy(template)) {
+      const copied = this.copyHookScript(projectPath, script);
+      if (!copied.success) {
+        return { success: false, error: copied.error };
+      }
+    }
+
     const settings = this.readClaudeSettings(projectPath) || {};
 
     if (!settings.hooks) {
@@ -389,7 +488,7 @@ export class ClaudeHooksService {
 
     for (const hookConfig of template.hooks) {
       const newHook: Record<string, unknown> = {
-        hooks: hookConfig.hooks,
+        hooks: toHookHandlers(hookConfig.hooks),
       };
 
       if (hookConfig.matcher) {
@@ -470,169 +569,219 @@ export class ClaudeHooksService {
   // ========== INTEGRATION VALIDATOR HOOK ==========
 
   /**
-   * Build the agent matcher pattern based on detected stack
+   * Copy a hook script from the dev-suite source into the project's hooks dir.
+   *
+   * Shared by the output-filter hooks and the integration validator: both need
+   * the script on disk before settings.json can point at it.
    */
-  private buildIntegrationValidatorMatcher(detectedStack: {
-    frontend?: { framework?: string; metaFramework?: string };
-    backend?: { framework?: string; runtime?: string };
-  }): string {
-    const agents: string[] = [];
+  private copyHookScript(
+    projectPath: string,
+    scriptFile: string,
+    devSuiteRoot?: string
+  ): { success: boolean; relCommand?: string; error?: string } {
+    const root =
+      devSuiteRoot ??
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..');
+    const srcScript = path.join(root, 'templates', 'hooks', scriptFile);
 
-    // Backend agents based on detected framework
-    const backendFramework = detectedStack.backend?.framework?.toLowerCase() || '';
-    const backendRuntime = detectedStack.backend?.runtime?.toLowerCase() || '';
-
-    if (backendFramework.includes('spring') || backendRuntime.includes('java')) {
-      agents.push('spring-boot-expert');
-    }
-    if (backendFramework.includes('nest')) {
-      agents.push('nestjs-expert');
-    }
-    if (backendFramework.includes('fastapi') || backendFramework.includes('django') || backendFramework.includes('flask')) {
-      agents.push('fastapi-expert');
-    }
-    if (backendFramework.includes('gin') || backendFramework.includes('fiber') || backendFramework.includes('echo') || backendFramework.includes('chi') || backendRuntime.includes('go')) {
-      agents.push('go-expert');
-    }
-    if (backendFramework.includes('actix') || backendFramework.includes('axum') || backendFramework.includes('rocket') || backendFramework.includes('warp') || backendRuntime.includes('rust')) {
-      agents.push('rust-expert');
-    }
-    if (backendFramework.includes('fresh') || backendFramework.includes('oak') || backendRuntime.includes('deno')) {
-      agents.push('deno-expert');
+    if (!fs.existsSync(srcScript)) {
+      return { success: false, error: `Source script not found: ${srcScript}` };
     }
 
-    // Frontend agents based on detected framework
-    const frontendFramework = detectedStack.frontend?.framework?.toLowerCase() || '';
-    const frontendMeta = detectedStack.frontend?.metaFramework?.toLowerCase() || '';
+    const hooksDir = path.join(targetPaths(projectPath).configDir, HOOK_SCRIPTS_SUBDIR);
+    const destScript = path.join(hooksDir, scriptFile);
 
-    if (frontendFramework.includes('react') && !frontendMeta.includes('next')) {
-      agents.push('react-expert');
-    }
-    if (frontendMeta.includes('next')) {
-      agents.push('nextjs-expert');
-    }
-    if (frontendFramework.includes('vue') && !frontendMeta.includes('nuxt')) {
-      agents.push('vue-expert');
-    }
-    if (frontendFramework.includes('svelte') || frontendMeta.includes('sveltekit')) {
-      agents.push('svelte-expert');
-    }
-
-    // Always include typescript-expert for API types
-    agents.push('typescript-expert');
-
-    // Remove duplicates and return as regex pattern
-    const uniqueAgents = [...new Set(agents)];
-    return uniqueAgents.join('|');
-  }
-
-  /**
-   * Get the validation prompt for integration-validator hook
-   */
-  private getIntegrationValidatorPrompt(): string {
-    return `Analyze the completed agent work and determine if API integration validation is needed.
-
-CONTEXT: $ARGUMENTS
-
-TRIGGER CRITERIA (respond {ok: false} to continue with integration-validator):
-
-**Backend:**
-- Changes to HTTP controllers/routes/handlers
-- New REST or GraphQL endpoints
-- Changes to DTO/request/response types
-- Changes to API authentication middleware
-
-**Frontend:**
-- New API calls (fetch, axios, ky, ofetch)
-- Changes to data fetching hooks (useQuery, useMutation, useSWR)
-- Changes to composables/services that call APIs
-- Changes to TypeScript types for API request/response
-
-DO NOT TRIGGER (respond {ok: true} to stop):
-- CSS/styling changes only
-- Text/label changes only
-- Internal refactoring without touching APIs
-- UI component changes without data fetching
-- Unit tests without integration tests
-
-Respond ONLY with valid JSON:
-{"ok": false, "reason": "API integration detected: [description]"} to trigger validation
-{"ok": true} to stop without validation`;
-  }
-
-  /**
-   * Check if an integration-validator hook already exists
-   */
-  private hasIntegrationValidatorHook(settings: Record<string, unknown>): boolean {
-    const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: Array<{ type?: string; prompt?: string }> }>> | undefined;
-    if (!hooks?.SubagentStop) {
-      return false;
-    }
-
-    return hooks.SubagentStop.some(h => {
-      if (Array.isArray(h.hooks)) {
-        return h.hooks.some(innerHook => {
-          if (typeof innerHook === 'object' && innerHook.prompt) {
-            return innerHook.prompt.includes('integration-validator') ||
-                   innerHook.prompt.includes('API integration detected');
-          }
-          return false;
-        });
+    try {
+      if (!fs.existsSync(hooksDir)) {
+        fs.mkdirSync(hooksDir, { recursive: true });
       }
-      return false;
+      fs.copyFileSync(srcScript, destScript);
+      try {
+        fs.chmodSync(destScript, 0o755);
+      } catch {
+        // chmod is a no-op on Windows; the script needs bash there anyway.
+      }
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+
+    return {
+      success: true,
+      relCommand: `${targetPaths(projectPath).relConfigDir}/${HOOK_SCRIPTS_SUBDIR}/${scriptFile}`,
+    };
+  }
+
+  /**
+   * Install one of dev-suite's hook scripts into the project.
+   *
+   * Public because the recipes write their own settings entries but still need
+   * the script on disk; the alternative was a second copy of this logic.
+   */
+  installHookScript(
+    projectPath: string,
+    scriptFile: string,
+    devSuiteRoot?: string
+  ): { success: boolean; relCommand?: string; error?: string } {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+    return this.copyHookScript(projectPath, scriptFile, devSuiteRoot);
+  }
+
+  /**
+   * True when this project already carries the current (script-based)
+   * integration validation.
+   */
+  private hasIntegrationValidatorHook(projectPath: string, settings: Record<string, unknown>): boolean {
+    const hooks = settings.hooks as Record<string, unknown[]> | undefined;
+    if (!hooks) return false;
+    const decideCmd = `${targetPaths(projectPath).relConfigDir}/${HOOK_SCRIPTS_SUBDIR}/${INTEGRATION_VALIDATOR_DECIDE_SCRIPT}`;
+    const stopHooks = hooks.Stop;
+    if (!Array.isArray(stopHooks)) return false;
+    return stopHooks.some(entry => {
+      const handlers = (entry as { hooks?: unknown[] })?.hooks;
+      if (!Array.isArray(handlers)) return false;
+      return handlers.some(h => (handlerCommand(h) ?? '').includes(decideCmd));
     });
   }
 
   /**
-   * Configure the integration-validator hook for a project
+   * Strip the pre-2.0 `SubagentStop` prompt hook.
+   *
+   * The old entry was never removed by anything: uninstall only un-merged
+   * `skillListingBudgetFraction`, and the install path short-circuited as soon
+   * as it saw its own entry. A project that once had it kept it forever, paying
+   * a model call per subagent for a validation that could not run. Migration
+   * has to delete it actively.
+   */
+  private removeLegacyIntegrationValidatorHook(settings: Record<string, unknown>): boolean {
+    const hooks = settings.hooks as Record<string, unknown[]> | undefined;
+    if (!hooks || !Array.isArray(hooks.SubagentStop)) return false;
+
+    const before = hooks.SubagentStop.length;
+    const kept = hooks.SubagentStop.filter(entry => {
+      const handlers = (entry as { hooks?: unknown[] })?.hooks;
+      if (!Array.isArray(handlers)) return true;
+      return !handlers.some(h => {
+        const prompt = typeof h === 'object' && h !== null ? (h as { prompt?: string }).prompt : undefined;
+        if (!prompt) return false;
+        return prompt.includes('integration-validator') || prompt.includes('API integration detected');
+      });
+    });
+
+    if (kept.length === before) return false;
+    if (kept.length === 0) {
+      delete hooks.SubagentStop;
+    } else {
+      hooks.SubagentStop = kept;
+    }
+    return true;
+  }
+
+  /**
+   * Install API integration validation.
+   *
+   * This replaces a `SubagentStop` prompt hook whose matcher was a list of
+   * agent *names* (`react-expert|nestjs-expert|...`). Three things were wrong
+   * with that design:
+   *
+   *  1. A subagent typed generically — what a parallel fan-out uses — never
+   *     matched, so the validation the project advertised in AGENTS.md never
+   *     ran at all.
+   *  2. When it did match, it spent a model call (30s timeout) per finishing
+   *     subagent. Sixteen concurrent subagents meant sixteen concurrent calls.
+   *  3. It could not have validated anything regardless: a prompt hook
+   *     returning `{"ok": false}` feeds a reason back to the agent — nothing in
+   *     it invokes `integration-validator-expert`.
+   *
+   * The replacement is deterministic and independent of agent names, because
+   * hooks configured in settings.json also run inside subagents:
+   *
+   *  - `PostToolUse` -> {@link INTEGRATION_VALIDATOR_MARK_SCRIPT}: a path
+   *    comparison per write, appending to a marker file. No model call.
+   *  - `Stop` -> {@link INTEGRATION_VALIDATOR_DECIDE_SCRIPT}: one decision per
+   *    turn, reading that marker. The marker is the debounce, so a fan-out of
+   *    any width collapses into a single check.
+   *
+   * @param options.level `warn` (default) reports; `block` exits 2 so Claude
+   *        continues the turn and runs the validation; `off` removes the hooks.
    */
   configureIntegrationValidatorHook(
     projectPath: string,
     detectedStack: {
       frontend?: { framework?: string; metaFramework?: string };
       backend?: { framework?: string; runtime?: string };
-    }
+    },
+    options?: { level?: IntegrationValidationLevel; devSuiteRoot?: string }
   ): { success: boolean; configured: boolean; error?: string } {
     if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
     projectPath = resolveProjectPath(projectPath);
     if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
-    const matcher = this.buildIntegrationValidatorMatcher(detectedStack);
 
-    if (!matcher || matcher === 'typescript-expert') {
+    // No explicit level: honour the project's own setting. Callers (the
+    // installer, the upgrade applier) therefore need to know nothing about it.
+    const level = options?.level ?? readIntegrationValidationLevel(projectPath);
+
+    if (level === 'off') {
+      const removal = this.removeIntegrationValidatorHook(projectPath);
+      return {
+        success: removal.success,
+        configured: false,
+        error: removal.error ?? 'Integration validation disabled for this project',
+      };
+    }
+
+    // The check only means something when there is an API surface on both ends
+    // to disagree. `typescript-expert` is always present, so it proves nothing.
+    const monitored = this.getMonitoredAgentsList(detectedStack);
+    const hasStack =
+      monitored.backend.length > 0 || monitored.frontend.some(a => a !== 'typescript-expert');
+    if (!hasStack) {
       return {
         success: true,
         configured: false,
-        error: 'No backend or frontend framework detected that requires API validation'
+        error: 'No backend or frontend framework detected that requires API validation',
       };
     }
 
     const settings = this.readClaudeSettings(projectPath) || {};
 
-    if (this.hasIntegrationValidatorHook(settings)) {
+    // Migration runs before the idempotency check: a project can hold the dead
+    // v1 entry *and* the current one, and the dead one must go either way.
+    const removedLegacy = this.removeLegacyIntegrationValidatorHook(settings);
+
+    if (this.hasIntegrationValidatorHook(projectPath, settings)) {
+      if (removedLegacy) {
+        const write = this.writeClaudeSettings(projectPath, settings);
+        if (!write.success) return { success: false, configured: false, error: write.error };
+      }
       return { success: true, configured: false, error: 'Integration validator hook already configured' };
     }
 
-    if (!settings.hooks) {
-      settings.hooks = {};
+    const mark = this.copyHookScript(projectPath, INTEGRATION_VALIDATOR_MARK_SCRIPT, options?.devSuiteRoot);
+    if (!mark.success || !mark.relCommand) {
+      return { success: false, configured: false, error: mark.error };
+    }
+    const decide = this.copyHookScript(projectPath, INTEGRATION_VALIDATOR_DECIDE_SCRIPT, options?.devSuiteRoot);
+    if (!decide.success || !decide.relCommand) {
+      return { success: false, configured: false, error: decide.error };
     }
 
+    if (!settings.hooks) settings.hooks = {};
     const hooks = settings.hooks as Record<string, unknown[]>;
-    if (!hooks.SubagentStop) {
-      hooks.SubagentStop = [];
-    }
 
-    const integrationValidatorHook = {
-      matcher,
-      hooks: [
-        {
-          type: 'prompt',
-          prompt: this.getIntegrationValidatorPrompt(),
-          timeout: 30
-        }
-      ]
-    };
+    if (!Array.isArray(hooks.PostToolUse)) hooks.PostToolUse = [];
+    hooks.PostToolUse.push({
+      matcher: INTEGRATION_VALIDATOR_TOOL_MATCHER,
+      hooks: toHookHandlers([`${HOOK_SCRIPT_RUNNER} ${mark.relCommand}`]),
+    });
 
-    hooks.SubagentStop.push(integrationValidatorHook);
+    if (!Array.isArray(hooks.Stop)) hooks.Stop = [];
+    hooks.Stop.push({
+      // `Stop` takes no matcher. The level is an argument so one script covers
+      // both modes and the setting stays visible in settings.json.
+      hooks: toHookHandlers([`${HOOK_SCRIPT_RUNNER} ${decide.relCommand} ${level}`]),
+    });
 
     const writeResult = this.writeClaudeSettings(projectPath, settings);
     if (!writeResult.success) {
@@ -640,6 +789,76 @@ Respond ONLY with valid JSON:
     }
 
     return { success: true, configured: true };
+  }
+
+  /**
+   * Remove API integration validation: both hook entries, both scripts and the
+   * marker file. Also strips the pre-2.0 `SubagentStop` entry, so uninstalling
+   * cleans up a project that never upgraded.
+   *
+   * User-authored `PostToolUse` and `Stop` hooks are left untouched — only
+   * entries pointing at our own scripts are dropped.
+   */
+  removeIntegrationValidatorHook(projectPath: string): { success: boolean; error?: string } {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    projectPath = resolveProjectPath(projectPath);
+    if (!path.isAbsolute(projectPath)) throw new PathValidationError('Path must be rooted');
+
+    const paths = targetPaths(projectPath);
+    const hooksDir = path.join(paths.configDir, HOOK_SCRIPTS_SUBDIR);
+
+    for (const script of [INTEGRATION_VALIDATOR_MARK_SCRIPT, INTEGRATION_VALIDATOR_DECIDE_SCRIPT]) {
+      const dest = path.join(hooksDir, script);
+      if (fs.existsSync(dest)) {
+        try {
+          fs.unlinkSync(dest);
+        } catch (e) {
+          return { success: false, error: (e as Error).message };
+        }
+      }
+    }
+
+    const marker = path.join(projectPath, ...API_TOUCHED_MARKER_REL.split('/'));
+    if (fs.existsSync(marker)) {
+      try {
+        fs.unlinkSync(marker);
+      } catch {
+        // A leftover marker is harmless once the Stop hook is gone.
+      }
+    }
+
+    const settings = this.readClaudeSettings(projectPath);
+    if (!settings?.hooks) return { success: true };
+
+    const hooks = settings.hooks as Record<string, unknown[]>;
+    const ourCommands = [INTEGRATION_VALIDATOR_MARK_SCRIPT, INTEGRATION_VALIDATOR_DECIDE_SCRIPT].map(
+      s => `${paths.relConfigDir}/${HOOK_SCRIPTS_SUBDIR}/${s}`
+    );
+
+    let changed = this.removeLegacyIntegrationValidatorHook(settings);
+
+    for (const event of ['PostToolUse', 'Stop']) {
+      const entries = hooks[event];
+      if (!Array.isArray(entries)) continue;
+      const kept = entries.filter(entry => {
+        const handlers = (entry as { hooks?: unknown[] })?.hooks;
+        if (!Array.isArray(handlers)) return true;
+        return !handlers.some(h => {
+          const cmd = handlerCommand(h);
+          return !!cmd && ourCommands.some(own => cmd.includes(own));
+        });
+      });
+      if (kept.length === entries.length) continue;
+      changed = true;
+      if (kept.length === 0) {
+        delete hooks[event];
+      } else {
+        hooks[event] = kept;
+      }
+    }
+
+    if (!changed) return { success: true };
+    return this.writeClaudeSettings(projectPath, settings);
   }
 
   // ========== OUTPUT FILTER HOOKS ==========
@@ -680,37 +899,16 @@ Respond ONLY with valid JSON:
       return { success: false, error: `Template ${hookId} has no scriptFile defined` };
     }
 
-    // Resolve the source script: <devSuiteRoot>/templates/hooks/<scriptFile>
-    const root = devSuiteRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..');
-    const srcScript = path.join(root, 'templates', 'hooks', template.scriptFile);
-
-    if (!fs.existsSync(srcScript)) {
-      return { success: false, error: `Source script not found: ${srcScript}` };
+    const copied = this.copyHookScript(projectPath, template.scriptFile, devSuiteRoot);
+    if (!copied.success || !copied.relCommand) {
+      return { success: false, error: copied.error };
     }
-
-    // Destination: <projectPath>/.claude/hooks/<scriptFile>
-    const hooksDir = path.join(targetPaths(projectPath).configDir, HOOK_SCRIPTS_SUBDIR);
-    const destScript = path.join(hooksDir, template.scriptFile);
-
-    try {
-      if (!fs.existsSync(hooksDir)) {
-        fs.mkdirSync(hooksDir, { recursive: true });
-      }
-
-      fs.copyFileSync(srcScript, destScript);
-
-      // Make executable on POSIX systems
-      try {
-        fs.chmodSync(destScript, 0o755);
-      } catch {
-        // chmod may fail on Windows — this is acceptable; the script needs bash anyway
-      }
-    } catch (e) {
-      return { success: false, error: (e as Error).message };
-    }
+    const destScript = path.join(
+      targetPaths(projectPath).configDir, HOOK_SCRIPTS_SUBDIR, template.scriptFile
+    );
 
     // Register in settings.json using the local relative path
-    const localHookCmd = `${targetPaths(projectPath).relConfigDir}/${HOOK_SCRIPTS_SUBDIR}/${template.scriptFile}`;
+    const localHookCmd = copied.relCommand;
     const addResult = this.addClaudeHook(projectPath, {
       event: template.event,
       matcher: template.hooks[0]?.matcher,
@@ -766,7 +964,7 @@ Respond ONLY with valid JSON:
     }
 
     const localHookCmd = `${targetPaths(projectPath).relConfigDir}/${HOOK_SCRIPTS_SUBDIR}/${template.scriptFile}`;
-    const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: string[] }>>;
+    const hooks = settings.hooks as Record<string, Array<{ matcher?: string; hooks?: unknown[] }>>;
     const eventKey = template.event;
     const eventHooks = hooks[eventKey];
 
@@ -776,7 +974,7 @@ Respond ONLY with valid JSON:
 
     const before = eventHooks.length;
     const filtered = eventHooks.filter(
-      (h) => !Array.isArray(h.hooks) || !h.hooks.includes(localHookCmd)
+      (h) => !Array.isArray(h.hooks) || !h.hooks.some((entry) => handlerCommand(entry) === localHookCmd)
     );
 
     if (filtered.length === before) {

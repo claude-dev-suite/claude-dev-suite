@@ -213,7 +213,12 @@ export const CLAUDE_HOOK_EVENTS: Record<string, ClaudeHookEvent> = {
   SubagentStop: {
     name: 'SubagentStop',
     description: 'Runs when a subagent finishes',
-    hasMatcher: false,
+    // Matched against the subagent's `agent_type`, not a tool name. This was
+    // declared `false`, which made addClaudeHook/updateClaudeHook drop a matcher
+    // the user had typed — the hook then fired for every subagent instead.
+    hasMatcher: true,
+    matcherType: 'agent',
+    matcherDescription: 'Subagent type (e.g. "code-reviewer" or "a|b"); omit to match every subagent',
   },
 };
 
@@ -224,12 +229,99 @@ export const CLAUDE_HOOK_EVENTS: Record<string, ClaudeHookEvent> = {
 /**
  * Claude Code hook templates
  */
+/**
+ * The two hook primitives every built-in template runs.
+ *
+ * These replaced inline shell that read the payload with `jq` — which a stock
+ * Windows install does not have, so the templates were silently inert on the
+ * primary platform. `block-env` was the sharp case: a PreToolUse guard whose
+ * whole purpose is to exit 2 could never block, while the dashboard listed it
+ * as active protection for .env files.
+ *
+ * Both scripts read the documented stdin payload, exit 0 on anything they do
+ * not understand, and are installed into the project by
+ * {@link ClaudeHooksService.installHookScript}.
+ */
+export const FILE_CHANGE_HOOK_SCRIPT = 'on-file-change.mjs';
+export const BASH_COMMAND_HOOK_SCRIPT = 'on-bash-command.mjs';
+export const STALE_DOCS_HOOK_SCRIPT = 'warn-stale-docs.mjs';
+
+/** Every template's command starts with one of these. */
+export const HOOK_SCRIPT_COMMANDS = {
+  file: `node .claude/hooks/${FILE_CHANGE_HOOK_SCRIPT}`,
+  bash: `node .claude/hooks/${BASH_COMMAND_HOOK_SCRIPT}`,
+} as const;
+
+/**
+ * API integration validation — the two scripts that replace the old
+ * `SubagentStop` prompt hook.
+ *
+ * The old design matched on agent *name*, so it never fired for generically
+ * typed subagents, and when it did fire it spent one model call per subagent.
+ * These two run instead:
+ *
+ *  - {@link INTEGRATION_VALIDATOR_MARK_SCRIPT} on `PostToolUse` — a path
+ *    comparison per file write, no model call. Hooks in settings.json also run
+ *    inside subagents, so this is agent-name independent by construction.
+ *  - {@link INTEGRATION_VALIDATOR_DECIDE_SCRIPT} on `Stop` — one decision per
+ *    turn, reading the marker the first script wrote. The marker is the
+ *    debounce: a fan-out of parallel subagents collapses into a single check.
+ */
+/**
+ * The file-write primitive the automation recipes run.
+ *
+ * Recipes used to inline shell that interpolated `$CLAUDE_FILE_PATHS`, which
+ * Claude Code does not define — so the formatters formatted nothing and the
+ * "block sensitive files" guard grepped an empty string and never blocked. One
+ * Node helper replaces all of them; see templates/hooks/on-file-change.mjs.
+ */
+export const INTEGRATION_VALIDATOR_MARK_SCRIPT = 'mark-api-change.mjs';
+export const INTEGRATION_VALIDATOR_DECIDE_SCRIPT = 'integration-validate.mjs';
+
+/**
+ * Hook scripts are invoked through Node, not bash.
+ *
+ * The bash hooks in this file need `jq`, which is not present on a stock
+ * Windows install — and a hook that silently no-ops on the primary platform is
+ * the failure this whole rewrite exists to fix. Node is already a hard
+ * requirement for dev-suite's MCP servers, so it is always there.
+ */
+export const HOOK_SCRIPT_RUNNER = 'node';
+
+/** Tools whose writes can change an API contract. */
+export const INTEGRATION_VALIDATOR_TOOL_MATCHER = 'Write|Edit|MultiEdit|NotebookEdit';
+
+/** Marker file written by the PostToolUse script, relative to the project. */
+export const API_TOUCHED_MARKER_REL = '.claude/.ds-api-touched';
+
+/**
+ * How assertive the `Stop` check is.
+ *  - `off`   — not installed at all
+ *  - `warn`  — a note to the user through `systemMessage`; the model never sees
+ *              it, so nothing is validated
+ *  - `block` — exits 2 so Claude continues the turn and runs the validation
+ *
+ * The default is `block`, and that was decided by measurement rather than
+ * taste. `warn` was the default on the theory that a Stop hook blocking on a
+ * false positive costs a whole turn; a real headless session against a real
+ * React + NestJS project showed the other side of that trade: under `warn` the
+ * model edited a controller and validated nothing, and under `block` — same
+ * prompt, same project — it performed the reconciliation and cited the hook.
+ * An default that never fires is the exact failure this mechanism was rewritten
+ * to fix, so the cost of a false positive is the one worth paying. The path
+ * patterns were narrowed first (see mark-api-change.mjs) so there are fewer of
+ * them to pay for.
+ */
+export type IntegrationValidationLevel = 'off' | 'warn' | 'block';
+
+export const DEFAULT_INTEGRATION_VALIDATION_LEVEL: IntegrationValidationLevel = 'block';
+
 export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
   'auto-format': {
     id: 'auto-format',
     name: 'Auto-format on Write/Edit',
     description: 'Automatically run Prettier after file modifications',
-    hooks: [{ matcher: 'Write|Edit', hooks: ['npx prettier --write "$CLAUDE_FILE_PATHS"'] }],
+    hooks: [{ matcher: 'Write|Edit|MultiEdit', hooks: [`${HOOK_SCRIPT_COMMANDS.file} -- npx prettier --write`] }],
     event: 'PostToolUse',
   },
   'block-env': {
@@ -239,7 +331,7 @@ export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
     hooks: [
       {
         matcher: 'Write|Edit',
-        hooks: ['test ! -f "$CLAUDE_FILE_PATHS" || [[ ! "$CLAUDE_FILE_PATHS" =~ \\.env ]] || (echo "Blocked: Cannot modify .env files" && exit 2)'],
+        hooks: [`${HOOK_SCRIPT_COMMANDS.file} --endswith ".env" --contains ".env." --block "Cannot modify .env files"`],
       },
     ],
     event: 'PreToolUse',
@@ -248,21 +340,21 @@ export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
     id: 'log-bash',
     name: 'Log Bash commands',
     description: 'Log all Bash commands to a file',
-    hooks: [{ matcher: 'Bash', hooks: ['echo "[$(date)] $CLAUDE_TOOL_INPUT" >> .claude/bash-history.log'] }],
+    hooks: [{ matcher: 'Bash', hooks: [`${HOOK_SCRIPT_COMMANDS.bash} --log .claude/bash-history.log`] }],
     event: 'PreToolUse',
   },
   'typecheck-on-write': {
     id: 'typecheck-on-write',
     name: 'Type-check TypeScript files',
     description: 'Run tsc --noEmit after TypeScript file changes',
-    hooks: [{ matcher: 'Write|Edit', hooks: ['[[ "$CLAUDE_FILE_PATHS" =~ \\.(ts|tsx)$ ]] && npx tsc --noEmit || true'] }],
+    hooks: [{ matcher: 'Write|Edit|MultiEdit', hooks: [`${HOOK_SCRIPT_COMMANDS.file} --ext .ts,.tsx --no-file --strict -- npx tsc --noEmit`] }],
     event: 'PostToolUse',
   },
   'lint-on-write': {
     id: 'lint-on-write',
     name: 'Lint on Write',
     description: 'Run ESLint after file modifications',
-    hooks: [{ matcher: 'Write|Edit', hooks: ['[[ "$CLAUDE_FILE_PATHS" =~ \\.(js|jsx|ts|tsx)$ ]] && npx eslint --fix "$CLAUDE_FILE_PATHS" || true'] }],
+    hooks: [{ matcher: 'Write|Edit|MultiEdit', hooks: [`${HOOK_SCRIPT_COMMANDS.file} --ext .js,.jsx,.ts,.tsx -- npx eslint --fix`] }],
     event: 'PostToolUse',
   },
   'doc-freshness': {
@@ -272,7 +364,7 @@ export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
     hooks: [{
       matcher: 'Bash',
       hooks: [
-        'bash -c \'if ! echo "$CLAUDE_TOOL_INPUT" | grep -qiE "git\\s+(commit|push)"; then exit 0; fi; STAGED=$(git diff --cached --name-only 2>/dev/null); if echo "$STAGED" | grep -qE "^(agents/|skills/|mcp-servers/)"; then echo "WARNING: Key directories staged. Verify README.md docs match filesystem."; echo "Staged: $STAGED"; fi\'',
+        `${HOOK_SCRIPT_COMMANDS.bash} --contains "git commit,git push" -- node .claude/hooks/warn-stale-docs.mjs`,
       ],
     }],
     event: 'PostToolUse',

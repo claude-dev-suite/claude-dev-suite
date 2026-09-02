@@ -25,6 +25,7 @@ import { usageRoutes } from './usage.routes.js';
 import { livePerformanceRoutes } from './live-performance.routes.js';
 import { filesRoutes } from './files.routes.js';
 import { rulesRoutes } from './rules.routes.js';
+import { credentialsRoutes } from './credentials.routes.js';
 
 export function registerRoutes(app: Express): void {
   // Detection routes
@@ -89,6 +90,9 @@ export function registerRoutes(app: Express): void {
 
   // Rules routes
   app.use('/api/rules', rulesRoutes);
+
+  // Anthropic runtime credential routes (Agent SDK auth, not the Admin API key)
+  app.use('/api', credentialsRoutes);
 
   // 404 handler for API routes
   app.use('/api/{*path}', (_req, res) => {

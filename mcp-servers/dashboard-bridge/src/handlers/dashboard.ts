@@ -19,6 +19,11 @@ import {
   type Handler,
   type HandlerResult,
 } from "./types.js";
+import {
+  dashboardFetch,
+  invalidateDashboardProbe,
+  probeDashboard,
+} from "./dashboard-probe.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -64,20 +69,15 @@ export const handleDashboardOpen: Handler = async (args): Promise<HandlerResult>
 };
 
 export const handleDashboardStatus: Handler = async (): Promise<HandlerResult> => {
-  try {
-    const response = await fetch(`${DASHBOARD_URL}/api/agents`);
-    if (response.ok) {
-      const data = await response.json();
-      return jsonResponse({
-        status: "running",
-        url: DASHBOARD_URL,
-        orchestratorWsPort: ORCHESTRATOR_WS_PORT,
-        agents: data.total || 0,
-        pendingJobs: jobQueue.filter(j => j.status === "pending").length,
-      });
-    }
-  } catch {
-    // Dashboard not running
+  const probe = await probeDashboard();
+  if (probe.reachable) {
+    return jsonResponse({
+      status: "running",
+      url: DASHBOARD_URL,
+      orchestratorWsPort: ORCHESTRATOR_WS_PORT,
+      agents: probe.agents?.total || 0,
+      pendingJobs: jobQueue.filter(j => j.status === "pending").length,
+    });
   }
 
   return jsonResponse({
@@ -112,13 +112,8 @@ export const handleDashboardStart: Handler = async (args): Promise<HandlerResult
 
   const dashboardDir = join(devSuiteDir, "configurator", "dashboard");
 
-  try {
-    const response = await fetch(`${DASHBOARD_URL}/api/agents`);
-    if (response.ok) {
-      return textResponse(`Dashboard is already running at ${DASHBOARD_URL}`);
-    }
-  } catch {
-    // Not running, continue to start
+  if ((await probeDashboard()).reachable) {
+    return textResponse(`Dashboard is already running at ${DASHBOARD_URL}`);
   }
 
   const child = spawn("node", ["server.cjs"], {
@@ -127,6 +122,11 @@ export const handleDashboardStart: Handler = async (args): Promise<HandlerResult
     stdio: "ignore",
   });
   child.unref();
+
+  // We just changed the answer the cache is holding: the next status check
+  // must go back to the socket instead of repeating "not running" for the
+  // rest of the TTL.
+  invalidateDashboardProbe();
 
   return textResponse(`Starting dashboard at ${DASHBOARD_URL}. It may take a few seconds to be ready.`);
 };
@@ -163,14 +163,9 @@ export const handleDashboardGetConfig: Handler = async (args): Promise<HandlerRe
 };
 
 export const handleDashboardListAgents: Handler = async (): Promise<HandlerResult> => {
-  try {
-    const response = await fetch(`${DASHBOARD_URL}/api/agents`);
-    if (response.ok) {
-      const data = await response.json();
-      return jsonResponse(data);
-    }
-  } catch {
-    // Dashboard not running
+  const probe = await probeDashboard();
+  if (probe.reachable) {
+    return jsonResponse(probe.agents);
   }
 
   return textResponse("Dashboard is not running. Start it with dashboard_start first.");
@@ -179,14 +174,23 @@ export const handleDashboardListAgents: Handler = async (): Promise<HandlerResul
 export const handleDashboardDetectStack: Handler = async (args): Promise<HandlerResult> => {
   const { projectPath } = ProjectPathSchema.parse(args);
 
+  // Detection is project-specific so it cannot be served from the shared
+  // probe, but the probe still decides whether it is worth one request: with
+  // the dashboard down, N agents would otherwise each wait out a timeout.
+  if (!(await probeDashboard()).reachable) {
+    return textResponse("Dashboard is not running. Start it with dashboard_start first.");
+  }
+
   try {
-    const response = await fetch(`${DASHBOARD_URL}/api/detect?project_path=${encodeURIComponent(projectPath)}`);
+    const response = await dashboardFetch(
+      `${DASHBOARD_URL}/api/detect?project_path=${encodeURIComponent(projectPath)}`
+    );
     if (response.ok) {
       const data = await response.json();
       return jsonResponse(data);
     }
   } catch {
-    // Dashboard not running
+    // Dashboard went away between the probe and the request.
   }
 
   return textResponse("Dashboard is not running. Start it with dashboard_start first.");

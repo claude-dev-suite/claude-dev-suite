@@ -18,10 +18,11 @@ description: |
   Blazor) — use `dotnet-expert`
 model: opus
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*
-skills:
-  - best-practices/token-optimization
-  - languages/csharp
+core_skills:
   - gamedev/unity-core
+  - languages/csharp
+extended_skills:
+  - best-practices/token-optimization
   - gamedev/unity-rendering
   - gamedev/unity-input-ui
   - gamedev/unity-physics-anim
@@ -41,7 +42,6 @@ skills:
   - gamedev/unity-2d-lighting
   - gamedev/unity-2d-cameras
   - gamedev/unity-2d-gameplay
-  # Engine-agnostic 2D art skills (cross-loaded when project is unity-2d)
   - gamedev/2d-art/tile-design
   - gamedev/2d-art/pixel-art-fundamentals
   - gamedev/2d-art/palettes

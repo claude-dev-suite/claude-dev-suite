@@ -19,14 +19,12 @@ set -euo pipefail
 INPUT="$(cat)"
 
 if ! command -v jq &>/dev/null; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
-ORIGINAL_CMD="$(printf '%s' "$INPUT" | jq -r '.command // empty' 2>/dev/null || true)"
+ORIGINAL_CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
 
 if [ -z "$ORIGINAL_CMD" ]; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
@@ -38,7 +36,6 @@ is_lint_cmd() {
 }
 
 if ! is_lint_cmd "$ORIGINAL_CMD"; then
-  printf '%s' "$INPUT"
   exit 0
 fi
 
@@ -63,9 +60,14 @@ else
 fi
 echo "--- $__warn_count warning(s) suppressed ---"
 exit $__exit
-' _ "$ORIGINAL_CMD"
+'
 FILTER
 )"
 
+# Append the original command as a single quoted argument. This has to happen
+# out here: inside the quoted heredoc above it would stay a literal and expand
+# to nothing in the shell that finally runs the command.
+FILTER_CMD="$FILTER_CMD _ $(printf '%q' "$ORIGINAL_CMD")"
+
 printf '%s' "$INPUT" | jq --arg cmd "$FILTER_CMD" \
-  '{hookSpecificOutput: {updatedInput: {command: $cmd}}}'
+  '{hookSpecificOutput: {hookEventName: "PreToolUse", updatedInput: (.tool_input | .command = $cmd)}}'

@@ -5,9 +5,11 @@ description: |
   Knows both the legacy architecture (vanilla JS) and the new one (React+TS).
   Strictly follows the documented phased plan.
   Works incrementally, testing each change.
-
-skills:
+model: sonnet
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__code-quality__*
+core_skills:
   - frontend-frameworks/react
+extended_skills:
   - frontend-frameworks/react-hooks
   - frontend-frameworks/react-patterns
   - languages/typescript
@@ -16,7 +18,6 @@ skills:
   - styling/tailwindcss
   - desktop/electron
   - state-management/zustand
-
 mcp_servers:
   - code-quality
   - documentation

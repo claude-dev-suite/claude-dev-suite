@@ -6,8 +6,9 @@ description: |
   mechanisms. Use proactively when the user wants to create, modify, or debug any
   Claude Code extension component.
 model: sonnet
-skills:
+core_skills:
   - claude-code-authoring/skill-authoring
+extended_skills:
   - claude-code-authoring/agent-authoring
   - claude-code-authoring/hook-authoring
   - claude-code-authoring/mcp-authoring

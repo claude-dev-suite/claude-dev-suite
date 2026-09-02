@@ -43,6 +43,8 @@ const SENSITIVE_FIELDS = new Set([
   'apikey',           // camelCase variant lowercased
   'adminapikey',      // adminApiKey lowercased
   'admin_api_key',
+  'credential',       // PUT /api/credentials body field
+  'credentials',
   'accesstoken',
   'access_token',
   'refreshtoken',

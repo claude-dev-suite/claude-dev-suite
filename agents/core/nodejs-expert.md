@@ -6,8 +6,9 @@ description: |
   Use for performance issues, async patterns, and Node.js best practices.
 model: sonnet
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, mcp__documentation__*, mcp__performance-profiler__*, mcp__log-analyzer__*
-skills:
+core_skills:
   - languages/nodejs
+extended_skills:
   - languages/typescript
   - profiling/nodejs
   - best-practices/performance
@@ -15,16 +16,13 @@ skills:
   - logging/pino
   - logging/winston
   - api-integration/axios
-  # Real-time & background processing
   - real-time/socket-io
   - real-time/sse
   - real-time/webrtc
   - infrastructure/job-queues
   - infrastructure/cron-scheduling
-  # Document generation
   - utilities/pdf-generation
   - utilities/data-export
-  # Frameworks & tools
   - backend-frameworks/express
   - backend-frameworks/fastify
   - languages/javascript
@@ -32,7 +30,6 @@ skills:
   - build-tools/pnpm
   - build-tools/webpack
   - databases/elasticsearch
-  # Production patterns
   - api-design/webhooks
   - api-design/pagination
   - best-practices/error-handling
