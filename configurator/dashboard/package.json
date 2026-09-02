@@ -1,6 +1,6 @@
 {
   "name": "@dev-suite/dashboard",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "private": true,
   "type": "module",
   "description": "Dev-Suite Dashboard: visual project configuration and multi-agent orchestration for Claude Code.",
