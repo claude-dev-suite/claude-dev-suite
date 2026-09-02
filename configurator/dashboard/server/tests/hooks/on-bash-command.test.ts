@@ -54,14 +54,14 @@ describe('on-bash-command.mjs', () => {
   }
 
   it('blocks a matching command with exit 2', () => {
-    const result = run(['--match', 'rm\\s+-rf\\s+/', '--block', 'Refusing a recursive delete of /'], 'rm -rf / --no-preserve-root');
+    const result = run(['--contains', 'rm -rf /', '--block', 'Refusing a recursive delete of /'], 'rm -rf / --no-preserve-root');
 
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('Refusing a recursive delete');
   });
 
   it('lets a non-matching command through', () => {
-    const result = run(['--match', 'rm\\s+-rf\\s+/', '--block', 'nope'], 'npm test');
+    const result = run(['--contains', 'rm -rf /', '--block', 'nope'], 'npm test');
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
@@ -78,7 +78,7 @@ describe('on-bash-command.mjs', () => {
 
   it('runs a command, substituting {command}', () => {
     const result = run(
-      ['--match', 'git', '--', process.execPath, '-e', 'console.log("SAW:" + process.argv[1])', '{command}'],
+      ['--contains', 'git', '--', process.execPath, '-e', 'console.log("SAW:" + process.argv[1])', '{command}'],
       'git commit -m "x"'
     );
 
@@ -90,28 +90,36 @@ describe('on-bash-command.mjs', () => {
   });
 
   it('exits 0 on a malformed regex rather than blocking the call', () => {
-    expect(run(['--match', '([unclosed', '--block', 'nope'], 'anything').status).toBe(0);
+    expect(run(['--contains', '([unclosed', '--block', 'nope'], 'anything').status).toBe(0);
   });
 
-  // The pattern reaches `new RegExp` from the hook's own command line. That is
-  // operator configuration rather than end-user input, but it is still an
-  // unbounded string, and a pathological one would burn the hook's budget
-  // backtracking on every single tool call.
-  it('refuses a nested quantifier instead of compiling it', () => {
-    const result = run(['--match', '(a+)+b', '--block', 'nope'], 'aaaaaaaaaaaaaaaaaaaaa');
+  // Filter values are literals, not patterns. That is the point of dropping the
+  // regex flag: nothing external reaches a regex compiler, so a value full of
+  // metacharacters is just a string that happens not to appear in the command.
+  it('treats a value full of regex metacharacters as a literal', () => {
+    const result = run(['--contains', '(a+)+b', '--block', 'nope'], 'aaaaaaaaaaaaaaaaaaaaab');
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
   });
 
-  it('refuses a pattern longer than the cap', () => {
-    const result = run(['--match', 'a'.repeat(250), '--block', 'nope'], 'a'.repeat(250));
+  it('matches that same value when it really is in the command', () => {
+    const result = run(['--contains', '(a+)+b', '--block', 'nope'], 'echo "(a+)+b"');
 
-    expect(result.status).toBe(0);
+    expect(result.status).toBe(2);
   });
 
-  it('still compiles the patterns the recipes actually use', () => {
-    expect(run(['--match', 'git\\s+(commit|push)', '--block', 'nope'], 'git commit -m x').status).toBe(2);
+  it('matches any one of a comma-separated list', () => {
+    expect(run(['--contains', 'git push,git commit', '--block', 'nope'], 'git commit -m x').status).toBe(2);
+    expect(run(['--contains', 'git push,git commit', '--block', 'nope'], 'git status').status).toBe(0);
+  });
+
+  it('collapses whitespace before matching', () => {
+    expect(run(['--contains', 'git commit', '--block', 'nope'], 'git   commit  -m x').status).toBe(2);
+  });
+
+  it('still matches the filters the recipes actually use', () => {
+    expect(run(['--contains', 'git commit,git push', '--block', 'nope'], 'git commit -m x').status).toBe(2);
   });
 });
 
@@ -126,7 +134,7 @@ describe('the built-in templates that these scripts back', () => {
   it('block-env actually blocks a .env write', () => {
     const result = spawnSync(
       process.execPath,
-      [FILE_HOOK, '--match', '(\\.env$|\\.env\\.)', '--block', 'Cannot modify .env files'],
+      [FILE_HOOK, '--endswith', '.env', '--contains', '.env.', '--block', 'Cannot modify .env files'],
       {
         input: JSON.stringify({
           tool_name: 'Write',
@@ -145,7 +153,7 @@ describe('the built-in templates that these scripts back', () => {
   it('block-env leaves an ordinary source file alone', () => {
     const result = spawnSync(
       process.execPath,
-      [FILE_HOOK, '--match', '(\\.env$|\\.env\\.)', '--block', 'Cannot modify .env files'],
+      [FILE_HOOK, '--endswith', '.env', '--contains', '.env.', '--block', 'Cannot modify .env files'],
       {
         input: JSON.stringify({
           tool_name: 'Write',

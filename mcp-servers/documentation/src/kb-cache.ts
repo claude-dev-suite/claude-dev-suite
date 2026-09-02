@@ -328,7 +328,7 @@ export class KBCache {
     const tmpPath = metaPath + '.tmp-' + process.pid + '-' + Math.random().toString(36).slice(2);
     try {
       await fs.writeFile(tmpPath, JSON.stringify(entry), 'utf-8');
-      await fs.rename(tmpPath, metaPath);
+      await renameWithRetry(tmpPath, metaPath);
     } catch (error) {
       await fs.rm(tmpPath, { force: true }).catch(() => {});
       throw error;
@@ -353,9 +353,31 @@ export class KBCache {
       this.legacyFile + '.tmp-' + process.pid + '-' + Math.random().toString(36).slice(2);
     try {
       await fs.writeFile(tmpPath, JSON.stringify(metadata, null, 2), 'utf-8');
-      await fs.rename(tmpPath, this.legacyFile);
+      await renameWithRetry(tmpPath, this.legacyFile);
     } catch {
       await fs.rm(tmpPath, { force: true }).catch(() => {});
+    }
+  }
+}
+
+/**
+ * `rename` over an existing file, retrying the transient Windows failures.
+ *
+ * On Windows the call fails with EPERM/EBUSY whenever another process holds a
+ * handle to the target — for a metadata file read by every concurrent fetch,
+ * that is a normal occurrence rather than an error. Mirrors the helper in
+ * kb-fetcher.ts, which learned the same lesson for directories.
+ */
+async function renameWithRetry(from: string, to: string, attempts = 5): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const transient = code === 'EPERM' || code === 'EBUSY' || code === 'EACCES';
+      if (!transient || attempt >= attempts) throw error;
+      await new Promise(resolve => setTimeout(resolve, 20 * attempt));
     }
   }
 }

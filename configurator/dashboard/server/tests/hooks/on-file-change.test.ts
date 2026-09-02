@@ -52,7 +52,7 @@ describe('on-file-change.mjs', () => {
   }
 
   describe('blocking a protected file', () => {
-    const guard = ['--match', '(\\.env|\\.credentials|secrets|private|id_rsa|\\.pem)', '--block', 'Cannot modify sensitive files'];
+    const guard = ['--contains', '.env,.credentials,secrets,private,id_rsa,.pem', '--block', 'Cannot modify sensitive files'];
 
     it('blocks with exit 2, the only code that actually blocks', () => {
       const result = run(guard, path.join(tempDir, '.env'));
@@ -143,7 +143,7 @@ describe('on-file-change.mjs', () => {
     });
 
     it('exits 0 on a malformed regex rather than taking the write down', () => {
-      const result = run(['--match', '([unclosed', '--block', 'nope'], path.join(tempDir, '.env'));
+      const result = run(['--contains', '([unclosed', '--block', 'nope'], path.join(tempDir, '.env'));
 
       expect(result.status).toBe(0);
     });

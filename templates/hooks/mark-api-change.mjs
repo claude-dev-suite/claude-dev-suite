@@ -63,6 +63,9 @@ const DEFAULT_API_PATTERN = [
   '\\.proto$',
 ].join('|');
 
+/** Compiled once, from the constant above — never from anything external. */
+const API_PATTERN = new RegExp(DEFAULT_API_PATTERN, 'i');
+
 /**
  * Files a meta-framework puts under a "routes" directory that are pages, not
  * endpoints.
@@ -96,33 +99,6 @@ const SKIP_PATTERN = /\.(md|mdx|txt|css|scss|sass|less|svg|png|jpe?g|gif|ico|wof
 
 const MARKER_REL = path.join('.claude', '.ds-api-touched');
 
-/**
- * Compile a caller-supplied match pattern, or return null.
- *
- * The pattern comes from the hook's own command line in `.claude/settings.json`,
- * so it is operator configuration rather than end-user input — but it is still
- * an unbounded string reaching `new RegExp`, and a pathological one would spend
- * the hook's budget backtracking on every file write. Two bounds make that
- * impossible to reach by accident: a length cap, and a refusal of nested
- * quantifiers, which is the shape that turns linear matching exponential.
- *
- * Returning null means "no opinion": the caller treats it as no match and exits
- * 0, because a misconfigured filter must never block a tool call.
- */
-function compilePattern(pattern) {
-  if (typeof pattern !== 'string' || pattern.length === 0 || pattern.length > 200) return null;
-
-  // A quantifier applied to a group that itself contains one — (a+)+, (a|b*)*
-  // and friends. Cheap to spot, and no legitimate path filter needs it.
-  if (/\([^)]*[+*][^)]*\)\s*[+*]/.test(pattern)) return null;
-
-  try {
-    return new RegExp(pattern, 'i');
-  } catch {
-    return null;
-  }
-}
-
 async function readStdin() {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
@@ -150,12 +126,18 @@ async function main() {
   const normalized = filePath.split(path.sep).join('/');
   if (SKIP_PATTERN.test(normalized)) return;
 
-  // The override is an environment variable, so it is bounded the same way the
-  // hook filters are; a malformed or pathological one falls back to the default
-  // rather than taking the write down with it.
-  const apiPattern =
-    compilePattern(process.env.DS_API_SURFACE_PATTERN) ?? new RegExp(DEFAULT_API_PATTERN, 'i');
-  if (!apiPattern.test(normalized)) return;
+  // The built-in pattern is a constant compiled from this file. The override is
+  // a comma-separated list of substrings rather than a regex: an environment
+  // variable is an unbounded external string, and compiling one on every file
+  // write is a sink worth not having.
+  const overrides = (process.env.DS_API_SURFACE_CONTAINS ?? '')
+    .split(',')
+    .map(part => part.trim().toLowerCase())
+    .filter(Boolean);
+  const matched = overrides.length > 0
+    ? overrides.some(needle => normalized.toLowerCase().includes(needle))
+    : API_PATTERN.test(normalized);
+  if (!matched) return;
 
   // A page under a routes directory is UI, not contract — unless it is the
   // server half of that route.

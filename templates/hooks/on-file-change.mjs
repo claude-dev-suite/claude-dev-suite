@@ -18,9 +18,17 @@
  *   node .claude/hooks/on-file-change.mjs [filters] -- <command> [args...]
  *   node .claude/hooks/on-file-change.mjs [filters] --block "<reason>"
  *
- * Filters (all optional; every one given must match)
- *   --ext .ts,.tsx        file extensions, comma separated
- *   --match <regex>       case-insensitive regex against the project-relative path
+ * Filters
+ *   --ext .ts,.tsx        file extensions, comma separated (an AND gate)
+ * Matching
+ *   --contains a,b,c      the path contains any of these (case-insensitive)
+ *   --endswith .x,name.y  the path ends with any of these
+ *
+ * The two are OR'd together: a file matches if any listed value matches. There
+ * is deliberately no regex flag. Every filter these hooks have ever needed is a
+ * substring or a suffix, and taking a pattern from the command line meant
+ * compiling an unbounded external string on every tool call — a sink worth
+ * removing rather than guarding.
  *
  * Actions
  *   -- <command> [args]   run it, with the file path appended unless the argument
@@ -68,34 +76,30 @@ function quoteForShell(value) {
 }
 
 /**
- * Compile a caller-supplied match pattern, or return null.
+ * Does this path match the filters the caller gave?
  *
- * The pattern comes from the hook's own command line in `.claude/settings.json`,
- * so it is operator configuration rather than end-user input — but it is still
- * an unbounded string reaching `new RegExp`, and a pathological one would spend
- * the hook's budget backtracking on every file write. Two bounds make that
- * impossible to reach by accident: a length cap, and a refusal of nested
- * quantifiers, which is the shape that turns linear matching exponential.
- *
- * Returning null means "no opinion": the caller treats it as no match and exits
- * 0, because a misconfigured filter must never block a tool call.
+ * No filters means "everything". Values are compared case-insensitively against
+ * the project-relative, forward-slashed path.
  */
-function compilePattern(pattern) {
-  if (typeof pattern !== 'string' || pattern.length === 0 || pattern.length > 200) return null;
+function matchesFilters(value, opts) {
+  const haystack = value.toLowerCase();
+  const contains = opts.contains ?? [];
+  const endswith = opts.endswith ?? [];
+  if (contains.length === 0 && endswith.length === 0) return true;
+  if (contains.some(needle => haystack.includes(needle))) return true;
+  return endswith.some(suffix => haystack.endsWith(suffix));
+}
 
-  // A quantifier applied to a group that itself contains one — (a+)+, (a|b*)*
-  // and friends. Cheap to spot, and no legitimate path filter needs it.
-  if (/\([^)]*[+*][^)]*\)\s*[+*]/.test(pattern)) return null;
-
-  try {
-    return new RegExp(pattern, 'i');
-  } catch {
-    return null;
-  }
+/** Split a comma-separated flag value into lowercase, non-empty parts. */
+function csv(value) {
+  return String(value ?? '')
+    .split(',')
+    .map(part => part.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 function parseArgs(argv) {
-  const opts = { ext: null, match: null, block: null, strict: false, noFile: false, command: [] };
+  const opts = { ext: null, contains: [], endswith: [], block: null, strict: false, noFile: false, command: [] };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--') {
@@ -107,8 +111,10 @@ function parseArgs(argv) {
         .map(e => e.trim().toLowerCase())
         .filter(Boolean)
         .map(e => (e.startsWith('.') ? e : `.${e}`));
-    } else if (arg === '--match') {
-      opts.match = argv[++i] ?? null;
+    } else if (arg === '--contains') {
+      opts.contains = csv(argv[++i]);
+    } else if (arg === '--endswith') {
+      opts.endswith = csv(argv[++i]);
     } else if (arg === '--block') {
       opts.block = argv[++i] ?? 'This file is protected';
     } else if (arg === '--strict') {
@@ -148,12 +154,7 @@ async function main() {
 
   if (opts.ext && !opts.ext.includes(path.extname(normalized).toLowerCase())) return 0;
 
-  if (opts.match) {
-    const pattern = compilePattern(opts.match);
-    // A malformed or unbounded pattern must not take the hook — or the write —
-    // down with it, so it is treated as "no match".
-    if (!pattern || !pattern.test(normalized)) return 0;
-  }
+  if (!matchesFilters(normalized, opts)) return 0;
 
   if (opts.block !== null) {
     // Exit 2 is what actually blocks. The reason is shown to Claude.

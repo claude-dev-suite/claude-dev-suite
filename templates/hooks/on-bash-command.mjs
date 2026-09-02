@@ -14,7 +14,18 @@
  *   node .claude/hooks/on-bash-command.mjs [filters] -- <command> [args...]
  *
  * Filters
- *   --match <regex>   case-insensitive regex against the command; omit to match all
+ * Matching
+ *   --contains a,b,c      the path contains any of these (case-insensitive)
+ *   --endswith .x,name.y  the path ends with any of these
+ *
+ * The two are OR'd together: a file matches if any listed value matches. There
+ * is deliberately no regex flag. Every filter these hooks have ever needed is a
+ * substring or a suffix, and taking a pattern from the command line meant
+ * compiling an unbounded external string on every tool call — a sink worth
+ * removing rather than guarding.
+ *
+ * Runs of whitespace in the command are collapsed before matching, so
+ * `--contains "git commit"` catches `git   commit` too.
  *
  * Actions
  *   --log <file>      append a timestamped line, then exit 0
@@ -44,38 +55,35 @@ function quoteForShell(value) {
 }
 
 /**
- * Compile a caller-supplied match pattern, or return null.
+ * Does this path match the filters the caller gave?
  *
- * The pattern comes from the hook's own command line in `.claude/settings.json`,
- * so it is operator configuration rather than end-user input — but it is still
- * an unbounded string reaching `new RegExp`, and a pathological one would spend
- * the hook's budget backtracking on every file write. Two bounds make that
- * impossible to reach by accident: a length cap, and a refusal of nested
- * quantifiers, which is the shape that turns linear matching exponential.
- *
- * Returning null means "no opinion": the caller treats it as no match and exits
- * 0, because a misconfigured filter must never block a tool call.
+ * No filters means "everything". Values are compared case-insensitively against
+ * the project-relative, forward-slashed path.
  */
-function compilePattern(pattern) {
-  if (typeof pattern !== 'string' || pattern.length === 0 || pattern.length > 200) return null;
+function matchesFilters(value, opts) {
+  const haystack = value.toLowerCase();
+  const contains = opts.contains ?? [];
+  const endswith = opts.endswith ?? [];
+  if (contains.length === 0 && endswith.length === 0) return true;
+  if (contains.some(needle => haystack.includes(needle))) return true;
+  return endswith.some(suffix => haystack.endsWith(suffix));
+}
 
-  // A quantifier applied to a group that itself contains one — (a+)+, (a|b*)*
-  // and friends. Cheap to spot, and no legitimate path filter needs it.
-  if (/\([^)]*[+*][^)]*\)\s*[+*]/.test(pattern)) return null;
-
-  try {
-    return new RegExp(pattern, 'i');
-  } catch {
-    return null;
-  }
+/** Split a comma-separated flag value into lowercase, non-empty parts. */
+function csv(value) {
+  return String(value ?? '')
+    .split(',')
+    .map(part => part.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 function parseArgs(argv) {
-  const opts = { match: null, block: null, log: null, strict: false, command: [] };
+  const opts = { contains: [], endswith: [], block: null, log: null, strict: false, command: [] };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--') { opts.command = argv.slice(i + 1); break; }
-    else if (arg === '--match') opts.match = argv[++i] ?? null;
+    else if (arg === '--contains') opts.contains = csv(argv[++i]);
+    else if (arg === '--endswith') opts.endswith = csv(argv[++i]);
     else if (arg === '--block') opts.block = argv[++i] ?? 'This command is not allowed here';
     else if (arg === '--log') opts.log = argv[++i] ?? null;
     else if (arg === '--strict') opts.strict = true;
@@ -105,11 +113,10 @@ async function main() {
   const command = payload?.tool_input?.command;
   if (typeof command !== 'string' || command.length === 0) return 0;
 
-  if (opts.match) {
-    const pattern = compilePattern(opts.match);
-    // A malformed or unbounded pattern must not take the tool call down with it.
-    if (!pattern || !pattern.test(command)) return 0;
-  }
+  // Collapse whitespace so a filter written as "git commit" also catches the
+  // same command typed with extra spaces or a newline.
+  const flattened = command.replace(/\s+/g, ' ').trim();
+  if (!matchesFilters(flattened, opts)) return 0;
 
   if (opts.block !== null) {
     // Exit 2 is the only code that blocks; the templates used to use 1, which

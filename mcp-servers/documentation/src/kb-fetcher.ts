@@ -449,8 +449,22 @@ export class KBFetcher {
         } catch {
           dirPresent = false;
         }
-        // The directory is there and the file is not: a genuine miss.
-        if (dirPresent) throw notFound();
+
+        // The directory is there — but that observation is *later* than the
+        // read that failed, so it cannot distinguish "the file is absent" from
+        // "the swap completed between the two". Ask the filesystem once more:
+        // if the second rename has landed, the file is readable now. Only a
+        // file that is still missing with the directory in place is a genuine
+        // miss. Without this the race turned every refresh into a spurious
+        // "file not found" — reliably on Linux, where the renames are fast
+        // enough for a reader to land squarely in the gap.
+        if (dirPresent) {
+          try {
+            return await fs.readFile(filePath, 'utf-8');
+          } catch {
+            throw notFound();
+          }
+        }
 
         await sleep(20);
       }

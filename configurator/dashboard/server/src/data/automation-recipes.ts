@@ -254,7 +254,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PreToolUse',
       matcher: 'Write|Edit',
-      command: 'node .claude/hooks/on-file-change.mjs --match "(\\.env|\\.credentials|secrets|private|id_rsa|\\.pem)" --block "Cannot modify sensitive files"',
+      command: 'node .claude/hooks/on-file-change.mjs --contains ".env,.credentials,secrets,private,id_rsa,.pem" --block "Cannot modify sensitive files"',
     },
   },
   {
@@ -314,7 +314,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: 'node .claude/hooks/on-file-change.mjs --match "package\\.json$" --no-file -- npm audit --audit-level=moderate',
+      command: 'node .claude/hooks/on-file-change.mjs --endswith "package.json" --no-file -- npm audit --audit-level=moderate',
     },
   },
 
@@ -542,7 +542,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: 'node .claude/hooks/on-file-change.mjs --match "schema\\.prisma$" -- npx prisma validate --schema {file}',
+      command: 'node .claude/hooks/on-file-change.mjs --endswith "schema.prisma" -- npx prisma validate --schema {file}',
     },
   },
 
@@ -576,7 +576,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
       type: 'claude-hook',
       event: 'PostToolUse',
       matcher: 'Write|Edit',
-      command: 'node .claude/hooks/on-file-change.mjs --match "Assets/.*\\.cs$" -- dotnet csharpier',
+      command: 'node .claude/hooks/on-file-change.mjs --ext .cs --contains "assets/" -- dotnet csharpier',
     },
   },
   {

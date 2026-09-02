@@ -331,7 +331,7 @@ export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
     hooks: [
       {
         matcher: 'Write|Edit',
-        hooks: [`${HOOK_SCRIPT_COMMANDS.file} --match "(\\.env$|\\.env\\.)" --block "Cannot modify .env files"`],
+        hooks: [`${HOOK_SCRIPT_COMMANDS.file} --endswith ".env" --contains ".env." --block "Cannot modify .env files"`],
       },
     ],
     event: 'PreToolUse',
@@ -364,7 +364,7 @@ export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
     hooks: [{
       matcher: 'Bash',
       hooks: [
-        `${HOOK_SCRIPT_COMMANDS.bash} --match "git\\s+(commit|push)" -- node .claude/hooks/warn-stale-docs.mjs`,
+        `${HOOK_SCRIPT_COMMANDS.bash} --contains "git commit,git push" -- node .claude/hooks/warn-stale-docs.mjs`,
       ],
     }],
     event: 'PostToolUse',
