@@ -24,7 +24,7 @@
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
     "helmet": "^8.3.0",
-    "multer": "^2.1.1",
+    "multer": "^2.3.0",
     "pdf-parse": "^2.4.5",
     "uuid": "^14.0.0",
     "winston": "^3.19.0",
@@ -35,7 +35,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
-    "@types/multer": "^2.1.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^25.8.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^7.2.0",
