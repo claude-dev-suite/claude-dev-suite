@@ -178,9 +178,34 @@ export function canonicalProjectPath(projectPath: string): string {
  *
  * Case is preserved on Linux, where two such paths really are two directories.
  */
+/**
+ * Strip a repeated character from the end of a string.
+ *
+ * A loop rather than `/x+$/`: that shape backtracks polynomially when the input
+ * is mostly the character being stripped, and these run on paths, which are
+ * influenced by whoever names the project directory.
+ */
+function trimTrailing(value: string, ch: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === ch) end--;
+  return value.slice(0, end);
+}
+
+/** Same, from both ends. */
+function trimBoth(value: string, ch: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === ch) start++;
+  while (end > start && value[end - 1] === ch) end--;
+  return value.slice(start, end);
+}
+
 export function projectStoreId(projectPath: string): string {
   const resolved = canonicalProjectPath(projectPath);
-  let normalized = resolved.replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+  // Trailing separators are stripped with a loop rather than `/\/+$/`: that
+  // pattern backtracks polynomially on a path that is mostly separators, and a
+  // project path is attacker-influenced often enough not to want to find out.
+  let normalized = trimTrailing(resolved.replace(/[\\/]+/g, '/'), '/');
   if (process.platform === 'win32' || process.platform === 'darwin') {
     normalized = normalized.toLowerCase();
   }
@@ -190,11 +215,10 @@ export function projectStoreId(projectPath: string): string {
     path
       .basename(resolved)
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 32) || 'project';
+      .replace(/[^a-z0-9]+/g, '-');
+  const slugTrimmed = trimBoth(slug, '-').slice(0, 32) || 'project';
 
-  return `${slug}-${hash}`;
+  return `${slugTrimmed}-${hash}`;
 }
 
 // ============================================

@@ -92,6 +92,27 @@ describe('on-bash-command.mjs', () => {
   it('exits 0 on a malformed regex rather than blocking the call', () => {
     expect(run(['--match', '([unclosed', '--block', 'nope'], 'anything').status).toBe(0);
   });
+
+  // The pattern reaches `new RegExp` from the hook's own command line. That is
+  // operator configuration rather than end-user input, but it is still an
+  // unbounded string, and a pathological one would burn the hook's budget
+  // backtracking on every single tool call.
+  it('refuses a nested quantifier instead of compiling it', () => {
+    const result = run(['--match', '(a+)+b', '--block', 'nope'], 'aaaaaaaaaaaaaaaaaaaaa');
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+  });
+
+  it('refuses a pattern longer than the cap', () => {
+    const result = run(['--match', 'a'.repeat(250), '--block', 'nope'], 'a'.repeat(250));
+
+    expect(result.status).toBe(0);
+  });
+
+  it('still compiles the patterns the recipes actually use', () => {
+    expect(run(['--match', 'git\\s+(commit|push)', '--block', 'nope'], 'git commit -m x').status).toBe(2);
+  });
 });
 
 describe('the built-in templates that these scripts back', () => {

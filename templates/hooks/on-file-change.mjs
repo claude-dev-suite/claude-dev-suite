@@ -67,6 +67,33 @@ function quoteForShell(value) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+/**
+ * Compile a caller-supplied match pattern, or return null.
+ *
+ * The pattern comes from the hook's own command line in `.claude/settings.json`,
+ * so it is operator configuration rather than end-user input — but it is still
+ * an unbounded string reaching `new RegExp`, and a pathological one would spend
+ * the hook's budget backtracking on every file write. Two bounds make that
+ * impossible to reach by accident: a length cap, and a refusal of nested
+ * quantifiers, which is the shape that turns linear matching exponential.
+ *
+ * Returning null means "no opinion": the caller treats it as no match and exits
+ * 0, because a misconfigured filter must never block a tool call.
+ */
+function compilePattern(pattern) {
+  if (typeof pattern !== 'string' || pattern.length === 0 || pattern.length > 200) return null;
+
+  // A quantifier applied to a group that itself contains one — (a+)+, (a|b*)*
+  // and friends. Cheap to spot, and no legitimate path filter needs it.
+  if (/\([^)]*[+*][^)]*\)\s*[+*]/.test(pattern)) return null;
+
+  try {
+    return new RegExp(pattern, 'i');
+  } catch {
+    return null;
+  }
+}
+
 function parseArgs(argv) {
   const opts = { ext: null, match: null, block: null, strict: false, noFile: false, command: [] };
   for (let i = 0; i < argv.length; i++) {
@@ -122,14 +149,10 @@ async function main() {
   if (opts.ext && !opts.ext.includes(path.extname(normalized).toLowerCase())) return 0;
 
   if (opts.match) {
-    let pattern;
-    try {
-      pattern = new RegExp(opts.match, 'i');
-    } catch {
-      // A malformed pattern must not take the hook — or the write — down with it.
-      return 0;
-    }
-    if (!pattern.test(normalized)) return 0;
+    const pattern = compilePattern(opts.match);
+    // A malformed or unbounded pattern must not take the hook — or the write —
+    // down with it, so it is treated as "no match".
+    if (!pattern || !pattern.test(normalized)) return 0;
   }
 
   if (opts.block !== null) {

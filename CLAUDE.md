@@ -280,7 +280,7 @@ Areas that carry non-obvious invariants, worth reading before changing the code 
 | `installation/write-guard.test.ts` | A failed install rolls back to byte-identical state and leaves no manifest, so `getStatus()` and disk agree |
 | `installation/managed-file.test.ts` | A hand-written agent or rule file is preserved, not recorded as dev-suite's, and survives the later uninstall |
 | `installation/rule-id-safety.test.ts` | A traversing rule id cannot overwrite a project file, from either the wizard or a Sync reading the project's own `.dev-suite.json` |
-| `hooks/integration-validator-scripts.test.ts` | The hook scripts executed against real payloads. The bug they replace was a payload-shape bug — hooks reading `.command` and `$CLAUDE_FILE_PATHS`, neither of which Claude Code sends — which no service-level unit test could catch |
+| `hooks/*.test.ts` | Every hook script executed against real payloads, and — for the output filters — the command they *emit* run in a fresh shell. The bugs they cover are payload-shape and handoff bugs: hooks reading `.command` and `$CLAUDE_FILE_PATHS`, neither of which Claude Code sends, and an emitted command whose argument stayed an unexpanded variable. No service-level unit test can see either |
 | `installation/drift.service.test.ts` | Drift verdicts: inside vs outside the markers, ratified content, a manifest predating `sectionHash` raising nothing, CRLF not reading as a change |
 | `security-hardening.test.ts`, `security-codeql.test.ts`, `git-security.test.ts` | Hook-script and branch injection, `shell:false`, IPv6 SSRF ranges, symlink escape, timing-safe WS token, path-injection and ReDoS regressions |
 | `mcp-servers/*/tests/security.test.ts` | Per-server guards: Zod arg validation, KB branch validator, the SELECT-only read-only transaction |
@@ -290,6 +290,7 @@ Areas that carry non-obvious invariants, worth reading before changing the code 
 ```bash
 node scripts/audit-mcp-descriptions.mjs   # MCP tool descriptions <= 120 chars unless justified
 node scripts/validate-catalog.mjs         # agent/skill/MCP metadata consistency
+node scripts/validate-frontmatter.mjs     # YAML frontmatter shape across agents, commands, skills
 node scripts/check-type-sync.mjs          # shared types in sync between client and server
 node scripts/validate-env-secrets.mjs     # every credential-shaped env var is flagged `secret`
 node scripts/gen-capability-matrix.mjs --check   # docs/AGENT-CAPABILITY-MATRIX.md is current
