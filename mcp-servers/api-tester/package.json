@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "yaml": "^2.8.4",
+    "yaml": "^2.9.0",
     "zod": "^3.22.0",
     "@dev-suite/shared": "*"
   },
