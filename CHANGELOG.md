@@ -8,6 +8,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two callers could hold the same knowledge-base clone lock.** Judging a lock
+  stale and acting on it are two steps against a *path*. The reclaim stole the
+  stale directory with a `rename`, and because `rename` is atomic the code
+  argued exactly one waiter could win it — but atomicity of the operation says
+  nothing about the identity of what it moves. Every waiter reads the same stale
+  owner file before any of them acts; the first renames it away and re-creates a
+  fresh lock, and the ones whose rename lands a moment later carry off *that*
+  lock and then take it themselves. CI caught it as `expected 2 to be less than
+  or equal to 1`. A stale lock is now adopted in place: nothing removes the
+  directory, so no `mkdir` can win against a live holder, and the hand-off is
+  serialised by a marker created *inside* the lock — winning it proves we hold
+  the directory we judged rather than merely its name.
+
+### Changed
+
+- **Fifteen pending dependency updates applied as one verified batch**, across
+  `mcp-servers`, the dashboard and the dashboard server. Notably TypeScript
+  5.9.3 → 7.0.2: the new compiler removed `baseUrl`, and the server's `paths`
+  were already written relative to the config, so dropping it leaves module
+  resolution unchanged.
+
+### Internal
+
+- **The `e2e` status check was required but could never report.** It was moved
+  off the PR gate in #65 and left as `workflow_dispatch`, while the branch
+  ruleset went on requiring it — so every pull request since sat in `BLOCKED`
+  regardless of its CI. Removed from the required checks; E2E stays manual.
+
 ## [1.13.0] - 2026-09-02
 
 ### Security
