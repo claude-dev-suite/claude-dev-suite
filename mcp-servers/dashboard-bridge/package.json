@@ -20,7 +20,7 @@
     "orchestrator"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "open": "^10.1.0",
     "ws": "^8.21.3",
     "@dev-suite/shared": "*"

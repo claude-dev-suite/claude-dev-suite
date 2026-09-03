@@ -158,6 +158,57 @@ describe('acquireDirLock', () => {
     for (const lock of holders) await lock!.release();
   });
 
+  it('does not evict the holder that reclaimed the same stale lock first', async () => {
+    // The interleaving the concurrent test above can only catch by luck, and
+    // which CI hit as "expected 2 to be less than or equal to 1".
+    //
+    // Judging a lock stale and acting on it are two steps against a *path*. The
+    // reclaim used to rename the stale directory away and re-create it, so a
+    // waiter still carrying a verdict from before that swap would carry off the
+    // fresh lock the winner had just taken, and then take it itself — two
+    // holders of one lock. Park one waiter on the read that forms its verdict,
+    // let a second take the lock over, then let the first resume with a verdict
+    // that is now obsolete.
+    await fs.mkdir(lockPath, { recursive: true });
+    await fs.writeFile(
+      path.join(lockPath, 'owner.json'),
+      JSON.stringify({ pid: 999999, at: Date.now() - 120_000, token: 'dead' }),
+      'utf-8'
+    );
+
+    const readFile = fs.readFile.bind(fs);
+    let release!: () => void;
+    const parked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let parkedOnce = false;
+
+    vi.spyOn(fs, 'readFile').mockImplementation(async (...args: unknown[]) => {
+      const verdict = await (readFile as (...a: unknown[]) => Promise<string>)(...args);
+      if (!parkedOnce && String(args[0]).endsWith('owner.json')) {
+        parkedOnce = true;
+        await parked;
+      }
+      return verdict;
+    });
+
+    const late = acquireDirLock(lockPath, { ttlMs: 1_000, timeoutMs: 400, pollMs: 5 });
+    while (!parkedOnce) await new Promise((r) => setTimeout(r, 5));
+
+    const holder = await acquireDirLock(lockPath, { ttlMs: 1_000, timeoutMs: 2_000, pollMs: 5 });
+    expect(holder).not.toBeNull();
+
+    release();
+    expect(await late).toBeNull();
+
+    // The holder's lock must be untouched: still there, and still *its own*.
+    // `release()` only removes a lock whose owner file still names it, so the
+    // directory disappearing here is what proves the waiter never swapped one
+    // in behind its back.
+    await holder!.release();
+    await expect(fs.stat(lockPath)).rejects.toThrow();
+  });
+
   it('gives up instead of spinning when the lock directory cannot be created', async () => {
     // The failure this pins: mkdir failing for anything other than EEXIST used
     // to be reported the same way as "someone else holds it", while the
