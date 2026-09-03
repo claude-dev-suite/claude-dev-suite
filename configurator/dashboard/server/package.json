@@ -20,13 +20,13 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.128",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
+    "express-rate-limit": "^8.7.0",
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
     "helmet": "^8.3.0",
-    "multer": "^2.1.1",
+    "multer": "^2.3.0",
     "pdf-parse": "^2.4.5",
-    "uuid": "^14.0.0",
+    "uuid": "^14.0.2",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
     "ws": "^8.21.3",
@@ -35,16 +35,16 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
-    "@types/multer": "^2.1.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^25.8.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^7.2.0",
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.5.12",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "supertest": "^7.2.2",
     "tsx": "^4.23.12",
-    "typescript": "^5.6.3",
-    "vitest": "^4.1.10"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   }
 }
