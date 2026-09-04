@@ -37,9 +37,12 @@ describe('updateGitignore', () => {
   };
   const read = () => fs.readFileSync(path.join(dir, '.gitignore'), 'utf-8');
 
-  it('always ignores .mcp-servers/, even with no secrets at all', () => {
+  it('never ignores .mcp-servers/, so a clone gets the bundles it is pointed at', () => {
     updateGitignore(dir, ['claude-code'], []);
-    expect(read()).toContain('.mcp-servers/');
+    // It used to be ignored as regenerable build output. That assumed every
+    // checkout runs an install; a teammate who clones does not, and got a
+    // config pointing at bundles that were not there.
+    expect(read()).not.toContain('.mcp-servers/');
     expect(read()).toContain('.dev-suite-backup-*/');
   });
 
@@ -55,7 +58,7 @@ describe('updateGitignore', () => {
     expect(content).not.toContain('.mcp.json');
     expect(content).not.toContain('.codex/config.toml');
     expect(content).not.toContain('.gemini/settings.json');
-    expect(content).toContain('.mcp-servers/');
+    expect(content).not.toContain('.mcp-servers/');
   });
 
   it('ignores only the files that actually contain the secret value', () => {
