@@ -172,6 +172,19 @@ export class TargetPaths {
     return path.join(this.mcpServerDir(serverName), 'dist', 'index.js');
   }
 
+  /**
+   * Same entry point, project-relative and POSIX-separated.
+   *
+   * This is the form that survives being committed: writers with a confirmed
+   * project-root token prefix it, and the ones without still emit something
+   * a clone can resolve, where an absolute `C:Users<someone>...` never
+   * could. Always forward slashes — it is written into JSON and TOML read on
+   * every platform, not passed to the local `path` module.
+   */
+  relMcpServerEntry(serverName: string): string {
+    return `${this.relMcpServerDir(serverName)}/dist/index.js`;
+  }
+
   /** User-reserved agents directory — dev-suite never erases its contents. */
   get relCustomAgentsDir(): string {
     return this.layout.customAgentsDir ?? `${this.relAgentsDir}/custom`;

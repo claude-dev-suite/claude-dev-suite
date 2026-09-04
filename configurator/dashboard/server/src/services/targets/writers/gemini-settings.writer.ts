@@ -16,6 +16,7 @@
  */
 
 import type { McpServerEntry } from '../target-adapter.js';
+import { portableArgs, portableEnv } from './mcp-config.writer.js';
 import { McpConfigParseError, type McpMergeOptions } from './mcp-config.writer.js';
 
 /** Instruction files Gemini must be told to read (order preserved). */
@@ -75,12 +76,15 @@ function mergeServers(
     if (!(stale in ours)) delete merged[stale];
   }
 
-  // Gemini's stdio entry is command/args/env — no `type` field.
+  // Gemini's stdio entry is command/args/env — no `type` field. `$VAR`
+  // expansion is confirmed inside `env` but not in `args`, so the credential
+  // becomes a reference while the path is only made project-relative.
   for (const [name, entry] of Object.entries(ours)) {
+    const env = portableEnv(entry, varName => '$' + varName);
     merged[name] = {
       command: entry.command,
-      args: entry.args,
-      ...(Object.keys(entry.env).length > 0 ? { env: entry.env } : {}),
+      args: portableArgs(entry),
+      ...(Object.keys(env).length > 0 ? { env } : {}),
     };
   }
   return merged;
