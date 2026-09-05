@@ -220,3 +220,50 @@ describe('codex TOML merge: comment-annotated headers', () => {
     expect(out).toContain('[mcp_servers.documentation]');
   });
 });
+
+/**
+ * Portability. Codex has no string interpolation, but `env_vars` forwards a
+ * variable from the launching environment by name — which is strictly better
+ * for this: the credential is named, never written. `.codex/config.toml` is the
+ * assistant's whole project configuration and teams commit it on purpose, so a
+ * literal there is the worst case of all.
+ */
+describe('writeCodexTomlMcp — portable output', () => {
+  const PORTABLE: Record<string, McpServerEntry> = {
+    'database-query': {
+      command: 'node',
+      args: ['/abs/project/.mcp-servers/database-query/dist/index.js'],
+      env: { DATABASE_URL: 'postgres://u:pw@h/db', DB_POOL_SIZE: '5' },
+      entryRelPath: '.mcp-servers/database-query/dist/index.js',
+      secretEnvNames: ['DATABASE_URL'],
+    },
+  };
+
+  it('forwards the secret by name and keeps non-secret config in the env table', () => {
+    const out = writeCodexTomlMcp(PORTABLE);
+    expect(out).toBe(
+      `[mcp_servers.database-query]
+command = "node"
+args = [".mcp-servers/database-query/dist/index.js"]
+env_vars = ["DATABASE_URL"]
+[mcp_servers.database-query.env]
+DB_POOL_SIZE = "5"
+`
+    );
+    expect(out).not.toContain('postgres://');
+  });
+
+  it('emits no env_vars and no env table when the server has neither', () => {
+    const out = writeCodexTomlMcp({
+      'skill-loader': {
+        command: 'node',
+        args: ['/abs/project/.mcp-servers/skill-loader/dist/index.js'],
+        env: {},
+        entryRelPath: '.mcp-servers/skill-loader/dist/index.js',
+        secretEnvNames: [],
+      },
+    });
+    expect(out).not.toContain('env_vars');
+    expect(out).not.toContain('.env]');
+  });
+});

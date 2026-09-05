@@ -638,7 +638,8 @@ export class ReinstallService {
       }
     }
 
-    // .mcp.json must be valid JSON with absolute, existing server entry args.
+    // .mcp.json must be valid JSON whose server entries point at a bundle that
+    // is actually on disk.
     const mcpJsonPath = this.safe(projectPath, targetPaths(projectPath).relMcpConfigFile);
     if (fs.existsSync(mcpJsonPath)) {
       let parsed: { mcpServers?: Record<string, { args?: string[] }> };
@@ -649,10 +650,22 @@ export class ReinstallService {
       }
       for (const [name, entry] of Object.entries(parsed.mcpServers ?? {})) {
         const scriptArg = entry.args?.find(a => a.endsWith('.js') || a.endsWith('.cjs') || a.endsWith('.mjs'));
-        if (scriptArg && !path.isAbsolute(scriptArg)) {
-          throw new Error(`Verification failed: .mcp.json server "${name}" uses a non-absolute path: ${scriptArg}`);
+        if (!scriptArg) continue;
+
+        // This used to demand an absolute path. That is now the one shape the
+        // entry must NOT have: `.mcp.json` is committed, so an absolute path is
+        // correct on exactly one machine. The writers emit a project-root token
+        // or a plain relative path, so verification resolves the entry instead
+        // of asserting its shape — what matters is that the bundle is there.
+        let candidate = scriptArg;
+        if (candidate.startsWith('${')) {
+          candidate = candidate.slice(candidate.indexOf('}') + 1);
+          if (candidate.startsWith('/')) candidate = candidate.slice(1);
         }
-        if (scriptArg && !fs.existsSync(scriptArg)) {
+        const resolved = path.isAbsolute(candidate)
+          ? candidate
+          : path.resolve(projectPath, candidate);
+        if (!fs.existsSync(resolved)) {
           warnings.push(`MCP server "${name}" script not found on disk: ${scriptArg}`);
         }
       }
