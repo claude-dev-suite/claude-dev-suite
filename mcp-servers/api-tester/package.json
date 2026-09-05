@@ -19,7 +19,7 @@
     "@dev-suite/shared": "*"
   },
   "devDependencies": {
-    "@types/node": "^25.8.0",
+    "@types/node": "^26.4.1",
     "typescript": "^5.3.0",
     "vitest": "^4.1.11"
   }
