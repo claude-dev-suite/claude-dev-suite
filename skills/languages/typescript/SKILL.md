@@ -7,6 +7,8 @@ description: |
   USE WHEN: user mentions "typescript", "types", "generics", asks about "type safety",
   "type errors", "tsconfig", "utility types", "type guards", "branded types"
 
+  DO NOT USE FOR: reviewing existing TypeScript code - use `review/typescript`, which
+  covers the defects `tsc` and typescript-eslint do not report
   DO NOT USE FOR: Plain JavaScript without types - use `javascript` skill instead
   DO NOT USE FOR: Node.js runtime - use `nodejs` skill instead
   DO NOT USE FOR: Framework-specific typing - use framework skills (React, Vue, etc.)

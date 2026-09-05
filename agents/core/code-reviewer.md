@@ -13,6 +13,7 @@ extended_skills:
   # reports and what a reviewer has to catch. Extended, never core — the agent
   # loads the one that matches the diff, and pays nothing for the rest.
   - review/go
+  - review/typescript
   - best-practices/token-optimization
   - best-practices/clean-code
   - best-practices/solid-principles
