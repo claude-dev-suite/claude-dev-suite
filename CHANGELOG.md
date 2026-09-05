@@ -39,6 +39,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   it claims, `Promise.all` where partial failure is normal, an `async` callback
   handed to `forEach`, a spread treated as a deep copy.
 
+- **`review/python`**, the third language. The crux here is that **ruff's
+  default rule set is `E4, E7, E9, F`** — far narrower than its reputation
+  suggests. Mutable default arguments (`B006`), naive `datetime.now()` (`DTZ`),
+  blocking calls inside `async def` (`ASYNC`) and `shell=True` (`S`) all live in
+  opt-in families, so in a project that never widened `select` those are the
+  reviewer's job, not the linter's. The skill says to settle that from
+  `pyproject.toml` once, rather than guess per file.
+
+  Two of the checks fail silently, which is why they earn the space: a coroutine
+  never awaited warns only at garbage collection, on stderr, at an unrelated
+  moment that logging configs routinely swallow; and `asyncio.create_task` whose
+  result is discarded can be collected mid-flight, because the loop holds only a
+  weak reference — intermittently, under load.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed
