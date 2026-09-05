@@ -173,6 +173,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   was written for, and an unstructured `Task { }`, which does not inherit
   cancellation from the scope that created it.
 
+- **`review/nodejs`**, the one entry that is not a language. It sits beside
+  `review/typescript` rather than duplicating it: type and syntax findings stay
+  there, and this covers defects that exist only because the code runs on a
+  single-threaded event loop with an async I/O layer. The organising fact is one
+  process, one thread for your code — almost every check is a way of occupying
+  that thread or of losing track of work scheduled on it.
+
+  Four of the runtime's most expensive mistakes have **no diagnostic at all**:
+  blocking the event loop, a stream written faster than it drains, a listener
+  added per request, and a callback invoked twice. Two more fail only outside
+  development — `process.exit()` truncates stdout when it is a pipe rather than
+  a TTY, so a CLI loses its output exactly when used in a script; and
+  module-scope state is per *process*, so under `cluster` or PM2 a rate limiter
+  allows N times its limit and a lock locks nothing.
+
+  It also carries the distinction that removes most false positives in Node
+  review: `readFileSync` on the startup path is usually correct and deserves no
+  comment; on the request path it stalls every concurrent request, including
+  unrelated endpoints.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed

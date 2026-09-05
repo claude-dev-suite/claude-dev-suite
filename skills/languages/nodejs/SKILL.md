@@ -7,6 +7,8 @@ description: |
   USE WHEN: user mentions "node.js", "event loop", "streams", "worker threads",
   asks about "process.nextTick", "memory leaks", "cluster mode", "async patterns"
 
+  DO NOT USE FOR: reviewing existing Node code - use `review/nodejs`, which covers
+  event loop, stream and process defects that have no diagnostic
   DO NOT USE FOR: Express/NestJS frameworks - use framework-specific skills
   DO NOT USE FOR: Language syntax - use `javascript` or `typescript` skills
   DO NOT USE FOR: Package management - use npm/pnpm/yarn skills
