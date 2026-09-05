@@ -109,6 +109,30 @@ export interface McpServerEntry {
   command: string;
   args: string[];
   env: Record<string, string>;
+  /**
+   * Project-relative POSIX path of the bundle entry point, when this entry
+   * launches a server dev-suite installed under `.mcp-servers/`.
+   *
+   * `args` still carries the absolute path, because that is what a config file
+   * only ever read on this machine wants. But a committed config is read on
+   * *other* machines, where an absolute path is guaranteed wrong — so every
+   * writer that has a confirmed project-root token renders this instead. Each
+   * surface spells the token differently (`${CLAUDE_PROJECT_DIR}`,
+   * `${workspaceFolder}`), and two of them share one adapter, so the choice
+   * belongs to the writer rather than to whoever resolved the path.
+   */
+  entryRelPath?: string;
+  /**
+   * Names of this server's env vars the catalog marks `secret: true`.
+   *
+   * Their values are in `env` and must not reach a committed file. A writer
+   * with a confirmed indirection syntax emits a *reference* to the ambient
+   * variable instead of the literal, which is what lets the config itself be
+   * shared while the credential stays on each machine. Writers without one
+   * keep the literal, and `installation/gitignore.ts` still scans the bytes on
+   * disk, so such a file continues to be ignored.
+   */
+  secretEnvNames?: string[];
 }
 
 /** A primitive the target could not receive, and why. */
