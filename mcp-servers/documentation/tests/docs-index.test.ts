@@ -93,7 +93,29 @@ describe('docs-index', () => {
 
       expect(localless.sort()).toEqual([
         'bulk-engineering/namur-ne150',
+        // Static-analysis rule indexes. Live-only by design: they are
+        // maintained and versioned by the tool authors, and they back the
+        // "already covered by the toolchain" half of the `review/*` skills.
+        // A KB copy would diverge from the tool the reader is running, which
+        // is the one thing that must not happen when the question is "did the
+        // linter already report this?".
+        'cpp-quality/address-sanitizer',
+        'cpp-quality/gcc-warning-options',
+        'cpp-quality/undefined-behavior-sanitizer',
+        'dotnet-quality/code-analysis-rules',
+        'dotnet-quality/nullable-reference-types',
         'github-actions/actions',
+        'go-quality/go-vet',
+        'go-quality/golangci-lint-linters',
+        'go-quality/staticcheck-checks',
+        'java-quality/errorprone-bugpatterns',
+        'java-quality/javac-xlint',
+        'java-quality/nullaway',
+        'java-quality/spotbugs-bug-descriptions',
+        'kotlin-quality/detekt',
+        'kotlin-quality/detekt-configuration',
+        'kotlin-quality/detekt-potential-bugs',
+        'kotlin-quality/detekt-suppressing',
         'mongodb/aggregation',
         'mongodb/indexes',
         'mongodb/queries',
@@ -103,9 +125,16 @@ describe('docs-index', () => {
         'pinia/composables',
         'redis/commands',
         'redis/patterns',
+        'ruff/settings',
+        'rust-quality/cargo-profiles',
+        'rust-quality/clippy-lints',
+        'rust-quality/rustc-lints',
         'server-hardening/cis-benchmark',
         'server-performance/linux-performance-tuning',
+        'swift-quality/swift-6-migration',
+        'swift-quality/swiftlint-rules',
         'tailwindcss/spacing',
+        'typescript/tsconfig',
         'vite/basics',
         'vite/build',
         'vite/env-variables',

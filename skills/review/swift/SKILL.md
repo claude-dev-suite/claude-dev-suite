@@ -40,6 +40,12 @@ The last row is the one that matters most. In Swift 5 mode with minimal
 concurrency checking, every concurrency finding below is unreported. Establish
 the target's setting before deciding.
 
+> **The table above dates; the tools do not.** Verify a default set with
+> `mcp__documentation__fetch_docs` on technology `swift-quality` — topics `swiftlint-rules`, `swift-6-migration`.
+> Those entries point at the indexes the tool authors maintain, so they follow
+> the version the project actually pins rather than the one this skill was
+> written against.
+
 ## The checks that earn their place
 
 ### A closure capturing `self` strongly and outliving the call

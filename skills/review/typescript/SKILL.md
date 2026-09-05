@@ -45,6 +45,12 @@ they need `parserOptions.project`, and many repos never enable it. If they are
 off, floating promises **are** worth reviewing by hand - that is a config
 finding plus a code finding, not one comment.
 
+> **The table above dates; the tools do not.** Verify a default set with
+> `mcp__documentation__fetch_docs` on technology `eslint` — topics `rules`, `typescript-eslint` — and `typescript`/`tsconfig` for the compiler settings.
+> Those entries point at the indexes the tool authors maintain, so they follow
+> the version the project actually pins rather than the one this skill was
+> written against.
+
 ## The checks that earn their place
 
 ### A type assertion that launders a lie

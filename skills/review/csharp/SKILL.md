@@ -43,6 +43,12 @@ The snippets are fragments cut down to the defect, not runnable programs.
 nullable disabled has no null guarantees whatsoever, and that is one
 architectural comment, not a per-line campaign.
 
+> **The table above dates; the tools do not.** Verify a default set with
+> `mcp__documentation__fetch_docs` on technology `dotnet-quality` — topics `code-analysis-rules`, `nullable-reference-types`.
+> Those entries point at the indexes the tool authors maintain, so they follow
+> the version the project actually pins rather than the one this skill was
+> written against.
+
 ## The checks that earn their place
 
 ### `async void` outside an event handler

@@ -39,6 +39,12 @@ Kotlin projects vary more than most in whether detekt runs at all. Check
 `build.gradle.kts` for the plugin and for `detekt.yml`, because the `!!` and
 swallowed-exception rows flip sides depending on it.
 
+> **The table above dates; the tools do not.** Verify a default set with
+> `mcp__documentation__fetch_docs` on technology `kotlin-quality` — topics `detekt-potential-bugs`, `detekt-configuration`, `detekt-suppressing`.
+> Those entries point at the indexes the tool authors maintain, so they follow
+> the version the project actually pins rather than the one this skill was
+> written against.
+
 ## The checks that earn their place
 
 ### A platform type from Java, trusted as non-null
