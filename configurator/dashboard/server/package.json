@@ -43,7 +43,7 @@
     "@types/ws": "^8.5.12",
     "@vitest/coverage-v8": "^4.1.11",
     "supertest": "^7.2.2",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   }
