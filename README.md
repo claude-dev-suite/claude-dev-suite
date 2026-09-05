@@ -274,6 +274,7 @@ Skills organized by category:
 - **Infrastructure**: Docker, Kubernetes, GitHub Actions
 - **Security**: JWT, OAuth2, NextAuth, OWASP
 - **Best Practices**: Git Workflow, Clean Code, Performance Optimization
+- **Code Review**: Per-language review skills — the defects a language's compiler and linters do *not* report, plus what they already cover, so a review does not repeat the toolchain
 
 #### Knowledge Base Architecture
 

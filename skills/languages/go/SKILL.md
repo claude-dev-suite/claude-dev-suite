@@ -7,6 +7,8 @@ description: |
   USE WHEN: user mentions "go", "golang", "goroutines", "channels", asks about
   "concurrency", "select statement", "interfaces", "error handling", "go modules"
 
+  DO NOT USE FOR: reviewing existing Go code - use `review/go`, which covers the
+  defects the compiler and linters do not report
   DO NOT USE FOR: Gin/Fiber/Echo frameworks - use framework-specific skills
   DO NOT USE FOR: GORM - use ORM-specific skill
   DO NOT USE FOR: gRPC - use API design skills

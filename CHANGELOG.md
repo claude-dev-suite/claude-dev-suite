@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Per-language review skills, starting with `review/go`.** A reviewer's
+  leverage is what the toolchain cannot say, and a general-purpose model spends
+  most of a Go review re-deriving what `errcheck` and `go vet` already print.
+  The new `skills/review/<language>/` category carries the delta explicitly:
+  the defects that survive the compiler, `go vet` and a default golangci-lint
+  run — a typed nil landing in an interface, a lock held across a blocking
+  call, a sub-slice handed to a second owner, `defer` in a loop over unbounded
+  input — and, just as deliberately, a table of what the tools *already* report
+  so the review stays silent about those.
+
+  Wired into `code-reviewer` as an **extended** skill, so it costs nothing until
+  a Go diff appears; the agent loads the one matching the language and pays for
+  no others. `languages/go` gained a routing note pointing review work here,
+  since the skill for *writing* Go is the wrong one for critiquing it.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed
