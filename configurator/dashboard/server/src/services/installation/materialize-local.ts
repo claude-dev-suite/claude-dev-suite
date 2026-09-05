@@ -363,7 +363,22 @@ function materializeLocalUnlocked(
       }
     }
 
-    entries[serverName] = { command: 'node', args: [entry], env };
+    // A relative path is only meaningful when the bundle really is inside this
+    // project. `resolveServerEntry` falls back to the main checkout or a
+    // dev-suite source tree — legitimate for a worktree, but those live outside
+    // the repository, so the absolute path is the only correct answer there.
+    const insideProject = entry.startsWith(root + path.sep);
+    const entryRelPath = insideProject
+      ? path.relative(root, entry).split(path.sep).join('/')
+      : undefined;
+
+    entries[serverName] = {
+      command: 'node',
+      args: [entry],
+      env,
+      ...(entryRelPath ? { entryRelPath } : {}),
+      secretEnvNames: Object.keys(env).filter(name => name in secrets),
+    };
   }
 
   // ---- Write each target's config --------------------------------------

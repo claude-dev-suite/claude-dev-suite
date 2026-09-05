@@ -433,3 +433,110 @@ export function getServerEnvVars(
 
   return result;
 }
+
+/**
+ * Entries of an MCP server package that are needed to *run* it.
+ *
+ * `copyDirSync` already skips `node_modules`, but it still copied `src/`,
+ * `tests/`, `scripts/`, `tsconfig.json` and `vitest.config.ts` into every
+ * project. That was tolerable while `.mcp-servers/` was gitignored build
+ * output; once the directory is committed so a teammate gets a working install
+ * from a clone, those files become someone else's repository contents.
+ *
+ * `dist/` is the self-contained esbuild bundle, `metadata.json` is read back by
+ * install-recovery and materialize-local, `package.json` carries the version
+ * the manifest is compared against, and `skills/` is skill-loader's payload —
+ * bundled at build time and the whole point of lazy skill loading.
+ */
+const MCP_BUNDLE_ENTRIES = ['dist', 'metadata.json', 'package.json', 'skills'] as const;
+
+/**
+ * Copy only the runtime half of an MCP server package into a project.
+ *
+ * Same security posture as {@link copyDirSync} — it delegates per entry, so
+ * path validation, traversal checks and the `node_modules` skip all still
+ * apply. Returns the entries actually copied, for logging.
+ */
+export function copyMcpServerBundle(src: string, dest: string): string[] {
+  if (src.includes('..') || dest.includes('..')) throw new Error('Path traversal not allowed');
+  const resolvedSrc = path.resolve(src);
+  const resolvedDest = path.resolve(dest);
+
+  if (!fs.existsSync(resolvedDest)) fs.mkdirSync(resolvedDest, { recursive: true });
+
+  const copied: string[] = [];
+  for (const entry of MCP_BUNDLE_ENTRIES) {
+    // Defence in depth: the list is a literal, but it flows into path.join.
+    if (!validateEntryName(entry)) continue;
+    const from = path.join(resolvedSrc, entry);
+    if (!fs.existsSync(from)) continue;
+
+    const to = path.join(resolvedDest, entry);
+    try {
+      validatePathWithinBase(to, resolvedDest, false);
+    } catch (error: unknown) {
+      logger.warn('Skipping bundle entry that escapes destination', {
+        error,
+        context: { entry, dest: resolvedDest },
+      });
+      continue;
+    }
+
+    if (fs.statSync(from).isDirectory()) {
+      copyDirSync(from, to, resolvedDest);
+    } else {
+      fs.copyFileSync(from, to);
+    }
+    copied.push(entry);
+  }
+
+  return copied;
+}
+
+/** An MCP server's env values, split by whether the catalog calls them secret. */
+export interface ServerEnvSpec {
+  /** Every value the wizard collected for this server. */
+  values: Record<string, string>;
+  /** The subset whose names are declared `secret: true` in `metadata.json`. */
+  secretNames: string[];
+}
+
+/**
+ * Like {@link getServerEnvVars}, but keeps the `secret` declaration attached.
+ *
+ * Writers need the distinction, not just the values: a config file that is
+ * meant to be committed can carry `KB_REPO_BRANCH` verbatim, and must never
+ * carry `DATABASE_URL`. Reading the flag here keeps `metadata.json` the single
+ * source of truth — the same one `scripts/validate-env-secrets.mjs` gates.
+ */
+export function getServerEnvSpec(
+  serverName: string,
+  allEnvVars: Record<string, string>,
+  devSuiteDir: string
+): ServerEnvSpec {
+  const metadataPath = path.join(devSuiteDir, 'mcp-servers', serverName, 'metadata.json');
+  const values: Record<string, string> = {};
+  const secretNames: string[] = [];
+
+  if (fs.existsSync(metadataPath)) {
+    try {
+      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8')) as {
+        envVars?: Array<{ name: string; secret?: boolean }>;
+      };
+      for (const envVar of metadata.envVars ?? []) {
+        const varName = envVar.name;
+        const varValue = allEnvVars[varName];
+        if (!varName || !varValue) continue;
+        values[varName] = varValue;
+        if (envVar.secret === true) secretNames.push(varName);
+      }
+    } catch (error: unknown) {
+      logger.warn('Failed to read MCP server metadata for env detection', {
+        error,
+        context: { serverName, metadataPath },
+      });
+    }
+  }
+
+  return { values, secretNames };
+}

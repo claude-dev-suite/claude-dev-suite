@@ -8,6 +8,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **A dev-suite install is now committable, so a clone arrives working.** The
+  generated MCP config was written with absolute paths — `C:\Users\<whoever
+  installed it>\...` — while `.mcp-servers/`, the bundles those paths point at,
+  was unconditionally gitignored. Both decisions were defensible alone and
+  disastrous together: the file that *was* committed pointed at a directory that
+  never was, so every teammate who cloned the repository got servers that failed
+  to connect, with no fix short of installing dev-suite themselves. The reasoning
+  behind the ignore ("regenerable build output") quietly assumed every checkout
+  runs an install; a teammate who clones does not.
+
+  Three changes make the pair portable and land together, because none of them
+  is worth anything alone:
+
+  - **Paths.** Each writer renders the bundle path with its own surface's
+    *confirmed* project-root token — `${CLAUDE_PROJECT_DIR:-.}` for Claude Code,
+    `${workspaceFolder}` for Cursor and the VS Code surface — and leaves it
+    project-relative where no token is documented (Copilot CLI, Kimi, Gemini,
+    Codex). Nothing is implemented against a mechanism sitting in Part 5 of
+    `docs/ASSISTANT-FORMAT-REFERENCE.md`.
+  - **Secrets.** An env var the catalog marks `secret: true` is written as a
+    reference to the ambient variable, not a literal: `${VAR}`, `${env:VAR}`,
+    `$VAR`, and for Codex the `env_vars` forward-list, which names the variable
+    instead of storing it. Non-secret configuration (`KB_CACHE_TTL`, a pool size)
+    stays verbatim — that is configuration a team wants to share. The one gap is
+    deliberate: `${env:VAR}` in `.vscode/mcp.json` is unconfirmed, so that file
+    keeps the literal and `installation/gitignore.ts` keeps ignoring it, since
+    that scan reads the bytes actually on disk rather than inferring.
+  - **Bundles.** `.mcp-servers/` left the ignore list, and an install now copies
+    only what running a server needs (`dist/`, `metadata.json`, `package.json`,
+    and skill-loader's `skills/`) instead of the whole package — `src/`,
+    `tests/`, `scripts/` and the tsconfig no longer land in someone else's
+    repository.
+
+  Consequences worth knowing: the reinstall verification no longer demands an
+  absolute path — that is now the one shape the entry must *not* have — and
+  instead resolves each entry and checks the bundle is really there. A git
+  worktree now checks out the bundles like any other tracked file, so
+  `materializeLocal()` no longer has to borrow them from the main checkout. The
+  cost is repository size: roughly 1 MB per server, ~3.5 MB for `documentation`,
+  and ~7.8 MB for `skill-loader`, most of which is the markdown skill payload
+  that lazy loading exists to serve.
+
 ### Fixed
 
 - **Two callers could hold the same knowledge-base clone lock.** Judging a lock

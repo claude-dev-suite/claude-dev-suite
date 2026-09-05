@@ -35,7 +35,7 @@ dev-suite/
 2. **Hardcode component lists** — Derive agents from a filesystem scan, MCP servers from the `mcp-servers/package.json` workspaces, env vars from each `metadata.json`. Framework detection lives in `detection.service.ts`; `registry/features.json` is the upgrade feature registry only, and there is no `frameworks.json`.
 3. **Hardcode counts in docs** — Never write exact counts of agents, skills, MCP servers, or technologies in CLAUDE.md or README.md; derive dynamically when needed (e.g., `find agents -name '*.md' | wc -l`)
 4. **Skip backup creation** — Dashboard MUST create `.dev-suite-backup/` before overwriting any user files
-5. **Use relative paths in generated `.mcp.json`** — All paths must be absolute via `path.resolve()`
+5. **Write machine-specific absolute paths, or secret literals, into generated MCP config** — These files are committed so a teammate gets a working install from a clone, which inverts the old rule that every path be absolute via `path.resolve()`. Each writer renders the bundle path with its surface's *confirmed* project-root token (`${CLAUDE_PROJECT_DIR:-.}`, `${workspaceFolder}`) and a `secret: true` env var as a reference (`${VAR}`, `${env:VAR}`, `$VAR`, Codex `env_vars`), falling back to a project-relative path where no token is documented. Never implement against a mechanism listed in Part 5 of `docs/ASSISTANT-FORMAT-REFERENCE.md`
 6. **Modify installed components in target projects manually** — Use `/reconfigure` command or dashboard
 
 ### DO:
@@ -43,7 +43,7 @@ dev-suite/
 2. **Update metadata when adding components** — Add to `mcp-servers/package.json` workspaces, create `metadata.json`, add YAML frontmatter
 3. **Use dynamic configuration** — Load the feature registry from `registry/features.json`, parse each `metadata.json`, extract YAML frontmatter
 4. **Test cross-platform** — `init-project.sh` (Linux/macOS) + `init-project.ps1` (Windows)
-5. **Validate generated config** — Check `.mcp.json` syntax, verify absolute paths, ensure env vars are set
+5. **Validate generated config** — Check `.mcp.json` syntax, verify every server entry resolves to a bundle on disk, ensure env vars are set
 6. **Record `availableAtInstall` catalog snapshot** — `installation.service.ts` writes this to `.dev-suite-manifest.json` for new-component discovery
 7. **Verify documentation before committing** — Before creating any git commit that includes changes to `agents/`, `skills/`, `mcp-servers/`, or `configurator/dashboard/server/src/services/detection/`, verify that README.md agent/skill/MCP-server tables and technology lists still match the filesystem. Also check if CHANGELOG.md needs an entry. Fix any stale documentation before committing.
 

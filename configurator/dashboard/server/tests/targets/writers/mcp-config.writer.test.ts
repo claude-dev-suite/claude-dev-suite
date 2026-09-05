@@ -240,3 +240,79 @@ describe('all writers', () => {
     expect(parsed[key]).toEqual({});
   });
 });
+
+/**
+ * Portability: what makes these files committable.
+ *
+ * An install writes an absolute path and a literal credential — correct on the
+ * machine that ran it, wrong or unsafe on every other. Each writer therefore
+ * renders the bundle path with its own project-root token and a `secret: true`
+ * value as a reference. Only tokens marked CONFIRMED in
+ * docs/ASSISTANT-FORMAT-REFERENCE.md are used; a surface without one gets a
+ * project-relative path, which a clone can at least resolve.
+ */
+describe('portable output', () => {
+  // A Windows absolute path on purpose: the comparison against `entryRelPath`
+  // is POSIX, so without normalisation no Windows install would ever match and
+  // every one of them would keep emitting the absolute path.
+  const PORTABLE: Record<string, McpServerEntry> = {
+    'database-query': {
+      command: 'node',
+      args: ['C:\\work\\proj\\.mcp-servers\\database-query\\dist\\index.js'],
+      env: { DATABASE_URL: 'postgres://u:pw@h:5432/db', DB_POOL_SIZE: '5' },
+      entryRelPath: '.mcp-servers/database-query/dist/index.js',
+      secretEnvNames: ['DATABASE_URL'],
+    },
+  };
+
+  const entryOf = (json: string, key = 'mcpServers') =>
+    JSON.parse(json)[key]['database-query'];
+
+  it('Claude Code uses ${CLAUDE_PROJECT_DIR} with a default, and references the secret', () => {
+    const entry = entryOf(writeClaudeCodeMcpConfig(PORTABLE));
+    // The `:-.` default matters: CLAUDE_PROJECT_DIR is set in the server's
+    // environment, not Claude Code's, so a project-scoped file needs a fallback.
+    expect(entry.args[0]).toBe('${CLAUDE_PROJECT_DIR:-.}/.mcp-servers/database-query/dist/index.js');
+    expect(entry.env.DATABASE_URL).toBe('${DATABASE_URL}');
+    // Non-secret config is shared verbatim — that is the point of sharing it.
+    expect(entry.env.DB_POOL_SIZE).toBe('5');
+  });
+
+  it('Cursor uses ${workspaceFolder} and ${env:VAR}', () => {
+    const entry = entryOf(writeCursorMcpConfig(PORTABLE));
+    expect(entry.args[0]).toBe('${workspaceFolder}/.mcp-servers/database-query/dist/index.js');
+    expect(entry.env.DATABASE_URL).toBe('${env:DATABASE_URL}');
+    expect(entry.env.DB_POOL_SIZE).toBe('5');
+  });
+
+  it('VS Code uses ${workspaceFolder} but keeps the literal, since ${env:VAR} is unconfirmed', () => {
+    const entry = entryOf(writeVsCodeMcpConfig(PORTABLE), 'servers');
+    expect(entry.args[0]).toBe('${workspaceFolder}/.mcp-servers/database-query/dist/index.js');
+    // Part 5 item 1: not implemented against an unconfirmed mechanism. The file
+    // keeps the credential, and gitignore.ts keeps ignoring this one file.
+    expect(entry.env.DATABASE_URL).toBe('postgres://u:pw@h:5432/db');
+  });
+
+  it('surfaces with no documented token still get a resolvable relative path', () => {
+    for (const json of [writeCopilotCliMcpConfig(PORTABLE), writeKimiMcpConfig(PORTABLE)]) {
+      const entry = entryOf(json);
+      expect(entry.args[0]).toBe('.mcp-servers/database-query/dist/index.js');
+      expect(path_isAbsolutish(entry.args[0])).toBe(false);
+    }
+  });
+
+  it('leaves an entry dev-suite did not install completely alone', () => {
+    // No `entryRelPath`: a server the user added by hand, pointing anywhere.
+    const foreign: Record<string, McpServerEntry> = {
+      'database-query': { command: 'npx', args: ['-y', 'some-server'], env: { DATABASE_URL: 'x' } },
+    };
+    const entry = entryOf(writeClaudeCodeMcpConfig(foreign));
+    expect(entry.args).toEqual(['-y', 'some-server']);
+    expect(entry.env.DATABASE_URL).toBe('x');
+  });
+});
+
+/** Absolute in either convention — no `path` import needed for this check. */
+function path_isAbsolutish(p: string): boolean {
+  return p.startsWith('/') || /^[A-Za-z]:/.test(p);
+}

@@ -19,10 +19,29 @@
  * owned outright, these files usually already contain the user's own servers.
  * Every writer preserves entries it does not manage.
  *
- * All server arguments are absolute paths, per the project rule that generated
- * MCP config must not depend on the working directory. That also sidesteps
- * `${env:VAR}` interpolation, whose availability in `.vscode/mcp.json` is
- * unconfirmed (reference doc, Part 5, item 1).
+ * **Portability.** These files are committed, so an absolute path is not merely
+ * inelegant — it is wrong on every machine but the one that generated it. Each
+ * writer therefore renders the bundle path with its own confirmed project-root
+ * token, and a secret env value as a reference to the ambient variable rather
+ * than a literal:
+ *
+ * | Surface           | Root token                | Secret reference |
+ * |-------------------|---------------------------|------------------|
+ * | Claude Code       | `${CLAUDE_PROJECT_DIR:-.}`| `${VAR}`         |
+ * | Cursor            | `${workspaceFolder}`      | `${env:VAR}`     |
+ * | Copilot (VS Code) | `${workspaceFolder}`      | — (literal)      |
+ * | Copilot (CLI)     | — (project-relative)      | — (literal)      |
+ * | Kimi Code         | — (project-relative)      | — (literal)      |
+ *
+ * Every token above is CONFIRMED in docs/ASSISTANT-FORMAT-REFERENCE.md. Where a
+ * surface has none, the path is left project-relative: still not guaranteed,
+ * but a clone can resolve it where an absolute foreign path never can. Where a
+ * surface has no confirmed env indirection — `${env:VAR}` in `.vscode/mcp.json`
+ * is Part 5 item 1, and deliberately not used — the literal stays, and
+ * `installation/gitignore.ts` keeps ignoring that one file, because it scans the
+ * bytes actually on disk. So a project loses committability only on the
+ * surfaces that genuinely cannot express the indirection, and only when a
+ * secret is in play.
  */
 
 import type { McpServerEntry } from '../target-adapter.js';
@@ -125,12 +144,75 @@ function mergeUnderKey(
   return JSON.stringify(root, null, 2);
 }
 
+/**
+ * Rewrite the bundle argument into a form another machine can resolve.
+ *
+ * `entry.args` holds the absolute path, which is what a locally-generated
+ * config wants; `entry.entryRelPath` is the project-relative twin. Only the
+ * argument that *is* that entry point is touched — a server with extra flags
+ * keeps them, and an entry dev-suite did not install (no `entryRelPath`) is
+ * passed through untouched.
+ */
+export function portableArgs(entry: McpServerEntry, projectRootToken?: string): string[] {
+  const rel = entry.entryRelPath;
+  if (!rel) return entry.args;
+
+  const rendered = projectRootToken ? `${projectRootToken}/${rel}` : rel;
+  return entry.args.map(arg => {
+    // The manifest and this comparison are POSIX; the resolved path is not, on
+    // Windows. Normalise before matching or the entry is never recognised and
+    // every Windows install keeps emitting an absolute path.
+    const normalised = arg.split('\\').join('/');
+    return normalised === rel || normalised.endsWith(`/${rel}`) ? rendered : arg;
+  });
+}
+
+/**
+ * Replace the values of `secret: true` env vars with a reference the assistant
+ * expands from the ambient environment at launch.
+ *
+ * Non-secret values are left verbatim on purpose: `KB_REPO_BRANCH` or a cache
+ * TTL is configuration a team wants to share, and turning it into a reference
+ * would force every developer to set it by hand to get the documented default.
+ * Without a `renderRef` the values are returned unchanged.
+ */
+export function portableEnv(
+  entry: McpServerEntry,
+  renderRef?: (name: string) => string
+): Record<string, string> {
+  const secrets = entry.secretEnvNames;
+  if (!renderRef || !secrets || secrets.length === 0) return entry.env;
+
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(entry.env)) {
+    out[name] = secrets.includes(name) ? renderRef(name) : value;
+  }
+  return out;
+}
+
 /** Claude Code — `.mcp.json`. Entry shape is passed through unchanged. */
 export function writeClaudeCodeMcpConfig(
   servers: Record<string, McpServerEntry>,
   opts: McpMergeOptions = {}
 ): string {
-  return mergeUnderKey('mcpServers', servers, opts);
+  const converted: Record<string, unknown> = {};
+  for (const [name, entry] of Object.entries(servers)) {
+    // `${CLAUDE_PROJECT_DIR}` is set in the *server's* environment, not in
+    // Claude Code's own, so a project-scoped `.mcp.json` needs the `:-.`
+    // default for the expansion to resolve at all. It falls back to the
+    // directory `claude` was launched from, which is the project root in the
+    // normal case.
+    const env = portableEnv(entry, varName => '${' + varName + '}');
+    // `env` is emitted even when empty: that is what this writer has always
+    // produced, and an install that only gained a portable path should not also
+    // rewrite every entry's shape.
+    converted[name] = {
+      command: entry.command,
+      args: portableArgs(entry, '${CLAUDE_PROJECT_DIR:-.}'),
+      env,
+    };
+  }
+  return mergeUnderKey('mcpServers', converted, opts);
 }
 
 /**
@@ -146,10 +228,12 @@ export function writeVsCodeMcpConfig(
 ): string {
   const converted: Record<string, unknown> = {};
   for (const [name, entry] of Object.entries(servers)) {
+    // `${workspaceFolder}` is confirmed here; `${env:VAR}` is not (Part 5 item
+    // 1), so a secret stays a literal and this one file keeps being gitignored.
     converted[name] = {
       type: 'stdio',
       command: entry.command,
-      args: entry.args,
+      args: portableArgs(entry, '${workspaceFolder}'),
       ...(Object.keys(entry.env).length > 0 ? { env: entry.env } : {}),
     };
   }
@@ -181,7 +265,10 @@ export function writeCopilotCliMcpConfig(
     converted[name] = {
       type: 'local',
       command: entry.command,
-      args: entry.args,
+      // No interpolation token is documented for this surface, so the path is
+      // left project-relative rather than absolute: unverified, but resolvable
+      // from a clone, which an absolute foreign path never is.
+      args: portableArgs(entry),
       ...(Object.keys(entry.env).length > 0 ? { env: entry.env } : {}),
       tools: ['*'],
     };
@@ -201,11 +288,14 @@ export function writeCursorMcpConfig(
 ): string {
   const converted: Record<string, unknown> = {};
   for (const [name, entry] of Object.entries(servers)) {
+    // Cursor documents both tokens, so this surface is fully committable: the
+    // path resolves per-checkout and the credential never leaves the machine.
+    const env = portableEnv(entry, varName => '${env:' + varName + '}');
     converted[name] = {
       type: 'stdio',
       command: entry.command,
-      args: entry.args,
-      ...(Object.keys(entry.env).length > 0 ? { env: entry.env } : {}),
+      args: portableArgs(entry, '${workspaceFolder}'),
+      ...(Object.keys(env).length > 0 ? { env } : {}),
     };
   }
   return mergeUnderKey('mcpServers', converted, opts);
@@ -231,7 +321,8 @@ export function writeKimiMcpConfig(
   for (const [name, entry] of Object.entries(servers)) {
     converted[name] = {
       command: entry.command,
-      args: entry.args,
+      // As for the Copilot CLI surface: no documented token, so relative.
+      args: portableArgs(entry),
       ...(Object.keys(entry.env).length > 0 ? { env: entry.env } : {}),
     };
   }
