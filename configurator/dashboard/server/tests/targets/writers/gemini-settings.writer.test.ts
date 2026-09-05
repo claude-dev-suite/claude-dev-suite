@@ -77,3 +77,29 @@ describe('writeGeminiSettings', () => {
       .toThrow(McpConfigParseError);
   });
 });
+
+/**
+ * Portability. `$VAR` expansion is confirmed inside `env` but not in `args`, so
+ * this surface can hide the credential but cannot express the project root —
+ * the path is left relative rather than absolute, which a clone can resolve.
+ */
+describe('writeGeminiSettings — portable output', () => {
+  const PORTABLE: Record<string, McpServerEntry> = {
+    'database-query': {
+      command: 'node',
+      args: ['/abs/project/.mcp-servers/database-query/dist/index.js'],
+      env: { DATABASE_URL: 'postgres://u:pw@h/db', DB_POOL_SIZE: '5' },
+      entryRelPath: '.mcp-servers/database-query/dist/index.js',
+      secretEnvNames: ['DATABASE_URL'],
+    },
+  };
+
+  it('references the secret with $VAR and keeps the path project-relative', () => {
+    const out = writeGeminiSettings(PORTABLE);
+    const entry = JSON.parse(out).mcpServers['database-query'];
+
+    expect(entry.args).toEqual(['.mcp-servers/database-query/dist/index.js']);
+    expect(entry.env).toEqual({ DATABASE_URL: '$DATABASE_URL', DB_POOL_SIZE: '5' });
+    expect(out).not.toContain('postgres://');
+  });
+});
