@@ -21,6 +21,7 @@ extended_skills:
   - review/kotlin
   - review/csharp
   - review/sql
+  - review/swift
   - best-practices/token-optimization
   - best-practices/clean-code
   - best-practices/solid-principles

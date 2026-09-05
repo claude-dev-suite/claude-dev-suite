@@ -9,6 +9,8 @@ description: |
   "Sendable", "Codable", "Combine", "Result Builder", "Apple Keychain",
   "Secure Enclave", "iOS native"
 
+  DO NOT USE FOR: reviewing existing Swift code - use `review/swift`, which covers
+  retain cycles and the concurrency checking that is a per-target setting
   DO NOT USE FOR: SwiftUI screen layouts in depth - use SwiftUI-specific skill if exists
   DO NOT USE FOR: Compose iOS via Skia - use `frontend-frameworks/compose-multiplatform`
   DO NOT USE FOR: Kotlin/Native ↔ Swift bridging - use `languages/uniffi`
