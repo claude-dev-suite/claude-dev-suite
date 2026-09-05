@@ -77,15 +77,12 @@ export const toolingDocs: DocsRecord = {
 
   esbuild: {
     basics: {
-      local: "esbuild/basics.md",
       url: "https://esbuild.github.io/getting-started/",
     },
     api: {
-      local: "esbuild/api.md",
       url: "https://esbuild.github.io/api/",
     },
     plugins: {
-      local: "esbuild/plugins.md",
       url: "https://esbuild.github.io/plugins/",
     },
   },
@@ -199,42 +196,33 @@ export const toolingDocs: DocsRecord = {
   // Monorepo tools
   turborepo: {
     basics: {
-      local: "turborepo/basics.md",
       url: "https://turbo.build/repo/docs",
     },
     configuration: {
-      local: "turborepo/configuration.md",
       url: "https://turbo.build/repo/docs/reference/configuration",
     },
     caching: {
-      local: "turborepo/caching.md",
       url: "https://turbo.build/repo/docs/core-concepts/caching",
     },
     "remote-cache": {
-      local: "turborepo/remote-cache.md",
       url: "https://turbo.build/repo/docs/core-concepts/remote-caching",
     },
   },
 
   nx: {
     basics: {
-      local: "nx/basics.md",
       url: "https://nx.dev/getting-started/intro",
     },
     configuration: {
-      local: "nx/configuration.md",
       url: "https://nx.dev/reference/project-configuration",
     },
     generators: {
-      local: "nx/generators.md",
       url: "https://nx.dev/docs/extending-nx/local-generators",
     },
     executors: {
-      local: "nx/executors.md",
       url: "https://nx.dev/docs/extending-nx/local-executors",
     },
     affected: {
-      local: "nx/affected.md",
       url: "https://nx.dev/ci/features/affected",
     },
   },
@@ -242,19 +230,15 @@ export const toolingDocs: DocsRecord = {
   // Package managers
   pnpm: {
     basics: {
-      local: "pnpm/basics.md",
       url: "https://pnpm.io/motivation",
     },
     workspaces: {
-      local: "pnpm/workspaces.md",
       url: "https://pnpm.io/workspaces",
     },
     configuration: {
-      local: "pnpm/configuration.md",
       url: "https://pnpm.io/npmrc",
     },
     filtering: {
-      local: "pnpm/filtering.md",
       url: "https://pnpm.io/filtering",
     },
   },
@@ -279,30 +263,24 @@ export const toolingDocs: DocsRecord = {
 
   yup: {
     basics: {
-      local: "yup/basics.md",
       url: "https://github.com/jquense/yup#getting-started",
     },
     schemas: {
-      local: "yup/schemas.md",
       url: "https://github.com/jquense/yup#api",
     },
     validation: {
-      local: "yup/validation.md",
       url: "https://github.com/jquense/yup#schemavalidatevalue-any-options-object-promiseinfertype",
     },
   },
 
   "class-validator": {
     basics: {
-      local: "class-validator/basics.md",
       url: "https://github.com/typestack/class-validator#usage",
     },
     decorators: {
-      local: "class-validator/decorators.md",
       url: "https://github.com/typestack/class-validator#validation-decorators",
     },
     "custom-validation": {
-      local: "class-validator/custom-validation.md",
       url: "https://github.com/typestack/class-validator#custom-validation-classes",
     },
   },
@@ -465,41 +443,33 @@ export const toolingDocs: DocsRecord = {
   // Logging - Java
   logback: {
     configuration: {
-      local: "logback/configuration.md",
       url: "https://logback.qos.ch/manual/configuration.html",
     },
     appenders: {
-      local: "logback/appenders.md",
       url: "https://logback.qos.ch/manual/appenders.html",
     },
     layouts: {
-      local: "logback/layouts.md",
       url: "https://logback.qos.ch/manual/layouts.html",
     },
   },
 
   slf4j: {
     basics: {
-      local: "slf4j/basics.md",
       url: "https://www.slf4j.org/manual.html",
     },
     mdc: {
-      local: "slf4j/mdc.md",
       url: "https://www.slf4j.org/manual.html#mdc",
     },
   },
 
   log4j2: {
     configuration: {
-      local: "log4j2/configuration.md",
       url: "https://logging.apache.org/log4j/2.x/manual/configuration.html",
     },
     async: {
-      local: "log4j2/async.md",
       url: "https://logging.apache.org/log4j/2.x/manual/async.html",
     },
     appenders: {
-      local: "log4j2/appenders.md",
       url: "https://logging.apache.org/log4j/2.x/manual/appenders.html",
     },
   },
@@ -507,34 +477,27 @@ export const toolingDocs: DocsRecord = {
   // Logging - Node.js
   winston: {
     basics: {
-      local: "winston/basics.md",
       url: "https://github.com/winstonjs/winston#quick-start",
     },
     transports: {
-      local: "winston/transports.md",
       url: "https://github.com/winstonjs/winston#transports",
     },
     formats: {
-      local: "winston/formats.md",
       url: "https://github.com/winstonjs/winston#formats",
     },
   },
 
   pino: {
     basics: {
-      local: "pino/basics.md",
       url: "https://getpino.io/#/docs/api",
     },
     transports: {
-      local: "pino/transports.md",
       url: "https://getpino.io/#/docs/transports",
     },
     "child-loggers": {
-      local: "pino/child-loggers.md",
       url: "https://getpino.io/#/docs/child-loggers",
     },
     redact: {
-      local: "pino/redact.md",
       url: "https://getpino.io/#/docs/redaction",
     },
   },
@@ -542,15 +505,12 @@ export const toolingDocs: DocsRecord = {
   // Logging - Python
   structlog: {
     basics: {
-      local: "structlog/basics.md",
       url: "https://www.structlog.org/en/stable/getting-started.html",
     },
     processors: {
-      local: "structlog/processors.md",
       url: "https://www.structlog.org/en/stable/processors.html",
     },
     configuration: {
-      local: "structlog/configuration.md",
       url: "https://www.structlog.org/en/stable/configuration.html",
     },
   },

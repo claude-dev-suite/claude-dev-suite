@@ -37,11 +37,9 @@ export const authDocs: DocsRecord = {
 
   nextauth: {
     setup: {
-      local: "nextauth/setup.md",
       url: "https://next-auth.js.org/getting-started/introduction",
     },
     callbacks: {
-      local: "nextauth/callbacks.md",
       url: "https://next-auth.js.org/configuration/callbacks",
     },
   },

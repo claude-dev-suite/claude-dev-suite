@@ -63,22 +63,18 @@ export const apiDocs: DocsRecord = {
 
   "rest-api": {
     conventions: {
-      local: "rest-api/conventions.md",
       url: "https://restfulapi.net/resource-naming/",
     },
     "error-handling": {
-      local: "rest-api/error-handling.md",
       url: "https://restfulapi.net/http-status-codes/",
     },
   },
 
   openapi: {
     specification: {
-      local: "openapi/specification.md",
       url: "https://spec.openapis.org/oas/latest.html",
     },
     tools: {
-      local: "openapi/tools.md",
       url: "https://openapi.tools/",
     },
   },
