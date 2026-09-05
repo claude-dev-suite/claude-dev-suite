@@ -366,7 +366,7 @@ Version format: `MAJOR.MINOR.PATCH` — applied to `configurator/dashboard/packa
     - Windows: `*Setup*.exe`, `*Setup*.exe.blockmap`, `latest.yml`
     - macOS:   `*-arm64.dmg`, `*-x64.dmg` (+ blockmaps), `latest-mac.yml`
     - Linux:   `*.AppImage`, `*.deb`, `latest-linux.yml` (no `.rpm` — not produced by the current build)
-11. For risky releases, ship as `vX.Y.Z-rc.N` first (CI workflow triggers on any `v*` tag) and validate on macOS/Linux machines before promoting to a stable tag.
+11. For risky releases, ship as `vX.Y.Z-rc.N` first (CI workflow triggers on any `v*` tag) and validate on macOS/Linux machines before promoting to a stable tag. The workflow flags any tag containing a hyphen as a GitHub pre-release, so an rc never becomes "Latest" and electron-updater never offers it on the stable channel — verify with `gh release view <tag> --json isPrerelease` if in doubt.
 
 ## Anti-Staleness Rule
 

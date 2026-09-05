@@ -47,12 +47,25 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
           echo "Preparing release $VERSION"
+          # A semver pre-release tag carries a hyphen (v1.14.0-rc.1). Publishing
+          # one as a normal release makes it "Latest", and electron-updater then
+          # offers it to everyone on the stable channel — the opposite of what an
+          # rc is for. Mark it, so validating a candidate cannot ship it.
+          PRERELEASE=""
+          case "$VERSION" in
+            *-*) PRERELEASE="--prerelease" ;;
+          esac
+
           if ! gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "Release $VERSION does not exist yet — creating draft release"
+            echo "Release $VERSION does not exist yet — creating it${PRERELEASE:+ as a pre-release}"
             gh release create "$VERSION" \
               --title "$VERSION" \
               --notes "Automated release — assets uploaded by CI." \
-              --draft=false
+              --draft=false $PRERELEASE
+          elif [ -n "$PRERELEASE" ]; then
+            # Created by hand, or by an earlier run before this guard existed.
+            echo "Ensuring $VERSION is flagged as a pre-release"
+            gh release edit "$VERSION" --prerelease
           fi
           gh release view "$VERSION" --json assets --jq '.assets[].name' | while read -r name; do
             echo "Deleting: $name"
