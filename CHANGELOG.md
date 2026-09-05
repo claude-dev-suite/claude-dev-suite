@@ -68,6 +68,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   one — and `synchronized` around I/O inside a virtual thread, the one construct
   that pins the carrier and defeats the model.
 
+- **`review/rust`**, the fifth language, and the one that argues hardest for
+  restraint. `rustc` plus a default clippy run already covers most of what a
+  reviewer would flag elsewhere, so here the "already covered" table is long and
+  the check list is short — reviewing Rust as if it were C++ produces almost
+  entirely noise.
+
+  What is left clusters in the four places the compiler cannot reach by
+  construction: `RefCell` moving an aliasing error from compile time to a
+  runtime panic, an `Rc` cycle the borrow checker is perfectly happy with and
+  reference counting can never collect, a lock held across an `.await`, and
+  `unsafe` whose invariant is not written down.
+
+  One finding is profile-dependent rather than code-dependent: overflow checks
+  are on in debug and **off in release**, so an unsigned subtraction panics
+  under `cargo test` and wraps silently in the binary users run.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed
