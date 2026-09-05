@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^3.22.0",
+    "zod": "^4.5.4",
     "pg": "^8.23.0"
   },
   "devDependencies": {
