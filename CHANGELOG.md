@@ -136,6 +136,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   forwarded. The signature promises cooperative cancellation, the body does not
   deliver it, and to the compiler the parameter counts as used.
 
+- **`review/sql`**, and it inverts the category's usual balance. Every other
+  language has a compiler or a linter that checked *something* first; SQL has
+  none that checks **meaning**. The parser accepts anything well-formed and
+  `sqlfluff` checks layout, so a query returning the wrong rows and one
+  returning the right rows are equally valid to the whole pipeline. The "already
+  covered" table is therefore the shortest in the category, and deliberately so.
+
+  Three themes carry it. **NULL is not a value**: `NOT IN (subquery)` returns
+  *zero rows* when the subquery yields a single NULL, which reads as a data
+  problem rather than a logic one. **A query is only correct at the isolation
+  level it actually runs at**: check-then-act is safe under SERIALIZABLE and
+  nowhere else, and the defaults differ per engine — READ COMMITTED almost
+  everywhere, REPEATABLE READ in MySQL. **The plan decides the cost**: a
+  function or an implicit cast on the column side of a predicate silently
+  disables the index while still returning the right answer.
+
+  Also covered: pagination whose `ORDER BY` is not unique, so a row can appear
+  on two pages or none; a second one-to-many join inflating an aggregate into a
+  plausible wrong total; and the N+1, whose SQL is individually fine because the
+  defect lives at the ORM boundary.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed

@@ -8,6 +8,8 @@ description: |
   USE WHEN: user mentions "SQL basics", "SELECT", "JOIN", "INSERT", "UPDATE", "DELETE",
   "DDL", "DML", "transactions", "foreign keys", "indexes", asks about basic SQL queries
 
+  DO NOT USE FOR: reviewing existing SQL - use `review/sql`, which covers the
+  NULL, concurrency and plan defects nothing in the pipeline checks
   DO NOT USE FOR: advanced queries (CTEs, window functions) - use `sql-advanced` instead,
   PostgreSQL specifics - use `postgresql` instead, NoSQL - use `mongodb` or `redis` instead
 allowed-tools: Read, Grep, Glob, Write, Edit

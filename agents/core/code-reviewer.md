@@ -20,6 +20,7 @@ extended_skills:
   - review/cpp
   - review/kotlin
   - review/csharp
+  - review/sql
   - best-practices/token-optimization
   - best-practices/clean-code
   - best-practices/solid-principles
