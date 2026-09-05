@@ -8,6 +8,8 @@ description: |
   asks about "asyncio", "context managers", "match statement", "walrus operator",
   "PEP 695", "type parameter", "generic"
 
+  DO NOT USE FOR: reviewing existing Python code - use `review/python`, which
+  covers the defects ruff and mypy do not report
   DO NOT USE FOR: FastAPI framework - use `backend-fastapi` skill instead
   DO NOT USE FOR: Django framework - use Django-specific skill
   DO NOT USE FOR: Package management - use `python-packaging` skill

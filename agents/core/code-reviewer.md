@@ -14,6 +14,7 @@ extended_skills:
   # loads the one that matches the diff, and pays nothing for the rest.
   - review/go
   - review/typescript
+  - review/python
   - best-practices/token-optimization
   - best-practices/clean-code
   - best-practices/solid-principles
