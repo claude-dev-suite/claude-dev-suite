@@ -46,6 +46,12 @@ If a project pins ruff to the default set, the four opt-in rows above are
 **your** job. Establish which it is by reading the config, once, rather than
 guessing per file.
 
+> **The table above dates; the tools do not.** Verify a default set with
+> `mcp__documentation__fetch_docs` on technology `ruff` — topics `rules`, `settings` (where `select` is decided).
+> Those entries point at the indexes the tool authors maintain, so they follow
+> the version the project actually pins rather than the one this skill was
+> written against.
+
 ## The checks that earn their place
 
 ### A coroutine created and never awaited

@@ -45,6 +45,12 @@ Clippy's default set is broad and on in most CI. Before commenting, assume it
 ran; check `#![allow(...)]` at crate root and `clippy.toml` for what was
 switched off, because that is where the interesting exemptions hide.
 
+> **The table above dates; the tools do not.** Verify a default set with
+> `mcp__documentation__fetch_docs` on technology `rust-quality` — topics `clippy-lints`, `rustc-lints`, `cargo-profiles`.
+> Those entries point at the indexes the tool authors maintain, so they follow
+> the version the project actually pins rather than the one this skill was
+> written against.
+
 ## The checks that earn their place
 
 ### `RefCell` moving an aliasing error to runtime

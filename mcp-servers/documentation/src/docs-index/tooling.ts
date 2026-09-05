@@ -22,6 +22,18 @@ export const TOOLING_TECHNOLOGIES = [
   "eslint",
   "cpp-quality",
   "ruff",
+  // Static analysis, per language. These back the "already covered by the
+  // toolchain" half of the `review/*` skills, which is the half that goes stale
+  // — a rule moves in or out of a default set with the tool, not with us. The
+  // entries are deliberately live-only (no `local`): the rule indexes are
+  // maintained by the tool authors, and a copy of ours would age faster than
+  // the skill it supports.
+  "go-quality",
+  "rust-quality",
+  "java-quality",
+  "dotnet-quality",
+  "kotlin-quality",
+  "swift-quality",
   // Validation
   "zod",
   "yup",
@@ -117,6 +129,12 @@ export const toolingDocs: DocsRecord = {
     rules: {
       local: "ruff/rules.md",
       url: "https://docs.astral.sh/ruff/rules/",
+    },
+    // Where `select` is set. The default is `E4, E7, E9, F` — far narrower
+    // than ruff's reputation — so whether B006, DTZ and ASYNC findings are the
+    // linter's job or the reviewer's is decided in this file.
+    settings: {
+      url: "https://docs.astral.sh/ruff/settings/",
     },
   },
 
@@ -312,6 +330,93 @@ export const toolingDocs: DocsRecord = {
     },
   },
 
+  // --- Static analysis, per language ------------------------------------
+  // Every entry here is live-only on purpose. These are rule indexes the tool
+  // authors maintain and version; a KB copy would diverge from the tool the
+  // reader is actually running, which is the one thing that must not happen
+  // when the question is "did the linter already report this?".
+
+  "go-quality": {
+    "go-vet": {
+      url: "https://pkg.go.dev/cmd/vet",
+    },
+    "staticcheck-checks": {
+      url: "https://staticcheck.dev/docs/checks/",
+    },
+    "golangci-lint-linters": {
+      url: "https://golangci-lint.run/usage/linters/",
+    },
+  },
+
+  "rust-quality": {
+    "clippy-lints": {
+      url: "https://rust-lang.github.io/rust-clippy/master/",
+    },
+    "rustc-lints": {
+      url: "https://doc.rust-lang.org/rustc/lints/listing/index.html",
+    },
+    // Where `overflow-checks` lives: on in debug, off in release, which is why
+    // an unsigned subtraction panics under `cargo test` and wraps in the
+    // binary users run.
+    "cargo-profiles": {
+      url: "https://doc.rust-lang.org/cargo/reference/profiles.html",
+    },
+  },
+
+  "java-quality": {
+    "spotbugs-bug-descriptions": {
+      url: "https://spotbugs.readthedocs.io/en/latest/bugDescriptions.html",
+    },
+    "errorprone-bugpatterns": {
+      url: "https://errorprone.info/bugpatterns",
+    },
+    nullaway: {
+      url: "https://github.com/uber/NullAway/wiki",
+    },
+    // `-Xlint` is the only analysis a plain build runs; the three above are
+    // separate build steps a Spring Boot starter does not have.
+    "javac-xlint": {
+      url: "https://docs.oracle.com/en/java/javase/21/docs/specs/man/javac.html",
+    },
+  },
+
+  "dotnet-quality": {
+    "code-analysis-rules": {
+      url: "https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/",
+    },
+    "nullable-reference-types": {
+      url: "https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references",
+    },
+  },
+
+  "kotlin-quality": {
+    detekt: {
+      url: "https://detekt.dev/",
+    },
+    "detekt-configuration": {
+      url: "https://detekt.dev/docs/introduction/configurations",
+    },
+    // The rule family that matters for review; detekt has no single rules
+    // index page, the categories are separate documents.
+    "detekt-potential-bugs": {
+      url: "https://detekt.dev/docs/rules/potential-bugs",
+    },
+    "detekt-suppressing": {
+      url: "https://detekt.dev/docs/introduction/suppressing-rules",
+    },
+  },
+
+  "swift-quality": {
+    "swiftlint-rules": {
+      url: "https://realm.github.io/SwiftLint/rule-directory.html",
+    },
+    // Whether the data-race findings are compile errors or review findings is
+    // decided here, not by the language version alone.
+    "swift-6-migration": {
+      url: "https://www.swift.org/migration/documentation/migrationguide/",
+    },
+  },
+
   "cpp-quality": {
     "clang-tidy": {
       local: "cpp-quality/clang-tidy.md",
@@ -324,6 +429,20 @@ export const toolingDocs: DocsRecord = {
     "clang-format": {
       local: "cpp-quality/clang-format.md",
       url: "https://clang.llvm.org/docs/ClangFormat.html",
+    },
+    // The warning set itself, which is OFF by default: a CMake project that
+    // never sets `-Wall -Wextra` compiles almost silently, and then every
+    // "already covered" row in `review/cpp` moves into the reviewer's column.
+    "gcc-warning-options": {
+      url: "https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html",
+    },
+    // Sanitizers catch most lifetime defects — but only on executed paths, so
+    // an untested branch is exactly where they survive.
+    "address-sanitizer": {
+      url: "https://clang.llvm.org/docs/AddressSanitizer.html",
+    },
+    "undefined-behavior-sanitizer": {
+      url: "https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html",
     },
     "clang-format-style": {
       local: "cpp-quality/clang-format-style.md",

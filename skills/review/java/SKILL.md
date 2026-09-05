@@ -44,6 +44,12 @@ absent — and in a plain Spring Boot starter they are — then rows 5 through 8
 review findings, not tool findings. That is one comment about the build, plus
 the specific instances.
 
+> **The table above dates; the tools do not.** Verify a default set with
+> `mcp__documentation__fetch_docs` on technology `java-quality` — topics `spotbugs-bug-descriptions`, `errorprone-bugpatterns`, `javac-xlint`, `nullaway`.
+> Those entries point at the indexes the tool authors maintain, so they follow
+> the version the project actually pins rather than the one this skill was
+> written against.
+
 ## The checks that earn their place
 
 ### An `Optional` that reintroduces the null it replaced

@@ -8,6 +8,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Authoritative analyser references behind the `review/*` skills.** Each
+  review skill carries a table of what the toolchain already reports, and that
+  half is the one that dates: a rule moves in or out of a default set with the
+  tool, not with us. Only three of the eleven languages had anything in the
+  documentation index backing it — `ruff`, `eslint` and `clang-tidy`.
+
+  Added `go-quality`, `rust-quality`, `java-quality`, `dotnet-quality`,
+  `kotlin-quality` and `swift-quality`, extended `cpp-quality` with the GCC
+  warning set and the sanitizers, `ruff` with `settings` (where `select` is
+  decided), and `typescript` with `tsconfig` — the two settings that matter most
+  for review, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`, are
+  not in `strict`.
+
+  Every new entry is **live-only** on purpose. `DocEntry.local` is what makes
+  `fetch_docs` attempt a sparse checkout, so naming a file the knowledge base
+  never wrote costs a failed checkout and an error log on every request. More
+  to the point: these indexes are maintained and versioned by the tool authors,
+  and a copy of ours would diverge from the tool the reader is running — the one
+  thing that must not happen when the question is "did the linter already report
+  this?". The pinned live-only list in `tests/docs-index.test.ts` is updated
+  accordingly, which is that guard working as designed.
+
+  Each skill now points at its index from directly under the table, so the
+  reader can check the version their project pins rather than the one the skill
+  was written against.
+
 ### Fixed
 
 - **An `-rc` tag published as a stable release, and the updater offered it.**

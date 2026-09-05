@@ -52,6 +52,12 @@ clang-tidy target and no sanitizer preset, then rows 1-9 are all yours. That is
 one comment about the build, followed by the specific instances — not a
 per-line campaign.
 
+> **The table above dates; the tools do not.** Verify a default set with
+> `mcp__documentation__fetch_docs` on technology `cpp-quality` — topics `gcc-warning-options`, `clang-tidy-checks`, `address-sanitizer`, `undefined-behavior-sanitizer`.
+> Those entries point at the indexes the tool authors maintain, so they follow
+> the version the project actually pins rather than the one this skill was
+> written against.
+
 ## The checks that earn their place
 
 ### A guard that guards nothing

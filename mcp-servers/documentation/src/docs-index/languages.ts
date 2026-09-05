@@ -48,6 +48,12 @@ export const languageDocs: DocsRecord = {
       local: "typescript/generics.md",
       url: "https://www.typescriptlang.org/docs/handbook/2/generics.html",
     },
+    // The compiler's strictness is a setting, and the two that matter most for
+    // review are NOT in `strict`: `noUncheckedIndexedAccess` (so `rows[0]` is
+    // typed as present) and `exactOptionalPropertyTypes`.
+    tsconfig: {
+      url: "https://www.typescriptlang.org/tsconfig/",
+    },
     "utility-types": {
       local: "typescript/utility-types.md",
       url: "https://www.typescriptlang.org/docs/handbook/utility-types.html",
