@@ -120,6 +120,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   for the pool it occupies, and a `private` constructor does **not** close a
   `data class` — the generated `copy` stays public and re-exposes it.
 
+- **`review/csharp`**, the eighth language. C# ships a large analyzer set in the
+  SDK, but its two most valuable guarantees — nullable reference types and
+  warnings-as-errors — are **opt-in per project**, so the review starts by
+  reading the `.csproj`. With `<Nullable>` disabled there are no null guarantees
+  at all, and that is one architectural comment rather than a per-line campaign.
+
+  Two places the skill is deliberately precise, because the superficial review
+  gets them wrong. `ConfigureAwait(false)` matters in libraries and is **noise**
+  in an ASP.NET Core app, which has no synchronization context. And the captured
+  loop variable was fixed for `foreach` in C# 5 — it is the three-clause `for`
+  that never changed and is still the one worth flagging.
+
+  The finding nothing reports: a `CancellationToken` accepted and never
+  forwarded. The signature promises cooperative cancellation, the body does not
+  deliver it, and to the compiler the parameter counts as used.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed
