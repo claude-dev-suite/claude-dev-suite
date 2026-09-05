@@ -15,6 +15,7 @@ extended_skills:
   - review/go
   - review/typescript
   - review/python
+  - review/java
   - best-practices/token-optimization
   - best-practices/clean-code
   - best-practices/solid-principles

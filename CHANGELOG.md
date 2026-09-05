@@ -53,6 +53,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   result is discarded can be collected mid-flight, because the loop holds only a
   weak reference — intermittently, under load.
 
+- **`review/java`**, the fourth language. Java's trap is the inverse of
+  Python's: its static analysis is not narrow by default, it is **absent** by
+  default. `javac` alone reports very little, and SpotBugs, ErrorProne and
+  NullAway are separate build steps a plain Spring Boot starter does not have —
+  so `equals` without `hashCode`, boxed `==`, and string comparison by reference
+  are review findings in most projects rather than tool findings.
+
+  The checks lean where Java's defaults surprise: an `Optional` reintroducing
+  the null it replaced, `stream.toList()` (immutable since 16) mutated
+  downstream, a JPA entity whose `equals` uses a generated id that is null
+  before persist and changes on flush, a `ThreadLocal` never removed on a pooled
+  container thread — which leaks the previous request's context into the next
+  one — and `synchronized` around I/O inside a virtual thread, the one construct
+  that pins the carrier and defeats the model.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed
