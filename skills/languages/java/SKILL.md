@@ -7,6 +7,8 @@ description: |
   USE WHEN: user mentions "java", "records", "sealed classes", "streams", asks about
   "pattern matching", "switch expressions", "Optional", "collections", "generics"
 
+  DO NOT USE FOR: reviewing existing Java code - use `review/java`, which covers
+  the defects javac and an unconfigured build do not report
   DO NOT USE FOR: Spring Boot specifics - use `backend-spring-boot` skill instead
   DO NOT USE FOR: Lombok annotations - use `lombok` skill instead
   DO NOT USE FOR: MapStruct - use `mapstruct` skill instead
