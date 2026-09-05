@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-09-05
+
 ### Changed
 
 - **A dev-suite install is now committable, so a clone arrives working.** The
@@ -52,6 +54,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and ~7.8 MB for `skill-loader`, most of which is the markdown skill payload
   that lazy loading exists to serve.
 
+- **Fifteen pending dependency updates applied as one verified batch**, across
+  `mcp-servers`, the dashboard and the dashboard server. Notably TypeScript
+  5.9.3 → 7.0.2: the new compiler removed `baseUrl`, and the server's `paths`
+  were already written relative to the config, so dropping it leaves module
+  resolution unchanged.
+
+- **A second batch of fifteen dependency updates**, this time including six
+  major bumps, each verified rather than taken on faith: Electron 40 → 44,
+  jsdom 24 → 30, zod 3 → 4 across nine MCP servers, `@types/node` 25 → 26,
+  `open` 10 → 11 and the Claude Agent SDK 0.2 → 0.3.
+
+  Two needed more than a version change. **zod 4 removed the single-argument
+  `z.record(valueSchema)` overload** — the key schema is now mandatory, so
+  `z.record(z.string())` read its lone argument as the *key* type and inferred
+  an unknown value type, breaking the build of `api-tester` and
+  `performance-profiler`. All six call sites meant `Record<string, string>`
+  (HTTP headers, template variables) and now say so explicitly.
+
+  **Electron was verified by building the installer, not by CI**, which runs no
+  Electron step at all: a green pipeline says nothing about the desktop app.
+  The NSIS build produces the full Windows artifact set on 44.
+
 ### Fixed
 
 - **Two callers could hold the same knowledge-base clone lock.** Judging a lock
@@ -67,20 +91,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   serialised by a marker created *inside* the lock — winning it proves we hold
   the directory we judged rather than merely its name.
 
-### Changed
-
-- **Fifteen pending dependency updates applied as one verified batch**, across
-  `mcp-servers`, the dashboard and the dashboard server. Notably TypeScript
-  5.9.3 → 7.0.2: the new compiler removed `baseUrl`, and the server's `paths`
-  were already written relative to the config, so dropping it leaves module
-  resolution unchanged.
-
 ### Internal
 
 - **The `e2e` status check was required but could never report.** It was moved
   off the PR gate in #65 and left as `workflow_dispatch`, while the branch
   ruleset went on requiring it — so every pull request since sat in `BLOCKED`
   regardless of its CI. Removed from the required checks; E2E stays manual.
+
+- **The test workflows moved to Node 22.** `jsdom` 30 pulls in `undici` 8,
+  which calls `worker_threads.markAsUncloneable` — absent from the Node 20 the
+  workflows pinned, so every Vitest worker died during setup with
+  `TypeError: webidl.util.markAsUncloneable is not a function`. It read as a
+  jsdom incompatibility and was not one: the same branch on Node 22 passes the
+  frontend suite whole. Node 20 was deprecated on GitHub Actions regardless —
+  every run already logged that the actions were being forced onto Node 24.
 
 ## [1.13.0] - 2026-09-02
 
