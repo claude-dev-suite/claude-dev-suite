@@ -19,6 +19,7 @@
  */
 
 import type { McpServerEntry } from '../target-adapter.js';
+import { portableArgs } from './mcp-config.writer.js';
 
 /** A TOML basic-string, escaped. Only the cases our values can contain. */
 function tomlString(value: string): string {
@@ -39,12 +40,21 @@ function tomlStringArray(values: string[]): string {
 function renderServer(name: string, entry: McpServerEntry): string {
   const lines = [`[mcp_servers.${tomlBareOrQuoted(name)}]`];
   lines.push(`command = ${tomlString(entry.command)}`);
-  lines.push(`args = ${tomlStringArray(entry.args)}`);
-  const envKeys = Object.keys(entry.env);
+  lines.push(`args = ${tomlStringArray(portableArgs(entry))}`);
+
+  // Codex has no string interpolation, but it has something better for this:
+  // `env_vars` forwards a variable from the launching environment by name. So a
+  // secret is listed rather than written, and `.codex/config.toml` — a file
+  // teams commit on purpose, since it is the whole project configuration —
+  // stays free of credentials.
+  const secrets = (entry.secretEnvNames ?? []).filter(key => key in entry.env);
+  const literalKeys = Object.keys(entry.env).filter(key => !secrets.includes(key));
+  if (secrets.length > 0) lines.push(`env_vars = ${tomlStringArray(secrets)}`);
+
   let block = lines.join('\n');
-  if (envKeys.length > 0) {
+  if (literalKeys.length > 0) {
     const envLines = [`[mcp_servers.${tomlBareOrQuoted(name)}.env]`];
-    for (const key of envKeys) {
+    for (const key of literalKeys) {
       envLines.push(`${tomlBareOrQuoted(key)} = ${tomlString(entry.env[key] ?? '')}`);
     }
     block += '\n' + envLines.join('\n');

@@ -110,7 +110,10 @@ describe('worktree end-to-end', () => {
     expect(tracked).toContain('.dev-suite.json');
     expect(tracked).toContain('.claude/agents/react-expert.md');
     expect(tracked).not.toContain('.mcp.json');
-    expect(tracked.some(f => f.startsWith('.mcp-servers/'))).toBe(false);
+    // The bundles are committed on purpose now — they are what makes a clone
+    // work without installing dev-suite. They carry no credential, which the
+    // per-file check below enforces for every tracked file including these.
+    expect(tracked.some(f => f.startsWith('.mcp-servers/'))).toBe(true);
 
     for (const file of tracked) {
       const content = git(repo, 'show', `HEAD:${file}`).stdout;
@@ -136,7 +139,9 @@ describe('worktree end-to-end', () => {
     expect(fs.existsSync(path.join(worktree, '.dev-suite.json'))).toBe(true);
     expect(fs.existsSync(path.join(worktree, '.claude', 'agents', 'react-expert.md'))).toBe(true);
     expect(fs.existsSync(path.join(worktree, '.mcp.json'))).toBe(false);
-    expect(fs.existsSync(path.join(worktree, '.mcp-servers'))).toBe(false);
+    // Committed now, so a worktree checks them out like any other tracked file
+    // — one less thing materializeLocal has to borrow from the main checkout.
+    expect(fs.existsSync(path.join(worktree, '.mcp-servers'))).toBe(true);
 
     // ---- Detection ----------------------------------------------------
     const info = detectWorktree(worktree);
@@ -154,18 +159,21 @@ describe('worktree end-to-end', () => {
     expect(result.written).toContain('.mcp.json');
     expect(result.secretsApplied).toEqual(['DATABASE_URL']);
 
-    const config = JSON.parse(fs.readFileSync(path.join(worktree, '.mcp.json'), 'utf-8'));
+    const raw = fs.readFileSync(path.join(worktree, '.mcp.json'), 'utf-8');
+    const config = JSON.parse(raw);
     const entry = config.mcpServers['database-query'];
-    expect(entry.env).toEqual({ DATABASE_URL: DB_URL });
-    // The server resolves: an absolute path into the MAIN checkout's bundles,
-    // which the worktree never copied.
-    expect(path.isAbsolute(entry.args[0])).toBe(true);
-    expect(fs.existsSync(entry.args[0])).toBe(true);
-    expect(fs.realpathSync(entry.args[0])).toBe(
-      fs.realpathSync(path.join(repo, '.mcp-servers', 'database-query', 'dist', 'index.js'))
-    );
-    // And the materialized config is still not something git will pick up.
-    expect(git(worktree, 'status', '--porcelain').stdout).not.toContain('.mcp.json');
+
+    // The credential is referenced, never written: it stays in the store, and
+    // the rebuilt config carries nothing worth hiding.
+    expect(entry.env).toEqual({ DATABASE_URL: '${DATABASE_URL}' });
+    expect(raw).not.toContain(DB_URL);
+    expect(raw).not.toContain('s3cr3t-pw');
+
+    // The bundles are tracked, so the worktree has its own copy and the entry
+    // resolves inside it — no borrowing from the main checkout any more.
+    expect(entry.args[0]).toBe('${CLAUDE_PROJECT_DIR:-.}/.mcp-servers/database-query/dist/index.js');
+    expect(fs.existsSync(path.join(worktree, '.mcp-servers', 'database-query', 'dist', 'index.js')))
+      .toBe(true);
 
     git(repo, 'worktree', 'remove', '--force', worktree);
   });

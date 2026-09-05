@@ -93,6 +93,10 @@ describe('materializeLocal', () => {
         command: 'node',
         args: [entryFor(main, 'database-query')],
         env: { DATABASE_URL: DB_URL },
+        // The bundle lives in the main checkout, outside this project, so no
+        // relative path is expressible — but the credential is still stored,
+        // so the writers must render it as a reference.
+        secretEnvNames: ['DATABASE_URL'],
       },
     };
     const previouslyManaged = ['database-query'];
@@ -168,7 +172,9 @@ describe('materializeLocal', () => {
     await materializeLocal(project, { store, mainCheckout: main, extraEnvVars: { KB_CACHE_TTL: '7200' } });
 
     const config = JSON.parse(fs.readFileSync(path.join(project, '.mcp.json'), 'utf-8'));
-    expect(config.mcpServers['database-query'].env).toEqual({ DATABASE_URL: DB_URL });
+    // Referenced, not written: the value stays in ~/.dev-suite/env.
+    expect(config.mcpServers['database-query'].env).toEqual({ DATABASE_URL: '${DATABASE_URL}' });
+    expect(JSON.stringify(config)).not.toContain('s3cr3t-pw');
     // The database URL must not leak into a server that never asked for it.
     expect(config.mcpServers.documentation.env).toEqual({ KB_CACHE_TTL: '7200' });
     expect(JSON.stringify(config.mcpServers.documentation)).not.toContain('s3cr3t-pw');
