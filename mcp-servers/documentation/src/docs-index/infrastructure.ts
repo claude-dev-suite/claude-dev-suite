@@ -70,11 +70,9 @@ export const infrastructureDocs: DocsRecord = {
 
   "docker-compose": {
     services: {
-      local: "docker-compose/services.md",
       url: "https://docs.docker.com/compose/compose-file/05-services/",
     },
     commands: {
-      local: "docker-compose/commands.md",
       url: "https://docs.docker.com/compose/reference/",
     },
   },
@@ -243,22 +241,18 @@ export const infrastructureDocs: DocsRecord = {
 
   caddy: {
     caddyfile: {
-      local: "caddy/caddyfile.md",
       url: "https://caddyserver.com/docs/caddyfile",
     },
     "automatic-https": {
-      local: "caddy/automatic-https.md",
       url: "https://caddyserver.com/docs/automatic-https",
     },
   },
 
   traefik: {
     "docker-provider": {
-      local: "traefik/docker-provider.md",
       url: "https://doc.traefik.io/traefik/providers/docker/",
     },
     middlewares: {
-      local: "traefik/middlewares.md",
       url: "https://doc.traefik.io/traefik/middlewares/overview/",
     },
   },
@@ -351,7 +345,6 @@ export const infrastructureDocs: DocsRecord = {
 
   "email-infrastructure": {
     "dns-email-auth": {
-      local: "email/email-infrastructure.md",
       url: "https://www.dmarcanalyzer.com/",
     },
   },
@@ -369,18 +362,15 @@ export const infrastructureDocs: DocsRecord = {
       url: "https://nginx.org/en/docs/http/ngx_http_upstream_module.html",
     },
     haproxy: {
-      local: "load-balancer/haproxy.md",
       url: "https://www.haproxy.org/download/2.8/doc/configuration.txt",
     },
   },
 
   waf: {
     "modsecurity-crs": {
-      local: "waf/modsecurity.md",
       url: "https://coreruleset.org/docs/",
     },
     "cloudflare-waf": {
-      local: "waf/cloudflare-waf.md",
       url: "https://developers.cloudflare.com/waf/",
     },
   },

@@ -115,42 +115,33 @@ export const backendDocs: DocsRecord = {
   // technologies the KB has not covered.
   fastify: {
     routes: {
-      local: "fastify/routes.md",
       url: "https://fastify.dev/docs/latest/Reference/Routes/",
     },
     hooks: {
-      local: "fastify/hooks.md",
       url: "https://fastify.dev/docs/latest/Reference/Hooks/",
     },
     plugins: {
-      local: "fastify/plugins.md",
       url: "https://fastify.dev/docs/latest/Reference/Plugins/",
     },
     validation: {
-      local: "fastify/validation.md",
       url: "https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/",
     },
     testing: {
-      local: "fastify/testing.md",
       url: "https://fastify.dev/docs/latest/Guides/Testing/",
     },
   },
 
   hono: {
     routing: {
-      local: "hono/routing.md",
       url: "https://hono.dev/docs/api/routing",
     },
     context: {
-      local: "hono/context.md",
       url: "https://hono.dev/docs/api/context",
     },
     middleware: {
-      local: "hono/middleware.md",
       url: "https://hono.dev/docs/guides/middleware",
     },
     testing: {
-      local: "hono/testing.md",
       url: "https://hono.dev/docs/guides/testing",
     },
   },
@@ -171,23 +162,18 @@ export const backendDocs: DocsRecord = {
   // /en/stable/ paths are live aliases, so they track releases.
   django: {
     routing: {
-      local: "django/routing.md",
       url: "https://docs.djangoproject.com/en/stable/topics/http/urls/",
     },
     models: {
-      local: "django/models.md",
       url: "https://docs.djangoproject.com/en/stable/topics/db/models/",
     },
     templates: {
-      local: "django/templates.md",
       url: "https://docs.djangoproject.com/en/stable/topics/templates/",
     },
     testing: {
-      local: "django/testing.md",
       url: "https://docs.djangoproject.com/en/stable/topics/testing/",
     },
     deployment: {
-      local: "django/deployment.md",
       url: "https://docs.djangoproject.com/en/stable/howto/deployment/",
     },
   },
@@ -196,23 +182,18 @@ export const backendDocs: DocsRecord = {
   // handling all live in Quickstart, so that is the topic key.
   flask: {
     quickstart: {
-      local: "flask/quickstart.md",
       url: "https://flask.palletsprojects.com/en/stable/quickstart/",
     },
     blueprints: {
-      local: "flask/blueprints.md",
       url: "https://flask.palletsprojects.com/en/stable/blueprints/",
     },
     templates: {
-      local: "flask/templates.md",
       url: "https://flask.palletsprojects.com/en/stable/templating/",
     },
     testing: {
-      local: "flask/testing.md",
       url: "https://flask.palletsprojects.com/en/stable/testing/",
     },
     deploying: {
-      local: "flask/deploying.md",
       url: "https://flask.palletsprojects.com/en/stable/deploying/",
     },
   },
@@ -653,72 +634,57 @@ export const backendDocs: DocsRecord = {
   // Rust frameworks
   "actix-web": {
     routing: {
-      local: "actix-web/routing.md",
       url: "https://actix.rs/docs/url-dispatch",
     },
     extractors: {
-      local: "actix-web/extractors.md",
       url: "https://actix.rs/docs/extractors",
     },
     middleware: {
-      local: "actix-web/middleware.md",
       url: "https://actix.rs/docs/middleware",
     },
     state: {
-      local: "actix-web/state.md",
       url: "https://actix.rs/docs/application#state",
     },
   },
 
   axum: {
     routing: {
-      local: "axum/routing.md",
       url: "https://docs.rs/axum/latest/axum/#routing",
     },
     handlers: {
-      local: "axum/handlers.md",
       url: "https://docs.rs/axum/latest/axum/#handlers",
     },
     extractors: {
-      local: "axum/extractors.md",
       url: "https://docs.rs/axum/latest/axum/#extractors",
     },
     state: {
-      local: "axum/state.md",
       url: "https://docs.rs/axum/latest/axum/#sharing-state-with-handlers",
     },
   },
 
   rocket: {
     routing: {
-      local: "rocket/routing.md",
       url: "https://rocket.rs/guide/v0.5/requests/",
     },
     guards: {
-      local: "rocket/guards.md",
       url: "https://rocket.rs/guide/v0.5/requests/#request-guards",
     },
     fairings: {
-      local: "rocket/fairings.md",
       url: "https://rocket.rs/guide/v0.5/fairings/",
     },
     state: {
-      local: "rocket/state.md",
       url: "https://rocket.rs/guide/v0.5/state/",
     },
   },
 
   warp: {
     filters: {
-      local: "warp/filters.md",
       url: "https://docs.rs/warp/latest/warp/filters/",
     },
     routing: {
-      local: "warp/routing.md",
       url: "https://docs.rs/warp/latest/warp/#routing",
     },
     rejections: {
-      local: "warp/rejections.md",
       url: "https://docs.rs/warp/latest/warp/reject/",
     },
   },
@@ -726,60 +692,48 @@ export const backendDocs: DocsRecord = {
   // Go frameworks
   gin: {
     routing: {
-      local: "gin/routing.md",
       url: "https://gin-gonic.com/en/docs/",
     },
     middleware: {
-      local: "gin/middleware.md",
       url: "https://gin-gonic.com/en/docs/middleware/using-middleware/",
     },
     binding: {
-      local: "gin/binding.md",
       url: "https://gin-gonic.com/en/docs/",
     },
   },
 
   fiber: {
     routing: {
-      local: "fiber/routing.md",
       url: "https://docs.gofiber.io/guide/routing",
     },
     middleware: {
-      local: "fiber/middleware.md",
       url: "https://docs.gofiber.io/category/-middleware",
     },
     context: {
-      local: "fiber/context.md",
       url: "https://docs.gofiber.io/api/ctx",
     },
   },
 
   echo: {
     routing: {
-      local: "echo/routing.md",
       url: "https://echo.labstack.com/docs/routing",
     },
     middleware: {
-      local: "echo/middleware.md",
       url: "https://echo.labstack.com/docs/category/middleware",
     },
     binding: {
-      local: "echo/binding.md",
       url: "https://echo.labstack.com/docs/binding",
     },
   },
 
   chi: {
     routing: {
-      local: "chi/routing.md",
       url: "https://go-chi.io/#/README",
     },
     middleware: {
-      local: "chi/middleware.md",
       url: "https://go-chi.io/#/README?id=middleware",
     },
     patterns: {
-      local: "chi/patterns.md",
       url: "https://go-chi.io/#/README?id=sub-routers",
     },
   },
@@ -787,34 +741,27 @@ export const backendDocs: DocsRecord = {
   // Deno frameworks
   fresh: {
     islands: {
-      local: "fresh/islands.md",
       url: "https://fresh.deno.dev/docs/concepts/islands",
     },
     routes: {
-      local: "fresh/routes.md",
       url: "https://fresh.deno.dev/docs/concepts/routing",
     },
     handlers: {
-      local: "fresh/handlers.md",
       url: "https://fresh.deno.dev/docs/concepts/routing",
     },
     signals: {
-      local: "fresh/signals.md",
       url: "https://fresh.deno.dev/docs/concepts/islands",
     },
   },
 
   oak: {
     routing: {
-      local: "oak/routing.md",
       url: "https://oakserver.github.io/oak/",
     },
     middleware: {
-      local: "oak/middleware.md",
       url: "https://oakserver.github.io/oak/",
     },
     context: {
-      local: "oak/context.md",
       url: "https://oakserver.github.io/oak/",
     },
   },

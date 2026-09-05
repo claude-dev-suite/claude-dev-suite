@@ -22,19 +22,15 @@ export const LANGUAGE_TECHNOLOGIES = [
 export const languageDocs: DocsRecord = {
   javascript: {
     modules: {
-      local: "javascript/modules.md",
       url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules",
     },
     "es6-features": {
-      local: "javascript/es6-features.md",
       url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference",
     },
     async: {
-      local: "javascript/async.md",
       url: "https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Asynchronous",
     },
     "esm-vs-cjs": {
-      local: "javascript/esm-vs-cjs.md",
       url: "https://nodejs.org/api/esm.html",
     },
   },
@@ -90,23 +86,18 @@ export const languageDocs: DocsRecord = {
 
   bun: {
     basics: {
-      local: "bun/basics.md",
       url: "https://bun.sh/docs",
     },
     runtime: {
-      local: "bun/runtime.md",
       url: "https://bun.sh/docs/runtime",
     },
     bundler: {
-      local: "bun/bundler.md",
       url: "https://bun.sh/docs/bundler",
     },
     "test-runner": {
-      local: "bun/test-runner.md",
       url: "https://bun.sh/docs/cli/test",
     },
     sqlite: {
-      local: "bun/sqlite.md",
       url: "https://bun.sh/docs/api/sqlite",
     },
   },
@@ -200,23 +191,18 @@ export const languageDocs: DocsRecord = {
 
   deno: {
     basics: {
-      local: "deno/basics.md",
       url: "https://docs.deno.com/runtime/",
     },
     permissions: {
-      local: "deno/permissions.md",
       url: "https://docs.deno.com/runtime/fundamentals/security/",
     },
     std: {
-      local: "deno/std.md",
       url: "https://jsr.io/@std",
     },
     deploy: {
-      local: "deno/deploy.md",
       url: "https://docs.deno.com/deploy/",
     },
     kv: {
-      local: "deno/kv.md",
       url: "https://docs.deno.com/deploy/kv/manual/",
     },
   },

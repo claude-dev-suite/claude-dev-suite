@@ -8,6 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **168 index entries declared a knowledge-base article that has never existed.**
+  Each named a `local` path, so every request paid a failed sparse checkout and
+  an error log before falling through to `url` — precisely the waste the
+  `DocEntry.local` doc comment describes, in the past tense, as the way those
+  topics "used to be spelled".
+
+  They were not lost or stranded on a branch: the knowledge base has two
+  branches and thirty-one commits, and `git log --all` finds **no commit
+  touching any of them**. Whole technologies — `astro`, `bun`, `deno`, `nuxt`,
+  `remix`, `fastify`, `django`, `flask`, `solid`, `nx`, `opentelemetry` — were
+  added to the index with the articles left for later, and later did not come.
+
+  Dropping `local` from those entries states the truth and skips the checkout.
+  Nothing is lost: all 168 carry a `url`, so they were already being served from
+  the official upstream — which for these frameworks is better than a copy of
+  ours would be, and does not drift from the version the reader is running. That
+  is the same reasoning the analyser references were added under.
+
+  The pinned live-only list in `tests/docs-index.test.ts` goes from 43 to 211
+  entries, and its comment now records why most of it is a correction rather
+  than a series of choices.
+
 ### Added
 
 - **Three knowledge-base articles that no upstream publishes**, registered as

@@ -91,23 +91,18 @@ export const databaseDocs: DocsRecord = {
 
   elasticsearch: {
     basics: {
-      local: "elasticsearch/basics.md",
       url: "https://www.elastic.co/guide/en/elasticsearch/reference/current/getting-started.html",
     },
     queries: {
-      local: "elasticsearch/queries.md",
       url: "https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html",
     },
     aggregations: {
-      local: "elasticsearch/aggregations.md",
       url: "https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations.html",
     },
     mapping: {
-      local: "elasticsearch/mapping.md",
       url: "https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping.html",
     },
     "nodejs-client": {
-      local: "elasticsearch/nodejs-client.md",
       url: "https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/current/introduction.html",
     },
   },
@@ -133,22 +128,18 @@ export const databaseDocs: DocsRecord = {
 
   drizzle: {
     schema: {
-      local: "drizzle/schema.md",
       url: "https://orm.drizzle.team/docs/sql-schema-declaration",
     },
     queries: {
-      local: "drizzle/queries.md",
       url: "https://orm.drizzle.team/docs/select",
     },
   },
 
   typeorm: {
     entities: {
-      local: "typeorm/entities.md",
       url: "https://typeorm.io/entities",
     },
     queries: {
-      local: "typeorm/queries.md",
       url: "https://typeorm.io/find-options",
     },
   },

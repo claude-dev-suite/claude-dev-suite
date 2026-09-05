@@ -38,33 +38,27 @@ export const standardsDocs: DocsRecord = {
 
   "git-workflow": {
     commands: {
-      local: "git-workflow/commands.md",
       url: "https://git-scm.com/docs",
     },
     branching: {
-      local: "git-workflow/branching.md",
       url: "https://nvie.com/posts/a-successful-git-branching-model/",
     },
   },
 
   "clean-code": {
     principles: {
-      local: "clean-code/principles.md",
       url: "https://www.oreilly.com/library/view/clean-code-a/9780136083238/",
     },
     refactoring: {
-      local: "clean-code/refactoring.md",
       url: "https://refactoring.guru/refactoring",
     },
   },
 
   performance: {
     frontend: {
-      local: "performance/frontend.md",
       url: "https://web.dev/performance/",
     },
     backend: {
-      local: "performance/backend.md",
       url: "https://developer.mozilla.org/en-US/docs/Learn/Performance",
     },
   },

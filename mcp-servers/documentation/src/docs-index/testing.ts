@@ -84,11 +84,9 @@ export const testingDocs: DocsRecord = {
 
   cypress: {
     commands: {
-      local: "cypress/commands.md",
       url: "https://docs.cypress.io/api/table-of-contents",
     },
     patterns: {
-      local: "cypress/patterns.md",
       url: "https://docs.cypress.io/guides/references/best-practices",
     },
   },

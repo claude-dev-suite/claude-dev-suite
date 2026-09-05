@@ -159,11 +159,9 @@ export const frontendDocs: DocsRecord = {
 
   "redux-toolkit": {
     slices: {
-      local: "redux-toolkit/slices.md",
       url: "https://redux-toolkit.js.org/api/createSlice",
     },
     "rtk-query": {
-      local: "redux-toolkit/rtk-query.md",
       url: "https://redux-toolkit.js.org/rtk-query/overview",
     },
   },
@@ -246,23 +244,18 @@ export const frontendDocs: DocsRecord = {
   // `solid` was another record-less entry; no KB content, so live-only.
   solid: {
     signals: {
-      local: "solid/signals.md",
       url: "https://docs.solidjs.com/concepts/signals",
     },
     effects: {
-      local: "solid/effects.md",
       url: "https://docs.solidjs.com/concepts/effects",
     },
     stores: {
-      local: "solid/stores.md",
       url: "https://docs.solidjs.com/concepts/stores",
     },
     routing: {
-      local: "solid/routing.md",
       url: "https://docs.solidjs.com/guides/routing-and-navigation",
     },
     "data-fetching": {
-      local: "solid/data-fetching.md",
       url: "https://docs.solidjs.com/guides/fetching-data",
     },
   },
