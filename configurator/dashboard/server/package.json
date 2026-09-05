@@ -17,7 +17,7 @@
     "uninstall": "node dist/cli/uninstall.js"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.128",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.258",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
