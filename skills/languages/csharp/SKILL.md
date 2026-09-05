@@ -7,6 +7,8 @@ description: |
   USE WHEN: user mentions "C#", "C# records", "pattern matching", "LINQ", "async/await",
   "nullable reference types", "C# generics", "C# language features"
 
+  DO NOT USE FOR: reviewing existing C# code - use `review/csharp`, which covers
+  async, disposal and the guarantees that are opt-in per project
   DO NOT USE FOR: TypeScript - use `typescript`, Java - use Java skills,
   F# or VB.NET specific features
 allowed-tools: Read, Grep, Glob, Write, Edit
