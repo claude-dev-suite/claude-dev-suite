@@ -320,7 +320,7 @@ describe('ReinstallService', () => {
     expect(after.skillListingBudgetFraction).toBeDefined();
   });
 
-  it('produces .mcp.json with absolute server paths after reinstall (lazy mode)', async () => {
+  it('produces .mcp.json with portable server paths after reinstall (lazy mode)', async () => {
     createMockSkillLoader(devSuiteDir);
     // lazy mode: skill-loader auto-included
     await installationService.install({ projectPath: projectDir, agents: ['typescript-expert'], mcpServers: [], envVars: { DEV_SUITE_ROOT: devSuiteDir } });
@@ -335,11 +335,17 @@ describe('ReinstallService', () => {
     expect(result.success).toBe(true);
     expect(fs.existsSync(customSkill)).toBe(true);
 
-    const mcp = JSON.parse(fs.readFileSync(path.join(projectDir, '.mcp.json'), 'utf-8'));
+    const raw = fs.readFileSync(path.join(projectDir, '.mcp.json'), 'utf-8');
+    const mcp = JSON.parse(raw);
     for (const entry of Object.values(mcp.mcpServers ?? {}) as Array<{ args?: string[] }>) {
       const scriptArg = entry.args?.find(a => a.endsWith('.js'));
-      if (scriptArg) expect(path.isAbsolute(scriptArg)).toBe(true);
+      if (!scriptArg) continue;
+      // A reinstall must not re-introduce a machine-specific path: this file is
+      // committed, and an absolute one is wrong on every other checkout.
+      expect(path.isAbsolute(scriptArg)).toBe(false);
+      expect(scriptArg).toBe('${CLAUDE_PROJECT_DIR:-.}/.mcp-servers/skill-loader/dist/index.js');
     }
+    expect(raw).not.toContain(projectDir);
     expect(result.verifyWarnings).toEqual([]);
   });
 
