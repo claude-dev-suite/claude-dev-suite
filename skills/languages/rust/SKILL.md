@@ -7,6 +7,8 @@ description: |
   USE WHEN: user mentions "rust", "ownership", "borrowing", "lifetimes", asks about
   "borrow checker", "cargo", "traits", "Result type", "async rust", "tokio"
 
+  DO NOT USE FOR: reviewing existing Rust code - use `review/rust`, which covers
+  the few defects rustc and clippy structurally cannot reach
   DO NOT USE FOR: Actix/Axum/Rocket frameworks - use framework-specific skills
   DO NOT USE FOR: WASM - use WebAssembly-specific skill
   DO NOT USE FOR: Tauri - use `tauri` skill instead
