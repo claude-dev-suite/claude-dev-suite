@@ -22,6 +22,7 @@ extended_skills:
   - review/csharp
   - review/sql
   - review/swift
+  - review/nodejs
   - best-practices/token-optimization
   - best-practices/clean-code
   - best-practices/solid-principles
