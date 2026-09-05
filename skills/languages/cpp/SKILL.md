@@ -9,6 +9,8 @@ description: |
   "templates", "concepts", "ranges", "move semantics", "std::expected", "std::span",
   "coroutines", "modules", "STL"
 
+  DO NOT USE FOR: reviewing existing C++ code - use `review/cpp`, which covers
+  the lifetime and ownership claims the compiler does not check
   DO NOT USE FOR: C (use a C-specific skill), C# (use `csharp`),
   Objective-C++, Carbon, kernel/no-exception subset (use `cpp-systems`)
 allowed-tools: Read, Grep, Glob, Write, Edit
