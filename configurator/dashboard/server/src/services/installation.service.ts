@@ -63,8 +63,8 @@ import {
   validatePathWithinBase,
   validateEntryName,
   getDevSuiteDir,
-  copyDirSync,
-  getServerEnvVars,
+  getServerEnvSpec,
+  copyMcpServerBundle,
   updateInstructions,
   listCustomAgents,
   cleanInstructionsSections,
@@ -611,10 +611,13 @@ export class InstallationService {
       if (installed) {
         manifest.mcpServers.push(serverName);
         extendedManifest.mcpServers.push(serverName);
+        const envSpec = getServerEnvSpec(serverName, plan.envVars, plan.devSuiteDir);
         entries[serverName] = {
           command: 'node',
           args: [paths.mcpServerEntry(serverName)],
-          env: getServerEnvVars(serverName, plan.envVars, plan.devSuiteDir),
+          env: envSpec.values,
+          entryRelPath: paths.relMcpServerEntry(serverName),
+          secretEnvNames: envSpec.secretNames,
         };
       }
     }
@@ -634,6 +637,11 @@ export class InstallationService {
         command: 'node',
         args: [skillLoaderDist],
         env: userOverride ? { DEV_SUITE_ROOT: userOverride } : {},
+        entryRelPath: paths.relMcpServerEntry('skill-loader'),
+        // DEV_SUITE_ROOT is a developer override pointing at a live dev-suite
+        // checkout, not a credential — it is machine-specific but harmless, and
+        // the catalog does not mark it secret.
+        secretEnvNames: [],
       };
       logger.info('Lazy skill loading enabled — skill-loader MCP server added', {
         context: { skillLoaderDist, devSuiteRootOverride: userOverride ?? null },
@@ -982,7 +990,7 @@ export class InstallationService {
     if (!fs.existsSync(path.join(serverSource, 'dist', 'index.js'))) return false;
 
     try {
-      copyDirSync(serverSource, serverDest);
+      copyMcpServerBundle(serverSource, serverDest);
       manifest.files.push({ path: paths.relMcpServerDir(serverName), type: 'mcp-server', source: serverSource });
 
       // Track main server file with hash
