@@ -26,7 +26,7 @@ export type Handler = (args: unknown) => Promise<HandlerResult>;
 export const HttpRequestSchema = z.object({
   method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]),
   url: z.string().url().describe("Full URL to request"),
-  headers: z.record(z.string()).optional().describe("Request headers"),
+  headers: z.record(z.string(), z.string()).optional().describe("Request headers"),
   body: z.unknown().optional().describe("Request body (for POST, PUT, PATCH)"),
   timeout: z.number().optional().default(30000).describe("Timeout in milliseconds"),
 });
@@ -42,7 +42,7 @@ export const BatchRequestSchema = z.object({
       name: z.string().describe("Request name for identification"),
       method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
       url: z.string().url(),
-      headers: z.record(z.string()).optional(),
+      headers: z.record(z.string(), z.string()).optional(),
       body: z.unknown().optional(),
     })
   ),
@@ -52,7 +52,7 @@ export const BatchRequestSchema = z.object({
 export const ImportCollectionSchema = z.object({
   filePath: z.string(),
   format: z.enum(["postman", "insomnia"]).optional().describe("Collection format. Auto-detected if omitted."),
-  variables: z.record(z.string()).optional(),
+  variables: z.record(z.string(), z.string()).optional(),
 });
 
 export const GenerateTestsSchema = z.object({

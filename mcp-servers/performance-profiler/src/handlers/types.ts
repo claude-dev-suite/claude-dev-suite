@@ -131,7 +131,7 @@ export const AttachProfilerSchema = z.object({
 export const ProfileEndpointSchema = z.object({
   url: z.string().url().describe("Full URL of the endpoint to profile"),
   method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]).optional().default("GET"),
-  headers: z.record(z.string()).optional().describe("HTTP headers to include"),
+  headers: z.record(z.string(), z.string()).optional().describe("HTTP headers to include"),
   body: z.unknown().optional().describe("Request body for POST/PUT requests"),
   iterations: z.number().optional().default(100).describe("Number of requests to make"),
   concurrency: z.number().optional().default(1).describe("Concurrent requests"),
@@ -154,7 +154,7 @@ export const ImportHarSchema = z.object({
 export const ReplayFlowSchema = z.object({
   flowName: z.string().describe("Name of the flow to replay"),
   baseUrl: z.string().optional().describe("Override base URL"),
-  variables: z.record(z.string()).optional().describe("Variables to substitute"),
+  variables: z.record(z.string(), z.string()).optional().describe("Variables to substitute"),
   respectTiming: z.boolean().optional().default(false).describe("Wait between requests"),
   withProfiling: z.boolean().optional().default(false).describe("Attach JFR during replay"),
   profilingPort: z.number().optional().describe("Port for process detection"),
@@ -169,7 +169,7 @@ export const StressTestSchema = z.object({
   duration: z.number().describe("Test duration in seconds"),
   rampUp: z.number().optional().default(5).describe("Ramp-up time in seconds"),
   baseUrl: z.string().optional().describe("Override base URL"),
-  variables: z.record(z.string()).optional(),
+  variables: z.record(z.string(), z.string()).optional(),
   thinkTime: z.number().optional().default(0).describe("Delay between requests in ms"),
   timeout: z.number().optional().default(30000),
 });
