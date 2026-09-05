@@ -61,6 +61,11 @@ export const languageDocs: DocsRecord = {
   },
 
   nodejs: {
+    // KB-only: the set is defined by the ABSENCE of a diagnostic, so it is
+    // not a feature any page documents.
+    "runtime-failure-modes": {
+      local: "nodejs/runtime-failure-modes.md",
+    },
     "event-loop": {
       local: "nodejs/event-loop.md",
       url: "https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick",

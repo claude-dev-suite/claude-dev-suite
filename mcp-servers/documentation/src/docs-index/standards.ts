@@ -10,6 +10,7 @@ export const STANDARDS_TECHNOLOGIES = [
   // Best Practices
   "git-workflow",
   "clean-code",
+  "code-review",
   "performance",
   // Security
   "owasp",
@@ -25,6 +26,16 @@ export const STANDARDS_TECHNOLOGIES = [
 ] as const;
 
 export const standardsDocs: DocsRecord = {
+  // No `url`: nobody publishes the cross-language comparison, because no
+  // vendor benefits from stating how much their defaults leave out. Pointing
+  // at a loosely related tool page would assert an authority that does not
+  // exist, so this is served from the knowledge base only.
+  "code-review": {
+    "default-analysis-by-language": {
+      local: "code-review/default-analysis-by-language.md",
+    },
+  },
+
   "git-workflow": {
     commands: {
       local: "git-workflow/commands.md",

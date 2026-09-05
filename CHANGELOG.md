@@ -10,6 +10,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Three knowledge-base articles that no upstream publishes**, registered as
+  KB-only entries (`local`, no `url`). Tier 1 added references to indexes the
+  tool authors maintain; these are the cases where following that rule would
+  mean pointing at nothing, because the comparison itself is the content.
+
+  `code-review/default-analysis-by-language` — what each language's toolchain
+  reports out of the box, ordered by how much of the review is already done for
+  you. Rust at one end, where restraint is the skill; SQL at the other, where
+  the reviewer *is* the analysis. Each section names the config file to read,
+  because the same finding is essential or noise depending on one line of it.
+
+  `sql-fundamentals/engine-differences` — the differences that change what a
+  query *means*: REPEATABLE READ on MySQL against READ COMMITTED everywhere
+  else, `UNIQUE` accepting one NULL on SQL Server and many elsewhere, Oracle
+  treating `''` as NULL, MySQL's case-insensitive default collation, and which
+  DDL rewrites a table or blocks writes.
+
+  `nodejs/runtime-failure-modes` — the failures that produce no error, no
+  warning and no failed test. Including the two that only fail *outside*
+  development, which local testing actively confirms as working: `process.exit()`
+  truncates stdout when it is a pipe rather than a TTY, so a CLI loses its output
+  exactly when used in a script; and module-scope state is per process, so under
+  `cluster` a rate limiter allows N times its limit and a lock locks nothing.
+
+  `tests/fetch-docs-live.test.ts` pins the url-less list for the same reason its
+  sibling pins the local-less one — a KB-only entry must be a deliberate act,
+  not a forgotten field. It failed correctly and is updated.
+
 - **Authoritative analyser references behind the `review/*` skills.** Each
   review skill carries a table of what the toolchain already reports, and that
   half is the one that dates: a rule moves in or out of a default set with the
