@@ -104,6 +104,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   afterwards — valid but unspecified, so sanitizers stay silent and the bug
   reproduces on one standard library and not another.
 
+- **`review/kotlin`**, the seventh language. Kotlin's compiler closes Java's
+  largest hole, so what remains concentrates in the two places its guarantees
+  stop. **The Java boundary**: a platform type (`String!`) is not nullable and
+  not non-null, it is an opt-out — the compiler accepts both uses, so on that
+  line Kotlin's central guarantee does not apply, which covers everything
+  arriving from unannotated JPA entities, Jackson and older SDKs. **Structured
+  concurrency**: `GlobalScope` is the documented way to opt out of it, and
+  `catch (e: Exception)` inside a coroutine also catches `CancellationException`,
+  turning a cancelled job into one that keeps running and reports a spurious
+  error.
+
+  Also included: `lateinit` moves a check the compiler was doing into a runtime
+  exception you chose, `runBlocking` on a dispatcher thread can deadlock waiting
+  for the pool it occupies, and a `private` constructor does **not** close a
+  `data class` — the generated `copy` stays public and re-exposes it.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed

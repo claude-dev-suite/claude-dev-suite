@@ -8,6 +8,8 @@ description: |
   USE WHEN: user mentions "Kotlin", "coroutines", "suspend", "Flow", "sealed class",
   "data class", "scope functions", "K2 compiler", "ksp", "Kotlin 2.x"
 
+  DO NOT USE FOR: reviewing existing Kotlin code - use `review/kotlin`, which
+  covers the Java boundary and the concurrency the compiler does not check
   DO NOT USE FOR: Kotlin Multiplatform setup - use `mobile/kotlin-multiplatform`
   DO NOT USE FOR: Compose UI - use `frontend-frameworks/compose-multiplatform`
   DO NOT USE FOR: Spring Boot Kotlin - use `spring-boot` framework skill
