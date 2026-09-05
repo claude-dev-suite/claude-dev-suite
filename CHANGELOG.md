@@ -25,6 +25,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   no others. `languages/go` gained a routing note pointing review work here,
   since the skill for *writing* Go is the wrong one for critiquing it.
 
+- **`review/typescript`**, the second language in the review category. Two
+  things make TypeScript different from Go here. The compiler's strictness is a
+  *setting*, so the skill carries a config table: `noUncheckedIndexedAccess` and
+  `exactOptionalPropertyTypes` are **not** in `strict`, which means array access
+  lying about presence is invisible in most projects. And the rules that would
+  catch floating promises are type-aware only, so they never ran unless the repo
+  enabled `parserOptions.project` — worth checking before assuming a clean lint
+  means clean async.
+
+  The checks are the ones that survive `tsc --strict`: an `as T` laundering an
+  unvalidated payload, a type predicate whose body does not establish the type
+  it claims, `Promise.all` where partial failure is normal, an `async` callback
+  handed to `forEach`, a spread treated as a deep copy.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed
