@@ -157,6 +157,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   plausible wrong total; and the N+1, whose SQL is individually fine because the
   defect lives at the ORM boundary.
 
+- **`review/swift`**. The compiler is strong on nullability and exhaustiveness,
+  so what remains sits in the two things it does not model by default: **object
+  graph lifetime** — ARC frees nothing in a cycle and reports nothing, so a
+  stored escaping closure capturing `self` leaves a controller that is never
+  deinitialised and keeps handling events after dismissal — and **concurrency**,
+  whose checking is a per-target setting rather than a language guarantee. Under
+  Swift 5 with minimal checking every data-race finding here is unreported.
+
+  The subtlest check is actor re-entrancy: actors guarantee no *simultaneous*
+  execution, not that a method runs atomically, so a check-then-`await`-then-
+  mutate sequence can interleave at the suspension point — and the compiler does
+  not mention it even under strict concurrency. Also covered: `[weak self]`
+  followed by a force unwrap, which crashes in exactly the case the capture list
+  was written for, and an unstructured `Task { }`, which does not inherit
+  cancellation from the scope that created it.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed
