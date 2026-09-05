@@ -84,6 +84,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   are on in debug and **off in release**, so an unsigned subtraction panics
   under `cargo test` and wraps silently in the binary users run.
 
+- **`review/cpp`**, the sixth language and the one with the widest gap between
+  what compiles and what is correct — which is precisely why it needed a stated
+  discipline. Listing undefined-behaviour categories is not a review, it is a
+  textbook, so the skill scopes itself to one thing: **a lifetime or ownership
+  claim the code makes and nothing checks.**
+
+  Two project settings decide how much the toolchain said before the reviewer
+  did, and neither is a language fact: warnings are **off by default**, so a
+  CMake project that never sets `-Wall -Wextra` compiles almost silently; and
+  sanitizers turn most of these into loud failures, but only on **executed
+  paths**, so an untested branch is exactly where they survive.
+
+  The checks are concrete rather than categorical: an unnamed `lock_guard`
+  temporary that unlocks at the semicolon, a `string_view` into a temporary, a
+  range-for over a *subobject* of a temporary (which C++23 did not fix), an
+  owning raw pointer whose implicit copy double-frees, a `shared_ptr` built from
+  raw `this` creating a second control block, and a moved-from object read
+  afterwards — valid but unspecified, so sanitizers stay silent and the bug
+  reproduces on one standard library and not another.
+
 ## [1.14.0] - 2026-09-05
 
 ### Changed
