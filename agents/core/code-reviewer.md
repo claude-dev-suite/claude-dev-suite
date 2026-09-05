@@ -18,6 +18,7 @@ extended_skills:
   - review/java
   - review/rust
   - review/cpp
+  - review/kotlin
   - best-practices/token-optimization
   - best-practices/clean-code
   - best-practices/solid-principles
