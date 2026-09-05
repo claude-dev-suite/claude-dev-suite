@@ -50,7 +50,15 @@ describe("fetch_docs live fallback for KB-only topics", () => {
       "abb-freelance/dmf-format",
       "abb-freelance/prt-format",
       "bulk-engineering/python-generation",
+      // Written for the `review/*` skills. Each is KB-only because the
+      // comparison it makes is one no vendor publishes: tool authors
+      // document their own rules, engines document their own behaviour,
+      // and a set defined by the ABSENCE of a diagnostic is not a feature
+      // any page describes.
+      "code-review/default-analysis-by-language",
       "dcs-platforms/overview",
+      "nodejs/runtime-failure-modes",
+      "sql-fundamentals/engine-differences",
     ]);
   });
 });

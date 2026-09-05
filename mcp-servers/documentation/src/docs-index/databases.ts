@@ -283,6 +283,12 @@ export const databaseDocs: DocsRecord = {
       local: "sql-fundamentals/transactions.md",
       url: "https://www.postgresql.org/docs/current/mvcc.html",
     },
+    // Cross-vendor, so KB-only: each engine documents itself and none
+    // documents the comparison. Default isolation, UNIQUE with NULLs,
+    // collation case-sensitivity and which DDL rewrites a table.
+    "engine-differences": {
+      local: "sql-fundamentals/engine-differences.md",
+    },
   },
 
   oracle: {
