@@ -8,6 +8,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **A contributor entry point.** CONTRIBUTING.md opens with four tracks ordered by
+  friction — a quick-ref guide for a skill that has none, a new skill, a new agent, a
+  code fix — each with the validation command CI will run and an honest estimate of how
+  long it takes. Three of the four need only Node: no `npm install`, no build. Until now
+  the file told newcomers to look for a `good first issue` label on a repository that had
+  no open issues at all.
+- Issue templates for a **new skill** and a **new agent**, both asking the questions the
+  catalog gate would otherwise fail the PR on (does the skill path exist, does the agent
+  declare `allowed-tools`, does it need `Bash` or `Task`), plus a template chooser linking
+  Discussions, the first-contribution guide, and the security policy.
+
+### Changed
+
+- The README now leads with what dev-suite does and a diagram of where its output lands,
+  instead of a table of contents. The quick start is above the fold and the badge row
+  carries CI status and the count of open good first issues.
+- The welcome bot points first-time contributors at the good-first-issue list and the two
+  validation scripts; the stale bot now leaves `help wanted` issues open, since a
+  long-lived one is the point.
+
 ## [1.15.0] - 2026-09-05
 
 ### Added
