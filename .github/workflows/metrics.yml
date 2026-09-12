@@ -1,0 +1,48 @@
+name: Metrics
+
+# Snapshots the traffic statistics GitHub discards after 14 days.
+#
+# The traffic endpoints require push access, and the Actions GITHUB_TOKEN has no
+# `administration` permission to grant — so this needs a PAT with `repo` scope in
+# the GH_TOKEN secret. Without it every call 403s and the job fails loudly rather
+# than committing an empty snapshot.
+
+on:
+  schedule:
+    # Monday 06:30 UTC. Weekly is enough: the API window is 14 days, so nothing
+    # is lost as long as two consecutive runs don't both fail.
+    - cron: '30 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  traffic:
+    if: github.repository_owner == 'claude-dev-suite'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Collect traffic
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/collect-traffic.mjs
+
+      - name: Commit the snapshot
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/metrics
+          if git diff --cached --quiet; then
+            echo 'No change in the traffic snapshot.'
+            exit 0
+          fi
+          git commit -m 'chore(metrics): weekly traffic snapshot [skip ci]'
+          git push

@@ -10,6 +10,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Four workflows that run the community side of the project without anyone
+  remembering to.** Each automates something that had already been skipped at
+  least once, and none of them posts anything anywhere on its own.
+
+  `metrics.yml` snapshots the traffic API weekly into `docs/metrics/`. That API
+  keeps a rolling 14-day window and discards the rest, so the question "did the
+  README rewrite change anything?" was previously unanswerable by construction.
+  It needs the `GH_TOKEN` PAT: the traffic endpoints require push access and the
+  Actions `GITHUB_TOKEN` has no `administration` permission to grant, so the job
+  fails loudly rather than committing an empty file.
+
+  `contributor-queue.yml` keeps the `good first issue` queue from emptying — the
+  README links that label, and a newcomer who finds an empty list does not come
+  back — by opening a quick-ref issue for a skill that has none whenever the
+  count drops below a floor. Candidates come from the filesystem, filtered
+  against every issue ever opened, so nothing is proposed twice. Its second job
+  labels an outside contributor's PR that has been waiting on a reply for 48
+  hours, and clears the label as soon as the reply lands.
+
+  `claim.yml` turns `/claim` on an issue into an assignment, or — for the
+  majority of contributors, since GitHub only accepts assignees with write
+  access — into a `claimed` label and a comment saying who has it.
+
+  `release-checklist.yml` opens a promotion checklist when a stable tag is
+  pushed, ordered so the release artefacts are verified before anyone is told
+  the release exists. Pre-release tags are skipped.
+
+
+### Added
+
 - **A contributor entry point.** CONTRIBUTING.md opens with four tracks ordered by
   friction — a quick-ref guide for a skill that has none, a new skill, a new agent, a
   code fix — each with the validation command CI will run and an honest estimate of how

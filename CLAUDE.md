@@ -24,7 +24,9 @@ dev-suite/
 ├── templates/                              # Project scaffolding templates + hook scripts
 ├── commands/                               # Slash commands (installed into .claude/commands)
 ├── scripts/                                # CI gates + setup: validate-catalog, audit-mcp-descriptions,
-│                                           #   check-docs-sync, check-type-sync, gen-* doc generators
+│                                           #   check-docs-sync, check-type-sync, gen-* doc generators;
+│                                           #   community automation: collect-traffic,
+│                                           #   replenish-good-first-issues, triage-contributor-prs
 └── init-project.sh|ps1                     # Entry point (builds if needed, launches dashboard)
 ```
 

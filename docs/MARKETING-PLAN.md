@@ -402,6 +402,20 @@ visita → star è bassa e non esisteva nessun punto d'ingresso per i contributo
 | 2026-09-11 | Discussion "What should dev-suite cover next?" e "What did you install dev-suite into?" | #216, #217 |
 | 2026-09-11 | Topic del repo portati a 20, con i target multi-assistant | - |
 | 2026-09-11 | Contenuto promozionale v1.15.0 generato | `docs/release-promo/v1.15.0/` |
+| 2026-09-12 | Primo contributor esterno: PR sulla issue dei test `useApi` | #219 |
+| 2026-09-12 | Quattro workflow di automazione community | `metrics`, `contributor-queue`, `claim`, `release-checklist` |
+
+### Cosa è automatico da qui in avanti
+
+| Automazione | Quando parte | Cosa fa da sola |
+|-------------|--------------|-----------------|
+| `metrics.yml` | lunedì 06:30 UTC | Salva views/clone/referrer in `docs/metrics/`, che l'API cancella dopo 14 giorni |
+| `contributor-queue.yml` | ogni giorno 07:00 UTC | Riapre la coda good-first-issue quando scende sotto 5; segnala le PR esterne ferme da 48h |
+| `claim.yml` | commento `/claim` | Assegna l'issue o la etichetta `claimed` |
+| `release-checklist.yml` | push di un tag stabile | Apre la issue di promozione con l'ordine dei canali |
+
+Nessuna di queste pubblica nulla all'esterno: i post restano un'azione umana, per scelta e
+perché HN e Reddit vietano l'automazione.
 
 ### Non ancora eseguito
 
