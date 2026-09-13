@@ -106,7 +106,11 @@ export interface UseApiResult<T> {
   loading: boolean;
   /** Error message if request failed */
   error: string | null;
-  /** Function to manually refetch data */
+  /**
+   * Fetches data using the hook's normal cache policy. With caching enabled,
+   * this may return a response younger than cacheTtl; use forceRefresh in the
+   * hook options when the caller needs a network request.
+   */
   refetch: () => void;
   /** HTTP status code */
   status: number | null;
