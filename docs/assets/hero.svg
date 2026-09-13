@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 430" width="900" height="430" role="img" aria-label="Dev-Suite: one install configures seven AI coding assistants from one shared catalog of agents, skills and MCP servers">
+  <defs>
+    <style>
+      .bg   { fill: #0d1117; }
+      .card { fill: #161b22; stroke: #30363d; stroke-width: 1; }
+      .chip { fill: #1c2128; stroke: #3d444d; stroke-width: 1; }
+      .t    { font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      .h    { font-size: 15px; font-weight: 700; fill: #e6edf3; }
+      .b    { font-size: 12.5px; fill: #adbac7; }
+      .m    { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12px; fill: #7ee787; }
+      .mu   { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 11.5px; fill: #8b949e; }
+      .lbl  { font-size: 11px; fill: #6e7681; letter-spacing: .08em; }
+      .arrow{ stroke: #3d444d; stroke-width: 1.5; fill: none; }
+      .acc  { fill: #d2a8ff; }
+    </style>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#3d444d"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="900" height="430" rx="10"/>
+
+  <text class="t lbl" x="40" y="42">SOURCE REPOSITORY</text>
+  <rect class="card" x="40" y="56" width="250" height="196" rx="8"/>
+  <text class="t h"  x="62" y="84">dev-suite</text>
+  <text class="t b"  x="62" y="112">Specialized agents</text>
+  <text class="t b"  x="62" y="136">Skills + on-demand KB</text>
+  <text class="t b"  x="62" y="160">MCP servers</text>
+  <text class="t b"  x="62" y="184">Rules, templates, hooks</text>
+  <text class="t mu" x="62" y="220">MIT · no vendor lock-in</text>
+
+  <path class="arrow" d="M300 154 H 348" marker-end="url(#a)"/>
+
+  <text class="t lbl" x="360" y="42">ONE COMMAND</text>
+  <rect class="card" x="360" y="56" width="200" height="196" rx="8"/>
+  <text class="t m"  x="380" y="88">./init-project.sh</text>
+  <text class="t b"  x="380" y="116">Stack detection</text>
+  <text class="t b"  x="380" y="140">Visual wizard</text>
+  <text class="t b"  x="380" y="164">Pick your targets</text>
+  <text class="t mu" x="380" y="196">backup + rollback</text>
+  <text class="t mu" x="380" y="216">on every write</text>
+
+  <path class="arrow" d="M570 154 H 618" marker-end="url(#a)"/>
+
+  <text class="t lbl" x="630" y="42">YOUR PROJECT</text>
+  <rect class="card" x="630" y="56" width="230" height="196" rx="8"/>
+  <rect class="chip" x="648" y="76"  width="90" height="26" rx="13"/>
+  <text class="t b"  x="660" y="93">Claude Code</text>
+  <rect class="chip" x="746" y="76"  width="66" height="26" rx="13"/>
+  <text class="t b"  x="758" y="93">Copilot</text>
+  <rect class="chip" x="648" y="110" width="60" height="26" rx="13"/>
+  <text class="t b"  x="660" y="127">Cursor</text>
+  <rect class="chip" x="716" y="110" width="80" height="26" rx="13"/>
+  <text class="t b"  x="728" y="127">Gemini CLI</text>
+  <rect class="chip" x="648" y="144" width="76" height="26" rx="13"/>
+  <text class="t b"  x="660" y="161">Codex CLI</text>
+  <rect class="chip" x="732" y="144" width="54" height="26" rx="13"/>
+  <text class="t b"  x="744" y="161">Cline</text>
+  <rect class="chip" x="648" y="178" width="84" height="26" rx="13"/>
+  <text class="t b"  x="660" y="195">Kimi Code</text>
+  <text class="t mu" x="648" y="230">all seven, one shared catalog</text>
+
+  <rect class="card" x="40" y="284" width="820" height="106" rx="8"/>
+  <text class="t lbl" x="62" y="312">WHAT LANDS IN THE REPO</text>
+  <text class="t m"  x="62" y="340">AGENTS.md</text>
+  <text class="t m"  x="170" y="340">.claude/agents/</text>
+  <text class="t m"  x="300" y="340">.claude/skills/</text>
+  <text class="t m"  x="430" y="340">.mcp.json</text>
+  <text class="t m"  x="530" y="340">.cursor/rules/</text>
+  <text class="t m"  x="655" y="340">.codex/config.toml</text>
+  <text class="t b"  x="62" y="368">Committable by design: no machine-specific absolute paths, no secret literals — a teammate clones and it works.</text>
+</svg>
