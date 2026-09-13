@@ -25,6 +25,69 @@ import * as fs from 'fs';
 import { WebSocket } from 'ws';
 import type { WebSocketServer } from 'ws';
 
+// vitest 5 refuses a vi.mock() call that is not at the top level: it hoists them
+// all regardless, and now says so instead of doing it silently. These were nested
+// inside beforeEach/beforeAll blocks and already applied to the whole file.
+
+vi.mock('../src/services/git.service.js', () => ({
+  GitService: class {
+    static stageFiles = vi.fn();
+    static getLog = vi.fn(() => []);
+  },
+}));
+
+vi.mock('../src/services/detection.service.js', () => ({
+  DetectionService: class {
+    detectGitRepos = vi.fn(async () => []);
+  },
+}));
+
+vi.mock('../src/services/management.service.js', () => ({
+  ManagementService: class {
+    addAgent = vi.fn(async () => {});
+    removeAgent = vi.fn(async () => {});
+    addMcpServer = vi.fn(async () => {});
+    removeMcpServer = vi.fn(async () => {});
+    getInstalledComponents = vi.fn(async () => ({ agents: [], mcpServers: [] }));
+    getNewComponents = vi.fn(async () => ({ newAgents: [], newMcpServers: [] }));
+    checkForUpdates = vi.fn(async () => ({ hasUpdates: false }));
+  },
+}));
+
+vi.mock('../src/services/workflows.service.js', () => ({
+  WorkflowsService: class {
+    analyzePromptForMcp = vi.fn(() => []);
+    getAllWorkflows = vi.fn(async () => []);
+    loadCustomWorkflows = vi.fn(async () => []);
+    saveCustomWorkflows = vi.fn(async () => {});
+  },
+}));
+
+vi.mock('../src/server.js', () => ({
+  validateWsToken: vi.fn((token: string) => token === 'valid-token'),
+}));
+
+vi.mock('../src/services/orchestrator/index.js', () => ({
+  orchestratorService: {
+    addClient: vi.fn(),
+    replaceClient: vi.fn(),
+    removeClient: vi.fn(),
+    handleGetStatus: vi.fn(),
+    handleChatMessage: vi.fn(),
+    handleNewChat: vi.fn(),
+    handleCancelChat: vi.fn(),
+    handleSubmitJob: vi.fn(),
+    handleCancelJob: vi.fn(),
+    handlePermissionResponse: vi.fn(),
+    handleClearQueue: vi.fn(),
+    handleRemoveFromQueue: vi.fn(),
+    handleForceUnstick: vi.fn(),
+    sendToClient: vi.fn(),
+    broadcast: vi.fn(),
+    getQueueStatus: vi.fn(() => ({ currentJob: null, queuedJobs: [], queueLength: 0 })),
+  },
+}));
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function buildApp(router: express.Router) {
@@ -243,17 +306,6 @@ describe('F5 — git.routes.ts Zod validation + limit cap', () => {
   let app: express.Express;
 
   beforeEach(async () => {
-    vi.mock('../src/services/git.service.js', () => ({
-      GitService: class {
-        static stageFiles = vi.fn();
-        static getLog = vi.fn(() => []);
-      },
-    }));
-    vi.mock('../src/services/detection.service.js', () => ({
-      DetectionService: class {
-        detectGitRepos = vi.fn(async () => []);
-      },
-    }));
 
     const { gitRoutes } = await import('../src/routes/git.routes.js');
     app = buildApp(gitRoutes);
@@ -305,17 +357,6 @@ describe('F6 — management.routes.ts Zod validation', () => {
   let app: express.Express;
 
   beforeEach(async () => {
-    vi.mock('../src/services/management.service.js', () => ({
-      ManagementService: class {
-        addAgent = vi.fn(async () => {});
-        removeAgent = vi.fn(async () => {});
-        addMcpServer = vi.fn(async () => {});
-        removeMcpServer = vi.fn(async () => {});
-        getInstalledComponents = vi.fn(async () => ({ agents: [], mcpServers: [] }));
-        getNewComponents = vi.fn(async () => ({ newAgents: [], newMcpServers: [] }));
-        checkForUpdates = vi.fn(async () => ({ hasUpdates: false }));
-      },
-    }));
 
     const { managementRoutes } = await import('../src/routes/management.routes.js');
     app = buildApp(managementRoutes);
@@ -370,14 +411,6 @@ describe('F7 — orchestrator.routes.ts Zod validation', () => {
   let app: express.Express;
 
   beforeEach(async () => {
-    vi.mock('../src/services/workflows.service.js', () => ({
-      WorkflowsService: class {
-        analyzePromptForMcp = vi.fn(() => []);
-        getAllWorkflows = vi.fn(async () => []);
-        loadCustomWorkflows = vi.fn(async () => []);
-        saveCustomWorkflows = vi.fn(async () => {});
-      },
-    }));
 
     const { orchestratorRoutes } = await import('../src/routes/orchestrator.routes.js');
     app = buildApp(orchestratorRoutes);
@@ -569,31 +602,6 @@ describe('F11 — WebSocket message-based auth', () => {
   let wss: WebSocketServer;
   let mockWs: any;
   let messageHandler: ((data: Buffer) => void) | undefined;
-
-  vi.mock('../src/server.js', () => ({
-    validateWsToken: vi.fn((token: string) => token === 'valid-token'),
-  }));
-
-  vi.mock('../src/services/orchestrator/index.js', () => ({
-    orchestratorService: {
-      addClient: vi.fn(),
-      replaceClient: vi.fn(),
-      removeClient: vi.fn(),
-      handleGetStatus: vi.fn(),
-      handleChatMessage: vi.fn(),
-      handleNewChat: vi.fn(),
-      handleCancelChat: vi.fn(),
-      handleSubmitJob: vi.fn(),
-      handleCancelJob: vi.fn(),
-      handlePermissionResponse: vi.fn(),
-      handleClearQueue: vi.fn(),
-      handleRemoveFromQueue: vi.fn(),
-      handleForceUnstick: vi.fn(),
-      sendToClient: vi.fn(),
-      broadcast: vi.fn(),
-      getQueueStatus: vi.fn(() => ({ currentJob: null, queuedJobs: [], queueLength: 0 })),
-    },
-  }));
 
   beforeEach(async () => {
     vi.clearAllMocks();

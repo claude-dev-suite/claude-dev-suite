@@ -36,6 +36,19 @@ import { calculateFileHashFromPath, getDevSuiteDir as fileOpsGetDevSuiteDir } fr
 import { getDevSuiteDir as upgradeUtilsGetDevSuiteDir, saveManifest, loadManifest } from '../src/services/upgrade/upgrade-utils.js';
 import type { ExtendedManifest } from '../src/types/index.js';
 
+// vitest 5 refuses a vi.mock() call that is not at the top level: it hoists them
+// all regardless, and now says so instead of doing it silently. These were nested
+// inside beforeEach/beforeAll blocks and already applied to the whole file.
+
+vi.mock('../src/services/workflows.service.js', () => ({
+  WorkflowsService: class {
+    analyzePromptForMcp = vi.fn(() => []);
+    getAllWorkflows = vi.fn(async () => []);
+    loadCustomWorkflows = vi.fn(async () => []);
+    saveCustomWorkflows = vi.fn(async () => {});
+  },
+}));
+
 // ─── Test app builders ───────────────────────────────────────────────────────
 
 function buildFilesApp() {
@@ -893,14 +906,6 @@ describe('R6 — orchestrator /mcp-suggestions and /analyze-mcp have Zod validat
   let app: ReturnType<typeof import('express').default>;
 
   beforeAll(async () => {
-    vi.mock('../src/services/workflows.service.js', () => ({
-      WorkflowsService: class {
-        analyzePromptForMcp = vi.fn(() => []);
-        getAllWorkflows = vi.fn(async () => []);
-        loadCustomWorkflows = vi.fn(async () => []);
-        saveCustomWorkflows = vi.fn(async () => {});
-      },
-    }));
 
     const express = (await import('express')).default;
     const { orchestratorRoutes } = await import('../src/routes/orchestrator.routes.js');
