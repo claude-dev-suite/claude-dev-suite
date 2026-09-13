@@ -1,0 +1,73 @@
+name: Claim
+
+# `/claim` on an issue assigns it to whoever said so, or — when GitHub refuses
+# the assignment, which it does for anyone without write access — records the
+# claim as a label and a comment instead. Either way the next person to read the
+# issue can see it is taken.
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  claim:
+    if: >-
+      github.repository_owner == 'claude-dev-suite' &&
+      !github.event.issue.pull_request &&
+      github.event.comment.user.type != 'Bot' &&
+      startsWith(github.event.comment.body, '/claim')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record the claim
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          # Interpolated into the environment, never into the script body: a
+          # comment is untrusted input and this job holds a write token.
+          ACTOR: ${{ github.event.comment.user.login }}
+          ASSIGNEES: ${{ join(github.event.issue.assignees.*.login, ' ') }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${ASSIGNEES}" ] && ! echo " ${ASSIGNEES} " | grep -q " ${ACTOR} "; then
+            holder=$(echo "${ASSIGNEES}" | awk '{print $1}')
+            cat > taken.md <<EOF
+          @${ACTOR} this one is already assigned to @${holder}.
+
+          If it has gone quiet for a week, say so here and it's yours. Otherwise there are other [unclaimed good first issues](https://github.com/${REPO}/issues?q=is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee).
+          EOF
+            gh issue comment "${ISSUE}" --repo "${REPO}" --body-file taken.md
+            exit 0
+          fi
+
+          gh label create 'claimed' \
+            --description 'Someone is working on this' \
+            --color '0e8a16' \
+            --repo "${REPO}" || true
+
+          assigned=$(gh api -X POST "repos/${REPO}/issues/${ISSUE}/assignees" \
+            -f "assignees[]=${ACTOR}" \
+            --jq '[.assignees[].login] | join(" ")' || echo '')
+
+          gh issue edit "${ISSUE}" --repo "${REPO}" --add-label 'claimed'
+
+          if echo " ${assigned} " | grep -q " ${ACTOR} "; then
+            note="Assigned to you."
+          else
+            # GitHub only accepts assignees with write access; the label and this
+            # comment are the record for everyone else.
+            note="GitHub only accepts assignees with write access, so the \`claimed\` label and this comment are the record."
+          fi
+
+          cat > claimed.md <<EOF
+          @${ACTOR} it's yours — thanks! ${note}
+
+          Two things that help: [CONTRIBUTING.md → Your First Contribution](https://github.com/${REPO}/blob/main/CONTRIBUTING.md#your-first-contribution) lists the validation commands CI will run, and a comment here when you get stuck beats a silent abandon.
+
+          If nothing happens for a week the issue goes back in the pool, no hard feelings.
+          EOF
+          gh issue comment "${ISSUE}" --repo "${REPO}" --body-file claimed.md
