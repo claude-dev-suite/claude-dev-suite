@@ -1,0 +1,66 @@
+name: Contributor queue
+
+# Two jobs that keep the contributor funnel honest without anyone watching it:
+# the good-first-issue queue never empties, and a PR waiting on the maintainer
+# is visible as a label rather than as a forgotten tab.
+
+on:
+  schedule:
+    # Daily 07:00 UTC. The replenisher is a no-op on most days by design.
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print what would happen, change nothing'
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  replenish:
+    if: github.repository_owner == 'claude-dev-suite'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Open a quick-ref issue if the queue is running low
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/replenish-good-first-issues.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+
+  triage:
+    if: github.repository_owner == 'claude-dev-suite'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Ensure the label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create 'needs-maintainer-response' \
+            --description 'An outside contributor is waiting on a reply' \
+            --color 'd93f0b' \
+            --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Flag PRs waiting on a maintainer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/triage-contributor-prs.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }}

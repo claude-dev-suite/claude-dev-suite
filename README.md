@@ -1,9 +1,28 @@
 # Dev-Suite
 
 [![Version](https://img.shields.io/github/v/release/claude-dev-suite/claude-dev-suite.svg?include_prereleases)](https://github.com/claude-dev-suite/claude-dev-suite/releases)
+[![CI](https://github.com/claude-dev-suite/claude-dev-suite/actions/workflows/ci.yml/badge.svg)](https://github.com/claude-dev-suite/claude-dev-suite/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/claude-dev-suite/claude-dev-suite?style=flat&color=blue)](https://github.com/claude-dev-suite/claude-dev-suite/stargazers)
+[![Good first issues](https://img.shields.io/github/issues/claude-dev-suite/claude-dev-suite/good%20first%20issue?label=good%20first%20issues&color=7057ff)](https://github.com/claude-dev-suite/claude-dev-suite/issues?q=is%3Aopen+label%3A%22good+first+issue%22)
 
-**A comprehensive AI-powered development toolkit that extends Claude Code with specialized agents, MCP servers, and visual orchestration.**
+**Point it at a repo and it configures your AI coding assistant for that stack** — specialized agents, framework skills with an on-demand knowledge base, MCP servers, and path-scoped rules. One install, seven assistants: Claude Code, GitHub Copilot, Cursor, Gemini CLI, Codex CLI, Cline, Kimi Code.
+
+![How Dev-Suite works: one source catalog of agents, skills and MCP servers, installed into your project for seven AI coding assistants](docs/assets/hero.svg)
+
+```bash
+git clone https://github.com/claude-dev-suite/claude-dev-suite.git
+cd claude-dev-suite
+./init-project.sh /path/to/your-project   # Windows: .\init-project.ps1 C:\path\to\your-project
+```
+
+The wizard detects your stack, you pick the components and the target assistants, and everything it writes is
+**committable**: no machine-specific absolute paths, no secret literals, a backup before every overwrite. Your teammate
+clones the repo and has the same setup.
+
+> **New here and want to contribute?** Start with [`good first issue`](https://github.com/claude-dev-suite/claude-dev-suite/issues?q=is%3Aopen+label%3A%22good+first+issue%22)
+> — adding a skill or a quick-ref guide takes about 20 minutes and needs no knowledge of the dashboard internals.
+> See [CONTRIBUTING.md](CONTRIBUTING.md#your-first-contribution).
 
 ---
 
