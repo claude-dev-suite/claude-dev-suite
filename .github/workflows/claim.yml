@@ -1,9 +1,16 @@
 name: Claim
 
-# `/claim` on an issue assigns it to whoever said so, or — when GitHub refuses
-# the assignment, which it does for anyone without write access — records the
-# claim as a label and a comment instead. Either way the next person to read the
-# issue can see it is taken.
+# Claiming an issue assigns it to whoever said so, or — when GitHub refuses the
+# assignment, which it does for an account that has never interacted with the
+# repository — records the claim as a label and a comment instead. Either way the
+# next person to read the issue can see it is taken.
+#
+# It matches the `/claim` token anywhere in the comment, and the handful of
+# phrasings people actually use instead. The first real claim this repository
+# received was "I'd like to take this one", which the token-only version ignored
+# — leaving the issue looking free while someone was working on it. Note the
+# apostrophe: that comment used U+2019, so the patterns below deliberately avoid
+# apostrophes entirely.
 
 on:
   issue_comment:
@@ -18,7 +25,14 @@ jobs:
       github.repository_owner == 'claude-dev-suite' &&
       !github.event.issue.pull_request &&
       github.event.comment.user.type != 'Bot' &&
-      startsWith(github.event.comment.body, '/claim')
+      (
+        contains(github.event.comment.body, '/claim') ||
+        contains(github.event.comment.body, 'like to take this') ||
+        contains(github.event.comment.body, 'like to work on this') ||
+        contains(github.event.comment.body, 'll take this') ||
+        contains(github.event.comment.body, 'can i take this') ||
+        contains(github.event.comment.body, 'want to take this')
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Record the claim

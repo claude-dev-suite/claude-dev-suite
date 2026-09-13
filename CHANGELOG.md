@@ -34,16 +34,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   labels an outside contributor's PR that has been waiting on a reply for 48
   hours, and clears the label as soon as the reply lands.
 
-  `claim.yml` turns `/claim` on an issue into an assignment, or — for the
+  `claim.yml` recognises a claim by the `/claim` token or by the phrasings people
+  actually use — the first real claim this repository received was "I'd like to
+  take this one", which a token-only match ignored, leaving the issue looking
+  unclaimed while someone worked on it. It turns a claim into an assignment, or — for the
   majority of contributors, since GitHub only accepts assignees with write
   access — into a `claimed` label and a comment saying who has it.
 
   `release-checklist.yml` opens a promotion checklist when a stable tag is
   pushed, ordered so the release artefacts are verified before anyone is told
   the release exists. Pre-release tags are skipped.
-
-
-### Added
 
 - **A contributor entry point.** CONTRIBUTING.md opens with four tracks ordered by
   friction — a quick-ref guide for a skill that has none, a new skill, a new agent, a
@@ -57,6 +57,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Discussions, the first-contribution guide, and the security policy.
 
 ### Changed
+
+- **vitest 5 across all three workspaces**, as one change rather than the five
+  dependabot proposed. `vitest` and `@vitest/coverage-v8` share a major and CI
+  never runs `test:coverage`, so a half-bumped pair would have merged green and
+  broken coverage silently. In `mcp-servers` the root and its twelve members each
+  declare vitest, and raising only the root leaves npm unable to resolve the graph
+  at all (`Cannot read properties of null (reading 'edgesOut')`).
+
+  The migration it required: vitest 5 fails a file containing a `vi.mock()` call
+  that is not at the top level, where vitest 4 hoisted it silently. Seven such
+  calls sat inside `beforeEach`/`beforeAll` in two security test files. Moving
+  them changes nothing about when they run — the hoist was already happening —
+  and it is what keeps those files loading under 5. The suite total is unchanged
+  either side of the bump: 97 files, 2745 passed, 6 skipped.
 
 - The README now leads with what dev-suite does and a diagram of where its output lands,
   instead of a table of contents. The quick start is above the fold and the badge row

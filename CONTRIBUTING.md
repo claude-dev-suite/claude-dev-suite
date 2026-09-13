@@ -81,8 +81,9 @@ For Track D, additionally run the unit tests from `configurator/dashboard/server
 
 ### Claiming work
 
-Comment on the issue before you start so two people don't write the same skill. If an issue has been idle for a
-week after someone claimed it, it's fair game again — say so in a comment and go ahead.
+Comment on the issue before you start so two people don't write the same skill. Saying `/claim` assigns it to you
+and labels it, but plain English works too — "I'd like to take this" is understood. If an issue has been idle for
+a week after someone claimed it, it's fair game again — say so in a comment and go ahead.
 
 No open issue matches what you want to add? Open one, or start a
 [Discussion](https://github.com/claude-dev-suite/claude-dev-suite/discussions) — proposals for new technology
