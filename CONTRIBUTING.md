@@ -5,6 +5,7 @@ Thank you for your interest in contributing to Dev-Suite! This document provides
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
+- [Your First Contribution](#your-first-contribution)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [How to Contribute](#how-to-contribute)
@@ -15,6 +16,77 @@ Thank you for your interest in contributing to Dev-Suite! This document provides
 ## Code of Conduct
 
 By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Your First Contribution
+
+You do **not** need to understand the dashboard, the installer or the target adapters to contribute something
+useful. The four tracks below are self-contained, reviewed quickly, and validated by scripts you can run locally
+in seconds.
+
+| Track | What you add | Where | Node build needed? | Typical time |
+|-------|--------------|-------|--------------------|--------------|
+| **A — Quick-ref guide** | A focused guide for a skill that has none | `skills/{category}/{tech}/quick-ref/*.md` | No | ~20 min |
+| **B — New skill** | Coverage for a technology we're missing | `skills/{category}/{tech}/SKILL.md` | No | ~45 min |
+| **C — New agent** | A domain expert wired to existing skills | `agents/{category}/{name}-expert.md` | No | ~1 h |
+| **D — Code fix** | Dashboard / server / MCP server bug | `configurator/`, `mcp-servers/` | Yes | varies |
+
+### Track A — add a quick-ref guide (easiest)
+
+Most skills ship with only a `SKILL.md`. A `quick-ref/` directory next to it holds short, task-shaped guides the
+agent loads on demand — this is the highest-value, lowest-friction contribution in the repo.
+
+```bash
+# 1. Find a skill with no quick-ref yet
+for d in $(find skills -name SKILL.md -printf '%h\n'); do [ -d "$d/quick-ref" ] || echo "$d"; done | head -20
+
+# 2. Read its SKILL.md, then add focused guides next to it
+mkdir -p skills/<category>/<tech>/quick-ref
+$EDITOR skills/<category>/<tech>/quick-ref/patterns.md
+```
+
+Keep each guide under ~200 lines, code-first, no marketing prose. Common filenames: `basics.md`, `patterns.md`,
+`testing.md`, `troubleshooting.md`.
+
+### Track B — add a new skill
+
+```bash
+mkdir -p skills/<category>/<technology>
+$EDITOR skills/<category>/<technology>/SKILL.md   # copy the frontmatter shape from a neighbouring skill
+```
+
+Pick an existing category (`ls skills`) unless the technology genuinely fits none. If an agent should get the
+skill on install, add the full path (`<category>/<technology>`) to that agent's `extended_skills`.
+
+### Track C — add a new agent
+
+See the frontmatter contract in [CLAUDE.md](CLAUDE.md#agent-frontmatter-fields). Two rules that the CI gate
+enforces and that trip up most first PRs:
+
+- `allowed-tools` is **required** — an agent without it silently inherits every tool.
+- Prefer **one** `core_skills` entry; everything else goes to `extended_skills`. Each `core_skills` entry injects
+  the full skill body into every subagent spawned from that agent (~1.8k tokens each), so the cost multiplies.
+
+### Validate before opening the PR
+
+These are the same gates CI runs. They need only Node — no `npm install`, no build:
+
+```bash
+node scripts/validate-frontmatter.mjs     # YAML frontmatter shape across agents, commands, skills
+node scripts/validate-catalog.mjs         # agent/skill/MCP metadata consistency (fails on a skill path that doesn't exist)
+node scripts/audit-mcp-descriptions.mjs   # MCP tool descriptions <= 120 chars
+node scripts/check-docs-sync.mjs          # prose matches the code
+```
+
+For Track D, additionally run the unit tests from `configurator/dashboard/server` (`npm test`).
+
+### Claiming work
+
+Comment on the issue before you start so two people don't write the same skill. If an issue has been idle for a
+week after someone claimed it, it's fair game again — say so in a comment and go ahead.
+
+No open issue matches what you want to add? Open one, or start a
+[Discussion](https://github.com/claude-dev-suite/claude-dev-suite/discussions) — proposals for new technology
+coverage are always welcome and rarely refused.
 
 ## Getting Started
 
