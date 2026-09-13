@@ -1,0 +1,70 @@
+name: Release checklist
+
+# v1.15.0 shipped on 5 September and was announced nowhere for a week. The
+# release itself is automated; telling anyone about it was the step with no
+# owner. This turns that into an issue with a due date attached to the tag.
+#
+# Pre-release tags are skipped — an rc is not announced.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  issues: write
+
+jobs:
+  checklist:
+    if: github.repository_owner == 'claude-dev-suite' && !contains(github.ref_name, '-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Open the promotion checklist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          promo_dir="docs/release-promo/${TAG}"
+          if [ -d "${promo_dir}" ]; then
+            promo_note="The copy is already written: [\`${promo_dir}\`](https://github.com/${REPO}/tree/${TAG}/${promo_dir}). Read it before posting — it was generated from the CHANGELOG and may name things that changed since."
+          else
+            promo_note="No copy generated for this tag yet. Run \`/release-promote ${TAG}\` first — posting from the CHANGELOG directly reads as a feature list, which is what gets ignored."
+          fi
+
+          cat > checklist.md <<EOF
+          ${TAG} is tagged and the release workflow is building artefacts. Announcing it is the step that has historically been skipped, so here it is as a tracked task.
+
+          ${promo_note}
+
+          ## Order matters
+
+          - [ ] **Verify the release assets** across all three runners (win / mac / linux) before telling anyone the release exists
+          - [ ] **Hacker News** — Tuesday–Thursday, 9–11 ET. Post, then stay in the comments for two hours. This is the one with a real window; everything else can wait for it
+          - [ ] **X thread** — immediately after the HN post
+          - [ ] **LinkedIn** — same day, re-shareable for 48h
+          - [ ] **r/ClaudeAI** — read the self-promotion rule first
+          - [ ] **r/devtools** — two to three days after r/ClaudeAI, technical angle
+          - [ ] **dev.to** — within the week, cross-posted to Hashnode with a canonical link back
+          - [ ] **Update the execution log** in \`docs/MARKETING-PLAN.md\` with what was posted and what it did
+
+          ## Don't
+
+          - Don't post the same text to two subreddits. It reads as spam because it is
+          - Don't post to HN and then leave. An unanswered Show HN dies in an hour
+          - Don't announce before the artefacts are verified. A broken download on launch day is the one mistake that doesn't get a second attempt
+
+          Close this issue when the log is updated, not when the posts go out.
+
+          <sub>Opened automatically by the release-checklist workflow.</sub>
+          EOF
+
+          gh issue create \
+            --repo "${REPO}" \
+            --title "Promote ${TAG}" \
+            --label 'documentation' \
+            --body-file checklist.md

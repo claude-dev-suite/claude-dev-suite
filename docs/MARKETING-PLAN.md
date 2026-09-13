@@ -369,3 +369,58 @@ Usare il comando `/schedule` di Claude Code per creare un agent schedulato setti
 ---
 
 *Piano creato: Marzo 2025 — Aggiornato Aprile 2026 con layer di automazione Claude.*
+
+---
+
+## Registro di esecuzione
+
+Il piano sopra è stato scritto a marzo 2025 e aggiornato ad aprile 2026, ma fino a
+settembre 2026 non era stato eseguito: nessuna directory `docs/release-promo/`, log di
+engagement vuoto, zero issue aperte. Questa sezione registra cosa e' stato fatto davvero,
+con la data. Aggiornarla ad ogni azione, altrimenti il piano torna a essere teoria.
+
+### Dati di partenza (11 settembre 2026)
+
+| Metrica | Valore |
+|---------|--------|
+| Star / fork | 33 / 6 |
+| Visite uniche (14 gg) | 200 |
+| Clone unici (14 gg) | 581 |
+| Referrer principali | Google, Bing, lobehub.com, github.com, chatgpt.com, skills.sh |
+| Issue aperte | 0 |
+| Discussion | 0 |
+
+Lettura: il traffico arriva da ricerca e aggregatori AI, non dai social. La conversione
+visita → star è bassa e non esisteva nessun punto d'ingresso per i contributor.
+
+### Eseguito
+
+| Data | Azione | Riferimento |
+|------|--------|-------------|
+| 2026-09-11 | README con hero, diagramma e quick start sopra la piega; CONTRIBUTING con i quattro track; template issue per skill e agent | PR #204 |
+| 2026-09-11 | 11 issue di funnel contributor (8 `good first issue`) | #205-#215 |
+| 2026-09-11 | Discussion "What should dev-suite cover next?" e "What did you install dev-suite into?" | #216, #217 |
+| 2026-09-11 | Topic del repo portati a 20, con i target multi-assistant | - |
+| 2026-09-11 | Contenuto promozionale v1.15.0 generato | `docs/release-promo/v1.15.0/` |
+| 2026-09-12 | Primo contributor esterno: PR sulla issue dei test `useApi` | #219 |
+| 2026-09-12 | Quattro workflow di automazione community | `metrics`, `contributor-queue`, `claim`, `release-checklist` |
+
+### Cosa è automatico da qui in avanti
+
+| Automazione | Quando parte | Cosa fa da sola |
+|-------------|--------------|-----------------|
+| `metrics.yml` | lunedì 06:30 UTC | Salva views/clone/referrer in `docs/metrics/`, che l'API cancella dopo 14 giorni |
+| `contributor-queue.yml` | ogni giorno 07:00 UTC | Riapre la coda good-first-issue quando scende sotto 5; segnala le PR esterne ferme da 48h |
+| `claim.yml` | commento `/claim` | Assegna l'issue o la etichetta `claimed` |
+| `release-checklist.yml` | push di un tag stabile | Apre la issue di promozione con l'ordine dei canali |
+
+Nessuna di queste pubblica nulla all'esterno: i post restano un'azione umana, per scelta e
+perché HN e Reddit vietano l'automazione.
+
+### Non ancora eseguito
+
+- Pubblicazione dei post (HN, Reddit, LinkedIn, X, dev.to) - i testi sono pronti in
+  `docs/release-promo/v1.15.0/`, mancano gli account e la finestra di posting
+- PR alle awesome list - candidati e one-liner in `awesome-list-entry.md`
+- Listing su directory (AlternativeTo, DevHunt, registry MCP)
+- Video demo della dashboard

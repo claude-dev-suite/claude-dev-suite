@@ -38,13 +38,16 @@ jobs:
             - **Question**: check the [docs](https://github.com/claude-dev-suite/claude-dev-suite/tree/main/docs) and [commands reference](https://github.com/claude-dev-suite/claude-dev-suite/tree/main/commands) first
 
             We typically respond within a few days.
+
+            Looking for something to work on? The [good first issues](https://github.com/claude-dev-suite/claude-dev-suite/issues?q=is%3Aopen+label%3A%22good+first+issue%22) need no build step — [CONTRIBUTING.md](https://github.com/claude-dev-suite/claude-dev-suite/blob/main/CONTRIBUTING.md#your-first-contribution) walks through them.
           pr-message: |
             Hi @${{ github.actor }}, thanks for your first pull request! 🎉
 
             Before we review:
             - Make sure tests pass: `cd configurator/dashboard/server && npm test`
             - If you added an agent or skill, verify the README table still matches the filesystem
-            - Check [CONTRIBUTING.md](https://github.com/claude-dev-suite/claude-dev-suite/blob/main/CONTRIBUTING.md) for guidelines
+            - Check [CONTRIBUTING.md](https://github.com/claude-dev-suite/claude-dev-suite/blob/main/CONTRIBUTING.md#your-first-contribution) for guidelines
+            - For an agent or skill change, `node scripts/validate-catalog.mjs` and `node scripts/validate-frontmatter.mjs` are the gates CI runs
 
             We appreciate the contribution!
 
@@ -82,6 +85,6 @@ jobs:
           days-before-close: 14
           stale-issue-label: stale
           stale-pr-label: stale
-          exempt-issue-labels: 'pinned,security,roadmap,good first issue'
+          exempt-issue-labels: 'pinned,security,roadmap,good first issue,help wanted'
           exempt-pr-labels: 'pinned,security,do-not-close'
           exempt-all-milestones: true

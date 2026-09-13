@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or idea
+    url: https://github.com/claude-dev-suite/claude-dev-suite/discussions
+    about: Ask how something works, or float an idea before it becomes an issue.
+  - name: First contribution guide
+    url: https://github.com/claude-dev-suite/claude-dev-suite/blob/main/CONTRIBUTING.md#your-first-contribution
+    about: Four tracks, the shortest one takes about 20 minutes and needs no build.
+  - name: Security vulnerability
+    url: https://github.com/claude-dev-suite/claude-dev-suite/security/policy
+    about: Report privately — please do not open a public issue.
