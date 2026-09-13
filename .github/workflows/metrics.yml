@@ -2,10 +2,12 @@ name: Metrics
 
 # Snapshots the traffic statistics GitHub discards after 14 days.
 #
-# The traffic endpoints require push access, and the Actions GITHUB_TOKEN has no
-# `administration` permission to grant — so this needs a PAT with `repo` scope in
-# the GH_TOKEN secret. Without it every call 403s and the job fails loudly rather
-# than committing an empty snapshot.
+# The GH_TOKEN PAT is doing two jobs here, both of which the Actions GITHUB_TOKEN
+# cannot do. Reading traffic requires push access, and GITHUB_TOKEN has no
+# `administration` permission to grant. Pushing the snapshot to main requires
+# bypassing the `pull_request` rule on that branch, and only the repository admin
+# is a bypass actor — github-actions[bot] is not, so a checkout with the default
+# token would fail at the push with a ruleset violation.
 
 on:
   schedule:
@@ -23,6 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The push at the end of this job uses whatever credential checkout
+          # stored, so it has to be the PAT rather than GITHUB_TOKEN.
+          token: ${{ secrets.GH_TOKEN }}
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

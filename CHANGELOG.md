@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Actions `GITHUB_TOKEN` has no `administration` permission to grant, so the job
   fails loudly rather than committing an empty file.
 
+  The snapshot is pushed with that same PAT rather than the Actions token: the
+  `pull_request` rule on `main` names only the repository admin as a bypass
+  actor, so a push authenticated as github-actions[bot] is refused by the
+  ruleset.
+
   `contributor-queue.yml` keeps the `good first issue` queue from emptying — the
   README links that label, and a newcomer who finds an empty list does not come
   back — by opening a quick-ref issue for a skill that has none whenever the
