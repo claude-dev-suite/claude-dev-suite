@@ -79,6 +79,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   validation scripts; the stale bot now leaves `help wanted` issues open, since a
   long-lived one is the point.
 
+- **A PR that closes someone else's claimed issue now says so on arrival.** `claim.yml`
+  recorded who owns an issue but nothing checked the other direction, so #224 was opened
+  against #223 the same day #223 was claimed and assigned — by a different contributor,
+  who found out a day later. The cost of that lands on the contributor, not on the
+  maintainer, and a late comment does not give the evening back.
+
+  The check reads both halves of "taken", because they are not the same thing: an
+  assignee, and the `claimed` label that `claim.yml` falls back to when GitHub refuses
+  the assignment — which it does for an account that has never interacted with the
+  repository. Reading assignees alone would miss precisely the first-time contributor
+  the fallback exists for.
+
+  It runs on `pull_request_target`, since a fork's PR cannot be answered with the
+  read-only token `pull_request` grants, and nothing in that workflow checks out or runs
+  the PR's code. The comment is posted once per PR, so an edit to the body does not stack
+  another copy onto someone who already read it.
+
 - **The maintainer's personal identifiers are out of the tracked files.** A privacy
   sweep over the working tree and all 8997 objects in the history found no real
   credential anywhere, but four files carried personal data that served no purpose:
