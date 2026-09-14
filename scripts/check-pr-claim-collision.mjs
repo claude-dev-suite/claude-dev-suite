@@ -38,10 +38,12 @@ const MARKER = '<!-- dev-suite:claim-collision -->';
 const MAINTAINER_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 
 /**
- * GitHub's closing keywords, as documented for linked issues. The number may be
- * separated by a colon and whitespace, and the keyword is case-insensitive.
+ * GitHub's nine closing keywords. The keyword may be followed by a colon and is
+ * case-insensitive; every form GitHub documents puts whitespace before the
+ * number, so `closes#5` is deliberately not matched — a parser looser than
+ * GitHub's would flag a PR that closes nothing.
  */
-const CLOSING_KEYWORD = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b\s*:?\s*#(\d+)/gi;
+const CLOSING_KEYWORD = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+#(\d+)/gi;
 
 const api = async (endpoint, init = {}) => {
   const res = await fetch(

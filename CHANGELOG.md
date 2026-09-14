@@ -91,10 +91,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   repository. Reading assignees alone would miss precisely the first-time contributor
   the fallback exists for.
 
-  It runs on `pull_request_target`, since a fork's PR cannot be answered with the
-  read-only token `pull_request` grants, and nothing in that workflow checks out or runs
-  the PR's code. The comment is posted once per PR, so an edit to the body does not stack
-  another copy onto someone who already read it.
+  It rides the existing daily cron rather than `pull_request_target`. Answering a fork's
+  PR on arrival needs a write token on a trigger controlled by untrusted input, and the
+  notice lands after the work was written either way — the day of latency costs a
+  contributor further iteration on a PR that will not merge, not the evening that was
+  already spent. That trade buys the check zero new attack surface.
+
+  The comment is posted once per PR, so an edit to the body does not stack another copy
+  onto someone who already read it, and only GitHub's nine documented closing keywords
+  count: a bare `#223` links a thread without closing it.
 
 - **The maintainer's personal identifiers are out of the tracked files.** A privacy
   sweep over the working tree and all 8997 objects in the history found no real

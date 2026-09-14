@@ -46,6 +46,12 @@ describe('closesIssues', () => {
     expect(closesIssues({ title: '', body: 'Closes: #77' })).toEqual([77]);
   });
 
+  it('requires whitespace before the number, as every documented form has', () => {
+    // A parser looser than GitHub's flags a PR that closes nothing.
+    expect(closesIssues({ title: '', body: 'closes#5' })).toEqual([]);
+    expect(closesIssues({ title: '', body: 'Closes: #5' })).toEqual([5]);
+  });
+
   it('ignores a bare issue reference', () => {
     // "See #223 for context" links the issue; it does not close it, and
     // flagging it would put a collision notice on every PR that cites a thread.

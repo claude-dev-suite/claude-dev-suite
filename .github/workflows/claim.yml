@@ -15,22 +15,9 @@ name: Claim
 on:
   issue_comment:
     types: [created]
-  # The collision job below needs a write token to answer a fork's PR, which the
-  # plain `pull_request` event does not grant. `pull_request_target` does, and is
-  # safe here only because nothing in this file checks out or runs the PR's code:
-  # every step reads the API from the base repository's own checkout.
-  pull_request_target:
-    types: [opened, reopened, edited]
-  workflow_dispatch:
-    inputs:
-      dry_run:
-        description: 'Print what would happen, change nothing'
-        type: boolean
-        default: false
 
 permissions:
   issues: write
-  pull-requests: write
 
 jobs:
   claim:
@@ -98,33 +85,3 @@ jobs:
           If nothing happens for a week the issue goes back in the pool, no hard feelings.
           EOF
           gh issue comment "${ISSUE}" --repo "${REPO}" --body-file claimed.md
-
-  # The other direction of the same question: `claim` records who owns an issue,
-  # this tells a second contributor before they spend an evening on it.
-  collision:
-    if: >-
-      github.repository_owner == 'claude-dev-suite' &&
-      github.event_name != 'issue_comment'
-    runs-on: ubuntu-latest
-    steps:
-      # Base repository only. `pull_request_target` would happily check out the
-      # PR's head with a write token in scope; it must not.
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-
-      - name: Ensure the label exists
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          gh label create 'claim-collision'             --description 'Closes an issue someone else already claimed'             --color 'fbca04'             --repo "${REPO}" || true
-
-      - name: Flag PRs that close a claimed issue
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          node scripts/check-pr-claim-collision.mjs             ${{ inputs.dry_run && '--dry-run' || '' }}

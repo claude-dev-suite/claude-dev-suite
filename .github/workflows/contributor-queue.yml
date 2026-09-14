@@ -1,8 +1,9 @@
 name: Contributor queue
 
-# Two jobs that keep the contributor funnel honest without anyone watching it:
-# the good-first-issue queue never empties, and a PR waiting on the maintainer
-# is visible as a label rather than as a forgotten tab.
+# Three jobs that keep the contributor funnel honest without anyone watching it:
+# the good-first-issue queue never empties, a PR waiting on the maintainer is
+# visible as a label rather than as a forgotten tab, and a PR that closes an
+# issue someone else claimed says so instead of being discovered in review.
 
 on:
   schedule:
@@ -63,4 +64,39 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           node scripts/triage-contributor-prs.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+
+  # The other direction of `claim.yml`: that records who owns an issue, this
+  # tells a second contributor they are about to duplicate them.
+  #
+  # It rides the daily cron rather than `pull_request_target`. Answering a
+  # fork's PR on arrival needs a write token on a trigger controlled by
+  # untrusted input, and the notice would arrive after the work was written
+  # either way — the day of latency costs a contributor further iteration on a
+  # PR that will not merge, not the evening that was already spent.
+  collision:
+    if: github.repository_owner == 'claude-dev-suite'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Ensure the label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create 'claim-collision' \
+            --description 'Closes an issue someone else already claimed' \
+            --color 'fbca04' \
+            --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Flag PRs that close a claimed issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/check-pr-claim-collision.mjs \
             ${{ inputs.dry_run && '--dry-run' || '' }}
