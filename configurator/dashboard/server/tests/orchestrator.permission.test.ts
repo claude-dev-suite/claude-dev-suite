@@ -69,7 +69,7 @@ describe('PermissionService', () => {
     const highCmds = [
       'sudo apt update',
       'su -l root',
-      'su mario',
+      'su testuser',
       'chmod 777 /tmp/file',
       'chmod 0777 /etc/passwd',
       'chown root:root /etc/nginx/nginx.conf',
@@ -167,7 +167,7 @@ describe('PermissionService', () => {
       { key: 'file_path', path: '/app/auth.token' },
       { key: 'file_path', path: '/project/private.key' },
       { key: 'file_path', path: '/etc/nginx/nginx.conf' },
-      { key: 'file_path', path: 'C:/Users/mario/.ssh/id_rsa' },
+      { key: 'file_path', path: 'C:/Users/testuser/.ssh/id_rsa' },
       { key: 'file_path', path: '/home/user/.config/settings.json' },
       { key: 'file_path', path: '/home/user/.aws/credentials' },
       { key: 'file_path', path: '/home/user/.kube/config' },

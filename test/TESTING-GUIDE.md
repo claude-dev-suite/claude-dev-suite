@@ -209,7 +209,7 @@ curl -X POST http://localhost:3456/api/codegen/generate \
 # 6. Scan conventions di un progetto
 curl -X POST http://localhost:3456/api/codegen/conventions \
   -H "Content-Type: application/json" \
-  -d '{"projectPath": "C:/Users/mario/OneDrive/Desktop/projects/business/dev-suite"}'
+  -d '{"projectPath": "C:/path/to/your/project"}'
 ```
 
 ---

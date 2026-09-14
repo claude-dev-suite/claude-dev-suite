@@ -79,6 +79,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   validation scripts; the stale bot now leaves `help wanted` issues open, since a
   long-lived one is the point.
 
+- **The maintainer's personal identifiers are out of the tracked files.** A privacy
+  sweep over the working tree and all 8997 objects in the history found no real
+  credential anywhere, but four files carried personal data that served no purpose:
+  a note in `docs/kb-audit-2026-07.md` naming the maintainer's personal `gh` account,
+  a full `C:/Users/<name>/OneDrive/...` path in `test/TESTING-GUIDE.md`, and the same
+  Windows username in five path fixtures across two test files. The fixtures now use
+  `testuser`, which is what they always meant. The community and release-promo commands
+  sign off as the maintainers rather than by first name.
+
 ## [1.15.0] - 2026-09-05
 
 ### Added

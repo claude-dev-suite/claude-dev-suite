@@ -43,7 +43,7 @@ Format:
 Title: Show HN: Dev-Suite {VERSION} – {one-line description of biggest change}
 
 Body:
-Hey HN, I'm Mario, author of Dev-Suite — an open-source toolkit that extends Claude Code with specialized agents, MCP servers, and a configuration dashboard.
+Hey HN, we maintain Dev-Suite — an open-source toolkit that extends Claude Code with specialized agents, MCP servers, and a configuration dashboard.
 
 {VERSION} ships with:
 - {highlight 1}

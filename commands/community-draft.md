@@ -39,7 +39,7 @@ Draft an authentic, helpful reply for a community discussion about Claude Code, 
 - Technical, direct, helpful
 - Answer the question first, mention dev-suite only if it directly solves their problem
 - Include code examples or config snippets when relevant
-- Sign off with "— Mario, dev-suite author" only if dev-suite is mentioned
+- Sign off with "— the dev-suite maintainers" only if dev-suite is mentioned
 
 ### Hacker News
 - No markdown (plain text only)

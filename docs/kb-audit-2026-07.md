@@ -252,4 +252,4 @@ abb-freelance, anthropic, apache-poi, bulk-engineering, dcs-platforms, iec61131,
 Correct (no change): react 19, svelte 5, tailwind 4, tanstack-query 5, tauri 2, vue 3, zustand 5.
 
 > Manifests live in the **knowledge_base repo** (external). Not pushed: the active `gh`
-> account is `mariepellegrino89`, not `claude-dev-suite`. Push after switching accounts.
+> account was not `claude-dev-suite`. Verify with `gh auth status` and switch before pushing.

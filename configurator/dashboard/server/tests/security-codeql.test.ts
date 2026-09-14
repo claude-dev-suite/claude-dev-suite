@@ -570,7 +570,7 @@ describe('UNC/WSL path validation logic (mirrors electron/main.cjs)', () => {
   });
 
   it('does not treat regular Windows drive paths as UNC', () => {
-    expect(parseUNCPath('C:\\Users\\mario\\project').isUNC).toBe(false);
+    expect(parseUNCPath('C:\\Users\\testuser\\project').isUNC).toBe(false);
   });
 
   it('does not treat absolute Unix-style paths as UNC', () => {
@@ -606,7 +606,7 @@ describe('UNC/WSL path validation logic (mirrors electron/main.cjs)', () => {
   });
 
   it('normalises regular path to forward slashes', () => {
-    const { normalised } = parseUNCPath('C:\\Users\\mario\\project');
-    expect(normalised).toBe('C:/Users/mario/project');
+    const { normalised } = parseUNCPath('C:\\Users\\testuser\\project');
+    expect(normalised).toBe('C:/Users/testuser/project');
   });
 });
