@@ -88,17 +88,17 @@ export function createServer(): Express {
   // exists, the dashboard SPA (see frontend.ts). The Vite build emits no inline
   // scripts, so 'unsafe-inline' stays out of script-src; style-src needs it
   // because React components set inline styles and shiki injects them for
-  // syntax highlighting. The two Google Fonts hosts are the only remote origins
-  // index.html references.
+  // syntax highlighting. There are no remote origins at all: the fonts are
+  // bundled into the build, so style-src and font-src stay on 'self'.
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],        // no inline scripts in the Vite build
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:"],
         connectSrc: ["'self'", "ws://localhost:*", "ws://127.0.0.1:*"],
-        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+        fontSrc: ["'self'", 'data:'],
       },
     },
     crossOriginEmbedderPolicy: false,

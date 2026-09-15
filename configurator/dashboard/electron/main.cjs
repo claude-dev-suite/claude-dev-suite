@@ -188,10 +188,10 @@ function applyCSP(session) {
             // rework. Accepted risk: inline styles cannot execute code; only script-src
             // 'unsafe-inline' carries meaningful XSS risk, and that is already locked to
             // 'self' in production.
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "style-src 'self' 'unsafe-inline'",
             `connect-src 'self' http://localhost:${SERVER_PORT} ws://localhost:${WS_PORT} http://localhost:${VITE_DEV_PORT} ws://localhost:${VITE_DEV_PORT}`,
             "img-src 'self' data:",
-            "font-src 'self' data: https://fonts.gstatic.com",
+            "font-src 'self' data:",
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'self'",
