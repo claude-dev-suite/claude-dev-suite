@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useApi, invalidateCache } from '../useApi';
+import { invalidateCache, useApi } from '../useApi';
 import type { ApiResponse } from '@/types';
 
 // Helper to create mock response
@@ -108,23 +108,25 @@ describe('useApi', () => {
   });
 
   it('should refetch data manually', async () => {
-    const firstData = { message: 'first' };
-    const secondData = { message: 'second' };
+    const mockData = { id: 1 };
+    const refetchedData = { id: 2 };
+    const mockResponse: ApiResponse<typeof mockData> = {
+      success: true,
+      data: mockData,
+    };
+    const refetchedResponse: ApiResponse<typeof refetchedData> = {
+      success: true,
+      data: refetchedData,
+    };
 
     fetchSpy
-      .mockResolvedValueOnce(createMockResponse({
-        success: true,
-        data: firstData,
-      }))
-      .mockResolvedValueOnce(createMockResponse({
-        success: true,
-        data: secondData,
-      }));
+      .mockImplementationOnce(() => createMockResponse(mockResponse))
+      .mockImplementationOnce(() => createMockResponse(refetchedResponse));
 
-    const { result } = renderHook(() => useApi('/api/test', { useCache: false }));
+    const { result } = renderHook(() => useApi<typeof mockData>('/api/test'));
 
     await waitFor(() => {
-      expect(result.current.data).toEqual(firstData);
+      expect(result.current.loading).toBe(false);
     });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -133,11 +135,34 @@ describe('useApi', () => {
       await result.current.refetch();
     });
 
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(result.current.data).toEqual(refetchedData);
+  });
+
+  it('should allow manual refetch to use cached data', async () => {
+    const mockData = { id: 1 };
+    const mockResponse: ApiResponse<typeof mockData> = {
+      success: true,
+      data: mockData,
+    };
+
+    fetchSpy.mockImplementationOnce(() => createMockResponse(mockResponse));
+
+    const { result } = renderHook(() => useApi<typeof mockData>('/api/test'));
+
     await waitFor(() => {
-      expect(result.current.data).toEqual(secondData);
+      expect(result.current.loading).toBe(false);
     });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.data).toEqual(mockData);
+
+    await act(async () => {
+      await result.current.refetch({ force: false });
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.data).toEqual(mockData);
   });
 
   // CSRF test removed - CSRF protection not needed for localhost-only tools

@@ -99,6 +99,11 @@ export interface UseApiOptions extends Omit<RequestInit, 'cache'> {
   forceRefresh?: boolean;
 }
 
+export interface RefetchOptions {
+  /** Whether to force a fresh network request instead of using a valid cached response (default: true) */
+  force?: boolean;
+}
+
 export interface UseApiResult<T> {
   /** Response data (null if not loaded or error) */
   data: T | null;
@@ -106,8 +111,12 @@ export interface UseApiResult<T> {
   loading: boolean;
   /** Error message if request failed */
   error: string | null;
-  /** Function to manually refetch data */
-  refetch: () => void;
+  /**
+   * Function to manually refetch data.
+   * Forces a fresh network request by default; pass { force: false } to allow
+   * a valid cached response to satisfy this refetch call.
+   */
+  refetch: (options?: RefetchOptions) => Promise<void>;
   /** HTTP status code */
   status: number | null;
   /** Full error object with type information */
@@ -153,11 +162,11 @@ export function useApi<T>(
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
-  const fetchDataRef = useRef<() => Promise<void>>(undefined);
+  const fetchDataRef = useRef<(bypassCache?: boolean) => Promise<void>>(undefined);
   // FIX: Track in-flight requests to prevent overlapping polling requests
   const isInFlightRef = useRef<boolean>(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (bypassCache = false) => {
     // FIX: Prevent overlapping requests during polling
     if (isInFlightRef.current) {
       logger.debug('Skipping fetch - request already in flight', { endpoint });
@@ -168,7 +177,7 @@ export function useApi<T>(
     const cacheKey = getCacheKey(endpoint, fetchOptions);
 
     // Check cache first (only for GET requests)
-    if (enableCache && method === 'GET' && !forceRefresh) {
+    if (enableCache && method === 'GET' && !forceRefresh && !bypassCache) {
       const cached = cache.get(cacheKey) as CacheEntry<T> | undefined;
       if (isCacheValid(cached, cacheTtl)) {
         logger.debug('Using cached response', { endpoint, cacheKey });
@@ -260,6 +269,11 @@ export function useApi<T>(
     }
   }, [endpoint, fetchOptions, logger, enableCache, cacheTtl, forceRefresh]);
 
+  const refetch = useCallback(
+    (options?: RefetchOptions) => fetchData(options?.force !== false),
+    [fetchData]
+  );
+
   // Keep ref up to date with latest fetchData
   useEffect(() => {
     fetchDataRef.current = fetchData;
@@ -306,7 +320,7 @@ export function useApi<T>(
     data,
     loading,
     error,
-    refetch: fetchData,
+    refetch,
     status,
     errorObj,
     isNetworkError: errorObj ? isNetworkError(errorObj) : false,
