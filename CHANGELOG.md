@@ -58,6 +58,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **`refetch()` from `useApi` now forces a network request and writes the fresh
+  response back into the cache.** It was `fetchData`, which took the cache branch
+  like any other read, and caching is on by default with a 30s TTL — so a manual
+  refetch inside that window resolved from the cache and never reached the server.
+
+  The evidence it was a bug rather than a policy was already in the tree:
+  `useReleaseCheck`'s `recheck` called `invalidateCache('/api/release-check')` by
+  hand immediately before `refetch()`. The one caller that wanted a fresh manual
+  refetch had written the workaround itself, because the hook would not do it.
+  That line is now redundant.
+
+  Bypassing alone would not have been enough — it would leave the stale entry for
+  the next read to serve — so the fresh response overwrites it. `forceRefresh` was
+  no answer either: it is a hook-level option, so a caller reaching for it disables
+  caching for every read of that hook rather than just the refresh. The cached
+  behaviour is still reachable per call with `refetch({ force: false })`, and no
+  existing call site needed changing: they all call `refetch()` bare, which is the
+  behaviour they already assumed.
+
 - **vitest 5 across all three workspaces**, as one change rather than the five
   dependabot proposed. `vitest` and `@vitest/coverage-v8` share a major and CI
   never runs `test:coverage`, so a half-bumped pair would have merged green and
