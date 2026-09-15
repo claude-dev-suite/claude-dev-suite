@@ -26,6 +26,8 @@
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@types/dompurify": "^3.0.5",
     "clsx": "^2.1.0",
     "dompurify": "^3.4.7",

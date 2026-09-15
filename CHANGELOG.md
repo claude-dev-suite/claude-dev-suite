@@ -58,6 +58,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **The dashboard no longer contacts Google to render itself.** `index.html`
+  carried a `<link>` to fonts.googleapis.com, so a desktop app that loads its UI
+  from disk made the user's machine reach out to Google on every launch — sending
+  an IP address and a timestamp for two font families — and degraded silently to
+  system fallbacks with no network.
+
+  Inter and JetBrains Mono are now bundled through `@fontsource`, in the same
+  weights the `<link>` requested. Vite emits them into `dist/assets` and the
+  renderer reads them off disk, so there is no service to host and nothing for
+  anyone to call: the build has zero remote references. All unicode subsets are
+  kept rather than latin alone, since the UI renders the user's own project paths
+  and file contents, and `@font-face` unicode-range still means only the subset in
+  use is ever read. It costs 512 KB in a build measured in tens of megabytes, and
+  the dashboard now looks identical offline.
+
+  Both content security policies drop the two Google origins, so `style-src` and
+  `font-src` are back to `'self'` on the Express server and in Electron's injected
+  headers. A test pins all of it — the markup and both policies — because the
+  reintroduction is a one-line `<link>` or a CSP relaxed "to make the font work".
+
 - **`refetch()` from `useApi` now forces a network request and writes the fresh
   response back into the cache.** It was `fetchData`, which took the cache branch
   like any other read, and caching is on by default with a 30s TTL — so a manual
