@@ -53,7 +53,12 @@ If batch fails:
 - Some implementations just return "batch failed" without identifying
   the bad sig — caller decides whether to bisect.
 
-## When batch verify pays off
+## Where batch verify would pay off
+
+Theoretical, not deployed: libsecp256k1 exposes no batch-verify API
+and Bitcoin Core verifies each Taproot signature individually (as of
+September 2026 — see the API section below). The places it would
+help:
 
 - **IBD** (initial block download): batch all sigs in a block, then
   whole-block batch.
@@ -65,19 +70,32 @@ Speedup typically 2-3x for ~100-1000 sigs. Negligible for a single sig.
 
 ## libsecp256k1 API
 
+**There is no batch-verify entry point.** As of libsecp256k1 v0.8.0
+(August 2026), `include/secp256k1_schnorrsig.h` declares exactly three
+functions, all single-signature:
+
 ```c
-int secp256k1_schnorrsig_verify_batch(
-    secp256k1_context* ctx,
-    secp256k1_scratch_space* scratch,
-    const unsigned char* const* sigs,
-    const unsigned char* const* msgs32,
-    const secp256k1_xonly_pubkey* const* pubkeys,
-    size_t n_sigs
-);
+int secp256k1_schnorrsig_sign32(...);       /* 32-byte message    */
+int secp256k1_schnorrsig_sign_custom(...);  /* arbitrary msglen   */
+int secp256k1_schnorrsig_verify(...);       /* one signature      */
 ```
 
-(Available in libsecp256k1 modules; not exposed in the default API at
-the time of writing — check current upstream.)
+`secp256k1_schnorrsig_verify_batch` has never shipped in a public
+header — the only occurrences of that name upstream are `(TODO)`
+comments in `src/modules/schnorrsig/tests_impl.h`. The
+`secp256k1_scratch_space` struct and its `_create` / `_destroy`
+helpers — the usual companion of a multi-scalar API — were removed
+from the public API in v0.6.0 (November 2024), "because the scratch
+space was unused in the API"; an internal, unexported scratch
+implementation survives in `src/scratch.h`.
+
+Batching is therefore the caller's job — built on raw EC arithmetic,
+or on a fork that exports libsecp256k1's internal multi-scalar routine
+(`secp256k1_ecmult_multi_var`, `static` in `src/ecmult.h`). Bitcoin
+Core does not batch: `XOnlyPubKey::VerifySchnorr`
+(`src/pubkey.cpp`) calls `secp256k1_schnorrsig_verify` once per
+signature, driven by `CheckSchnorrSignature` in
+`src/script/interpreter.cpp` (master, September 2026).
 
 ## Common pitfalls
 

@@ -68,7 +68,7 @@ def schnorr_sign(secret: bytes, message: bytes, aux: bytes) -> bytes:
 
 ```python
 def schnorr_verify(pubkey: bytes, message: bytes, sig: bytes) -> bool:
-    if len(pubkey) != 32 or len(sig) != 64 or len(message) == 0:
+    if len(pubkey) != 32 or len(sig) != 64:   # m may be any length
         return False
     P = lift_x(int.from_bytes(pubkey, 'big'))
     if P is None: return False
@@ -94,6 +94,7 @@ illustration).
 
 BIP340 ships **test vectors** with known good `(d, m, aux, sig)`
 tuples covering edge cases (zero aux, max-value scalars, even/odd
-points). Always run before deploying.
+points, and messages of 0, 1, 17 and 100 bytes). Always run before
+deploying.
 
 Path: `bitcoin/bips/bip-0340/test-vectors.csv`.

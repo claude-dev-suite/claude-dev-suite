@@ -43,11 +43,22 @@ For MuSig2: `KeyAgg list`, `KeyAgg coefficient`, `MuSig/nonce`,
 `lift_x(x)` returns None if `(x, y)` for any y is not on curve. Always
 check return value before using.
 
-## 5. Empty / short message
+## 5. Assuming the message must be 32 bytes
 
-BIP340 requires message `m` to be exactly **32 bytes**. Many libraries
-require `len(m) == 32`. If you have variable-length payload, hash it
-first to 32 bytes.
+BIP340 accepts **arbitrary-length** messages since its 2023-04 revision
+("Allow messages of arbitrary size" in the BIP's own changelog);
+earlier revisions did require exactly 32 bytes. A verifier that
+hard-rejects `len(m) != 32` is non-conformant: BIP340 test vectors
+15-18 sign messages of 0, 1, 17 and 100 bytes and all expect `TRUE`.
+
+The libsecp256k1 API mirrors the split — `secp256k1_schnorrsig_sign32`
+is the 32-byte convenience wrapper, while
+`secp256k1_schnorrsig_sign_custom` and `secp256k1_schnorrsig_verify`
+take a `msglen`.
+
+Pre-hashing to 32 bytes is now a *performance* recommendation, not a
+spec requirement (BIP340 puts the break-even around 56 bytes). Bitcoin
+consensus is unaffected: the BIP341 sighash is always 32 bytes.
 
 ## 6. Mixing aux entropy semantics
 
@@ -62,11 +73,15 @@ sigs.
 
 ## 7. Schnorr sig over message hash vs sig over message
 
-BIP340 signs the **message bytes** directly (after a 32-byte length
-check). It does NOT internally hash the message first — the caller
-must already have a 32-byte digest if signing arbitrary-length data.
+BIP340 signs the **message bytes** directly. It does NOT internally
+pre-hash the message — the challenge is
+`TaggedHash("BIP0340/challenge", R.x || P.x || m)` over exactly the
+bytes you pass.
 
-Compare: ECDSA signs `H(m)`, BIP340 signs `m` (which must be 32 bytes).
+Compare: ECDSA signs `H(m)`, BIP340 signs `m` — and since the
+2023-04 revision `m` may be any length (see #5), pre-hashing
+arbitrary-length data is a choice, not an obligation. Bitcoin's own
+sighash already is a 32-byte digest.
 
 ## 8. Confusing signing for output key vs internal key
 
