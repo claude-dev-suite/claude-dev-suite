@@ -15,9 +15,12 @@ than single custodian (like wBTC) or fixed federation.
 
 ## Architecture
 
-- **Random signing groups** of ~50 nodes selected from a larger
-  staked pool.
-- **t-of-n threshold ECDSA** (51-of-100 typical).
+- **Random signing groups** of 100 nodes, drawn by sortition from the
+  staked operator pool.
+- **t-of-n threshold ECDSA** — 51-of-100. `EcdsaDkgValidator.sol` in
+  keep-network/keep-core pins `groupSize = 100`, `groupThreshold = 51`,
+  `activeThreshold = 90`; those constants are unchanged on `main` as of
+  September 2026.
 - **Slashing**: malicious nodes lose stake.
 - **Native token**: T (Threshold).
 
@@ -40,8 +43,10 @@ than single custodian (like wBTC) or fixed federation.
 | Custody | Decentralized signers | BitGo (single custodian) |
 | Trust | Threshold + slashing | Trust BitGo |
 | Decentralization | Higher | Centralized |
-| Status | Live | Live (massive TVL) |
-| TVL | Smaller | Larger |
+| Status | Live | Live |
+| TVL | ~$333M | ~$8.8B |
+
+TVL figures are DefiLlama, 16 September 2026: wBTC is roughly 27x tBTC.
 
 ## Compared to BitVM-based bridges
 
@@ -52,10 +57,22 @@ than single custodian (like wBTC) or fixed federation.
 | Withdrawal time | Quick (signing) | 24+ hours challenge window |
 | Audit complexity | Standard | Complex |
 
+## Downstream: Mezo
+
+**Mezo**, the Bitcoin-first chain from the same shop (Thesis),
+mainnet 28 May 2025, is a significant tBTC consumer: it bridges BTC
+in over tBTC, uses BTC for gas, and collateralises its MUSD CDP
+stablecoin with it. Two DefiLlama figures for scale, both
+15 September 2026 — tBTC protocol ~$336.0M, Mezo chain ~$71.7M (not
+all of which is tBTC). So tBTC's signer assumptions now sit
+underneath a stablecoin as well as under EVM DeFi positions. See
+[mezo/SKILL.md](../mezo/SKILL.md).
+
 ## Use cases
 
 - **Bringing BTC to Ethereum DeFi** (lending, AMMs).
 - **Cross-chain composition** between BTC + EVM ecosystems.
+- **Collateral for Bitcoin-native credit markets** (Mezo / MUSD).
 
 ## Limitations
 
@@ -68,3 +85,5 @@ than single custodian (like wBTC) or fixed federation.
 - [babylon/SKILL.md](../babylon/SKILL.md)
 - [bitvm/SKILL.md](../bitvm/SKILL.md)
 - [bsquared/SKILL.md](../bsquared/SKILL.md)
+- [mezo/SKILL.md](../mezo/SKILL.md)
+- [lombard/SKILL.md](../lombard/SKILL.md)

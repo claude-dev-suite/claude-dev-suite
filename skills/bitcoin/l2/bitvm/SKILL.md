@@ -47,12 +47,32 @@ hashes); single use per setup.
 
 Used by:
 - **Citrea** mainnet bridge.
-- **Babylon's** trustless Bitcoin bridge (Fiamma collaboration).
+- **Fiamma**, whose BitVM2 bridge lists Babylon as its Wasm-VM target
+  chain (Fiamma's own docs, last updated January 2026). Babylon's
+  trustless-vault docs do not credit Fiamma as of September 2026.
 
 ## BitVM3
 
-- Further efficiency improvements.
-- **Babylon's Trustless Vaults** use BitVM3.
+- Further efficiency improvements. The academic write-up — "BitVM3:
+  Efficient Bitcoin Bridges via Garbled Circuits" (Robin Linus Woll,
+  Alexopoulos, Aumayr, Avarikioti, Maffei, Tse; IACR eprint 2026/933,
+  received May 2026, revised June 2026) — has the challenger evaluate a
+  **garbled circuit** entirely off-chain, which the paper reports as a
+  nearly 1000x saving: total on-chain cost ~$9, with the challenge
+  transaction itself ~$0.20, against a ~$16,000 worst-case dispute cost
+  under BitVM2.
+- **Babylon's Trustless Vaults** were announced on BitVM3 (whitepaper,
+  August 2025). As of September 2026 Babylon's own docs describe the
+  vaults as public *testnet* — not mainnet.
+- **The RSA-based BitVM3 line was reported broken (by July 2025).**
+  Alpen Labs' post "Glock: A new standard for verification on Bitcoin"
+  (15 July 2025) reports that Liam Eagen and Fairgate Labs found
+  "separate core flaws in its RSA-based construction, rendering it
+  unsafe to build upon", and that Alpen's "direction now fully orients
+  towards Glock in the development of the Alpen ZK rollup and the
+  Strata bridge" (Glock: Garbled Locks for Bitcoin, IACR eprint
+  2025/1485, August 2025). Strata's bridge moved off BitVM2 to
+  Glock/Mosaic (as of September 2026) — see `strata/SKILL.md`.
 - Reduces interactive challenge rounds.
 
 ## Use cases
@@ -82,7 +102,8 @@ BitVM is the "1-of-n watchtower" of bridges.
 
 - **bitvm-rs** (research) — Rust BitVM implementation.
 - **Citrea bridge** uses BitVM2 in production.
-- **Fiamma** — BitVM2 bridge to Cosmos for Babylon.
+- **Fiamma** — BitVM2 bridge to Cosmos; Babylon is its Wasm-VM
+  target chain (Fiamma docs, January 2026).
 - Multiple research forks for variations.
 
 ## Limitations
@@ -92,10 +113,15 @@ BitVM is the "1-of-n watchtower" of bridges.
 - **Latency** — challenge windows mean peg-out is not instant.
 - **Non-trivial economics** — bond sizing matters for security.
 
-## Status (early 2026)
+## Status (as of September 2026)
 
-- BitVM2: production (Citrea bridge).
-- BitVM3: deployed for Babylon Vaults (Aug 2025).
+- BitVM2: production — Citrea's Clementine bridge on Citrea mainnet
+  (clementine v0.6.6, June 2026; citrea node v2.8.0, September 2026).
+- BitVM3: research / preprint, not deployed. Announced for Babylon's
+  Trustless Vaults in August 2025; Babylon's vault-first roadmap
+  (October 2025) targeted mainnet "early next year", and as of
+  September 2026 the vaults are still public testnet. No primary
+  source confirms BitVM3 live on mainnet anywhere.
 - Active research on further efficiency.
 
 ## See also

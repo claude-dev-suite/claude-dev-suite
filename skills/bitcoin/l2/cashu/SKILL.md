@@ -43,17 +43,43 @@ Mint reference: `cashubtc/nutshell` (Python).
 
 ## NUTs (specs)
 
-Modular spec evolution:
-- **NUT-00 to NUT-04** — baseline mint, melt, swap, mint info.
-- **NUT-05** — melting (pay LN with notes).
+Modular spec evolution. As of September 2026 the spec repo defines
+NUT-00 through NUT-30, split into a mandatory core and optional
+extensions each mint advertises under its number in the NUT-06 `nuts`
+capability map.
+
+Mandatory — wallets and mints MUST implement all of NUT-00 to NUT-06:
+- **NUT-00** — cryptography and models (BDHKE, proofs, token encoding).
+- **NUT-01** — mint public keys.
+- **NUT-02** — keysets and fees.
+- **NUT-03** — swap (split/combine notes).
+- **NUT-04** — mint tokens (generic quote flow, method-agnostic).
+- **NUT-05** — melt tokens (generic quote flow, method-agnostic).
 - **NUT-06** — mint info endpoint.
+
+Optional (NUT-07 to NUT-30), selected:
 - **NUT-07** — token state check.
-- **NUT-09** — restoring tokens from seed.
-- **NUT-10** — spending conditions (P2PK, htlc).
+- **NUT-08** — overpaid Lightning fee return.
+- **NUT-09** — signature restore (recover proofs from seed).
+- **NUT-10** — spending conditions (well-known `secret` format).
 - **NUT-11** — P2PK locked tokens.
 - **NUT-12** — DLEQ proofs.
-- **NUT-13** — MPP.
-- ... (active development).
+- **NUT-13** — deterministic secrets (BIP32-style derivation).
+- **NUT-14** — HTLC notes.
+- **NUT-15** — partial multi-path payments (MPP).
+- **NUT-17** — WebSocket subscriptions.
+- **NUT-18** — payment requests (`creqA`).
+- **NUT-19** — cached responses (safe request replay).
+- **NUT-20** — signature on mint quote.
+- **NUT-21** / **NUT-22** — clear and blind mint authentication.
+- **NUT-23** / **NUT-25** / **NUT-30** — payment methods: BOLT11,
+  BOLT12, on-chain.
+- **NUT-26** — payment request Bech32m encoding (`creqb1...`).
+- **NUT-28** — pay-to-blinded-key (P2BK).
+- **NUT-29** — batched minting.
+
+Full index plus the per-wallet/per-mint support matrix lives in the
+cashubtc/nuts README.
 
 ## Privacy
 
@@ -75,11 +101,18 @@ custodial-feeling.
 
 - **nutshell** (Python) — reference mint.
 - **cashu-ts** — TypeScript wallet/mint.
-- **cashu-rs** — Rust impl.
+- **cdk** — Cashu Development Kit (Rust); ships `cdk-mintd` as its
+  mint binary. (`cashubtc/cashu-rs` no longer exists as of September
+  2026.)
+- **nutmix** (Go) — `lescuer97/nutmix`, mint; v0.7.0 (August 2026).
 - **cashu.me** — web wallet.
 - **Minibits** — mobile wallet.
 - **eNuts** — mobile wallet (cross-platform).
 - **Macadamia** — iOS-focused.
+- **Sovran** — mobile wallet (Expo/React Native), Cashu + Nostr.
+
+nutmix and Sovran are both listed in the cashubtc/nuts README support
+matrix as of September 2026.
 
 ## Use cases
 
@@ -95,6 +128,22 @@ Cashu mints often expose Lightning Addresses:
 user@minturl.com → LNURL-pay → mint generates note for user
 ```
 
+## Payment requests
+
+NUT-18 encodes a payment request as `"creq" + "A" +
+base64_urlsafe(CBOR(req))`. NUT-26 adds a smaller TLV + Bech32m form
+with HRP `creqb` and version separator `1`; wallets decode both.
+
+A NUT-26 request can be carried inside a BIP-321 Bitcoin URI as a `creq`
+query parameter, so a single QR code can offer Lightning and Cashu side
+by side and the payer's wallet picks the rail it supports:
+```
+bitcoin:?lightning=lnbc...&creq=CREQB1...
+```
+
+NUT-24 reuses the same two encodings in an `X-Cashu` header on an HTTP
+402 Payment Required response.
+
 ## Compared to Fedimint
 
 | Aspect | Cashu | Fedimint |
@@ -107,8 +156,9 @@ user@minturl.com → LNURL-pay → mint generates note for user
 
 ## Status
 
-Beta production. Active development; new NUTs added regularly.
-Multiple mints in use globally (some open, some private).
+Beta production. Active development; new NUTs added regularly — the
+spec repo had reached NUT-30 (payment method: on-chain) by September
+2026. Multiple mints in use globally (some open, some private).
 
 ## See also
 

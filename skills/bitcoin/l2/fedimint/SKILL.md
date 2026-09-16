@@ -52,7 +52,11 @@ between Lightning and Fedimint:
 - Receive on LN → gateway issues fresh notes to Fedimint user.
 
 Gateway is **operationally** trusted but **economically** bonded —
-malicious gateway loses bond.
+malicious gateway loses bond. The gateway's payment paths are a real
+failure surface, not just a theoretical one: v0.12.1 / v0.11.3
+(12 September 2026) were a gateway security release fixing an LNv1
+payment-handling bug plus hardening of LNv2, LND and LDK payment
+paths. Track gateway releases separately from guardian releases.
 
 ## Fedi (mobile app)
 
@@ -75,7 +79,7 @@ malicious gateway loses bond.
 | Custody | Federated multisig | Single mint operator |
 | Trust | Threshold | Single |
 | Setup complexity | Higher (require guardians) | Lower (run mint solo) |
-| Maturity | Beta production | Beta production (NUTs spec evolving) |
+| Maturity | Beta production; 0.x line, v0.12.1 (Sept 2026) | Beta production (NUTs spec evolving) |
 | Mobile | Fedi app | Many wallets |
 
 ## Use cases
@@ -92,11 +96,51 @@ malicious gateway loses bond.
 - **Backup is harder** — losing notes = losing funds (unlike seed
   recovery for HD wallet).
 
-## Recent (2025-2026)
+## Release status (as of September 2026)
+
+Current stable is **v0.12.1**, released 12 September 2026. Prior
+releases on the 0.12 line: v0.12.0 "Second Nature" (27 August 2026).
+The 0.11 maintenance line is at v0.11.3 (12 September 2026).
+
+What v0.12.0 changed for operators:
+
+- **v2 modules are the default** for newly set-up federations
+  (`lnv2`, `mintv2`, `walletv2`); the v1 module set is labelled
+  "legacy" in the setup UI. Existing federations keep their
+  configured modules.
+- **Iroh 1.0** for guardian P2P and the client API; new production
+  federations default to the iroh stack. The iroh upgrade is not
+  wire-compatible with earlier releases, so guardians of iroh
+  federations must upgrade in a coordinated window.
+- **Guardian configs are no longer encrypted at rest.** The guardian
+  password is now purely an admin API/UI credential, so filesystem
+  access to the config directory must be restricted.
+- Upgrade paths tested in CI: v0.11.2 → v0.12.0 and v0.10.1 →
+  v0.12.0. Do **not** upgrade through v0.11.0 or v0.11.1.
+
+## Security notes (as of September 2026)
+
+- **Gateway operators must run v0.12.1 or v0.11.3** (both 12
+  September 2026). These fix a bug in the Lightning gateway's LNv1
+  payment handling and add hardening across the gateway's payment
+  paths, including the LNv2 module and the LND and LDK backends.
+  Technical details were withheld at release time under coordinated
+  disclosure. Drop-in upgrade: no protocol, consensus, API or
+  database format change, and federation guardians and wallet users
+  are unaffected. Gateways on 0.10 or older must move to a supported
+  release.
+- **Federations should run v0.11.2 or later** (13 August 2026).
+  v0.11.2/v0.10.1 carried a coordinated set of server, Lightning,
+  wallet, backup and DKG hardening fixes, re-shipped in v0.12.0.
+- Since v0.12.0 the LNv1/LNv2 preimage-retrieval endpoints are
+  gateway-authenticated rather than public.
+
+## Earlier notes (not re-verified)
 
 - Fedi multi-sig guardian creation simplified via G-bot UI.
 - Stealth-to-scale milestone: federations expanding from <10 to
-  hundreds of communities.
+  hundreds of communities. (Fedi project messaging; not re-verified
+  against a primary source during the September 2026 audit.)
 
 ## See also
 

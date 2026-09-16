@@ -42,9 +42,18 @@ Proposed by Paul Sztorc.
 
 ### Status
 
-- Not activated on Bitcoin mainnet.
+- Not activated on Bitcoin mainnet (as of September 2026).
 - Proposed since 2017, debate ongoing.
-- **LayerTwo Labs** runs testnet drivechain.
+- **LayerTwo Labs** runs two drivechain testnets (as of September
+  2026): a custom signet on stock Bitcoin Core, and **ForkNet** on
+  their out-of-tree `bitcoin-patched` Core fork, whose `drivechain=1`
+  option only the patched build recognises. On both, the rules are
+  enforced out of consensus by their `bip300301_enforcer` sidecar,
+  which drives an unpruned Bitcoin Core node over RPC + ZMQ (Core
+  majors 29, 30 and 31 supported as of September 2026) - no upstream
+  Bitcoin Core or Bitcoin Knots release implements BIP-300/-301
+  itself, and the patched fork's `-drivechain` flag activates
+  ForkNet's difficulty reset, not the peg rules.
 
 ## Spacechains
 

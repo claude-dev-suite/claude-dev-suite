@@ -53,7 +53,51 @@ Multi-asset Lightning channels:
   Lightning's existing path.
 - Multi-hop asset payments routed through bitcoin liquidity.
 
-### v0.7 features (Dec 2025)
+### v0.8 features (v0.8.0 June 2026 → v0.8.3 September 2026)
+
+- **Wallet backup/restore**: three modes — `raw` (v1, complete proof
+  files), `compact` (v2, chain-derivable proof fields stripped and
+  rebuilt on import), `optimistic` (v3, no proofs at all, refetched
+  from a universe federation server on import). Covers the Taproot
+  Assets layer only; a restore still needs the matching lnd wallet.
+- **Orphan-UTXO garbage collection**: tombstone and burn outputs are
+  swept on every burn, transfer and `AnchorVirtualPsbts`. On by
+  default; disable with `wallet.disable-sweep-orphan-utxos`.
+- **Asset forwarding history**: routing nodes log asset forward events
+  and query them with `tapcli rfq forwardinghistory`. Wants lnd started
+  with `--store-final-htlc-resolutions` for full coverage.
+- **RFQ limit orders**: quotes carry limit prices (`asset_rate_limit`)
+  and minimum fill sizes (`asset_min_amt` / `payment_min_amt`), an
+  execution policy (IOC by default, or FOK), and a negotiated fill
+  quantity in the accept message.
+- **PortfolioPilot**: RFQ pricing, hedging and acceptance policy can be
+  delegated to an external service via
+  `experimental.rfq.portfoliopilotaddress`.
+- **Burn by group key**: `tapcli assets burn --group_key` burns units
+  across every issuance in a group.
+- **Auth-mailbox cleanup**: messages whose claimed outpoints are spent
+  are deleted server-side; receivers can call `RemoveMessage`.
+- v0.8.1 (Aug 2026) added `ListInvoices` / `ListPayments` and the
+  streaming `SubscribeInvoices` / `SubscribePayments` / `TrackPayment`
+  RPCs on the `TaprootAssetChannels` service. v0.8.2 (Aug 2026) and
+  v0.8.3 (Sept 2026) are fix and performance releases (MS-SMT proof
+  verification, universe federation push, RFQ/HTLC races).
+
+### v0.8 breaking changes
+
+- RFQ option `experimental.rfq.skipacceptquotepricecheck` renamed to
+  `experimental.rfq.skipquoteacceptverify`.
+- `BurnAssetRequest` now identifies the asset with an `AssetSpecifier`
+  (asset ID **or** group key); the old `asset_id` / `asset_id_str`
+  oneof fields and the singular `burn_proof` response field are
+  deprecated in favour of repeated `burn_proofs`.
+- `universe.multiverse-caches.proofs-per-universe` removed in favour of
+  `universe.multiverse-caches.max-proof-cache-size`, which bounds the
+  proof cache by memory (e.g. `64MB`) rather than proof count.
+- Every v0.8.x release ships a **one-way DB migration**: downgrading to
+  an earlier tapd is not supported. Back up the tapd database first.
+
+### v0.7 features (November 2025)
 
 - **AddressV2**: static, reusable Taproot Assets addresses with grouped
   assets and zero-amount-friendly support.
@@ -73,7 +117,7 @@ Multi-asset Lightning channels:
 | LN integration | Native (tapd + LND) | rgb-lightning-node |
 | Asset model | Single-issuer + multi-issuance | Schema-based, contracts |
 | State validation | Sparse-merkle commitments | Client-side validation |
-| Maturity (late 2025) | v0.7 production | rgb-lightning beta |
+| Maturity | v0.8.3 production (Sept 2026) | rgb-lightning beta (as of late 2025) |
 | LND ecosystem | Tight | Loose |
 
 ## Use cases
@@ -113,8 +157,8 @@ Wallets query universes to verify asset existence and lookup metadata.
 ## Implementation status
 
 - **tapd** — production for asset issuance + transfer (mainnet).
-- **LND integration** — production for asset Lightning channels
-  (v0.7).
+- **LND integration** — production for asset Lightning channels.
+  tapd v0.8.3 (Sept 2026) builds against lnd v0.21.3-beta.
 - **Wallets**:
   - Lightning Labs' Lit (Lightning Terminal) — UI.
   - Stripe's BTCPay integration — partial.
@@ -123,7 +167,11 @@ Wallets query universes to verify asset existence and lookup metadata.
 
 - Asset proof validation requires complete history; missing proof
   fragment = unable to verify.
-- LND + tapd version mismatch → channel asset features fail.
+- LND + tapd version mismatch → channel asset features fail (tapd
+  v0.8.3 tracks lnd v0.21.3-beta, Sept 2026).
+- Downgrade hazard: every v0.8.x release applies a one-way DB
+  migration. Rolling tapd back to an earlier version after upgrading
+  is unsupported — snapshot the DB before you upgrade.
 - Universe sync delay → outdated metadata in wallet.
 
 ## See also

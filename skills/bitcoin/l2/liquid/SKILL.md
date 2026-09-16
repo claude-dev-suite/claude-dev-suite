@@ -93,7 +93,14 @@ peg out; retail users typically use exchanges for peg-out).
 
 Liquid has Lightning compatibility:
 - **Lightning on Liquid** (LBTC channels).
-- Submarine swaps BTC ↔ L-BTC via Boltz, others.
+- Submarine swaps BTC ↔ L-BTC. **Boltz**, long the main public
+  provider, is **offline since 2026-08-03**: all mainchain,
+  Lightning and Liquid swaps disabled "until further notice", no
+  relaunch date announced as of 15 September 2026.
+- **Blockstream Swaps** — in-house replacement covering the same
+  BTC ↔ L-BTC ↔ Lightning routes (submarine, reverse submarine and
+  chain swaps). Limited beta since 10 Aug 2026, "in beta testing
+  with select participants"; access by request.
 
 ## Compared to other L2s
 
@@ -104,10 +111,53 @@ Liquid has Lightning compatibility:
 | Peg | 2-way | 2-way | 1-way (sBTC bidirectional) |
 | Privacy | CT default | None | Limited |
 
+## Security: the September 2026 cache-collision exploit
+
+On 6 September 2026 (Liquid block 4,050,336) an attacker
+exploited a **cache-key collision in Elements' range-proof
+verification cache**. Elements memoises positive range-proof
+verifications; a cache hit *is* a positive result, so a key
+collision bypasses verification entirely.
+
+Two defects are visible in the Elements history:
+- Releases up to and including elements-23.3.3 (13 Apr 2026)
+  keyed on `salted_hash(proof || commitment)` only, omitting
+  the asset generator and the scriptPubKey.
+- The commit binding those in (`212c43f475`, on the
+  `elements-23.3.x` branch 3 Sept 2026) concatenated the
+  fields without length prefixes, so bytes shift across the
+  boundary between the two variable-length fields and distinct
+  tuples collide.
+
+Outcome, as of 15 September 2026:
+- ~3,998.5 unbacked L-BTC minted and pegged out for ~4,000 BTC
+  (~$320M); the federation reserve fell from ~4,200 BTC to
+  ~197 BTC (~95% drained).
+- **No key compromise.** Per Blockstream's status page the
+  funds moved via the SideSwap peg-out authorisation key, "but
+  that key was not compromised, nor were any others". The HSMs
+  signed because the peg-out was valid under the consensus
+  rules they ran — an HSM policy is only as sound as the
+  consensus code behind it.
+- Bridge nodes disabled 7 Sept 2026; block production resumed
+  transaction-free 10 Sept 2026; peg operations (including
+  PAK-authorised peg-outs) stayed suspended past that.
+- Attackers returned ~3,400 BTC, kept 598.5 BTC (~$47M) as a
+  self-declared bounty; Blockstream refused to pay it.
+
+**Minimum safe version: elements-23.3.4** (9 Sept 2026). PR
+#1600 "sigcache: harden range proof cache keys and add
+-norangeproofcache option" moves both proof caches from raw
+`CSHA256` concatenation to `CHashWriter` (length-prefixed
+serialisation), adds the missing `vTags` to the
+surjection-proof key, and adds `-norangeproofcache` to disable
+the range-proof cache without recompiling.
+
 ## Limitations
 
 - **Federation trust**: 11-of-15 multisig; large compromise = funds
-  loss.
+  loss. Consensus-code bugs are the other systemic risk, and the
+  one that actually fired in September 2026 (above).
 - **Peg-out gated** for retail users (typically via exchanges).
 - **Smaller ecosystem** than EVM L2s.
 

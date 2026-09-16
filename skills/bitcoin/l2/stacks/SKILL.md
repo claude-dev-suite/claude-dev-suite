@@ -57,10 +57,21 @@ Stacks's smart contract language:
 
 ## sBTC
 
-- Bidirectional Bitcoin peg.
-- Threshold signers (n-of-m) sign peg-out releases.
-- Peg-in: send BTC to threshold signers' multisig → equivalent
-  sBTC on Stacks.
+- Bidirectional Bitcoin peg. Mainnet contracts deployed 13 December 2024;
+  first completed deposit 14 December 2024; peg-outs live in practice
+  30 April 2025 (isolated first accepted withdrawal 25 March 2025).
+- Signed by a **permissioned institutional signer set** — *not* the
+  Stacking-elected Nakamoto block-signers; conflating the two is the
+  usual source of confusion.
+- Mainnet `sbtc-registry` as of 15 September 2026: **11 signer keys,
+  `current-signature-threshold` = `u8`** (8-of-11); 14 keys / `u10`
+  before the July 2026 rotation.
+- Key rotation is an access-controlled `rotate-keys-wrapper` call only
+  the current signer principal can make — seven rotations between
+  December 2024 and August 2026, not tied to reward cycles.
+- Peg-in: send BTC to a P2TR output committing to the deposit script
+  + a reclaim leaf (sBTC 1.3.4, September 2026) → equivalent sBTC on
+  Stacks.
 - Peg-out: send sBTC + Stacks tx → BTC released after threshold
   approval.
 
@@ -97,7 +108,9 @@ Stacks's smart contract language:
 
 ## Limitations
 
-- **Threshold signer trust** for sBTC peg-out.
+- **Threshold signer trust** for sBTC peg-out — an 8-of-11 permissioned
+  set as of September 2026; permissionless signer rotation is still
+  outstanding.
 - **Smaller ecosystem** vs Ethereum L2s.
 - **Clarity learning curve** (vs Solidity ubiquity).
 
