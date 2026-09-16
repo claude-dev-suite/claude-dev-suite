@@ -6,7 +6,7 @@ Commitment tx spends the 2-of-2 funding output. Each party holds
 their version of the commitment; the two are NOT identical (asymmetric
 reflection of perspective).
 
-## Layout (anchor commitment, modern)
+## Layout (`option_anchors` commitment)
 
 ```
 inputs:
@@ -26,14 +26,14 @@ outputs (in BIP69 sorted order):
     OP_ENDIF
     Wrapped in P2WSH.
 
-  to_local_anchor (330 sats):
+  to_local_anchor (330 sats, `option_anchors` only):
     <local_funding_pk> OP_CHECKSIG
     OP_IFDUP OP_NOTIF
         OP_16 OP_CSV
     OP_ENDIF
     P2WSH.
 
-  to_remote_anchor (330 sats):
+  to_remote_anchor (330 sats, `option_anchors` only):
     similar, with remote_funding_pk
 
   htlc_offered (per outgoing HTLC):
@@ -99,16 +99,54 @@ peer_outgoing_HTLC.cltv > peer_incoming_HTLC.cltv + some_delta
 Ensures upstream HTLC times out *after* downstream, so you have time
 to claim if downstream succeeds.
 
-## Anchor zero-fee variant (current default)
+## Anchor zero-fee-HTLC variant — `option_anchors` (bits 22/23)
 
-`option_anchors_zero_fee_htlc_tx`:
-- Anchor outputs: 330 sats each.
-- Both anchor outputs spendable by either party (with 16-block
-  anyone-can-spend fallback).
-- HTLC 2nd-stage txs are 0-fee with anchor for fee bumping.
+`option_anchors` (historically `option_anchors_zero_fee_htlc_tx`):
+- Anchor outputs: 330 sats each, one keyed to each party's funding
+  key, with a 16-block anyone-can-spend fallback.
+- HTLC 2nd-stage txs are 0-fee, bumped via the anchor.
+- `to_remote` and both HTLC output types carry a 1-block CSV, so the
+  anchor is the only CPFP handle and its child needs an external UTXO.
 
-This is the modern standard; pure `option_anchor_outputs` (legacy)
-had different fee constraints.
+The commitment type in general use as of September 2026; pure
+`option_anchor_outputs` (legacy) had different fee constraints.
+
+## Zero-fee commitments — `zero_fee_commitments` (bits 40/41)
+
+Merged 2026-05-04 (lightning/bolts PR #1228). Commitment tx version is
+3 (TRUC) and `feerate_per_kw` is `0`, so the commitment and both
+2nd-stage HTLC tx types have a base fee of 0. `update_fee` is not used
+on such channels at all.
+
+The two keyed anchors are replaced by a single `shared_anchor`:
+
+```
+  shared_anchor (0-240 sats, zero_fee_commitments only):
+    OP_1 <0x4e73>              (standard P2A, no P2WSH wrapper)
+    spent by anyone with an empty witness: <>
+```
+
+Amount rules (BOLT 3):
+- Equals the sum of trimmed outputs plus millisatoshi amounts rounded
+  down to satoshis. It may legitimately be 0 sat.
+- Below the 240-sat P2A dust limit this is permitted by Bitcoin Core's
+  ephemeral-dust rule, which applies because the parent pays no fee.
+- If that sum exceeds 240 sats, the anchor is capped at 240 sats and
+  the excess becomes an actual mining fee (not deducted from any
+  commitment output). So the commitment is zero-fee in the common
+  case, not unconditionally.
+
+Because the 1-block CSV is scoped to `option_anchors`, `to_remote` is
+a plain P2WPKH here and the HTLC outputs are unencumbered: you can
+CPFP a remote commitment from your own channel outputs without an
+external wallet UTXO. HTLC txs, being 0-fee, are bumped by adding
+inputs rather than by an anchor.
+
+Policy dependency: v3/TRUC and P2A are standard since Bitcoin Core
+v28.0, ephemeral dust since v29.0. Eclair v0.14.0 (2026-05-21)
+shipped the final form and moved its Bitcoin Core dependency to v30.x
+for those policies. As of September 2026 the LND and CLN source trees
+contain no `zero_fee_commitments` support.
 
 ## Obscured commitment number
 

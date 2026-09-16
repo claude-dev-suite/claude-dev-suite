@@ -55,14 +55,34 @@ If counterparty broadcasts an OLD commitment:
 
 Watchtower services automate this monitoring + justice broadcast.
 
-## Anchor CPFP
+## Anchor CPFP (`option_anchors`, bits 22/23)
 
-Modern anchor commitment with `option_anchors_zero_fee_htlc_tx`:
 - Anchor outputs are 330 sats each, spendable immediately by their
   owner.
 - If commitment fee rate is too low at broadcast time, spend your
   anchor with a high-fee child to CPFP.
+- `to_remote` and both HTLC output types carry a 1-block CSV (and
+  `to_local` its `to_self_delay`), so the child must be funded from
+  an external on-chain UTXO.
 - Use `submitpackage` (BIP331) for atomic admission.
+
+## CPFP on `zero_fee_commitments` channels (bits 40/41)
+
+For the channel type merged 2026-05-04 (lightning/bolts PR #1228) the
+sequence differs:
+- The commitment is a v3/TRUC tx paying no fee, so it will not confirm
+  on its own — CPFP is mandatory, not a contingency.
+- There is one unkeyed `shared_anchor` (P2A, 0-240 sats) rather than
+  two keyed 330-sat anchors, and anyone can spend it with an empty
+  witness.
+- The 1-block CSV is gone, so you may instead CPFP from your own
+  `to_remote` / HTLC outputs on a remote commitment — no external
+  wallet UTXO required.
+- TRUC allows at most one unconfirmed descendant and permits sibling
+  eviction, so a counterparty cannot pin the package with a low-fee
+  child.
+- 2nd-stage HTLC txs are also 0-fee and are bumped by adding inputs,
+  not by an anchor.
 
 ## Replacement cycling resistance
 
@@ -77,20 +97,45 @@ Post-TRUC v3 + ephemeral anchors:
 
 ## On-chain cost
 
-Force-close cost = (commitment tx vsize × current fee rate) +
-(per-HTLC 2nd-stage tx fees) + (anchor CPFP fees if needed).
+Force-close cost = (commitment tx vsize × effective fee rate) +
+(per-HTLC 2nd-stage tx fees) + (CPFP child fees if needed).
 
-For a channel with 0 HTLCs: ~150 vB commitment ≈ 7500 sats at 50
-sat/vB. Plus anchor CPFP ~5000 sats. Total ~$5-15 USD as of 2025.
+Sizes come from BOLT 3's expected weights, so they are stable:
+- `option_anchors` commitment, 0 HTLCs: 1124 WU = 281 vB.
+- Each untrimmed HTLC adds 172 WU = 43 vB to the commitment.
+- HTLC-timeout 666 WU ≈ 167 vB, HTLC-success 706 WU ≈ 177 vB
+  (`option_anchors`; both are 0-fee, so that cost lands on the bump).
 
-For a channel with N HTLCs: add ~165 vB per HTLC 2nd-stage tx.
+The fee *rate* is the volatile input, so price it as a range rather
+than one dated figure. A 281 vB, 0-HTLC `option_anchors` commitment:
+
+| fee rate   | commitment fee |
+|------------|----------------|
+| 1 sat/vB   | ~281 sats      |
+| 10 sat/vB  | ~2,810 sats    |
+| 50 sat/vB  | ~14,050 sats   |
+| 200 sat/vB | ~56,200 sats   |
+
+For scale: mempool.space's recommended fees on 2026-09-15 were
+2 sat/vB for the fastest tier and 1 sat/vB for every slower tier, so
+today the top row of that table is the realistic one — but the
+point of the table is that this input moves.
+
+On a `zero_fee_commitments` channel the commitment contributes no fee
+of its own; the cost is the target *package* fee rate applied to
+commitment vsize plus child vsize, and the child can be funded from
+your own channel outputs.
 
 ## Common bugs
 
 - Force-closing right before HTLC CLTV expiry → not enough time to
   resolve.
 - Insufficient on-chain UTXOs to anchor CPFP → commitment stuck at
-  too-low fee rate.
+  too-low fee rate. Applies to `option_anchors` only: on a
+  `zero_fee_commitments` channel the child can spend your own
+  unencumbered channel outputs.
+- Assuming a `zero_fee_commitments` commitment will confirm on its
+  own → it pays no fee; without a CPFP child it simply sits.
 - Treating to_self_delay as elapsed blocks since broadcast (not
   confirmation) → premature sweep tx rejected.
 - Missing watchtower while offline → cheating goes unrebutted.

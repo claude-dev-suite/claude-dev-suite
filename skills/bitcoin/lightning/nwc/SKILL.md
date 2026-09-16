@@ -29,8 +29,18 @@ via your wallet without holding keys directly.
 [Wallet (mobile/extension/server)]
 ```
 
-Both sides have Nostr keypairs. Communication encrypted via NIP-04
-(end-to-end), relayed by untrusted public relays.
+Both sides have Nostr keypairs. Communication is end-to-end
+encrypted, relayed by untrusted public relays.
+
+Encryption is NIP-44 v2. NIP-04 is deprecated and retained only for
+peers that have not migrated (NIP-47 as of September 2026). The two
+sides negotiate: the wallet service lists what it supports in an
+`encryption` tag on its kind 13194 info event
+(`["encryption", "nip44_v2 nip04"]`), and the client puts the scheme
+it chose in an `encryption` tag on every kind 23194 request. Absence
+of the tag means NIP-04. Clients MUST prefer `nip44_v2` whenever the
+wallet offers it; asking for a scheme the wallet lacks returns
+`UNSUPPORTED_ENCRYPTION`.
 
 ## Connection URI
 
@@ -43,16 +53,44 @@ binding.
 
 ## Methods
 
-NIP-47 defines:
+NIP-47 was split on 2026-08-01 (nostr-protocol/nips#2419) into a small
+core plus optional extension specs. Core NIP-47 commands, as of
+September 2026:
 - `pay_invoice(invoice)` — pay BOLT11.
-- `pay_keysend(args)` — keysend.
 - `make_invoice(args)` — generate BOLT11.
 - `lookup_invoice(args)`.
-- `list_transactions(args)`.
 - `get_balance()`.
 - `get_info()`.
-- `multi_pay_invoice(invoices[])` — batch.
-- `sign_message(message)`.
+
+Everything else lives in optional NWC extension specs at
+`github.com/nostr-wallet-connect/nwc` (as of September 2026):
+
+| Ext | Adds |
+|-----|------|
+| 02 | notifications (`payment_received`, `payment_sent`) |
+| 03 | hold invoices (`make_hold_invoice`, `cancel_hold_invoice`, `settle_hold_invoice`) |
+| 04 | `pay_keysend` |
+| 05 | `list_transactions` |
+| 06 | metadata conventions |
+| 07 | deep links |
+| 08 | client-initiated ("1-click") connection creation |
+| 09 | `lookup_payment` |
+| 12 | BOLT12 `make_offer` |
+| 321 | BIP-321 `pay` / `receive` |
+
+A wallet advertises these in an `extensions` tag on kind 13194
+(`["extensions", "02 03 04 06 07 08"]`) and in the `extensions` array
+of `get_info`. Gate every non-core method on that capability event —
+never assume it is there.
+
+History: `multi_pay_invoice` and `multi_pay_keysend` were core NIP-47
+commands until nostr-protocol/nips#2210 (merged 2026-02-11) dropped
+them, six months ahead of the split. `sign_message` was never specified
+in NIP-47 at all — it only ever appeared inside the appendix example
+info event's content string, and is a wallet-level extension (Alby Hub
+implements one). None of the three is defined in the core spec or in
+any current NWC extension spec as of September 2026. Wallets may still
+answer them; treat them as non-standard.
 
 ## Message format
 
@@ -97,12 +135,29 @@ Response:
 
 ## Permissions
 
-Method-level scoping. NWC URI can include allow/deny method lists:
+Method-level scoping is wallet-side, bound to the connection secret.
+The `nostr+walletconnect://` URI carries only `relay`, `secret` and
+`lud16` (NIP-47, as of September 2026) — there is no `&methods=` or
+`&budget=` parameter. A call the connection was not granted returns
+`RESTRICTED`; the client reads what it actually holds from the kind
+13194 info event and from `get_info`.
+
+A client can request a scope up front only via NWC-08 (client-initiated
+connections), whose authorization request takes `request_methods` /
+`optional_request_methods` (URL-encoded, space-separated) plus
+`max_amount` in msat with `renewal_period` (`never` | `daily` |
+`weekly` | `monthly` | `yearly`):
 ```
-nostr+walletconnect://...&methods=pay_invoice,make_invoice
+nostr+walletauth://<client_pubkey>?relay=wss%3A%2F%2Frelay.example.com
+  &state=<128-bit-hex>&request_methods=pay_invoice%20get_balance
+  &max_amount=1000000&renewal_period=monthly
 ```
 
-Or wallet-side rate / amount limits.
+The wallet service MUST grant every method in `request_methods` or
+decline the request, and MUST enforce `max_amount` over that period or
+decline. Per-app budgets outside that flow are a wallet feature, not
+spec — Alby Hub sets a spending budget per app connection in its own UI
+(as of September 2026).
 
 ## Compared to WebLN / LNURL
 
@@ -111,7 +166,7 @@ Or wallet-side rate / amount limits.
 | Browser-only | yes | wallet | yes |
 | Cross-device | no | partial | **yes** |
 | Persistent connection | per-page | per-call | persistent |
-| Encrypted | https | https | NIP-04 |
+| Encrypted | https | https | NIP-44 |
 | Relay | direct | server | nostr |
 | Method coverage | rich | pay-only | rich |
 

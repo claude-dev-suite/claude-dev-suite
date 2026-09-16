@@ -65,6 +65,33 @@ BOLT12 + Taproot Assets together enable invoices priced in non-BTC
 assets routed over LN. Recipient gets BTC amounts; payer pays in
 asset terms; intermediate hops handle conversion.
 
+## Handing out an offer: BIP 353 and bLIP-42
+
+An `lno1...` string is too long to read aloud or type. Two specs
+turn it into a human-readable identity; a third identifies the
+payer instead:
+
+- **BIP 353 "DNS Payment Instructions"** — status `Complete` in the
+  BIPs repo as of September 2026. Publishes a BIP 21 URI, usually
+  just `bitcoin:?lno=<offer>`, in a DNSSEC-signed TXT record at
+  `<user>.user._bitcoin-payment.<domain>`, displayed as
+  `₿user@domain`. No HTTP endpoint in the path, unlike LNURL-pay
+  / LUD-16; see the `lightning-address` skill.
+- **bLIP-32 "Onion Message DNS Resolution"** — status `Active` in
+  `lightning/blips` as of September 2026. Lets a client that cannot
+  validate DNSSEC itself ask a node over onion messages:
+  `dnssec_query` (type 65536) → `dnssec_proof` (65538), or
+  `dnssec_error` (65550).
+- **bLIP-42 "Bolt 12 Contacts"** (Bastien Teinturier, created
+  2024-07-19) — status `Active` in `lightning/blips` as of September
+  2026. Adds optional `invoice_request` TLVs that let a payment
+  identify its payer: `invreq_contact_secret` (2000001729), plus
+  either `invreq_payer_offer` (2000001731) or
+  `invreq_payer_bip_353_name` (2000001733) with
+  `invreq_payer_bip_353_signature` (2000001735) proving control of
+  the offer behind that name. The recipient can then add the payer
+  as a contact and pay them back with no extra round trip.
+
 ## Use cases vs BOLT11
 
 | Use case | BOLT11 | BOLT12 |
@@ -96,10 +123,16 @@ asset terms; intermediate hops handle conversion.
   each payment.
 - Missing onion-message support (`option_onion_messages` feature
   bit) → can't fetch invoice request response.
+- Under bLIP-42, accepting `invreq_payer_offer` /
+  `invreq_payer_bip_353_name` from a payer you already hold a
+  `contact_secret` for → the spec says ignore them for known
+  contacts, so a leaked secret can't redirect your future payments
+  to an impostor's offer.
 
 ## See also
 
 - [bolts/SKILL.md](../bolts/SKILL.md)
 - [onion/SKILL.md](../onion/SKILL.md)
 - [lnurl/SKILL.md](../lnurl/SKILL.md)
+- [lightning-address/SKILL.md](../lightning-address/SKILL.md)
 - [../../l2/taproot-assets/SKILL.md](../../l2/taproot-assets/SKILL.md)

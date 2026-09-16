@@ -137,8 +137,17 @@ edge.
 
 ## Large-graph performance
 
-LN graph as of late 2025: ~12,000 public nodes, ~50,000 public
-channels. Storage: ~50-100 MB.
+LN graph as of 30 August 2026 (mempool.space, the most recent
+datapoint published as of September 2026): ~32,700 public channels,
+~14,200 announced nodes (~16,200 counting unannounced), ~3,790 BTC
+public capacity. Storage: ~50-100 MB.
+
+The graph shrank steadily through 2026: ~41,600 channels and ~5,740
+BTC capacity on 1 January 2026, ~38,200 channels on 1 August 2026,
+~32,700 by 30 August 2026. Crawlers disagree substantially — 1ML
+reported ~19,900 channels and ~5,900 nodes on 15 September 2026 —
+because each explorer sees a different slice of the gossip network;
+treat any single explorer's count as a lower bound.
 
 Periodic full re-gossip on cold start can be 5-30 minutes depending
 on peer count and bandwidth. Caching the graph locally + diff sync
