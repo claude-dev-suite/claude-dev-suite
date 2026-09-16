@@ -1,8 +1,8 @@
 ---
 name: bitcoin-infrastructure-electrs
 description: |
-  Electrs: Romanmandryk's Electrum-protocol indexer in Rust. Lightweight,
-  serves Electrum clients + LN nodes (filter-based scan).
+  Electrs: Roman Zeyde's Electrum-protocol indexer in Rust. Lightweight,
+  serves Electrum clients; BIP157 filter scan stays on Bitcoin Core.
   USE WHEN: deploying personal Electrum server, integrating LN with
   Electrum backend, evaluating indexers.
 allowed-tools: Read, Grep, Glob
@@ -13,7 +13,8 @@ allowed-tools: Read, Grep, Glob
 Rust implementation of Electrum protocol server. Reads from Bitcoin
 Core, indexes per-address history, serves Electrum clients.
 
-Repo: `github.com/romanz/electrs`.
+Repo: `github.com/romanz/electrs`. Current release v0.12.0
+(13 September 2026).
 
 ## Why
 
@@ -23,12 +24,19 @@ querying history per address. Public Electrum servers exist but for
 
 ## Setup
 
+Since v0.12.0 (13 September 2026) electrs indexes through `bindex`
+and reads blocks over bitcoind's REST interface instead of the P2P
+protocol, so it requires **Bitcoin Core 31.0+** (released April 2026).
 Requires Bitcoin Core with:
 ```ini
-txindex=1
-blockfilterindex=1
-peerblockfilters=1
+server=1
+rest=1
+prune=0
 ```
+`txindex` is *not* required - electrs maintains its own index (it is
+still allowed, and other services such as eclair may need it). Set
+`blockfilterindex=1` / `peerblockfilters=1` only when BIP157 clients
+query Core directly; electrs exposes no compact-filter RPC of its own.
 
 Then:
 ```bash
@@ -37,8 +45,11 @@ electrs --network bitcoin \
   --electrum-rpc-addr=127.0.0.1:50001
 ```
 
-Indexes ~1 day on a fast machine, ~6 GB extra disk (alongside Core's
-~700 GB).
+Upstream measured the initial index at ~2 h for ~800 GB of
+`blocks/*.dat` on a 6-core / 32 GB / NVMe host, and ~18 h on an
+ODROID-HC1 (electrs docs, July 2026). The RocksDB index settles at
+~7% of `blocks/*.dat` - ~56 GB on that ~800 GB chain - peaking near
+~14% just before the final compaction.
 
 ## Compatibility
 
@@ -46,7 +57,8 @@ Indexes ~1 day on a fast machine, ~6 GB extra disk (alongside Core's
 - **Electrum (desktop)**: connect.
 - **BlueWallet** (Watchtower / privacy mode): supports.
 - **BTCPay Server**: optional Electrum backend.
-- **LDK / btcwallet**: filter-based scan via electrs.
+- **LDK / btcwallet**: scan BIP157 filters served by Core
+  (`blockfilterindex` / `peerblockfilters`), not by electrs.
 
 ## Compared to Fulcrum
 
@@ -60,8 +72,11 @@ Indexes ~1 day on a fast machine, ~6 GB extra disk (alongside Core's
 
 ## Common bugs
 
-- Failing to set `txindex=1` on Core → electrs can't serve some
-  history.
+- Failing to set `rest=1` on Core → electrs v0.12.0+ cannot fetch
+  blocks at all, since it no longer falls back to the P2P protocol.
+- Upgrading to v0.12.0 without planning downtime → the bindex format
+  is new and forces a full reindex; upstream asks for 120 GB free
+  before starting (electrs `doc/upgrading.md`, September 2026).
 - `electrum-rpc-addr` exposed publicly without TLS proxy → DoS risk.
 - Reorg handling lag during deep reorgs (rare on mainnet).
 
