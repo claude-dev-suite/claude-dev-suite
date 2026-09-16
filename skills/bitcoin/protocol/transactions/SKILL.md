@@ -80,10 +80,27 @@ serialization (BIP341).
 
 ## Ephemeral anchors
 
-- Anchor with `value=0` and trivially-spendable script (e.g., `OP_TRUE`).
-- Must be spent in the same package as its parent (mempool rule).
-- Combined with TRUC v3, replaces existing anchor outputs (BOLT-3) with
-  no-cost variant.
+"Ephemeral anchor" names two separate policies shipped in two different
+releases; see [package-relay/SKILL.md](../package-relay/SKILL.md).
+
+- **Pay-to-Anchor (P2A)** — keyless standard output `OP_1 <0x4e73>`, a
+  2-byte witness v1 program (*not* Taproot, whose programs are 32 bytes).
+  Standard to spend since Bitcoin Core 28.0 (October 2024); specified by
+  BIP433, Status Draft as of September 2026. Default dust limit 240 sat.
+- **Ephemeral dust** — Bitcoin Core 29.0 (April 2025) permits one dust
+  output, any script type and down to `value=0`, provided the creating tx
+  pays **zero fee**.
+- The dust must be spent by anything that spends the parent's
+  unconfirmed outputs, i.e. in the same package (mempool rule).
+- A bare `OP_TRUE` scriptPubKey is **not** a standard output template and
+  will not relay; BIP433 presents P2A as the compact replacement for
+  `sh(OP_TRUE)`.
+- Combined with TRUC v3, replaces BOLT-3's two 330-sat keyed anchor
+  outputs with a single keyless `shared_anchor` P2A output under
+  `zero_fee_commitments`: 240 sat in the normal case, dropping below
+  240 sat (down to 0) only when the commitment has less than that left
+  over, in which case the commitment pays zero fee. See BOLT-3
+  03-transactions.md, "`shared_anchor` Output (zero_fee_commitments)".
 
 ## See also
 
