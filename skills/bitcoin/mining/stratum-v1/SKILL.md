@@ -18,6 +18,8 @@ The dominant protocol between pool servers and mining hardware
 
 ```
 [Miner] ──── TCP connect ────► [Pool]
+       ──── mining.configure ─►   (optional, BIP 310)
+       ◄── extension results ──
        ──── mining.subscribe ──►
        ◄── subscription_id ────
        ──── mining.authorize ─►
@@ -29,6 +31,39 @@ The dominant protocol between pool servers and mining hardware
 ```
 
 ## Key methods
+
+### `mining.configure` (BIP 310)
+
+Feature negotiation, specified by BIP 310 "Stratum protocol
+extensions" (Informational, assigned 10 March 2018, still Draft as of
+September 2026). It SHOULD be the miner's first message. Its
+Specification section lists three extension codes - `version-rolling`,
+`minimum-difficulty`, `subscribe-extranonce` - and a fourth, `info`,
+gets a section of its own.
+
+```json
+{"method": "mining.configure", "id": 1,
+ "params": [["version-rolling"],
+            {"version-rolling.mask": "1fffe000",
+             "version-rolling.min-bit-count": 2}]}
+```
+
+The pool answers with the intersection `server_mask & miner_mask`.
+Once `version-rolling` is active:
+- `mining.submit` carries a 6th parameter `version_bits`.
+- The pool recomputes
+  `nVersion = (job_version & ~last_mask) | (version_bits & last_mask)`.
+- `mining.set_version_mask` can change the mask mid-session, effective
+  immediately.
+
+Which bits a pool may offer tracks the reserved `nVersion` range:
+BIP 320 reserves bits 13-28 (`0x1fffe000`, 16 bits); BIP 323 (assigned
+22 April 2026, `Replaces: 320`) reserves bits 5-28 (`0x1fffffe0`,
+24 bits). Both are still Draft as of September 2026.
+
+Without version rolling a miner can only roll the 32-bit nonce plus
+`extranonce2`; BIP 320's motivation notes hardware exhausts the nonce
+field in under 200 ms, which is why the extension exists.
 
 ### `mining.subscribe`
 
@@ -68,7 +103,8 @@ Miner builds:
 - `merkle_root = merge(coinbase_hash, merkle_branches)`.
 - `header = version || prev_hash || merkle_root || ntime || nbits || nonce`.
 - Iterate `nonce` looking for hash ≤ target.
-- Periodically iterate `extranonce2` too.
+- Periodically iterate `extranonce2` too, plus the masked `nVersion`
+  bits where `version-rolling` was negotiated.
 
 ### `mining.submit`
 
@@ -76,6 +112,9 @@ When miner finds valid share:
 ```
 mining.submit(["<worker>", "<job_id>", "<extranonce2>", "<ntime>", "<nonce>"])
 ```
+
+With `version-rolling` negotiated, a 6th parameter `version_bits`
+follows `<nonce>` (BIP 310).
 
 Pool verifies; rewards miner per share.
 
@@ -104,7 +143,9 @@ password: anything (typically "x")
 
 ## Status
 
-- **Dominant**: ~99% of pools and ASICs use Stratum V1.
+- **Dominant**: as of September 2026 Stratum V1 is still the default
+  endpoint at essentially every pool and on every shipping ASIC; no
+  published measurement pins the exact share down.
 - **Aging**: clear weaknesses; Stratum V2 designed to replace.
 - **Compatibility**: every ASIC/pool understands V1.
 

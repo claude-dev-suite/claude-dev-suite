@@ -57,12 +57,24 @@ defeats MITM and on-path analysis.
 - **Group channel**: bundled connections.
 - **Job Negotiator channel**: separate negotiation.
 
-## Status (late 2025)
+## Status (September 2026)
 
 - **Reference impl**: SRI (Stratum Reference Implementation), Rust.
-- **Production**: Braiins Pool runs SV2.
-- **Adoption**: limited — most pools still on V1.
-- **ASIC support**: growing; firmware updates needed.
+  Protocol crates in `stratum-mining/stratum` (v1.11.1, July 2026);
+  the role applications — pool, jd-server, jd-client, translator —
+  moved to `stratum-mining/sv2-apps` (v0.7.0, July 2026, alpha).
+- **Production pools**: Braiins Pool and DMND run SV2 as full pools;
+  CKPool, Blitzpool, MKPool, NexusPool, Public Pool and PyBlock run it
+  as solo pools (stratumprotocol.org adoption list, September 2026).
+- **First miner-built template in production**: DMND mined block
+  955,318 on 25 June 2026 with the template constructed by the miner
+  (GoMining) via Job Declaration, not by the pool.
+- **Adoption**: still a minority of hashrate, but on 7 May 2026
+  ANTPOOL, Block Inc., DMND, F2Pool, Foundry, MARA Foundation and
+  SpiderPool joined the Stratum V2 Working Group.
+- **ASIC support**: native SV2 firmware on Auradine (FluxOS),
+  Braiins OS+, Bitaxe and NerdAxe; Mujina and Block's Proto still in
+  progress (September 2026).
 - **Datum** by Ocean Mining: SV2-compatible, decentralized template
   provider.
 
@@ -82,6 +94,10 @@ defeats MITM and on-path analysis.
 ## Implementations
 
 - **Stratum Reference Implementation (SRI)** — `github.com/stratum-mining/`.
+- **`sv2-tp`** — the Template Provider, a standalone binary
+  (`github.com/stratum-mining/sv2-tp`, v1.1.1, July 2026). It is not a
+  Bitcoin Core feature: Core exposes a Cap'n Proto Mining IPC socket
+  (`bitcoin -m node -ipcbind=unix`, Core 31.0+) that `sv2-tp` attaches to.
 - **Braiins OS+** — firmware with V2 support for some Antminer models.
 - **Ocean Mining Datum** — V2-style decentralized template.
 
