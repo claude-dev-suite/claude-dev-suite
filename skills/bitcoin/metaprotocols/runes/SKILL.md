@@ -29,6 +29,43 @@ The protocol message is varint-encoded, specifying:
 - **Etching** — issuance of new rune.
 - **Pointer** — default output for unspecified rune balances.
 
+## Relay policy: the runestone is an OP_RETURN
+
+Because the whole protocol message rides in an `OP_RETURN`, the
+node's `-datacarrier*` policy decides whether an etch, mint or
+transfer propagates at all. Core and Knots diverge sharply here.
+
+| | Core <= 29.x | Core 30.0+ | Knots |
+|--------|--------|-------|-------|
+| `-datacarriersize` | 83 bytes | 100,000 bytes | 83 bytes |
+| OP_RETURN outputs/tx | 1 | many | 1 |
+| Runestone relayed? | if <= 83 B | yes | never |
+
+**Bitcoin Core 30.0 (October 2025)** raised the `-datacarriersize`
+default to 100,000 bytes, applied to the aggregate scriptPubKey size
+across all nulldata outputs, and began relaying and mining multiple
+`OP_RETURN` outputs per tx. Both still hold in **31.1 (July 2026)**,
+where `MAX_OP_RETURN_RELAY` is `MAX_STANDARD_TX_WEIGHT /
+WITNESS_SCALE_FACTOR` = 100,000. Size was never the binding
+constraint for Runes — a typical mint or single-edict transfer is
+tens of bytes — but a many-edict transfer or an etching with a long
+name and full `terms` can approach the old 83-byte cap.
+
+**Bitcoin Knots rejects runestones outright, by name.** At
+`v29.4.1.knots20260508` (Sept 2026) `-rejecttokens` defaults to 1,
+and `IsStandardTx` flags any nulldata output whose second byte is
+`OP_13` with the reject reason `tokens-runes` — i.e. exactly the
+`0x6a 0x5d` marker above. The 83-byte `MAX_OP_RETURN_RELAY`, the
+one-nulldata-output rule (`multi-op-return`) and
+`-rejectparasites=1` are also Knots defaults, but `-rejecttokens` is
+the one that matters: on a default Knots node no runestone relays,
+whatever its size. Operators who want Runes traffic must set
+`-rejecttokens=0`.
+
+Consequence: a runestone that your Core node accepts can still stall
+if the peers or the miner in front of it run Knots. Check the reject
+reason before assuming an encoding bug.
+
 ## Rune ID
 
 Identified by `<block>:<tx_index>` of the etching tx. E.g., `840000:1`
@@ -92,12 +129,31 @@ to "first non-runestone output" or pointer.
 
 ## Indexers
 
-- **mempool.space** — Runes view.
-- **UniSat** — wallet + Runes index.
+- **mempool.space** — decodes runestones inline in the transaction
+  view (`shared/ord/rune.utils.ts`); there is no standalone Runes
+  browser or `/runes` route, and the REST API exposes no Runes
+  endpoints (checked September 2026).
+- **UniSat** — wallet + Runes index; UniHexa, its self-custody
+  Bitcoin-asset exchange, is still pre-launch as of September 2026 —
+  unisat.io marks it "Coming Soon" and links only to a beta host.
 - **OKX** — Runes exchange.
-- **Magic Eden** — marketplace.
+- **Xverse** — Runes wallet + mint/portfolio tooling.
 
-Reference impl: ord client (also handles Runes since v0.18).
+Reference impl: ord client (also handles Runes since 0.18.0,
+11 April 2024). Latest release as of September 2026: **0.29.0**
+(5 August 2026).
+
+**Magic Eden exited Bitcoin (history).** Magic Eden ran the dominant
+Ordinals/Runes venue — reported at roughly 80% of Bitcoin
+Ordinals/Runes trading volume at its 2023-2024 peak — then wound it
+down in 2026 to refocus on Solana. Per its own service-change notice:
+Bitcoin marketplace support ended **9 March 2026**, the Bitcoin/Runes
+APIs were discontinued **27 March 2026**, and the Magic Eden Wallet
+left the app stores **1 April 2026** and shut down fully
+**1 May 2026** (keys not exported before then are unrecoverable).
+`api-mainnet.magiceden.dev/v2/ord/btc/*` returns
+`503 no healthy upstream` as of September 2026 — do not code against
+it.
 
 ## Use cases
 

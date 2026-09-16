@@ -75,7 +75,9 @@ different balances).
 - **OrdiScan** — primary public indexer.
 - **UniSat** — wallet + indexer.
 - **OKX** — exchange-side.
-- **Magic Eden** — marketplace with BRC-20 support.
+- **Magic Eden** — former BRC-20 marketplace; closed its entire
+  Bitcoin marketplace on 9 March 2026 (announced 27 February 2026,
+  Bitcoin API retired 27 March 2026) to refocus on Solana.
 
 ## Compared to other token standards
 
@@ -99,8 +101,11 @@ but architecturally suboptimal.
 
 ## Status
 
+As of September 2026:
+
 - Active ecosystem; many tokens exist.
-- Trading volume on UniSat, OKX, Magic Eden, etc.
+- Trading volume on UniSat and OKX; Magic Eden closed its Bitcoin
+  marketplace on 9 March 2026 and no longer carries BRC-20.
 - Some migration to Runes underway (similar use cases).
 
 ## Use cases

@@ -16,7 +16,8 @@ Includes:
 - **NFTs** with stronger metadata.
 - **AVM (Atomicals VM)** — programmability layer.
 
-Less mainstream than Ordinals/Runes, but with active community.
+Less mainstream than Ordinals/Runes, and markedly quieter since
+2025 — see **Status** below before treating it as a live ecosystem.
 
 ## Concept
 
@@ -55,9 +56,28 @@ Proposed VM for richer logic on Atomicals:
 
 ## Status
 
-- Active community development.
+Development was genuinely active through early 2025; what follows is
+where things stand as of September 2026.
+
+- **Reference stack dormant.** `atomicals/atomicals-electrumx` has had
+  no commits since 27 March 2025 and its newest release is **v1.5.2.0**
+  (27 March 2025). `atomicals/atomicals-js` last pushed the same day,
+  `atomicals/avm-interpreter` on 22 September 2024. None of the three
+  is archived, so read this as dormancy, not abandonment.
+- **Atomicals Market closed 30 April 2026.** The main dedicated
+  ARC-20/Atomicals marketplace shut down; its own farewell page
+  (atomicalmarket.com) states that listings and bids auto-expire, that
+  assets remain on Bitcoin and need no action, and that the frontend
+  repository is being archived.
+- **Docs still maintained, by third parties.** The Bitcoin Universe
+  Atomicals/ARC-20 documentation platform ships version 2026.08 (pages
+  last verified 31 August 2026) and pins atomicals-electrumx v1.5.2.0
+  as its protocol authority.
 - Smaller TVL/volume than Ordinals/Runes ecosystem.
-- AVM proposal experimental.
+- **AVM proposal still experimental.** The interpreter is a pinned beta
+  revision; no service is known to execute AVM contracts, and the
+  maintained third-party docs state that no Universe service does, as of
+  September 2026.
 
 ## Use cases
 

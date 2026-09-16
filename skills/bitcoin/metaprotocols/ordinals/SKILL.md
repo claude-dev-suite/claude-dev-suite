@@ -40,14 +40,19 @@ Some collectors pay premium for rare sats.
 ## ord client
 
 Reference implementation:
-- `github.com/ordinals/ord` (Rust).
+- `github.com/ordinals/ord` (Rust). Latest release as of September
+  2026: **0.29.0** (5 August 2026). Cadence is bursty rather than
+  monthly - 0.25.0 through 0.27.1 all shipped Feb-Mar 2026, then
+  nothing until 0.28.0 and 0.29.0 in early August 2026 - so re-check
+  the tag list rather than trusting this pin indefinitely.
 - Indexes the entire chain to compute sat ordinals.
 - Provides:
   - Wallet for sending specific sats (avoid spending rare ones).
   - Inscription creation/viewing.
   - REST API for querying.
 
-Heavy index: full ord index ~1+ TB on a recent chain.
+Heavy index: full ord index ~1+ TB on a recent chain, as of
+September 2026.
 
 ## Indexed services
 

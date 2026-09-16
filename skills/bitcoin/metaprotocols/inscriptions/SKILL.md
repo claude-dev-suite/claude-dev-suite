@@ -88,21 +88,93 @@ fee accounting. But they still cost real money:
 - **Recursive apps** — JS/HTML on chain.
 - **Provenance** — digital art ownership.
 
+## Relay policy: datacarrier / OP_RETURN
+
+In **Bitcoin Core** the `-datacarrier*` options govern `OP_RETURN`
+outputs only, so they never applied to inscriptions, which ride in
+the **witness**. Knots differs: `-datacarrierfullcount` defaults to 1
+there ("Apply datacarriersize limit to all known datacarrier
+methods") and its `DatacarrierBytes()` walks the input witness, so
+the Knots `-datacarriersize=83` default *does* bear on envelopes
+(`v29.4.1.knots20260508`, Sept 2026). Core's defaults changed
+materially in **30.0 (October 2025)** and still stand in
+**31.1 (July 2026)**:
+
+```
+                       <= 29.x      30.0+
+-datacarriersize       83 bytes     100,000 bytes (aggregate)
+OP_RETURN outputs/tx   1            many (relay + mining)
+-minrelaytxfee         1 sat/vB     0.1 sat/vB
+-incrementalrelayfee   1 sat/vB     0.1 sat/vB
+-blockmintxfee         1 sat/vB     0.001 sat/vB
+```
+
+100,000 bytes "effectively uncaps the limit, as the maximum
+transaction size limit will be hit first" (30.0 release notes): an
+`OP_RETURN` scriptPubKey is non-witness, 4 WU per byte, so 100 KB of
+it already blows past the 400,000 WU standard-tx weight limit.
+
+Consequences for metaprotocols:
+- `OP_RETURN` is now a relay-viable data channel of effectively
+  arbitrary size, and no longer capped at one output per tx. Matters
+  most for protocols that encode state there (Runes).
+- It does **not** make `OP_RETURN` cheaper than a witness envelope:
+  witness bytes cost 1 WU, `OP_RETURN` bytes cost 4 WU, so bulk
+  inscription payloads stay ~4x cheaper in the witness.
+- Both options still exist and are still settable;
+  `-datacarriersize=83` restores the old cap. The removal proposal
+  discussed during 30.0 development was dropped — neither option
+  carries a deprecation marker as of 31.1 (July 2026).
+
 ## Status / criticism
 
 Some Bitcoin developers see inscriptions as **chain spam** — using
-chain space for non-monetary data. Bitcoin Knots specifically filters
-inscriptions in some configurations.
+chain space for non-monetary data. Bitcoin Knots filters them by
+default: at `v29.4.1.knots20260508` (Sept 2026) `-rejectparasites=1`
+("refuse to relay or mine parasitic overlay protocols") and
+`-rejecttokens=1` are the shipped defaults, alongside
+`-datacarriersize=83` and `-minrelaytxfee` of 1 sat/vB.
 
 Counterview: inscriptions pay full market fees, are legitimate
 tx, and can't be filtered without arbitrary mempool policy that
-deviates from consensus.
+deviates from consensus. Core moved its own defaults the other way
+(see above); the uncapping merged as PR #32406 on 9 June 2025, four
+months before 30.0 shipped on 13 October 2025. The dispute ran
+alongside a node-share surge over the same period: Knots went from
+~400 reachable nodes in Jan 2025 to a peak of 7,112 on 14 Sep 2025,
+and sits at 4,399 — 17.0% of 25,864 reachable public nodes — as of
+15 September 2026 (coin.dance). Reachable-node counts are not
+sybil-resistant, so read that surge as a signal, not a headcount.
+
+On **Core's chain** this stays **policy, not consensus**: a filtered
+tx remains valid and confirms as soon as any miner includes it. That
+is no longer true of current Knots builds. BIP-110 ("Reduced Data
+Temporary Softfork") invalidates, at the consensus layer, Tapscripts
+that execute `OP_IF`/`OP_NOTIF`, pushdata payloads and script-argument
+witness items over 256 bytes, and Taproot annexes — which covers the
+inscription envelope itself. Its mandatory-signaling window opened on
+8 August 2026, the chain split, the minority chain stalled, and the
+BIP was marked **Closed** in the BIPs repo days later (bips#2245,
+"following a chain split with stalled mining"). It never reached its
+55% threshold by signaling; instead it took effect as a flag day at
+block 961,640 (30 August 2026), the first block of a separate BLAKE2b
+proof-of-work chain, with the data limits running to 1 September 2027.
+That change shipped in the `v29.4.1.knots20260508` line (rc1 tagged
+21 August 2026; final release 2 September 2026). UTXOs created before
+the flag-day height are grandfathered, so inscriptions made earlier
+stay spendable there. So as of September 2026: policy on Core's chain,
+consensus on the Knots BLAKE2b chain — and those are two different
+chains. See [../../core/knots/SKILL.md](../../core/knots/SKILL.md).
 
 ## Tools
 
 - **ord client** — primary creation/viewing.
-- **OrdinalsBot, Gamma.io, Magic Eden** — services for minting +
-  marketplace.
+- **OrdinalsBot, Gamma.io** — services for minting + marketplace.
+- **Magic Eden** — history: its Ordinals/Runes marketplace closed
+  9 March 2026 and the Bitcoin API followed on 27 March 2026.
+  `api-mainnet.magiceden.dev/v2/ord/btc/*` returns
+  `503 no healthy upstream` as of September 2026 — do not code
+  against it.
 - **OrdiScan, mempool.space** — explorers with inscription view.
 
 ## Common bugs
