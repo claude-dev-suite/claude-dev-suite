@@ -20,12 +20,21 @@ GitHub: `github.com/lightningnetwork/lnd` and `github.com/lightninglabs/`.
 import "github.com/lightningnetwork/lnd/lnrpc"
 import "google.golang.org/grpc"
 
-conn, _ := grpc.Dial("localhost:10009",
+conn, _ := grpc.NewClient("localhost:10009",
     grpc.WithTransportCredentials(creds),
     grpc.WithPerRPCCredentials(macaroon))
 client := lnrpc.NewLightningClient(conn)
 info, _ := client.GetInfo(ctx, &lnrpc.GetInfoRequest{})
 ```
+
+`grpc.Dial`/`grpc.DialContext` are deprecated in favour of `grpc.NewClient`
+(added in grpc-go v1.63.0; the old entry points still compile and are
+promised support "throughout 1.x" as of grpc-go v1.83.2, August 2026).
+`NewClient` defaults to the `dns` resolver instead of `passthrough`, so a
+custom dialer (Tor SOCKS) needs the passthrough resolver named in the
+target, which upstream spells `passthrough:target`. `unix:///path`
+targets are unaffected: grpc-go registers dedicated `unix` and
+`unix-abstract` resolvers.
 
 ## Subservers
 

@@ -26,9 +26,21 @@ Repo: `github.com/bcoin-org/bcoin`.
 
 ## Install
 
+The npm package is abandoned: `npm install bcoin` resolves to `1.0.2`
+(July 2018), which is deprecated with "bcoin v2.0.0+ are no longer
+hosted on npm" (registry checked September 2026). No 2.x release was
+ever published to npm. Upstream ships by git clone only:
+
 ```bash
-npm install bcoin
+git clone https://github.com/bcoin-org/bcoin
+cd bcoin
+npm rebuild
+./bin/bcoin
 ```
+
+Dependencies are themselves `git+https://` specs pinned to other
+`bcoin-org` repos, so the clone needs network access to GitHub, not
+just to the npm registry.
 
 ## Quick example
 
@@ -48,11 +60,23 @@ node.chain.on("connect", (entry, block) => {
 | Aspect | bitcoind (Core) | bcoin |
 |--------|-----------------|-------|
 | Language | C++ | JavaScript |
-| Compatibility | Full | Most consensus rules |
-| Mempool policy | Reference | Different defaults |
+| Compatibility | Full | Pre-Taproot rules only |
+| Mempool policy | Reference | v1 RBF rejected, 10x fee floor |
 | Performance | Best | Acceptable |
 | Adoption | Universal | Niche |
-| Soft fork support | Always immediate | Lags Core |
+| Soft fork support | Always immediate | Stalled at SegWit |
+
+Mempool detail, both trees read September 2026: bcoin's
+`replace-by-fee` option defaults to `false` and mainnet sets
+`requireStandard = true`, so `Mempool.insertTX` rejects an
+RBF-signalling tx as nonstandard -- but only at version 1, because
+`isRBF()` returns `false` for every version-2 tx whatever its input
+sequences and version 2 is the standardness ceiling
+(`policy.MAX_TX_VERSION = 2`) -- Core 29.0 (April 2025) removed
+`-mempoolfullrbf` and made full RBF unconditional (PR #30592). bcoin's
+`policy.MIN_RELAY` and every `network.minRelay` are 1000 sat/kB, ten
+times Core's default `-minrelaytxfee`, lowered to 100 sat/kvB in Core
+29.1 (September 2025) and 30.0 (October 2025) by PR #33106.
 
 ## Use cases
 
@@ -62,8 +86,25 @@ node.chain.on("connect", (entry, block) => {
 
 ## Status
 
-Maintained but not as actively as Bitcoin Core. For production
-nodes, prefer bitcoind.
+Dormant as of September 2026. Last tagged release is v2.2.0
+(November 2021); the last commit on `master` is August 2023; the
+last push of any kind to the repository is February 2024. 114 open
+issues and 87 open pull requests. The repo is not archived, but
+nothing has moved in it for over two and a half years.
+
+No Taproot. `master` has no `OP_CHECKSIGADD` opcode, no BIP341/342
+validation and no taproot deployment in `lib/protocol/networks.js`.
+`Script.verifyProgram` returns success for every witness version
+above 0 unless `VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM` is set,
+so in blocks a v1 (P2TR) output is anyone-can-spend as far as bcoin
+is concerned. The taproot work lives on an unmerged `taproot` branch
+whose last commit is September 2022. Address handling does support
+bech32m (BIP350), so bcoin can parse P2TR addresses whose spends it
+cannot validate.
+
+Treat bcoin as a reference and teaching implementation, not a
+deployment target. For any node that must follow consensus, or that
+sits in front of funds, run bitcoind.
 
 ## See also
 

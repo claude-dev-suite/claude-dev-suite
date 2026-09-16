@@ -19,10 +19,16 @@ Repo: `github.com/p2pderivatives/rust-dlc`.
 
 ```toml
 [dependencies]
-dlc = "0.7"
-dlc-manager = "0.7"
-dlc-messages = "0.7"
+dlc = "0.8"
+dlc-manager = "0.8"
+dlc-messages = "0.8"
 ```
+
+0.8.0 (crates.io, 13 December 2025) is the latest release as of
+September 2026; it succeeded 0.7.1 (12 December 2024). The whole
+workspace — `dlc`, `dlc-manager`, `dlc-messages`, `dlc-trie` — is
+versioned in lockstep, so bump all of them together. 0.8.0 builds
+against `rust-bitcoin` 0.32.x and `lightning` 0.0.125.
 
 ## Components
 
