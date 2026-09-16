@@ -92,6 +92,45 @@ def test_script_roundtrip(data):
 - Shrinking can give surprising results — verify the shrunk case
   actually triggers the bug.
 
+## Above properties: formal verification
+
+A property test samples the input space; a machine-checked proof
+quantifies over all of it. For consensus code — where the failing input
+is exactly the one no test suite imagined — the tier above proptest is a
+proof assistant.
+
+- **btc-verified** (Keagan McClelland, Apache-2.0) models Bitcoin
+  protocol components in Lean 4 and re-checks the theorems on every
+  build. As of September 2026 it covers serialization (decode inverts
+  encode, and each value has exactly one accepted encoding, CompactSize
+  included), a computable FIPS 180-4 SHA-256, merkle commitments, txids,
+  block and witness commitments, Script as the raw bytes consensus
+  validates, and the chainstate accounting identity. Announced on
+  Delving Bitcoin 2026-07-03; covered by Optech 2026-07-17.
+- **Its merkle result** is a machine-checked form of the CVE-2012-2459
+  defense: Core's `ComputeMerkleRoot` (`src/consensus/merkle.cpp`),
+  mutation scan included, is transcribed into Lean and proved to imply
+  the spec's canonicality, so two nonempty equal-width leaf lists Core
+  accepts with equal roots are equal — or a concrete double-SHA-256
+  collision exists.
+- **Declarative executable specs** sit between proptest and Lean. Toby
+  Sharp reported a declarative specification of non-script block
+  validation for Hornet Node — 34 semantic invariants composed with a
+  simple algebra (Optech #402, 2026-04-24). Executable and
+  differentially testable, not proved.
+- **Verified crypto implementations** ship as well: `libshrincs` is a
+  proof-of-concept (as of September 2026) tying a C implementation of
+  SHRINCS' WOTS+C leaf signature to a game-based one-time-unforgeability
+  bound via Rocq/VST plus SSProve, under six named SHA-256 hardness
+  assumptions.
+
+What a proof does **not** buy: it is about a model and its stated
+assumptions. btc-verified's author is explicit that the repository
+"is structurally incapable of giving guarantees about Bitcoin Core's
+behavior" — a wrong model, an unproved axiom, or a compiler doing
+something else all still bite. Property tests remain the cheap check
+that the model matches the code you ship.
+
 ## See also
 
 - [fuzz/SKILL.md](../fuzz/SKILL.md)

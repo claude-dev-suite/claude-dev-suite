@@ -28,17 +28,20 @@ class MyTest(BitcoinTestFramework):
         node0 = self.nodes[0]
         node1 = self.nodes[1]
         addr = node0.getnewaddress()
-        node0.generatetoaddress(101, addr)
-        self.sync_blocks()
+        # Mining goes through the framework helper, generator node first;
+        # it syncs all nodes afterwards.
+        self.generatetoaddress(node0, 101, addr)
         # ...
 
 if __name__ == "__main__":
     MyTest().main()
 ```
 
-Run:
+Run. Since the CMake migration in Bitcoin Core 29.0 (April 2025) the
+runnable tests are configured into the build directory:
 ```bash
-test/functional/feature_my_test.py
+build/test/functional/feature_my_test.py
+build/test/functional/test_runner.py --jobs=8 feature_my_test.py
 ```
 
 ## Components
@@ -55,12 +58,33 @@ test/functional/feature_my_test.py
 
 ## Key methods
 
-- `generate(n, address)` — mine n blocks.
-- `sync_blocks(timeout=)` — wait for nodes to converge.
-- `sync_mempools()` — wait for mempool sync.
+Unless noted, these are methods on the framework, not on `TestNode`.
+
+- `generate(generator, n, sync_fun=None)` — mine n blocks with the
+  `generator` node, then `sync_fun()` if a callable was passed, else
+  `sync_all()`. Any callable substitutes for the sync;
+  `sync_fun=self.no_op` is the idiom for skipping it.
+- `generatetoaddress(generator, n, address)`,
+  `generateblock(generator, ...)`,
+  `generatetodescriptor(generator, ...)` — same generator-first shape.
+- `sync_blocks(nodes=None, wait=1, timeout=60)` — wait for tips to match.
+- `sync_mempools(nodes=None, wait=1, timeout=60)` — wait for mempool sync.
+- `sync_all(nodes=None)` — both of the above.
 - `connect_nodes(a, b)` / `disconnect_nodes(a, b)` — manage peers.
 - `restart_node(i, extra_args=)` — restart with new args.
-- `wait_until(predicate, timeout=)` — poll until True.
+- `wait_until(test_function, timeout=60, check_interval=0.05)` — poll
+  until True. `TestNode` carries a method of the same name and
+  signature, scoped to that one node.
+
+Do not call the mining RPCs on a node directly. Since Bitcoin Core 23.0
+(April 2022) `node.generatetoaddress()`, `node.generateblock()` and
+`node.generatetodescriptor()` have been guarded by a keyword-only
+argument that only the framework helpers pass; Bitcoin Core 29.0
+(April 2025) renamed that guard from `invalid_call` to
+`called_by_framework` and attached the message "Direct call of this
+mining RPC is discouraged". `node.generate()` has no guard of its own —
+it dispatches to `generatetoaddress`, so a direct call fails with
+`TypeError` for the missing keyword-only argument instead.
 
 ## Use cases
 
@@ -81,8 +105,11 @@ test/functional/feature_my_test.py
 
 ## Common issues
 
-- **Sync issues** when nodes have very different chain state — use
-  `sync_blocks(force_sync=True)`.
+- **Sync issues** when nodes have very different chain state — there is
+  no force flag; the `self.generate*` helpers already `sync_all()`. If a
+  sync still times out, raise `sync_blocks(timeout=...)` (default 60s,
+  multiplied by `--timeout-factor`) or pass `sync_fun=self.no_op` and
+  sync explicitly at a point where the tips can actually converge.
 - **Mocktime** confusing if not set explicitly — chain time can lag
   real time during long runs.
 - **Subprocess port conflicts** if multiple test runs overlap.

@@ -86,6 +86,7 @@ bitcoin-cli -regtest generatetoaddress 1 <addr>
 ## See also
 
 - [signet/SKILL.md](../signet/SKILL.md)
+- [testnet/SKILL.md](../testnet/SKILL.md)
 - [polar/SKILL.md](../polar/SKILL.md)
 - [nigiri/SKILL.md](../nigiri/SKILL.md)
 - [../core/operations/SKILL.md](../../core/operations/SKILL.md)
