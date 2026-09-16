@@ -54,14 +54,24 @@ trustless.
 
 ## BTC ↔ Liquid
 
-Boltz supports BTC ↔ Liquid swaps via submarine swap mechanism.
+Boltz ran BTC ↔ Liquid swaps via the submarine swap mechanism, but all
+Boltz swap services (mainchain, Lightning and Liquid) are offline
+"until further notice" since 2026-08-03, with no restart date announced
+as of September 2026 — treat Boltz as a protocol reference, not a live
+endpoint. Blockstream Swaps (announced 2026-08-10, in beta with select
+participants as of September 2026) offers trustless BTC ↔ L-BTC chain
+swaps plus submarine swaps into Lightning.
 See [../../lightning/submarine-swaps/SKILL.md](../../lightning/submarine-swaps/SKILL.md).
 
 ## BTC ↔ Lightning
 
 Lightning ↔ on-chain BTC swaps (different chain not technically
 needed; same network):
-- Lightning Loop, Boltz, peerswap.
+- Lightning Loop (`lightninglabs/loop` v0.35.0-beta, 2026-08-25) and
+  peerswap (v7.0.1, September 2026) — both actively released as of
+  September 2026.
+- Boltz — swaps suspended 2026-08-03 (see above); protocol reference
+  only until it returns.
 
 ## Privacy benefit
 
