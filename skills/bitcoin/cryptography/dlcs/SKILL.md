@@ -17,8 +17,11 @@ with on-chain settlement, **without** revealing contract terms on
 chain. The oracle never knows about the bet; the chain only sees a
 2-of-2 multisig + a CET that looks like an ordinary cooperative spend.
 
-Original 2017 paper: Tadge Dryja. Modern specs: DLC Specification
-working group (`github.com/discreetlogcontracts/dlcspecs`).
+Original 2017 paper: Tadge Dryja. Wire format and transaction
+construction come from `github.com/discreetlogcontracts/dlcspecs`,
+which still labels itself an "In Progress Specification" and has not
+merged a change to `master` since February 2023 — see Standardization
+below before treating any of it as a moving target.
 
 ## Core mechanism
 
@@ -85,14 +88,53 @@ CET count grows with precision:
 
 Wire protocol uses Lightning-style TLV messages over Tor / clearnet.
 
+**Status (as of September 2026)**: the spec is a de-facto standard
+frozen at its early-2023 state. The newest commit on `master` is
+`9cd9148` "Correct Typo in Signature Point calculation" (2023-02-13);
+the README still describes a work-in-progress draft with an unfinished
+v0 milestone, and 43 issues are open. No DLC BIP has ever been filed —
+the `bitcoin/bips` index contains no entry for DLCs or discreet log
+contracts as of September 2026. The repo is not archived and 22 pull
+requests are open, six of them updated with new commits or comments in
+March 2026, but nothing has merged in over three years. Everything the
+README lists as "Future Work" — DLC transfers/updates, option-style
+DLCs, Taproot DLCs, DLC construction inside Lightning — remains
+unspecified. Treat the 2023 documents as the interop contract and
+cross-check field-level details against a live implementation rather
+than waiting on spec updates.
+
 ## Implementations
 
-- **`rust-dlc`** (Crypto Garage) — most complete; production-grade.
-  - `rust-dlc-manager` orchestrates funding/CET/refund tx chain.
+Maintenance state as of September 2026:
+
+- **`rust-dlc`** (`p2pderivatives` org, by Crypto Garage) — most
+  complete Rust stack, but slow-moving.
+  - `dlc-manager` orchestrates the funding/CET/refund tx chain,
+    `dlc-trie` covers numerical contracts, `dlc-messages` the wire
+    format.
   - Integrates with `rust-bitcoin`, `bdk`.
-- **`dlc-protocol`** (DLC.dev) — Python.
-- **`dlc-tools`** — JS/TS utility libs.
-- **DLCKit** — Bitfinex's iOS DLC client.
+  - v0.8.0 on crates.io, published 2025-12-13, which is also the date
+    of the newest commit on `master`. The repo carries git tags but
+    has published no GitHub releases.
+  - Its own README says the library "has not been thoroughly tested in
+    production yet", recommends "avoiding using it on main-net", and
+    notes it "is not yet fully compliant" with dlcspecs. Do not bill it
+    as production-grade on the strength of feature coverage alone.
+- **`bitcoin-s`** (Suredbits) — Scala; `dlc-wallet`, `dlc-oracle` and
+  `dlc-node` modules. The most actively maintained full node-plus-DLC
+  stack; 1.9.12 released 2026-03-21.
+- **`node-dlc`** (Atomic Finance) — TypeScript; v1.2.1 (July 2026),
+  still taking feature work.
+- **`cfd-dlc`** (Crypto Garage) — C++ library with a JS wrapper, used
+  by the P2PDerivatives client. Last pushed February 2023; dormant.
+- **`NDLC`** (Nicolas Dorier) — C# implementation intended for
+  BTCPayServer. Last pushed January 2021; abandoned.
+
+Earlier revisions of this skill also listed `dlc-protocol` (DLC.dev,
+Python), `dlc-tools` (JS/TS) and DLCKit (Bitfinex iOS). None of the
+three could be located in September 2026: no matching repositories
+surface in a GitHub search, `dlc.dev` does not respond, and none appear
+in the dlcspecs implementation list. Treat them as gone.
 
 ## Use cases
 
@@ -100,7 +142,19 @@ Wire protocol uses Lightning-style TLV messages over Tor / clearnet.
 - **Price hedging** — bilateral derivatives on BTC/USD.
 - **Parametric insurance** — payout based on weather oracle.
 - **Lightning Loop alternatives** — DLC-based off-chain mechanisms.
-- **Lava / Atomic Finance** — production DLC apps.
+- **Bitcoin-collateralized lending** — Lygos (formed August 2025 from
+  Atomic Finance's DLC stack) runs DLC-backed institutional loans.
+
+Earlier revisions of this skill paired "Lava / Atomic Finance" here as
+live DLC apps; both halves are stale as of September 2026. Lava's CEO
+stated in November 2025 that Lava "no longer uses DLCs … for loans
+because the technology doesn't meet our security standards", and
+reporting that month described collateral moving to a custodial
+cold-storage model — though `lava.xyz` again markets loans as "fully
+Bitcoin-collateralized and self-custodial" as of September 2026, with
+no mention of DLCs anywhere on the page. Atomic Finance sunset its own
+consumer app in 2025 and `atomic.finance` no longer resolves, but its
+`node-dlc` library is still maintained (see Implementations).
 
 ## Operational considerations
 

@@ -65,8 +65,35 @@ contributing nonce/partial sig material for one session in another.
 - Signer maintains explicit session state including: list of
   pubkeys, msg, expected `R`, expected `b`. Refuses partial-sig
   request that doesn't match.
+- Session identity must bind the **pubnonce**, not just the keys and
+  the message. Two concurrent sessions over the same message are safe
+  iff their nonces differ; an implementation keyed on anything less
+  either collides or, worse, silently reuses a secnonce.
+- Fail closed: if the secnonce slot for a session id is already
+  occupied, abort rather than proceed.
 - Best-practice: sign immediately on Round 2, don't keep sessions
   open longer than needed.
+
+### Worked example — Bitcoin Core #35269 (2026)
+Core derived the signing-session id as the SHA256 of the script
+pubkey, the participant pubkey and the sighash — everything except
+the nonce — so a second `walletprocesspsbt` on the same nonce-less
+MuSig2 PSBT produced a colliding id, hit the `Assert(inserted)` in
+`SetMuSig2SecNonce` and aborted (issue #35250).
+PR #35269 "musig: Include pubnonce in session id" (merged 2026-06-02)
+folds the pubnonce into the session id, making simultaneous sessions
+over one message legal. The assertion was deliberately retained —
+hitting it now means a nonce really was reused, and Core "prefer[s]
+to assert and crash rather than do something that is highly likely to
+leak a private key".
+
+Related MuSig hardening in Bitcoin Core over the same period:
+- #35316 — reject empty pubkey list in `GetMuSig2KeyAggCache`
+  (merged 2026-05-21).
+- #35493 — fix MuSig private-key completeness checks on
+  `importdescriptors` (merged 2026-08-11).
+- #34697 — fix `musig()` duplicate-key checks and doubled PSBT origin
+  paths (merged 2026-08-24).
 
 ## 5. Aggregator dishonesty
 
@@ -97,7 +124,8 @@ If nonce derivation function leaks via timing, an attacker could
 recover `k_{i,1}` and chain-attack to private key.
 
 ### Defense
-- Use libsecp256k1's constant-time `secp256k1_musig2_nonce_gen`.
+- Use libsecp256k1's constant-time `secp256k1_musig_nonce_gen`
+  (upstream prefix is `secp256k1_musig_`, with no `2`).
 - Avoid Python/JS impls in production unless audited for CT.
 
 ## 8. Subkey pinning — DOS, not key compromise

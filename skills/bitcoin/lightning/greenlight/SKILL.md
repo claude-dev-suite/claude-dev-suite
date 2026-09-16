@@ -64,8 +64,10 @@ that the operation aligns with channel policy.
 ## gl-client library
 
 Available in:
-- **Rust** — primary `gl-client` crate.
-- **Python** — `pygreenlight`.
+- **Rust** — primary `gl-client` crate (v0.6.0, May 2026).
+- **Python** — `gl-client` on PyPI, built from `libs/gl-client-py`. The
+  PyPI package tracks its own version line and lags the Rust crate
+  (0.3.4, July 2025 — as of September 2026).
 - **Swift / Kotlin** — for mobile apps.
 - **JS / WASM** — for browser apps.
 
@@ -111,6 +113,24 @@ Mobile/desktop integration via Blockstream's onboarding:
 
 Pricing: per-channel small fee (typically ~few sats per channel
 operation); subject to Blockstream's evolving terms.
+
+## Project status and consumers (September 2026)
+
+Greenlight itself is actively shipping: the `gl-client` Rust crate v0.6.0
+and `gl-sdk` v0.4.0 were both released on 2026-05-21, and
+`Blockstream/greenlight` was still receiving commits as of September 2026.
+
+Its best-known third-party consumer has moved on, though:
+
+- **Breez SDK — Greenlight** (`breez-sdk-greenlight`) wrapped Greenlight
+  for mobile apps. Breez's own docs now state it "is deprecated and no
+  longer maintained. It should not be used for new integrations, and
+  existing integrations should migrate", pointing integrators at the
+  Breez SDK — Spark instead (checked September 2026; the
+  `breez/breez-sdk-greenlight` GitHub repo no longer resolves either).
+- Treat Blockstream's `gl-client` / `gl-sdk` as the entry point for new
+  integrations; do not assume a third-party SDK still fronts Greenlight
+  without checking that SDK's own status first.
 
 ## See also
 

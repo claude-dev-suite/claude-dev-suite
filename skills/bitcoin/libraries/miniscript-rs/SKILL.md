@@ -19,8 +19,13 @@ Repo: `github.com/rust-bitcoin/rust-miniscript`.
 
 ```toml
 [dependencies]
-miniscript = "12"
+miniscript = "13"
 ```
+
+As of September 2026 the current line is 13.1.0 (June 2026); 13.0.0
+landed October 2025. The 12.x line still gets patches (12.3.7, May
+2026) but is no longer the current major. MSRV is Rust 1.63.0. Policy
+compilation lives behind the non-default `compiler` cargo feature.
 
 ## Quick examples
 
@@ -41,11 +46,12 @@ for i in 0..10 {
 
 ### Compile policy → miniscript → script
 ```rust
-use miniscript::policy::{Concrete, Liftable};
+use miniscript::policy::Concrete;
+use miniscript::Segwitv0;
 
 let policy: Concrete<bitcoin::PublicKey> =
     "and(pk(02abc...),older(144))".parse()?;
-let ms = policy.compile_to_miniscript_segwit_v0()?;
+let ms = policy.compile::<Segwitv0>()?;   // `compiler` feature
 let script = ms.encode();
 ```
 
@@ -73,7 +79,10 @@ let witness = ms.satisfy(&satisfier)?;
 ## Common pitfalls
 
 - Miniscript version mismatch with rust-bitcoin: pin compatible
-  versions.
+  versions. As of September 2026 the pairing is miniscript 13.x and
+  12.x -> `bitcoin = "0.32"` (13.1.0 pins `^0.32.6`), 11.x -> `0.31`,
+  10.x -> `0.30`. The 13.0.0 break was miniscript's own API, not a
+  rust-bitcoin bump.
 - Tapscript miniscript different fragment set vs legacy.
 - Descriptor checksum: re-add after modifications.
 

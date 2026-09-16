@@ -39,11 +39,16 @@ Each Spark leaf is:
 **1-of-n trust on Spark Operator collective**:
 - As long as one operator behaves honestly, user funds remain secure.
 - FROST threshold signing means no single SO controls the keys.
+- The user is a *required* signer on every transfer: the SO set alone
+  cannot move a leaf at any threshold.
 - Exit guarantee: even if all SOs collude/disappear, user can always
   exit via timelocked path.
 
-Currently launched with 2 operators (Lightspark + Flashnet); planned
-expansion to diverse jurisdictions.
+Mainnet beta runs three founding operators -- Lightspark, Flashnet and
+Breez (docs.spark.money FAQ, as of September 2026). The SDK's mainnet
+wallet config signs at a FROST threshold of 2 over those three, i.e.
+2-of-3. Spark states additional SOs will join as the network scales; no
+target set size or jurisdictional split has been published.
 
 ## Lightning compatibility
 
@@ -76,7 +81,7 @@ await wallet.payLightningInvoice("lnbc100u...");
 | Round-based | Continuous | Periodic rounds |
 | Status | Live beta | ARKADE live beta |
 | Lightning integration | Native | Optional / future |
-| Stablecoins / tokens | Yes (planned) | Yes (Arkade Assets) |
+| Stablecoins / tokens | Yes (USDB live Jan 2026) | Yes (Arkade Assets) |
 
 ## Use cases
 
@@ -85,18 +90,35 @@ await wallet.payLightningInvoice("lnbc100u...");
 - **Enterprise**: integrated with Lightspark's existing LN
   infrastructure.
 
-## Status & roadmap (2026 Q2)
+## Status (as of September 2026)
 
-- Beta active with 2 operators.
-- Q2 2026 roadmap: expanded operator set, more jurisdictions, deeper
-  Lightning integration, asset support.
+- Mainnet beta active with 3 operators (Lightspark, Flashnet, Breez).
+  Spark's own FAQ still calls it "highly experimental".
+- USDB -- a USD stablecoin issued by Brale, backed 1:1 by US Treasury
+  bills and cash equivalents -- went live on Spark 21 January 2026.
+- Spark's public ecosystem directory lists dozens of wallets,
+  infrastructure providers and investors, among them Polymarket and
+  Wallet of Satoshi (spark.money/ecosystem, September 2026).
+- History: a Q2 2026 roadmap listed an expanded operator set, more
+  jurisdictions, deeper Lightning integration and asset support. Treat
+  it as superseded -- the dated items above are the current record, and
+  the operator and asset milestones both predate that roadmap: Breez was
+  announced as a Spark Service Provider on 22 May 2025 and USDB shipped
+  21 January 2026. Spark has published no date for the BTKN token
+  standard.
 - UMA (Universal Money Address) integration alongside Spark for
-  cross-currency payments.
+  cross-currency payments came from that same roadmap and is still
+  undocumented as of September 2026: the Spark docs reference UMA only
+  as an LNURL/UMA invoice description-hash field. The cross-currency
+  path that *is* documented is Lightspark Grid (announced 16 October
+  2025): the Spark docs carry a Grid integration page for fiat
+  on/off-ramp, and Grid lists Spark among its supported networks.
 
 ## Limitations
 
-- **k-of-n trust**: although FROST minimizes single-operator
-  compromise, you still trust the operator collective.
+- **1-of-n honesty**: after a transfer, at least one SO must delete its
+  old key share. The FROST k-of-n threshold is a separate liveness
+  parameter, not the honesty assumption.
 - **Lightning bridging**: requires LSP-like layer; integration costs
   apply.
 - **Newer**: less battle-tested than Lightning.

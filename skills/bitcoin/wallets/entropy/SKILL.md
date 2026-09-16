@@ -71,13 +71,37 @@ Use cases:
 
 | Device | BIP85 |
 |--------|-------|
-| Coldcard Mk4 / Q | yes (full app catalogue) |
+| Coldcard Mk4 / Mk5 / Q | yes (full app catalogue) |
 | Trezor (T / Safe) | yes via Suite |
 | Ledger | yes via 3rd-party app |
 | BitBox02 | partial |
 | SeedSigner | yes |
 | Krux | yes |
 | Specter DIY | yes |
+
+## Weak parent entropy: the COLDCARD advisory
+
+Coinkite's advisory of 30 July 2026 (expanded 1 August 2026) disclosed
+that COLDCARD firmware from March 2021 onward generated seeds from
+MicroPython's software PRNG instead of the hardware TRNG. Effective
+entropy was ~40 bits on Mk2/Mk3 and ~72 bits on Mk4/Mk5/Q, against a
+128-bit design target. Fixed in Standard 4.2.0 (Mk2/Mk3), 5.6.0
+(Mk4/Mk5) and 1.5.0Q (Q), and in Edge 6.6.0X / 6.6.0QX.
+
+BIP85 does not launder this. Every child is a deterministic function
+of the parent, so a master holding ~72 bits of real entropy yields
+children with no more than ~72 bits, however long the child mnemonic
+prints. If the BIP85 master was generated on affected firmware, treat
+every mnemonic, WIF, xprv and password ever derived under it as
+compromised, not just the master. Coinkite exempts masters mixed with
+at least 50 fair, independent, private dice rolls — those are not at
+risk from this RNG bug alone. Updating firmware does not repair an
+existing seed; the remedy is a freshly generated master on fixed
+firmware, after which the same BIP85 paths yield new children.
+
+The general rule: BIP85 output entropy is capped by the parent seed's
+entropy. Auditing a BIP85 tree means auditing how the master was
+generated.
 
 ## Implementation
 
@@ -117,3 +141,4 @@ seed12 = bip85_derive(master, "m/83696968'/39'/0'/12'/0'", "bip39_12")
 - [hd/SKILL.md](../hd/SKILL.md)
 - [backup/SKILL.md](../backup/SKILL.md)
 - [../../cryptography/bip32/SKILL.md](../../cryptography/bip32/SKILL.md)
+- [../../hardware/coldcard/SKILL.md](../../hardware/coldcard/SKILL.md)

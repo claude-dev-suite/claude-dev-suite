@@ -3,7 +3,10 @@ name: lightning-loop-pool-lit
 description: |
   Lightning Labs liquidity tools: Loop (off-chain ↔ on-chain swaps),
   Pool (auction-based liquidity market), Lightning Terminal (Lit, web
-  UI). Submarine swap mechanics behind Loop.
+  UI). Submarine swap mechanics behind Loop. As of September 2026
+  Loop is the live general-purpose option: Boltz swaps are offline
+  (suspended 2026-08-03) and Peerswap rejects new L-BTC swaps
+  (v7.0.1, 2026-09-07).
   USE WHEN: managing channel liquidity, evaluating Loop vs Boltz vs
   Peerswap, deploying Lit for fleet management.
 allowed-tools: Read, Grep, Glob
@@ -97,13 +100,19 @@ Atomic: either both swap legs settle or neither (both refund).
 ## Alternatives
 
 - **Boltz** — competing submarine swap service, also supports
-  Liquid swaps.
+  Liquid swaps. Offline since 2026-08-03 after AI-assisted attacks;
+  non-custodial, so refunds stayed up. No relaunch date as of
+  2026-09-15 — protocol reference only, not a live API.
 - **Peerswap** (CLN plugin, LND lncli plugin) — peer-to-peer swaps,
-  no third-party trust.
+  no third-party trust. Bitcoin only as of 2026-09-15: v7.0.1
+  (2026-09-07) rejects new L-BTC swaps after a Liquid Network
+  security incident; v7.0.0 (2026-08-19) fixed two Liquid issues
+  under a withheld CVE. Bitcoin swaps unchanged.
 - **Splice-out** (CLN, ldk) — built-in; no third-party.
 
 Lightning Loop has the broadest impl support; Peerswap is more
-trust-minimized but requires both parties to support it.
+trust-minimized but requires both parties to support it, and as of
+September 2026 covers Bitcoin swaps only.
 
 ## Common bugs
 

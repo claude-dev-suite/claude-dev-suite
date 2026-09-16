@@ -93,7 +93,7 @@ m / 84' / 0' / 0' / 0 / 5
 
 ## xpub / xprv serialization
 
-113 bytes Base58Check-encoded. Layout:
+78 bytes raw; exactly 111 characters when Base58Check-encoded. Layout:
 ```
 [4 bytes]  version    e.g. 0x0488B21E (xpub mainnet)
 [1 byte]   depth      (0 for master)

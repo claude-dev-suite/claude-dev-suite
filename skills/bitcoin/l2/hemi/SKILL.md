@@ -2,7 +2,9 @@
 name: bitcoin-l2-hemi
 description: |
   Hemi Network: hybrid Bitcoin + Ethereum L2 with "superfinality"
-  via Bitcoin PoW. ~$1.2B TVL, 90+ protocols (early 2026).
+  via Bitcoin PoW. Chain TVL under $1M across 44 listed
+  protocols (DefiLlama, September 2026), down from a ~$330M
+  peak in June 2025.
   USE WHEN: building cross-chain DeFi, evaluating Hemi vs BOB.
 allowed-tools: Read, Grep, Glob
 ---
@@ -30,8 +32,18 @@ checkpoint:
 
 ## Position
 
-Significant TVL (~$1.2B early 2026), 90+ protocols deployed.
-Among the more active "hybrid Bitcoin L2" projects.
+Small and shrinking as of September 2026. DefiLlama put Hemi
+chain TVL at ~$0.84M on 16 September 2026; L2BEAT total value
+secured was ~$0.80M on 16 September 2026. DefiLlama lists 44
+protocols on Hemi, only 13 of them above $10k. That is down
+from a DefiLlama peak of ~$330M (June 2025) and ~$14M as
+recently as January 2026.
+
+A further ~$42M of native HEMI sits in Hemi Staking; chain TVL
+excludes it as the chain's own token (DefiLlama, September
+2026). Historically Hemi was among the more active "hybrid
+Bitcoin L2" projects through 2025 - treat that framing as
+history, not current position.
 
 ## Use cases
 

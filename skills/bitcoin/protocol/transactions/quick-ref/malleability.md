@@ -28,9 +28,10 @@ on txid (Lightning's pre-anchor commitments, atomic swaps, ...).
 
 - Mixed legacy + SegWit inputs: txid still malleable via legacy input
   scriptSig.
-- Replace-by-fee (BIP125): a separate tx that conflicts with yours
-  replaces it; your txid is gone, but this is **not** malleability —
-  it's policy.
+- Replace-by-fee (BIP125-era name; replacement has been unconditional
+  since Bitcoin Core 29.0, April 2025): a separate tx that conflicts
+  with yours replaces it; your txid is gone, but this is **not**
+  malleability — it's policy.
 - Pinning (Lightning): an attacker spends an HTLC output with a tx
   that prevents you from publishing the timeout/success path tx. v3
   TRUC + ephemeral anchors mitigates this.

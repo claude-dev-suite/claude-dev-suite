@@ -20,7 +20,12 @@
 - `OP_2DROP`/`OP_2DUP`/`OP_3DUP`/`OP_2OVER`/`OP_2ROT`/`OP_2SWAP`.
 
 ## Splice (mostly disabled)
-- `OP_CAT` (0x7e) — DISABLED on legacy/segwit. **Re-proposed for Tapscript** (BIP CAT-revival).
+- `OP_CAT` (0x7e) — DISABLED on legacy/segwit. **Re-proposed for Tapscript**
+  as BIP347 "OP_CAT in Tapscript" (Ethan Heilman, Armin Sabouri; assigned
+  2023-12-11, Status Complete, v1.0.0), which redefines `OP_SUCCESS126` —
+  the same 0x7e value the original opcode used. Not activated: Bitcoin Core
+  still treats 0x7e inside a tapscript as `OP_SUCCESS126` (checked
+  September 2026).
 - `OP_SUBSTR`, `OP_LEFT`, `OP_RIGHT` — disabled.
 - `OP_SIZE` (0x82) — push byte length of top stack item.
 
@@ -66,5 +71,24 @@ Numbers in script are **little-endian, sign-magnitude**, max 4 bytes.
 - `OP_CHECKMULTISIG`/`OP_CHECKMULTISIGVERIFY` → **disabled**.
 - Strict push semantics enforced (`MINIMALPUSH`).
 - Discouraged opcodes (`OP_NOP1`..) reserved for future leaf versions.
-- No 520-byte stack item limit; stack items can be up to 4 MB
-  (block weight limit is the only constraint).
+- No 10,000-byte script-size limit and no 201-non-push-opcode limit; script
+  size is bounded only by block weight.
+- The 520-byte stack element limit **remains** (BIP342 "Resource Limits"),
+  on both the initial witness stack and push opcodes. So does the
+  1000-element stack+altstack limit.
+
+## OP_SUCCESSx allocations with live proposals (as of September 2026)
+
+- `OP_SUCCESS126` (0x7e) → BIP347 `OP_CAT` (Complete, assigned 2023-12-11).
+- `OP_SUCCESS203` (0xcb) → BIP349 `OP_INTERNALKEY` (Draft, assigned 2024-11-14).
+- `OP_SUCCESS204` (0xcc) → BIP348 `OP_CHECKSIGFROMSTACK` (Draft, assigned
+  2024-11-26).
+- `OP_SUCCESS206` (0xce) → BIP446 `OP_TEMPLATEHASH` (Draft, assigned
+  2026-02-06).
+
+None of these are activated. Until a soft fork redefines it, each byte is
+still a plain `OP_SUCCESSx`: its mere presence **anywhere** in the
+tapscript — including an unexecuted branch, or after bytes that would not
+otherwise decode — makes validation succeed. The check is a pre-pass over
+the whole script, so it precedes execution and precedes the initial-stack
+and 520-byte element limits (BIP342). Spending to one is anyone-can-spend.

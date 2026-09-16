@@ -36,12 +36,20 @@ specific output.
 - Default round: ~50 participants; output amounts in tiered
   denominations.
 
-### Whirlpool (Samourai Wallet, RIP)
+### Whirlpool (Samourai, relaunched by Ashigaru)
 
-- **Coordinator-mediated** but Samourai shut down 2024 (legal
-  action).
+- **Coordinator-mediated** ZeroLink. Samourai shut down 2024 (US
+  indictment April 2024); the founders were sentenced in November
+  2025 — see
+  [Legal outcome](#legal-outcome-samourai-november-2025).
 - Used 5x equal-output structure.
-- Still technically possible but ecosystem is gone.
+- **Not** dead: the Ashigaru Open Source Project (anonymous Samourai
+  fork) relaunched a ZeroLink coordinator on 23 June 2025, together
+  with Ashigaru Terminal v1.0.0, a Sparrow-derived desktop client
+  for Linux/macOS/Windows. Tor-only, no clearnet.
+- Ashigaru pools as of mid-2026: 0.025 BTC and 0.25 BTC, each with
+  a 5% anti-Sybil fee charged on the Tx0 entry transaction (max 20
+  premix UTXOs per Tx0); remixes are free and unlimited.
 
 ### JoinMarket
 
@@ -50,6 +58,10 @@ specific output.
   - Takers initiate CoinJoins, pay makers.
 - No central coordinator — IRC + onion services.
 - Slower / smaller anonymity sets but censorship-resistant.
+- Two wire-compatible implementations share one order book as of
+  September 2026: the reference `joinmarket-clientserver` (archived
+  27 Apr 2026, final release v0.9.12) and `joinmarket-ng`, which is
+  the actively developed one. Target NG for new work.
 
 ## Privacy properties
 
@@ -83,12 +95,45 @@ Different mechanism — see [payjoin/SKILL.md](../payjoin/SKILL.md).
 - On-chain tx fee: shared among participants.
 - Time: multiple rounds for full anonymity (hours typical).
 
-## Status (late 2025)
+## Status (September 2026)
 
-- **Wasabi Wallet 2.0** (zkSNACKs): operational; some legal pressure.
-- **Whirlpool**: Samourai shutdown. Some forks attempting to revive.
-- **JoinMarket**: niche but operational.
-- **Joinstr** (Nostr-based CoinJoin coordination): experimental.
+- **Wasabi Wallet 2.x**: operational. zkSNACKs discontinued the
+  default coordinator on 1 June 2024; the same-day v2.0.8 release
+  added coordinator selection in the GUI and moved the repo from
+  the zkSNACKs org to `WalletWasabi/WalletWasabi`. Stock Wasabi now
+  ships with **no** default coordinator — the user pastes one in.
+  Latest release v2.8.3 (14 Sep 2026).
+- **Whirlpool**: relaunched by Ashigaru on 23 June 2025 (new
+  ZeroLink coordinator + Terminal v1.0.0). Tor-only; both pools
+  reported still operating as of mid-2026. ashigaru.rs has posted
+  nothing since June 2025, so that is the freshest operational
+  check, not a September 2026 one.
+- **JoinMarket**: niche but operational. Reference implementation
+  `JoinMarket-Org/joinmarket-clientserver` archived 27 Apr 2026
+  (read-only; final release v0.9.12, 21 Apr 2026), and its release
+  notes point readers at `joinmarket-ng/joinmarket-ng` as the
+  codebase under active development (0.39.2, 10 Sep 2026). NG is
+  wire-compatible, so the maker/taker market is not split. The Jam
+  web UI is still maintained (v2.0.0-beta.3, 24 Aug 2026).
+- **Joinstr** (Nostr-based CoinJoin coordination): experimental
+  (status last checked late 2025).
+
+## Legal outcome (Samourai, November 2025)
+
+The April 2024 Samourai indictment is no longer an open case. Both
+founders were convicted of conspiring to operate an unlicensed
+money transmitting business and sentenced in the SDNY:
+
+- **Keonne Rodriguez** (CEO): 5 years, sentenced 6 Nov 2025.
+- **William L. Hill** (CTO): 4 years, sentenced 19 Nov 2025.
+- Each also got 3 years supervised release and a $250,000 fine.
+- Forfeiture ordered: $237,832,360.55; $6,367,139.69 paid, that
+  figure being the fees Samourai itself earned.
+
+Design consequence: the count of conviction was unlicensed money
+transmission, not custody or theft. Treat "we never hold user
+keys" as **not** a defence when scoping a coordinator, and get
+jurisdiction-specific legal advice before operating one.
 
 ## Limitations
 

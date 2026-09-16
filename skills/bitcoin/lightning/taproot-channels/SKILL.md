@@ -1,8 +1,8 @@
 ---
 name: lightning-taproot-channels
 description: |
-  Simple Taproot Channels (BOLT 9 bit 56): MuSig2-aggregated funding
-  output, Tapscript commitment leaves, taproot-native HTLCs.
+  Simple Taproot Channels (feature bits 80/81): MuSig2-aggregated
+  funding output, Tapscript commitment leaves, taproot-native HTLCs.
   USE WHEN: enabling taproot channels in your impl, evaluating
   cooperative-spend privacy gains, designing taproot HTLC scripts.
 allowed-tools: Read, Grep, Glob
@@ -14,8 +14,12 @@ Replaces the legacy 2-of-2 P2WSH funding output with a P2TR + MuSig2
 aggregated key. Cooperative spends (the common case) are
 indistinguishable from single-sig outputs on chain.
 
-Status: deployed in early form across LDK, CLN, LND, Eclair as of
-late 2025; spec ongoing.
+Status: the extension BOLT `bolt-simple-taproot.md` was merged into
+lightning/bolts on 2026-05-04 (PR #995), so the scripts and feature
+bits are final. Taproot channels still cannot be announced on the
+public network — that needs the separate taproot gossip extension
+(lightning/bolts#1059), still an open draft as of September 2026 — so
+every taproot channel today is a private (unannounced) one.
 
 ## Funding output
 
@@ -50,6 +54,10 @@ Cooperative close in taproot channels:
 - Result: tx with **single 64-byte witness** — looks like ordinary
   Taproot single-sig.
 - On-chain analysis cannot distinguish from a regular wallet spend.
+- Under RBF cooperative close, each fee-bump round needs fresh nonces:
+  the spec uses a JIT (just-in-time) nonce pattern, bundling the
+  closer's nonce with its signature in `closing_complete` and rotating
+  the closee's nonce in `closing_sig` per iteration.
 
 ## Privacy gain
 
@@ -99,20 +107,38 @@ funding output key.
 
 ## Compatibility
 
-`option_simple_taproot_chans` (BOLT 9 bit 56/57) negotiated in init.
-If only one side supports, channel falls back to legacy.
+`option_simple_taproot` (bits 80/81) negotiated in init. The bits are
+defined in the extension BOLT `bolt-simple-taproot.md`, not in BOLT 9;
+`option_simple_taproot_staging` (180/181, the +100 staging pair) is the
+pre-finalization variant older deployments still speak. If only one
+side supports, channel falls back to legacy.
 
-## Implementations (late 2025)
+The feature bit is also a defined **channel type**. The spec says it
+SHOULD only be used with *explicit* channel negotiation — it cannot be
+an interchangeable default, because `open_channel` for this type MUST
+NOT set the `announce_channel` bit.
+
+## Implementations (as of September 2026)
 
 | Implementation | Status |
 |----------------|--------|
-| LDK | Production with experimental flag |
-| CLN | Beta |
-| LND | Beta |
-| Eclair | Beta |
+| LND | Production — v0.21.0-beta (June 2026), final scripts, bits 80/81 |
+| Eclair | Production — v0.14.0 (May 2026), final spec, LND-interoperable |
+| CLN | No support — `common/features.c` on master has no taproot entry |
+| LDK | No simple-taproot channels shipped — `main` still carries only the older `option_taproot` (bit 30/31) feature definition |
 
-Spec is in late stages but not finalized; some interop differences
-remain.
+LND requires the type explicitly; bare `taproot` now means the
+production variant, `taproot-staging` opens the staging variant and
+`taproot-final` is a deprecated alias:
+```bash
+lncli openchannel --channel_type=taproot ...
+```
+
+Eclair enables the feature by default (disable with
+`eclair.features.option_simple_taproot = disabled`) and opens with:
+```bash
+eclair-cli open --channelType=simple_taproot_channel --announceChannel=false ...
+```
 
 ## Common bugs
 

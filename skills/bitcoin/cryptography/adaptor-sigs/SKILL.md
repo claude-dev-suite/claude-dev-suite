@@ -115,10 +115,19 @@ When oracle publishes s_outcome for the actual outcome:
 
 ## Implementations
 
-- `secp256k1-zkp` (Blockstream's libsecp256k1 fork) — has adaptor
-  sig module.
-- `rust-bitcoin/adaptor-sig` crates.
-- DLC: `rust-dlc`, `dlc-rs` from Crypto Garage / DLC.dev.
+- `secp256k1-zkp` (Blockstream fork) — `ecdsa_adaptor`, plus BIP340
+  adaptor support inside `musig` (`musig_adapt` /
+  `musig_extract_adaptor`). No standalone Schnorr adaptor module —
+  PR #299 unmerged since Oct 2024, no tagged releases (Sept 2026).
+- `schnorr_fun` / `ecdsa_fun` (secp256kfun, LLFourn) — pure-Rust
+  `adaptor` modules for BIP340 and ECDSA adaptor sigs; `schnorr_fun`
+  0.13.0 (May 2026), `ecdsa_fun` 0.12.0 (November 2025).
+- `rust-secp256k1-zkp` (BlockstreamResearch; formerly
+  ElementsProject, as of September 2026) — Rust bindings to the C
+  `secp256k1-zkp` library; crate `secp256k1-zkp` 0.11.0 (July 2024),
+  wraps the C `ecdsa_adaptor` API.
+- DLC: `rust-dlc` (Crypto Garage / p2pderivatives) — `dlc` crate
+  0.8.0 (December 2025), repo last pushed March 2026.
 - Some Lightning impls' `PTLC` branches (LDK research, not mainnet).
 
 ## Security caveats

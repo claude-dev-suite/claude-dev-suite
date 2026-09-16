@@ -1,8 +1,9 @@
 ---
 name: bitcoin-hardware-ledger
 description: |
-  Ledger hardware wallets: Nano S Plus, Nano X, Stax, Flex. BOLOS app
-  architecture, Ledger Live, secure element, anti-klepto.
+  Ledger hardware wallets: Stax, Flex, Nano Gen5, Nano X, Nano S Plus.
+  BOLOS app architecture, Ledger Wallet (formerly Ledger Live), secure
+  element, anti-klepto.
   USE WHEN: integrating with Ledger, supporting Ledger in app, debugging
   PSBT signing or HW Recovery service issues.
 allowed-tools: Read, Grep, Glob
@@ -21,7 +22,16 @@ based on **Secure Element** (SE) chips.
 | Nano X | 2019 | Bluetooth, larger screen |
 | Nano S Plus | 2022 | Successor to Nano S, more memory |
 | Stax | 2023 | Touchscreen, e-ink |
-| Flex | 2024 | Color touchscreen |
+| Flex | 2024 | 2.8in E Ink touchscreen, BLE + NFC |
+| Nano Gen5 | 2025 | First touchscreen Nano; E Ink, BLE + NFC |
+
+As of September 2026 Ledger's comparison page sells five models —
+Stax, Flex, Nano Gen5, Nano X, Nano S Plus — so the Nano S Plus is
+still current, not discontinued. The **Nano Gen5** was unveiled on
+23 October 2025 (launch price $179): 2.8in monochrome E Ink
+touchscreen (300x400), USB-C, Bluetooth 5.2, NFC, ST33K1M5 secure
+element (CC EAL6+). Stax and Flex screens are 16-level grayscale
+E Ink, not color.
 
 ## BOLOS architecture
 
@@ -46,8 +56,12 @@ Functions:
 ## Connection
 
 - USB (HID).
-- Bluetooth (Nano X / Stax / Flex).
-- Ledger Live (desktop / mobile).
+- Bluetooth (Nano X / Stax / Flex / Nano Gen5).
+- NFC (Stax / Flex / Nano Gen5) — used for the Ledger Recovery Key.
+- Ledger Wallet (desktop / mobile) — renamed from **Ledger Live** at
+  the October 2025 launch event; as of September 2026
+  `ledger.com/ledger-live` 301-redirects to the Ledger Wallet page.
+  Search for "Ledger Wallet" to find the desktop app.
 - Third-party: HWI, Sparrow, Specter, Electrum, Wasabi.
 
 ## Anti-klepto
@@ -90,8 +104,8 @@ on the device with HMAC for trust binding.
 ## Common issues
 
 - **Wrong app**: app for different chain open instead of Bitcoin.
-- **Path mismatch**: Ledger Live defaults to BIP44 even for segwit;
-  third-party tools must override to BIP84/86.
+- **Path mismatch**: Ledger Wallet (formerly Ledger Live) defaults to
+  BIP44 even for segwit; third-party tools must override to BIP84/86.
 - **Bluetooth Nano X**: occasional connection drops, prefer USB.
 - **Wallet policy registration**: required for multisig; first-time
   setup confusing.

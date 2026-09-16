@@ -81,7 +81,7 @@ Each signer i:
 | Setup | trivial (just sum keys) | requires DKG |
 | Round trip | 2 rounds + nonce setup | 2 rounds + DKG once |
 | Partial sigs | per-signer-key contribution | Lagrange-based with subset selection |
-| BIP | 327 | not (yet) BIP-numbered |
+| BIP | 327 | 445 (draft, PR open) |
 | Bitcoin-specific | yes (BIP340 alignment) | yes (BIP340 alignment) |
 
 Use **MuSig2** when all n parties always sign together (e.g., 2-of-2
@@ -92,18 +92,56 @@ multisig with social recovery).
 ## Implementations
 
 - `frost-secp256k1` (Zcash / ZF FROST) — Rust reference.
-- `secp256k1-frost` (libsecp256k1 experimental module).
-- `chillDKG` (Blockstream research) — practical DKG with state recovery.
+- `secp256k1-frost` (bancaditalia/secp256k1-frost) — third-party Banca
+  d'Italia (itcoin) fork of libsecp256k1 adding a `secp256k1_frost_*` C
+  API; self-described "testing and experimentation" only, and **not** an
+  upstream module as of September 2026 (see Status below).
+- `chillDKG` (Blockstream research) — practical DKG with state recovery;
+  now a submitted BIP draft (see Status below).
+- `frostsnap` — Rust FROST stack behind the Frostsnap hardware wallet,
+  MIT-licensed firmware + coordinator app (github.com/frostsnap/frostsnap).
 - `frost-dalek` (Ristretto, not Bitcoin-relevant).
 - Tools: `frost-cli` proof-of-concept.
 
 ## Status for Bitcoin
 
-- No formal BIP yet (under draft).
+- **BIP 445** — "FROST Signing Protocol for BIP340 Signatures" (Sivaram
+  Dhakshinamoorthy). Number assigned 2026-01-30; Status: Draft, spec
+  version 0.10.0 (2026-08-26) as of September 2026. Submitted as
+  `bitcoin/bips#2070` (opened 2026-01-03, still open — no BIP 445 file in
+  the bips repo yet; the README table skips 443 → 446). Specifies the
+  **FROST3** variant and adds what RFC 9591 lacks: BIP340 compatibility
+  and key *tweaking* for BIP32 derivation and BIP341 Taproot. Key
+  generation is explicitly out of scope for BIP 445.
+- **ChillDKG BIP draft** — "ChillDKG: Distributed Key Generation for
+  FROST" (Ruffing, Nick, Melnyk, Zhvanko, Dhakshinamoorthy), `Requires:
+  445`, spec version 0.3.0-dev, no BIP number assigned yet. Submitted as
+  `bitcoin/bips#2227` on 2026-07-30, still open as of September 2026.
+  Dev repo: `BlockstreamResearch/bip-frost-dkg`.
+- **RFC 9591 is not a drop-in for Bitcoin.** The IRTF published FROST as
+  RFC 9591 (June 2024), including a `FROST(secp256k1, SHA-256)`
+  ciphersuite — but its signatures are *not* BIP340-compatible, because
+  BIP340 uses x-only public keys, and it specifies no key tweaking. An
+  RFC 9591 library dropped into a Bitcoin wallet produces signatures
+  Bitcoin will not accept. Use BIP 445 for signing; for key generation
+  BIP 445 points at either ChillDKG or RFC 9591's own trusted-dealer
+  setup (Appendix C).
+- **No FROST module in either C library** (as of September 2026).
+  bitcoin-core/secp256k1 master ships no FROST module — its module list
+  is in [secp256k1/SKILL.md](../secp256k1/SKILL.md) — and secp256k1-zkp
+  has only unmerged FROST pull requests, #138 (opened 2021-07-21) and
+  #278 "FROST Trusted Dealer" (opened 2023-11-23), both still open. C
+  callers have no upstream option; the Banca d'Italia `secp256k1-frost`
+  fork above is not production-ready (last push 2026-06-11).
 - Test deployments: Zcash uses FROST for orchard treasury; Bitcoin
   custodians experimenting (Coinkite, Lightning Labs research).
-- Hardware wallet support: limited — most HW vendors haven't shipped
-  FROST yet (2024-2025).
+- Hardware wallet support: narrow, but no longer absent. **Frostsnap**
+  ships a FROST-native Bitcoin hardware wallet — on-device DKG so the
+  wallet secret never exists on any one device, arbitrary t-of-n,
+  memory-safe Rust firmware on an ESP32-C3, MIT-licensed with
+  deterministic builds; app/firmware v0.4.0 released 2026-08-25, units
+  orderable with ~10-day delivery as of September 2026. The larger
+  vendors had still not shipped FROST as of 2025.
 
 ## Security model
 

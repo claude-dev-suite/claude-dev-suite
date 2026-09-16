@@ -13,7 +13,8 @@ Tapscript = the script language used in **script-path** Taproot spends
 
 | Aspect | Legacy / SegWit v0 | Tapscript |
 |--------|-------------------|-----------|
-| Stack item max size | 520 bytes | block weight only (~4 MB) |
+| Script size max | 10,000 bytes | none (block weight only) |
+| Stack item max size | 520 bytes | 520 bytes — unchanged (BIP342) |
 | `OP_CHECKMULTISIG`, `OP_CHECKMULTISIGVERIFY` | enabled | **DISABLED** |
 | `OP_CHECKSIGADD` | n/a | new (0xba), replaces multisig |
 | Sig type | ECDSA, DER | Schnorr (BIP340), 64/65 bytes |
@@ -46,10 +47,14 @@ k-of-n multisig pattern:
 
 ## OP_SUCCESS opcodes
 
-Soft-fork upgrade hook: when **any unexecuted** `OP_SUCCESSx` is reached
-during execution, script returns success immediately. Lets future
-leaf versions repurpose these opcodes via soft fork without breaking
-old nodes (which see "OP_SUCCESS").
+Soft-fork upgrade hook: an `OP_SUCCESSx` **anywhere** in the tapscript —
+executed or not — makes validation succeed. The check is a pre-pass over
+the whole script, ahead of execution and ahead of the initial-stack and
+520-byte element limits (BIP342). Lets future leaf versions repurpose
+these opcodes via soft fork without breaking old nodes (which see
+"OP_SUCCESS"). None has been redefined yet; see
+[opcodes.md](opcodes.md) for the allocations with live proposals
+(as of September 2026).
 
 ## Annex (rare)
 

@@ -60,6 +60,31 @@ Implementations:
 - LSPs apply per-customer reputation.
 - LDK has experimental reputation tracking.
 
+Signalling layer:
+[bLIP-4](https://github.com/lightning/blips/blob/master/blip-0004.md)
+"Experimental Endorsement Signaling" (Carla Kirk-Cohen) is listed Active
+in the `lightning/blips` repo as of September 2026. It defines an
+experimental `endorsed` TLV (type 106823) on `update_add_htlc`: the
+original sender sets `endorsed`=7 when it expects the payment to resolve
+immediately and 0 otherwise, and forwarders relay or re-set the signal at
+their discretion. Deliberately data-gathering only — nodes MUST NOT use
+`endorsed` in resource allocation for the duration of the experiment,
+whose `experiment_end` is unix 1767225600 (1 January 2026). Observable
+state as of September 2026: `experiment_start` is still the literal
+"TODO: set once feature bit is widely deployed" and that
+`experiment_end` has already elapsed, while the bLIP's repo status is
+unchanged at Active. The matching BOLT change (bolts PR #1071, "HTLC
+Endorsement to Mitigate Channel Jamming") was closed unmerged in August
+2025, so endorsement remains outside the BOLTs as of September 2026.
+
+Measurement substrate: `option_attribution_data` (feature bits 36/37) is
+in BOLT 9 as of September 2026. Attribution data rides as TLV type 1 on
+`update_fulfill_htlc` and `update_fail_htlc` and carries
+`htlc_hold_times` — up to 20 per-hop hold times in units of 100 ms, each
+covered by the reporting hop's HMAC. That gives the sender a verifiable
+per-hop latency record, which is the raw measurement any hold-time-based
+reputation or hold-fee scheme needs.
+
 ## Mitigation 3: Per-channel HTLC limits
 
 Aggressive `max_accepted_htlcs` (default ~483) and `max_htlc_value_in_flight_msat`
@@ -72,7 +97,37 @@ Trade-off: low limits also hurt legitimate MPP / micro-payments.
 Charge per-hop a "hold fee" proportional to `time × amount` that the
 HTLC is in flight. Long hold = larger fee. Defeats slow-jam.
 
-Status: research-stage. Not yet in BOLT.
+The long-standing blocker is that there is no universal clock and no way
+to prove a message (the preimage) was delivered at a given moment, so
+"how long did you hold it?" is unprovable. Antoine Riard's *Conditional
+Message Transfer Contract* (CMTC),
+[posted to Delving Bitcoin](https://delvingbitcoin.org/t/conditional-message-transfer-contract-to-solve-jamming/2772)
+on 7 August 2026, is the first concrete construction that attacks that
+blocker. It is a Bitcoin Script construction, using adaptor signatures
+and timelocks on today's consensus rules, that lets two channel
+counterparties later prove whether a specific message was exchanged
+between them by a given block height — block height serving as the
+universal clock. The parties agree on a discrete temporal window and
+assign an "oracle-time" adaptor point to each point in it, so a withhold
+fee can be settled according to when the message was delivered. Three
+proof paths:
+
+- **Message transfer success**: Bob delivers the preimage and Alice
+  cryptographically acknowledges it; the two split the withhold fee
+  according to delivery time.
+- **Liveness challenge**: Alice is offline and cannot counter-sign; Bob
+  exits the contract and recovers the locked funds minus an equilibrium
+  penalty fee.
+- **Message transfer failure**: Bob is offline or never delivers the
+  message; Alice exits and takes the withhold fee.
+
+Riard presents only an on-chain version and leaves lifting it into an
+off-chain channel (as extra tapscript leaves) to future work. He also
+states that the construction's cryptographic correctness and its
+cryptoeconomic equilibrium both need further analysis — treat it as a
+research prolegomenon, not a deployable design.
+
+Status as of September 2026: research-stage. Not in any BOLT.
 
 ## Mitigation 5: Channel jamming via stuckless payments
 
@@ -83,11 +138,16 @@ Status: theoretical / spec-stage.
 
 ## Real-world status
 
+As of September 2026:
+
 - Active jamming attacks exist but are not yet a major operational
   problem (small network, low incentive).
 - Anticipated to become serious if/when LN scales 10-100x.
 - Major LN routing nodes are starting to apply heuristic-based
   reputation systems.
+- Spec-side work is on measurement and signalling (attribution data,
+  bLIP-4 endorsement), not yet on enforcement; the economic mitigations
+  (upfront fees, hold fees/CMTC) remain research.
 
 ## Compared to replacement cycling
 
@@ -101,6 +161,7 @@ Different layers, different mitigations.
 ## See also
 
 - [routing/SKILL.md](../routing/SKILL.md)
+- [onion/SKILL.md](../onion/SKILL.md)
 - [htlcs/SKILL.md](../htlcs/SKILL.md)
 - [replacement-cycling/SKILL.md](../replacement-cycling/SKILL.md)
 - [pinning-attacks/SKILL.md](../pinning-attacks/SKILL.md)

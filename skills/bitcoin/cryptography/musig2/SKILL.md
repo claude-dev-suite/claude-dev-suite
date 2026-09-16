@@ -23,6 +23,9 @@ single-key Schnorr signature.
 Replaces MuSig1 (3-round) and MuSig-DN with simpler 2-round + better
 security proofs.
 
+BIP327 is **Status: Deployed**, spec version 1.0.4 (as of September
+2026).
+
 ## Properties
 
 - **Indistinguishable** — observers cannot tell `Q` was aggregated.
@@ -104,6 +107,43 @@ accumulated tweak.
 5. **Coinjoin servers** with k-anonymity → users + service jointly
    sign.
 
+## Descriptors, PSBTs and wallet integration
+
+BIP327 covers only the signing math. Three companion BIPs (all by Ava
+Chow) carry MuSig2 into wallet software — statuses as of September
+2026:
+
+- **BIP328** (Complete) — *Derivation Scheme for MuSig2 Aggregate
+  Keys*. Wraps a plain aggregate pubkey in a **synthetic xpub**:
+  depth 0, child number 0, fixed chaincode
+  `868087ca02a6f974c4598924c36b57762d32cb45717167e300622c7167e38965`
+  (SHA256 of the text `MuSig2MuSig2MuSig2`). Only unhardened
+  derivation is possible — there is no aggregate private key. Each
+  `CKDpub` step's `I_L` enters the session context as a **plain**
+  tweak (`is_xonly_t = false`), so every signer must recompute the
+  derivation tweaks for the child key being signed for.
+- **BIP390** (Draft, v0.2.0) — the `musig(KEY,KEY,...,KEY)` descriptor
+  key expression. Allowed only inside `tr()`, `rawtr()` or `sp()`,
+  never nested in another `musig()`. Keys are sorted with `KeySort`
+  after all derivation and before aggregation, so the order written
+  in the descriptor does not matter. `musig(...)/NUM/.../*` derives
+  from the aggregate key per BIP328, and is legal only when every
+  participant is an xpub (or derived from one) and no participant
+  itself uses `/*` or `/<NUM;NUM;...>`. No hardened steps after
+  `musig()`.
+- **BIP373** (Complete) — *MuSig2 PSBT Fields*, carrying both rounds
+  through an otherwise ordinary PSBT workflow:
+  `PSBT_IN_MUSIG2_PARTICIPANT_PUBKEYS` (`0x1a`),
+  `PSBT_IN_MUSIG2_PUB_NONCE` (`0x1b`),
+  `PSBT_IN_MUSIG2_PARTIAL_SIG` (`0x1c`) and
+  `PSBT_OUT_MUSIG2_PARTICIPANT_PUBKEYS` (`0x08`).
+
+Bitcoin Core parses `musig()` descriptors and reads/writes the BIP373
+PSBT fields from **v30.0 (October 2025)**; descriptor support merged
+in PR #31244 (2025-07-31). Core accepts `musig()` only inside `tr()`
+— not `rawtr()` or `sp()` — per `doc/descriptors.md` (v31.1, July
+2026).
+
 ## Security caveats
 
 - **Concurrent sessions** — naive per-signer parallel sessions enable
@@ -111,15 +151,44 @@ accumulated tweak.
   message (the `b` coefficient).
 - **State persistence** — nonces must be wiped after one use. Power
   loss between round 1 and round 2 → must restart with fresh nonces.
-- **Hardware wallet support** — limited as of 2024. Coldcard Mk4 has
-  experimental support; most others lag.
+- **Hardware wallet support** — still thin as of September 2026. The
+  Ledger Bitcoin app has shipped `musig()` key expressions since
+  v2.4.0 (CHANGELOG 2025-03-07; GitHub release 2025-03-17): at most
+  5 keys per `musig()`, at most 8 parallel signing sessions
+  (persistent state is scarce), `musig()` allowed in `multi_a` but
+  not `sortedmulti_a`, and only `musig(...)/**` or
+  `musig(...)/<M;N>/*` — participants must be aggregated without
+  further per-key derivation. v2.5.1 (CHANGELOG 2026-09-09) fixed
+  `musig()` inside `multi_a` fragments. Coldcard is the opposite
+  case: the Mk4 and Q1 board configs both set `NGU_INCL_MUSIG = 0`
+  ("Exclude unused optional libngu secp256k1 features to save
+  firmware space"), so MuSig is compiled out of the firmware
+  entirely (as of September 2026). Either way a coordinator that
+  speaks BIP373 PSBTs is required.
 
 ## Implementations
 
-- `libsecp256k1` (`secp256k1_musig2_*`).
-- `rust-secp256k1` (musig2 module).
-- BDK has `BdkSigner` integration for MuSig2 (experimental).
-- `ZkVM`/`bdk-sgx`-style HSMs.
+- `libsecp256k1` (`secp256k1_musig_*` — no `2` in the prefix).
+  Mainline since v0.6.0 (2024-11-04) and built by default
+  (`--enable-module-musig` is `[default=yes]`); not experimental.
+  `secp256k1_musig_keyagg_cache` and `secp256k1_musig_session` still
+  have no serialization/parsing functions as of v0.8.0 (2026-08-03),
+  so signing state cannot be persisted across a process restart
+  between round 1 and round 2.
+- `rust-secp256k1` — the module is `musig`, not `musig2`
+  (`secp256k1::musig`: `KeyAggCache`, `SecretNonce`/`PublicNonce`,
+  `AggregatedNonce`, `Session`, `PartialSignature`,
+  `AggregatedSignature`). Support was added in the 0.32 development
+  series (CHANGELOG entry "0.32.0 - 2025-10-02", which also removed
+  the `Secp256k1` context from the public API), but **no stable
+  0.32.0 was ever published** — the three `0.32.0-beta.*` crates are
+  yanked. The first stable release carrying MuSig2 is 0.33.0
+  (2026-08-28); current stable is 0.33.1 (2026-08-29).
+- **BDK has no MuSig2 support** as of September 2026. The blocker is
+  `rust-miniscript`: PR #954 (*Add BIP390 `musig()` descriptor key
+  expressions*) is still open, so `bdk_wallet` 3.1.0 (2026-06-14)
+  cannot even parse `tr(musig(...))` — bdk-ffi pins that behaviour in
+  a test literally named `cannotCreateMusigDescriptor`.
 
 ## Common bugs
 

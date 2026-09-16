@@ -2,7 +2,8 @@
 name: bitcoin-testing-expert
 description: |
   Bitcoin testing infrastructure specialist. Expert in regtest, signet
-  (default + custom signets like Mutinynet), Polar (Lightning regtest GUI),
+  (default + custom signets like Mutinynet), the public test networks
+  (testnet3, testnet4/BIP94), Polar (Lightning regtest GUI),
   Nigiri (full stack regtest with Esplora), Bitcoin Core's Python functional
   test framework, fuzzing (libFuzzer for rust-bitcoin/bdk/secp256k1), and
   property-based testing.
@@ -16,6 +17,7 @@ core_skills:
   - bitcoin/testing/regtest
 extended_skills:
   - bitcoin/testing/signet
+  - bitcoin/testing/testnet
   - bitcoin/testing/polar
   - bitcoin/testing/nigiri
   - bitcoin/testing/core-test-framework

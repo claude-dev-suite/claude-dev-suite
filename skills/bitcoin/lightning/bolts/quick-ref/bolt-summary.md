@@ -30,7 +30,11 @@ Channel lifecycle messages:
 - `commitment_signed` (132).
 - `revoke_and_ack` (133).
 - `update_fee` (134).
-- `closing_signed` (39) — cooperative close.
+- `closing_complete` (40) / `closing_sig` (41) — cooperative close under
+  `option_simple_close`; each peer signs its own closing tx.
+- `closing_signed` (39) — legacy cooperative close, used when
+  `option_simple_close` is not negotiated (BOLT 2 "Legacy Closing
+  Negotiation", as of September 2026).
 - `shutdown` (38).
 
 Dual-funded (v2):
@@ -93,28 +97,37 @@ Connection: TCP/9735 default port, optional Tor.
 
 ## BOLT 9 — Feature Flags
 
-Bit positions (selected, from BOLT 9):
+Bit positions (selected, from BOLT 9 on lightning/bolts master,
+September 2026):
 | Bit | Name | Notes |
 |-----|------|-------|
-| 0/1 | `option_data_loss_protect` | Channel reestablish robustness |
+| 0/1 | `option_data_loss_protect` | ASSUMED; channel reestablish robustness |
 | 4/5 | `option_upfront_shutdown_script` | Pre-commit close script |
-| 8/9 | `gossip_queries` | Selective gossip sync |
-| 12/13 | `option_static_remotekey` | Stable to_remote |
-| 14/15 | `payment_secret` | MPP support prerequisite |
+| 6/7 | `gossip_queries` | Selective gossip sync |
+| 8/9 | `var_onion_optin` | ASSUMED; TLV onion payload |
+| 12/13 | `option_static_remotekey` | ASSUMED; stable to_remote |
+| 14/15 | `payment_secret` | ASSUMED; MPP support prerequisite |
 | 16/17 | `basic_mpp` | Multi-path payments |
 | 18/19 | `option_support_large_channel` | Wumbo |
-| 20/21 | `option_anchors_zero_fee_htlc_tx` | Anchor commitment |
-| 22/23 | `option_anchor_outputs` (legacy) | Older anchor variant |
+| 22/23 | `option_anchors` | Anchor commitment, zero-fee HTLC txs |
+| 24/25 | `option_route_blinding` | BOLT 4 blinded paths |
 | 26/27 | `option_shutdown_anysegwit` | Allow any-segwit close addr |
-| 38/39 | `option_zeroconf` | Zero-conf channels |
-| 44/45 | `option_route_blinding` | BOLT 4 blinded paths |
-| 46/47 | `option_dual_fund` | Dual-funded |
-| 50/51 | `option_keysend` | Spontaneous payments |
-| 56/57 | `option_simple_taproot_chans` | Taproot channels |
-| 58/59 | `option_splice` | Splicing |
+| 28/29 | `option_dual_fund` | Dual-funded |
+| 36/37 | `option_attribution_data` | BOLT 4 attribution data |
+| 40/41 | `zero_fee_commitments` | Zero-fee commitment/HTLC txs |
+| 50/51 | `option_zeroconf` | Zero-conf channels |
+| 60/61 | `option_simple_close` | Simplified closing negotiation |
+| 62/63 | `option_splice` | Splicing |
 
 Even bits = required; odd bits = optional. Feature must be supported
 in matched pairs (init exchange compares).
+
+This is an abridged view. [feature-bits.md](feature-bits.md) carries the
+full registry, the bits defined outside `09-features.md` (simple taproot
+channels at 80/81) and the non-spec bits implementations advertise anyway
+(LND keysend at 54/55, proposed trampoline at 56/57). Note that legacy
+`option_anchor_outputs` at 20/21 was deleted from BOLT 9 on 2024-05-20 and
+those bits are retired, not reassigned.
 
 ## BOLT 11 — Invoice Format
 

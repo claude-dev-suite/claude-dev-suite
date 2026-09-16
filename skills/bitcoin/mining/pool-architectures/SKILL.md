@@ -71,7 +71,8 @@ Pool's core function:
 
 A solo miner finding a block:
 - Expected time = network_time × (network_hashrate / your_hashrate).
-- For 100 TH/s on 800 EH/s network: 8000 days = 22 years.
+- For 100 TH/s on a ~980 EH/s network (September 2026):
+  ~68,000 days ≈ 186 years.
 
 Pooled:
 - Get reward proportional to your hashrate share, daily/hourly.
@@ -85,17 +86,31 @@ Pooled:
 
 Mitigations:
 - Stratum V2 (miners choose own tx).
-- Decentralized pools (P2Pool, Ocean Datum).
+- Decentralized pools (P2Pool, OCEAN DATUM).
 - Solo mining (CKPool, Public-Pool).
 
-## Major pools (2025)
+## Major pools (as of September 2026)
 
-- **Foundry USA** — largest by hashrate.
-- **AntPool** (Bitmain) — second.
-- **F2Pool** — historical leader.
-- **Braiins Pool** (formerly Slush Pool) — SV2-capable.
-- **ViaBTC**, **MARA Pool**, **Luxor**.
-- **Ocean** — non-custodial; decentralized template via Datum.
+Shares below are blocks found over the trailing 3 months per
+mempool.space, sampled 2026-09-15, on a network running ~980 EH/s.
+
+- **Foundry USA** — ~25%; largest by hashrate.
+- **AntPool** (Bitmain) — ~19%; second.
+- **F2Pool** — ~15%; historical leader.
+- **SpiderPool** — ~9%; fourth-largest.
+- **ViaBTC** — ~9%.
+- **MARA Pool** — ~5%.
+- **SECPOOL** — ~4%.
+- **Luxor** — ~3%.
+- **OCEAN** — ~3%; ~21.2 EH/s (ocean.xyz, 2026-09-15). Non-custodial
+  TIDES payouts; miners building their own templates with DATUM get a
+  50% pool-fee discount.
+- **Binance Pool** — ~2%.
+- **Braiins Pool** (formerly Slush Pool) — ~2%; SV2-capable.
+- **DMND** (DEMAND) — SV2-native pool; mined block 955,318
+  (2026-06-25), which DMND states is the first block built via Stratum
+  V2 job declaration (dmnd.work, 2026). Negligible network share so
+  far — one block in the trailing year as of 2026-09-15.
 
 ## See also
 

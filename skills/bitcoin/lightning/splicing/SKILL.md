@@ -74,48 +74,108 @@ outputs:
 
 Both directions in one tx.
 
-## Protocol (BOLT 2 splice draft)
+## Protocol (BOLT 2 channel splicing, feature 62/63)
+
+Splicing left draft status when "Channel Splicing (feature 62/63)"
+(lightning/bolts PR #1160) was merged on 2026-03-23. BOLT 9 now lists
+`option_splice` at feature bits **62/63**; BOLT 2 has a "Channel Splicing"
+section.
+
+**Prerequisite: quiescence.** A splice may only begin once the channel is
+quiescent (`option_quiesce`, bits 34/35, the `stfu` message), and only the
+quiescence initiator may send `splice_init`. The channel leaves quiescence
+as soon as `tx_signatures` have been exchanged — it does *not* stay
+quiescent while the splice tx waits to confirm.
 
 Messages:
-- `splice_init` — proposing a splice.
-- `splice_ack` — accepting.
-- Then standard `tx_*` messages from BOLT 2 dual-funding (re-used):
-  `tx_add_input`, `tx_add_output`, `tx_remove_*`, `tx_complete`.
-- `tx_signatures` exchange.
-- New commitment based on new funding output.
+- `splice_init` (type 80) — proposing a splice; carries
+  `funding_contribution_satoshis` (negative for splice-out) and
+  `funding_feerate_perkw`.
+- `splice_ack` (type 81) — accepting, with the peer's own
+  `funding_contribution_satoshis`.
+- Then standard `tx_*` messages from BOLT 2 interactive-tx (re-used):
+  `tx_add_input`, `tx_add_output`, `tx_remove_*`, `tx_complete`, `tx_abort`.
+- `commit_sig`, then `tx_signatures` exchange.
+- `splice_locked` (type 77) — carries the `splice_txid` that reached
+  acceptable depth.
+
+The splice initiator is responsible for adding the current funding output as
+an input and the new funding output as an output; both sides may contribute
+further inputs and outputs during the interactive-tx session.
 
 ## Confirmation
 
-After broadcast, both parties watch chain:
-- Old commitment txs become **invalid** (they spend the now-spent
-  funding output).
-- Once new funding output has `min_depth` confirmations, the splice
-  is "locked in".
-- Pre-splice commitments are no longer valid; only new commitments.
+After `tx_signatures`, the channel resumes normal operation while the splice
+transaction is unconfirmed. Several splice transactions can be pending at
+once:
 
-During confirmation gap, both old and new states are conceptually
-"live" — payments can flow through, but if the splice tx fails to
-confirm (RBF'd / reorg'd / dropped), the channel reverts to pre-splice
-commitments.
+- Splice txs are RBF-able via `tx_init_rbf` / `tx_ack_rbf`, but an RBF
+  attempt is not itself normal operation: the channel must be quiesced
+  again first, and `tx_init_rbf` may only be sent by the quiescence
+  initiator of *that* round. That initiator need not be the splice
+  initiator — that is the sense in which **either** node may RBF. An RBF
+  attempt may also set a different `funding_output_contribution` (the
+  `tx_init_rbf` / `tx_ack_rbf` TLV superseding `splice_init`'s
+  `funding_contribution_satoshis`), so it is not purely a feerate bump:
+  it is an opportunity to splice more funds in or out without waiting for
+  the first attempt to confirm.
+- RBF is forbidden by the spec once `option_zeroconf` has been negotiated.
+  Every attempt spends the same funding output, so attempts automatically
+  double-spend each other, which risks losing funds at 0-conf. CPFP with
+  another splice instead.
+- Each attempt is a *candidate*. Nodes keep one commitment transaction per
+  candidate funding tx — the pre-splice funding tx plus every splice
+  attempt — and exchange `commitment_signed` for all of them. Payments
+  must be valid against every candidate.
+- Once any candidate reaches acceptable depth, both sides send
+  `splice_locked` with that `splice_txid`. On matching txids the other
+  candidates and their ancestors may be discarded, and
+  `announcement_signatures` are re-sent with the `short_channel_id` of the
+  locked tx.
+- If the two `splice_locked` messages name different candidates (the peers
+  are on different forks), the spec's recommendation is to ignore the
+  message and wait for one fork to replace the other, rather than failing
+  the channel.
+
+If every splice candidate is evicted or reorged out, the channel simply
+continues on the pre-splice funding output and its commitment.
 
 ## Splice + Lightning at the same time
 
 While splice tx is unconfirmed:
 - Channel can still process HTLCs.
-- New commitment txs are based on new funding outpoint.
+- Commitment txs are maintained for every pending candidate funding
+  outpoint, and signed in parallel.
 - If the splice fails to confirm, in-flight payments must be
-  reconciled via channel_reestablish.
+  reconciled via channel_reestablish (its `next_funding` field names
+  which candidate the signatures belong to).
 
-## Implementation status (late 2025)
+## Implementation status (September 2026)
 
 | Implementation | Splice |
 |----------------|--------|
-| CLN | Production support |
-| Eclair | Production support |
-| LND | Beta / experimental |
-| LDK | Partial |
+| CLN | Enabled **by default** since v26.04 (2026-04-20) |
+| Eclair | Final BOLT version since v0.14.0 (2026-05-21) |
+| LDK | Supported since rust-lightning 0.2 (2025-12-02); experimental in ldk-node v0.7.0 (2025-12-03) |
+| LND | Not supported as of v0.21.3-beta (September 2026) |
 
-CLN's `splice` plugin / built-in command: `splicein-init`, `spliceout-init`.
+- **CLN**: high-level `splicein` / `spliceout` RPCs, both added in v26.04;
+  `spliceout` can "cross-splice" by naming a second channel as the
+  destination. The low-level `splice_init` / `splice_update` /
+  `splice_signed` trio is still there underneath.
+- **Eclair**: `splicein`, `spliceout`, plus `rbfsplice` to fee-bump a
+  pending splice (subject to the spec's 0-conf RBF ban above). v0.14.0
+  removed the pre-standardization prototype splicing from v0.9.0, so
+  prototype-era peers must upgrade.
+- **LDK**: outbound splices via `ChannelManager::splice_channel`; inbound
+  splices gated on `UserConfig::reject_inbound_splices`. rust-lightning
+  0.2.2 (2026-02-06) repointed its `SplicePrototype` flag from bit 155 to
+  bit 63, resolving a clash with the flag Eclair used for its prototype.
+- **LND**: no splice RPC as of v0.21.3-beta (2026-09-02); issue #8245 is
+  still open. The production taproot-channel work in v0.21.0
+  (funding-txid-keyed nonce maps in `channel_reestablish` /
+  `revoke_and_ack`) is described in its release notes as laying the
+  groundwork for splice support.
 
 ## Use cases
 

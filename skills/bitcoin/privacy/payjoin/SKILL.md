@@ -14,7 +14,7 @@ PayJoin = "P2EP" (pay-to-endpoint). The receiver adds **their own
 input** to the sender's tx, defeating the common-input-ownership
 heuristic.
 
-Spec: BIP78 (sync) + PayJoin v2 (async via relay).
+Spec: BIP78 (sync) + BIP77 "Async Payjoin" (async via directory relay).
 
 ## Mechanism
 
@@ -36,7 +36,7 @@ analyst now can't tell which inputs belong to whom.
 ## v2 (async)
 
 BIP78 v1 requires the receiver to be online during the payment.
-v2 introduces a **relay** so receiver can be offline:
+BIP77 v2 introduces a **directory** relay so receiver can be offline:
 - Sender posts to relay.
 - Relay holds the proposal.
 - Receiver polls relay periodically; processes when online.
@@ -51,8 +51,15 @@ receiver have known pubkeys for the channel).
 bitcoin:bc1q...?amount=0.001&pj=https://example.com/pj/endpoint&pjos=0
 ```
 
-`pj=` for v1.
-`pjos=0` and `pjes=` parameters for v2.
+`pj=` for v1 and v2; in v2 it points at a directory mailbox endpoint.
+`pjos=0` disables output substitution (BIP77 requires it on the
+BIP78-compatible path). BIP77 defines **no new BIP21 parameters**:
+session data lives in the **fragment** of the `pj` URL (`EX` expiry,
+`OH` OHTTP key config, `RK` receiver key) under a *bech32-inspired*
+encoding — HRP as the parameter key, `1` separator, value in the
+bech32 character set, uppercase, **no checksum** — with `#`
+percent-encoded as `%23` (BIP77 spec version 0.2.0, as of
+September 2026).
 
 ## Privacy properties
 
@@ -84,8 +91,20 @@ many users = chain-wide doubt.
 - **Wasabi Wallet** — partial.
 
 ### v2
-- Spec finalizing 2025-2026.
-- Adoption growing.
+- **BIP77 "Async Payjoin"** (Dan Gould, Yuval Kogman) is assigned and
+  merged in the BIPs repo; status **Draft**, spec version 0.2.0 as of
+  September 2026. It is the recommended approach for new work.
+- **rust-payjoin** shipped its first stable release, `payjoin-1.0.0`,
+  on 12 August 2026 — one library covering both BIP78 and BIP77, with
+  typestate session workflows and event-log persistence. UniFFI
+  bindings: `payjoin-python-0.2.0`, `payjoin-dart-0.2.2`,
+  `payjoin-csharp-0.1.0` and `payjoin-javascript-0.2.0` (the JS and C#
+  releases landed 27 August 2026), all pinned to `payjoin-1.0.0`.
+  `payjoin-cli` was still at `1.0.0-rc.2` as of September 2026.
+- **BIP78 senders talking to v2 receivers**: BIP77 gained normative
+  v1-fallback response rules (merged June 2026) — the receiver returns
+  the proposal PSBT *un*-encrypted as base64 ASCII via `PUT` to its own
+  mailbox, since a BIP78 sender supplies no reply key.
 
 ## Use cases
 

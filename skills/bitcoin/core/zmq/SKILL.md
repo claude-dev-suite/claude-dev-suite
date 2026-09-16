@@ -43,6 +43,17 @@ Bind address forms:
 | `hashtx` | 32-byte txid | Lightweight tx notification. |
 | `sequence` | txid + status byte | Mempool sequence (Add/Remove/...). |
 
+All hashes on the wire (`hashblock`, `hashtx`, and the hash prefix of
+`sequence`) are already in reversed byte order — the same order RPC
+and block explorers display — and Core reverses them in
+`src/zmq/zmqpublishnotifier.cpp` before sending. Hex-encode the bytes
+as received. Reversing again yields a hash no RPC lookup will match.
+
+When assumeutxo is in use, `rawblock` and `hashblock` are not issued
+for historical blocks connected to the background validation
+chainstate (documented in `doc/zmq.md` since Core 26.0, December
+2023; still stated in v31.1, July 2026).
+
 ### Sequence message format
 
 ```

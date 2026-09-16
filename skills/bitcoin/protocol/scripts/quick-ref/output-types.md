@@ -55,6 +55,24 @@ Script-path spend:
 ```
 Address: Bech32m(`bc`, v=1, payload=Q) → starts `bc1p...`.
 
+## P2A (Pay-to-Anchor, SegWit v1 — *not* Taproot)
+```
+scriptPubKey = OP_1 <0x4e73>                    (4 bytes: 51 02 4e 73)
+scriptSig    = empty
+witness      = empty   (standard only with no witness data attached)
+```
+Address: Bech32m(`bc`, v=1, payload=0x4e73) → `bc1pfeessrawgf`
+(`tb1pfees9rn5nz` on testnets, `bcrt1pfeesnyr2tx` on regtest).
+
+Keyless: anybody can spend it, so it holds no value — it is a CPFP hook
+that lets any party fee-bump a pre-signed transaction. BIP433 (Draft,
+assigned 2025-12-08); spending became standard in Bitcoin Core 28.0
+(October 2024, PR #30352), creating was already standard. Default dust
+threshold for P2A is 240 sat. Pair with TRUC/BIP431 against pinning.
+
+**Witness v1 is not a synonym for Taproot**: P2TR carries a 32-byte
+program, P2A a 2-byte one. Decode on program length.
+
 ## Multi-sig (k-of-n)
 
 Legacy P2SH:
@@ -90,6 +108,12 @@ Hot path requires waiting `delay` blocks; cold path always available.
 
 ## OP_RETURN data output
 ```
-scriptPubKey = OP_RETURN <data, ≤ 80 bytes>
+scriptPubKey = OP_RETURN <data>
 value = 0 (provably unspendable, no UTXO created)
 ```
+Size is relay policy, not consensus: `-datacarriersize` caps the
+aggregate scriptPubKey size of all nulldata outputs in the tx.
+Default 100,000 since Bitcoin Core 30.0 (2025-10-10), and multiple
+OP_RETURN outputs relay. `-datacarriersize=83` (= an 80-byte
+payload) restores the pre-30.0 byte cap but not the one-output
+rule; Knots defaults to 83 and to a single nulldata output.

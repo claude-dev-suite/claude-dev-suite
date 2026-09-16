@@ -19,18 +19,34 @@ parsing untrusted data (txs, scripts, P2P messages).
 
 Located in `src/test/fuzz/`. Each `.cpp` file is one harness.
 
+Bitcoin Core 29.0 (April 2025) replaced Autotools with CMake
+(minimum 3.22): `./autogen.sh` and `./configure` are gone, and the
+driver binary moved from `src/test/fuzz/fuzz` to `build_fuzz/bin/fuzz`.
+Current as of Bitcoin Core 31.1 (July 2026):
+
 ```bash
-# Build with fuzzing
-./configure --enable-fuzz --with-sanitizers=fuzzer,address,undefined
-make -j
+# Build with fuzzing (preset sets BUILD_FOR_FUZZING=ON and
+# SANITIZERS=undefined,address,fuzzer)
+cmake --preset=libfuzzer
+cmake --build build_fuzz
 
 # Run a specific harness
-FUZZ=tx_in src/test/fuzz/fuzz <corpus_dir>
-FUZZ=script src/test/fuzz/fuzz <corpus_dir>
+FUZZ=tx_in build_fuzz/bin/fuzz <corpus_dir>
+FUZZ=script build_fuzz/bin/fuzz <corpus_dir>
 ```
 
-Available targets: tx_in, tx_out, script, descriptor, miniscript,
-psbt, addr, header, etc.
+`--preset=libfuzzer-nosan` builds the same harnesses without the
+address/undefined sanitizers into `build_fuzz_nosan` — far higher
+throughput for long coverage-hunting runs.
+
+afl++ and Honggfuzz bypass the presets: configure with
+`-DBUILD_FOR_FUZZING=ON` and their compiler wrappers
+(`afl-clang-lto++`, `hfuzz-clang++`), then drive `build_fuzz/bin/fuzz`
+under `afl-fuzz` / `honggfuzz`.
+
+Available targets: tx_in, tx_out, script, descriptor_parse,
+miniscript_string, psbt, addrman, block_header, process_message, etc.
+`build_fuzz/test/fuzz/test_runner.py` executes them all.
 
 ## rust-bitcoin / BDK fuzz
 
@@ -52,7 +68,10 @@ random.
 - **Seed corpus**: well-formed examples covering edge cases.
 - **Crash corpus**: inputs that triggered crashes; persist as
   regression tests.
-- **Stored online**: Bitcoin Core has a public corpus repo.
+- **Stored online**: Bitcoin Core's public corpus repo is
+  `bitcoin-core/qa-assets` — one directory per harness under
+  `fuzz_corpora/`, token dictionaries under `fuzz_dicts/` (as of
+  September 2026).
 
 ## Coverage-guided fuzzing
 

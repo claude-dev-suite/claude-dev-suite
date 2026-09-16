@@ -3,7 +3,8 @@ name: bitcoin-wallets-hd
 description: |
   HD wallet implementation: BIP32 derivation, BIP39 mnemonic seed
   (with passphrase), BIP44/49/84/86 derivation paths, account
-  structure, gap limit, watch-only via xpub.
+  structure, gap limit, watch-only via xpub, BIP352 silent payment
+  scan/spend derivation and BIP392 sp() descriptors.
   USE WHEN: building/restoring an HD wallet, choosing derivation
   paths, debugging address generation, importing mnemonics.
 allowed-tools: Read, Grep, Glob
@@ -58,6 +59,11 @@ See [../../cryptography/bip32/SKILL.md](../../cryptography/bip32/SKILL.md).
 | BIP84 | `m/84'/0'/account'/change/index` | P2WPKH | `bc1q...` |
 | BIP86 | `m/86'/0'/account'/change/index` | P2TR | `bc1p...` |
 | BIP48 | `m/48'/0'/account'/script_type'/change/index` | multisig | `bc1q...`/`bc1p...` |
+| BIP352 | `m/352'/0'/account'/{0',1'}/0` | P2TR (silent payment) | `sp1q...` |
+
+BIP352 is the odd one out: it derives two hardened branches (`1'` scan,
+`0'` spend) instead of a change/index leaf, and `sp1q...` is a static
+address string, not an output script. See below.
 
 Coin types: 0 = mainnet, 1 = testnet, 1776 = Liquid.
 
@@ -84,6 +90,55 @@ This single descriptor produces:
 - Change:  `wpkh(.../<0;1>/0)` with index 1 instead of 0.
 
 Or two separate descriptors with `;0/*` and `;1/*`.
+
+## Silent payments (BIP352 / BIP392)
+
+Silent payments live in their own purpose tree. Two hardened branches,
+not one account xpub:
+
+```
+scan_private_key:  m/352'/coin_type'/account'/1'/0
+spend_private_key: m/352'/coin_type'/account'/0'/0
+```
+
+BIP352 requires hardened derivation for both: that is what makes it safe
+to hand the scan private key to a scanning service without exposing the
+master key or the spend key. The address is bech32m with HRP `sp`
+(`sp1q...`, 116 chars on mainnet) or `tsp` on test networks, and never
+appears on-chain — the outputs paid to it are ordinary BIP341 P2TR.
+
+BIP392 (Draft; merged to the BIPs repo 2026-03-05, authored by Sparrow's
+Craig Raw) puts this key material on the normal descriptor backup path
+with a new top-level `sp()` expression:
+
+```
+sp([d34db33f/352h/0h/0h]spscan1q...)   # watch-only: scan privkey + spend pubkey
+sp([d34db33f/352h/0h/0h]spspend1q...)  # full wallet: both private keys
+sp(<WIF or xprv scan key>,<BIP380 spend key>)  # two-key form
+```
+
+- `spscan` and `spspend` are new bech32m key expressions (HRPs `spscan`
+  / `spspend`, `tspscan` / `tspspend` on testnets), data part `q` for
+  silent payments v0 followed by `ser256(b_scan) || serP(B_spend)` and
+  `ser256(b_scan) || ser256(b_spend)` respectively.
+- `sp()` is **top level only** — `sh(sp(...))` and `wsh(sp(...))` are
+  invalid.
+- Key origin on the single-key form points at the depth the two child
+  paths (`1h/0` scan, `0h/0` spend) are derived from.
+- In the two-key form the scan key must be private (scanning needs it);
+  the spend key may be any BIP380 key expression resolving to a single
+  key, including `musig()` from BIP390.
+- Uncompressed keys are rejected anywhere under `sp()` — BIP352 permits
+  only compressed pubkeys.
+
+Status as of September 2026: BIP392 is still Draft, with reference
+implementation and test vectors both marked TBD. Sparrow ships the
+protocol itself — sending in 2.3.0 (October 2025), BIP375 PSBT fields
+and DLEQ proof verification for hardware signers in 2.4.0 (February
+2026), receiving wallets in 2.5.0 (May 2026). Bitcoin Core has no
+`sp()` descriptor: libsecp256k1 0.8.0 (August 2026) added an optional
+`silentpayments` module, but the wallet-level PRs (#35301, #35302,
+#32966) were all still open as of September 2026.
 
 ## Multi-account wallets
 
@@ -142,6 +197,12 @@ Never sees private keys, can't accidentally sign.
 | Trezor (Suite) | yes | yes | yes | yes | yes |
 | Ledger (Live) | yes | yes | yes | yes | manual |
 | Coldcard (Mk4 / Q) | yes | yes | yes | yes | yes |
+
+Silent payments (BIP352) are a separate tree rather than a column here,
+and support is uneven — check per wallet. Two fixed points as of
+September 2026: Sparrow does SP send and receive (2.5.x), Bitcoin Core
+implements neither the BIP392 `sp()` descriptor nor wallet-level silent
+payments.
 
 ## See also
 

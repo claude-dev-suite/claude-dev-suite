@@ -2,7 +2,7 @@
 name: lightning-onion
 description: |
   Sphinx onion routing for Lightning (BOLT 4): packet structure, per-hop
-  encryption, payload TLV, blinded paths, onion messages.
+  encryption, payload TLV, blinded paths, attribution data, onion messages.
   USE WHEN: implementing onion construction/decryption, debugging
   routing payloads, designing onion-based off-chain protocols.
 allowed-tools: Read, Grep, Glob
@@ -37,7 +37,9 @@ rho_key_i, mu_key_i, um_key_i = derive_keys(shared_secret_i)
 Used for:
 - `rho` (ChaCha20) — encrypt forward stream.
 - `mu` (HMAC-SHA256) — verify HMAC.
-- `um` (XOR) — decrypt failure messages on backward path.
+- `um` (HMAC-SHA256) — authenticate failure messages on the backward
+  path; the backward XOR stream uses `ammag` (and `ammagext` for
+  attribution data).
 
 ## Per-hop payload (TLV mode)
 
@@ -109,15 +111,97 @@ def process_onion(my_priv, packet):
 When a hop fails the HTLC, it returns a failure message **encrypted
 backward** along the route:
 ```
-fail_msg = padding || code || data
-encrypted = chacha20(um_key_i, fail_msg)
+return_packet = hmac(32B) || failure_len(2B) || failuremsg
+                || pad_len(2B) || pad
+hmac          = HMAC-SHA256(um_key_i, rest of return_packet)
+obfuscated    = return_packet XOR chacha20_stream(ammag_key_i)
 ```
 
-Each upstream hop decrypts using their own `um_key`, eventually only
-the source can read the original failure.
+Each upstream hop wraps with its own `ammag` stream — no hop decrypts
+or re-MACs. The source peels the layers in route order and attributes
+the failure to the first hop whose `um` HMAC verifies, so eventually
+only the source can read the original failure.
 
 This prevents intermediate nodes from learning the source's identity
 even on failure.
+
+## Attribution data (feature 36/37)
+
+`option_attribution_data` (BOLT 9 bits 36/37, merged into BOLT 4
+2025-11-17 by bolts PR #1044) adds a second return field next to
+`reason`, carried as TLV type 1 on **both** `update_fail_htlc` and
+`update_fulfill_htlc`:
+
+```
+htlc_hold_times  20 * u32        per-hop hold time, units of 100 ms
+truncated_hmacs  210 * 4 bytes   HMAC-SHA256 truncated to 4 bytes
+```
+
+Each hop shifts both arrays back one slot (pruning the now-unreachable
+HMACs), writes its own hold time at the front, adds its 20 truncated
+HMACs — one per position it could occupy, since only the sender knows
+where it sits — and XORs the whole block with a stream from a new key
+type `ammagext`. `hmac_x_y` covers, in order: the return packet before
+obfuscation, the first `y+1` hold times, and the `y` downstream HMACs.
+So a hop cannot tamper with anything downstream without invalidating
+its own HMAC. 210 = 20+19+...+1, the HMACs still reachable after
+pruning.
+
+The origin verifies each hop's HMAC with that hop's `um` key. The first
+HMAC that fails is the blame boundary: it makes a failure
+*attributable* to a node pair rather than to the whole route, and the
+recorded hold times give the sender a per-hop latency measurement for
+scoring. Reporting zero is allowed for nodes without accurate timing;
+the sender should then spread the latency penalty across hops.
+
+Hops reached with `path_key` set (inside a blinded path) do **not**
+contribute attribution data — they fail via
+`update_fail_malformed_htlc` with `invalid_onion_blinding`, and their
+timings would aid de-anonymization. Attribution therefore stops at the
+introduction node, or at the first hop not advertising 36/37.
+
+Size caps, added by bolts PR #1349 (merged 2026-08-26), to leave room
+for `attribution_data` in the message:
+
+- Return packets: at most 32768 bytes (32 KiB). Earlier versions
+  allowed larger, so an intermediate node **truncates** an oversized
+  return packet to its first 32768 bytes rather than rejecting it.
+- `fulfillment_payload`: at most 32 KiB, and since it shipped with the
+  limit there is no legacy case — a receiver MUST send `error` and
+  fail the channel on an oversized one.
+
+## fulfillment_payload (success-side return data)
+
+bolts PR #1344 (merged 2026-07-27) adds TLV type 3 on
+`update_fulfill_htlc`: optional data the **final** node returns to the
+origin on success, the mirror of `reason` on the failure side.
+
+```
+plaintext  = fulfillment_payload_tlvs   (type 1 = padding; no other
+                                         record types defined yet)
+             padded to >= 256 and a multiple of 256 bytes, tag excluded
+key        = key type `fulfillment` from ss_final
+payload    = ChaCha20-Poly1305(key, nonce = all zero, plaintext) || tag
+```
+
+Each intermediate hop obfuscates it with its `ammag` key exactly as it
+wraps a failure return packet; the final node does not, since the
+ciphertext is already the innermost layer. Intermediate
+`attribution_data` HMACs additionally cover the `fulfillment_payload`
+as received from downstream; the final node's HMACs do not.
+
+Unlike `attribution_data`, this is *not* gated on `path_key`: a blinded
+final node MAY originate one and blinded hops obfuscate and relay it,
+because the origin shares a secret with every hop — using the blinded
+pubkey for blinded hops. A recipient hiding behind dummy hops must
+therefore originate the payload as if it were the last hop, applying
+the concealed hops' obfuscation itself, so the origin's fixed peel
+count still decodes.
+
+Two independent checks, deliberately different in extent: the Poly1305
+tag is end-to-end and catches tampering by any hop, blinded or not;
+the attribution HMACs give per-hop blame only where hops contribute
+them.
 
 ## Blinded paths (BOLT 4 update)
 
@@ -133,7 +217,7 @@ Each blinded hop's pubkey is mathematically derived such that:
 Sender's pathfinder routes to the introduction node; from there the
 onion handles the rest.
 
-## Onion messages (BOLT 9 bit 32)
+## Onion messages (BOLT 9 bits 38/39)
 
 `option_onion_messages`: send arbitrary messages along the LN graph
 without involving HTLCs / payments. Used for:
@@ -147,7 +231,8 @@ Format: same Sphinx packet structure, no HTLC attached.
 
 - Total onion size: 1300 bytes hops_data. With TLV ~ 27 hops max.
 - Padding: filler bytes to maintain constant size at each hop.
-- Nonce: ChaCha20 with 16-byte nonce derived from shared secret.
+- Nonce: ChaCha20 streams use a fixed 96-bit zero nonce; safety comes
+  from keys never being reused (BOLT 4, "Pseudo Random Byte Stream").
 
 ## Common bugs
 
@@ -163,3 +248,4 @@ Format: same Sphinx packet structure, no HTLC attached.
 - [routing/SKILL.md](../routing/SKILL.md)
 - [bolts/SKILL.md](../bolts/SKILL.md)
 - [bolt12/SKILL.md](../bolt12/SKILL.md)
+- [channel-jamming/SKILL.md](../channel-jamming/SKILL.md)
