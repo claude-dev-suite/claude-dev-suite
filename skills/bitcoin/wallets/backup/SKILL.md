@@ -56,6 +56,18 @@ SeedQR rather than typing 12 words.
 `words.txt` → 24 words newline-separated. Tarot-encoded paper grids
 also supported on Coldcard for entry resilience.
 
+**A backup of an affected seed is a backup of a compromised seed.**
+Seeds generated on COLDCARD firmware before the July 2026 seed-entropy
+fix (Mk2 / Mk3 4.0.1-4.1.9; Mk4 / Mk5 Standard < 5.6.0, Edge < 6.6.0X;
+Q Standard < 1.5.0Q, Edge < 6.6.0QX) have badly reduced entropy.
+Coinkite's advisory (updated 1 August 2026): "Updating the firmware
+does not change or repair an existing seed." Remediation is update
+firmware → generate a **new** seed → verify that backup → sweep the
+funds. Re-writing the old words onto a fresh plate is not remediation.
+Exception per the advisory: a seed mixed with ≥ 50 fair, independent,
+private dice rolls is not at risk from this bug alone. See
+[../../hardware/coldcard/SKILL.md](../../hardware/coldcard/SKILL.md).
+
 ## Plate / metal backups
 
 Stamping seed words into stainless steel / titanium plates protects
