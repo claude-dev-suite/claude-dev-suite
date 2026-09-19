@@ -1,3 +1,15 @@
+---
+name: framer-motion
+description: |
+  Framer Motion animation library for React. Declarative, physics-based and
+  gesture-aware: variants and orchestration, AnimatePresence, FLIP layout
+  animation, scroll-linked motion, spring configuration and gestures.
+
+  USE WHEN: user mentions "Framer Motion", "motion.div", "AnimatePresence", "variants", "layout animation", "spring animation", asks about animating a React component, exit animations, drag or gesture handling
+
+  DO NOT USE FOR: timeline-based or non-React animation (use `gsap`), SVG-specific animation (use `svg-animation`), pure CSS effects (use `advanced-css-effects`)
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
 # Framer Motion Skill
 
 Animation library for React. Declarative, physics-based, gesture-aware.

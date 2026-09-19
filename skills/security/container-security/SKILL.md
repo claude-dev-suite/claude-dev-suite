@@ -1,3 +1,14 @@
+---
+name: container-security
+description: |
+  Container and Kubernetes security: hardening images, runtime configuration and
+  deployment manifests.
+
+  USE WHEN: securing Docker containers, Kubernetes deployments, or reviewing container configurations
+
+  DO NOT USE FOR: general Docker usage (use the `docker` skill), Kubernetes architecture (use the `kubernetes` skill)
+allowed-tools: Read, Grep, Glob, Bash
+---
 # Container Security Skill
 
 > **USE WHEN:** Securing Docker containers, Kubernetes deployments, or reviewing container configurations.

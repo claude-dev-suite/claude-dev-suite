@@ -1,3 +1,15 @@
+---
+name: canvas-webgl
+description: |
+  Browser graphics via the Canvas 2D API, WebGL and creative-coding libraries.
+  Covers React canvas setup, the 2D API, particle systems, pixel manipulation,
+  OffscreenCanvas in a worker, raw WebGL, p5.js and noise functions.
+
+  USE WHEN: user mentions "canvas", "getContext('2d')", "WebGL", "p5.js", "particle system", "pixel manipulation", "OffscreenCanvas", asks about drawing or generative graphics in the browser
+
+  DO NOT USE FOR: 3D scene graphs (use `three-js`), vector graphics and SVG (use `svg-animation`), DOM animation (use `framer-motion` or `gsap`)
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
 # Canvas / WebGL Skill
 
 Browser graphics via Canvas 2D API, WebGL, and creative coding libraries.

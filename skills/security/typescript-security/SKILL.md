@@ -1,3 +1,14 @@
+---
+name: typescript-security
+description: |
+  TypeScript and JavaScript application security across frontend and backend
+  code.
+
+  USE WHEN: securing TypeScript/JavaScript applications, reviewing frontend/backend code for vulnerabilities
+
+  DO NOT USE FOR: code quality issues (use `typescript-quality`), general TypeScript patterns, styling
+allowed-tools: Read, Grep, Glob, Bash
+---
 # TypeScript Security Skill
 
 > **USE WHEN:** Securing TypeScript/JavaScript applications, reviewing frontend/backend code for vulnerabilities.

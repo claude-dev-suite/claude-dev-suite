@@ -1,3 +1,15 @@
+---
+name: three-js
+description: |
+  3D graphics in the browser with Three.js and React Three Fiber (R3F). Covers
+  the R3F Canvas, core concepts, the useFrame loop, geometries, materials, lights
+  and the @react-three/drei helpers.
+
+  USE WHEN: user mentions "Three.js", "React Three Fiber", "R3F", "drei", "useFrame", "mesh", "3D scene", asks about rendering or animating 3D in a web page
+
+  DO NOT USE FOR: 2D canvas drawing (use `canvas-webgl`), SVG (use `svg-animation`), DOM animation (use `framer-motion`)
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
 # Three.js / React Three Fiber Skill
 
 3D graphics in the browser. Three.js = core library. React Three Fiber (R3F) = React renderer for Three.js.

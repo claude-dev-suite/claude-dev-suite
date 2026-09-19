@@ -1,3 +1,15 @@
+---
+name: svg-animation
+description: |
+  Animating SVG with CSS, Framer Motion, GSAP and native SVG attributes. Covers
+  SVG fundamentals, path `d` syntax, filters, generative SVG in React and
+  animated gradients.
+
+  USE WHEN: user mentions "SVG animation", "path morphing", "stroke-dasharray", "SVG filter", "animated icon", asks about animating an inline SVG or drawing a path on scroll
+
+  DO NOT USE FOR: raster or pixel graphics (use `canvas-webgl`), 3D (use `three-js`), general component animation (use `framer-motion`)
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
 # SVG Animation Skill
 
 Animating SVG with CSS, Framer Motion, GSAP, and native SVG attributes.

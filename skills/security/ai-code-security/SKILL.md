@@ -1,3 +1,14 @@
+---
+name: ai-code-security
+description: |
+  Security review of AI-generated code, and secure practices for working with
+  coding assistants.
+
+  USE WHEN: reviewing AI-generated code (GitHub Copilot, ChatGPT, Claude, etc.) for security vulnerabilities, or establishing secure AI coding practices
+
+  DO NOT USE FOR: AI/ML model security, prompt injection attacks on AI systems, or general code review
+allowed-tools: Read, Grep, Glob, Bash
+---
 # AI-Generated Code Security Skill
 
 > **USE WHEN:** Reviewing AI-generated code (GitHub Copilot, ChatGPT, Claude, etc.) for security vulnerabilities, or establishing secure AI coding practices.

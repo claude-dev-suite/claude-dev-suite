@@ -1,3 +1,14 @@
+---
+name: advanced-css-effects
+description: |
+  Advanced CSS visual effects: clip-path, masks, backdrop-filter, filters,
+  blend modes, @property, scroll-driven animations, CSS 3D transforms and Houdini.
+
+  USE WHEN: user mentions "clip-path", "backdrop-filter", "mix-blend-mode", "CSS mask", "@property", "scroll-driven animation", "CSS 3D", "Houdini", asks about a visual effect in pure CSS
+
+  DO NOT USE FOR: JS-driven animation (use `framer-motion` or `gsap`), SVG-specific work (use `svg-animation`), utility-class styling (use `tailwindcss`)
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
 # Advanced CSS Effects Skill
 
 clip-path, masks, backdrop-filter, blend modes, CSS 3D, scroll-driven animations, @property, CSS Houdini.
