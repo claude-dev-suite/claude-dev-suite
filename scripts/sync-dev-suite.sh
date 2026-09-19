@@ -1,7 +1,30 @@
 #!/bin/bash
+# ================================================================
+# DEPRECATED — prefer the reinstall CLI
+# ================================================================
+# This script predates the multi-assistant work. It only knows
+# .claude/{agents,skills,commands}, .mcp-servers/ and .mcp.json, and it never
+# updates .dev-suite-manifest.json. On a Cursor-, Gemini- or Codex-only project
+# it does almost nothing while reporting success; on any project it leaves the
+# manifest hashes stale, so the next drift check flags the whole installation.
+#
+# reinstall.service.ts does the same job target-aware, transactionally, with a
+# backup, rollback, orphan removal and a rewritten manifest:
+#
+#   cd configurator/dashboard/server
+#   npm run reinstall -- --project /path/to/project --dry-run
+#
+# Kept because it still works on a Claude-Code-only project and some installs
+# call it directly. Do not add features here; add them to the service.
+# ================================================================
 
 # Don't exit on non-critical errors (grep no match, etc.)
 set +e
+
+if [ -z "$DEV_SUITE_SYNC_QUIET" ]; then
+    printf '\033[1;33m[deprecated]\033[0m sync-dev-suite.sh is Claude-Code-only and does not update the manifest.\n'
+    printf '              Prefer: cd configurator/dashboard/server && npm run reinstall -- --project <path> --dry-run\n\n'
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -308,9 +331,28 @@ echo -e "${CYAN}[5/9] Syncing commands...${NC}"
 
 mkdir -p "$COMMANDS_TARGET"
 
+# Commands that must never reach a user's project. Keep in step with
+# MAINTAINER_ONLY in configurator/dashboard/server/src/services/installation/commands.ts,
+# which is the source of truth for the TypeScript install path. Without this
+# filter the promo commands and the commands/ README were copied into every
+# project that ran /sync-dev-suite.
+MAINTAINER_ONLY="awesome-list-pr.md community-draft.md release-promote.md README.md"
+
+is_maintainer_only() {
+    case " $MAINTAINER_ONLY " in
+        *" $1 "*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 for cmd_file in "$DEV_SUITE_DIR/commands"/*.md; do
     [ -f "$cmd_file" ] || continue
     cmd_name=$(basename "$cmd_file")
+
+    if is_maintainer_only "$cmd_name"; then
+        continue
+    fi
+
     target_file="$COMMANDS_TARGET/$cmd_name"
 
     if [ ! -f "$target_file" ]; then
