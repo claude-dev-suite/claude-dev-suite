@@ -60,6 +60,32 @@ node "$PWD\dev-suite\configurator\dashboard\server\dist\cli\reinstall.js" `
 Add one `--keep <relPath>` per file you want to preserve, e.g.
 `--keep .claude/agents/react-expert.md`.
 
+## All flags
+
+| Flag | Effect |
+|------|--------|
+| `--project <path>` | The project to operate on |
+| `--dev-suite-dir <path>` | The dev-suite checkout, when it is not the default location |
+| `--dry-run` | Print the plan and exit. Read-only, safe anytime |
+| `--drift` | Report how every tracked file compares to its manifest baseline, and stop |
+| `--keep <relPath>` | Preserve one locally modified file. Repeatable |
+| `--promote` | Accept the current content of drifted files as the new baseline instead of overwriting them |
+| `--yes` | Proceed despite unacknowledged local modifications |
+| `--no-backup` | Skip the backup. Disposable environments only |
+| `--json` | Machine-readable output |
+
+## What is preserved
+
+Custom agents and skills under `custom/`, skills in `.agents/skills` that dev-suite did
+not install, and the parts of shared files that belong to you: your own prose in
+`AGENTS.md`, your own keys in `.claude/settings.json`, your own servers in every MCP
+config, and your comments in `.codex/config.toml`. Files dev-suite shares with you are
+un-merged rather than deleted.
+
+Which of those apply depends on the assistants the project targets — classification,
+backup and rollback all derive the layout from each file's recorded target, so a
+Cursor-only or Gemini-only project is handled as such and not as a Claude Code project.
+
 ## Notes
 
 - `--dry-run` is read-only and safe to run anytime.

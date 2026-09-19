@@ -10,6 +10,15 @@
 
 ![How Dev-Suite works: one source catalog of agents, skills and MCP servers, installed into your project for seven AI coding assistants](docs/assets/hero.svg)
 
+**Just the skills**, into whichever assistants you already have — no clone, no build:
+
+```bash
+npx skills add claude-dev-suite/claude-dev-suite
+```
+
+**The full toolkit** — agents, MCP servers, path-scoped rules and the configurator that picks what your stack
+actually needs:
+
 ```bash
 git clone https://github.com/claude-dev-suite/claude-dev-suite.git
 cd claude-dev-suite
@@ -112,6 +121,10 @@ Optional:
 ## Quick Start
 
 > Prefer a one-click installer? Skip the clone step and jump to [Desktop App Downloads](#desktop-app-downloads) for Windows / macOS / Linux pre-built installers.
+
+> Only want the framework skills? `npx skills add claude-dev-suite/claude-dev-suite` installs them into the
+> assistants already on your machine — no clone and no build, but also no agents, no MCP servers and no
+> configurator. The steps below are the full toolkit.
 
 ### 1. Clone Dev-Suite
 
@@ -1040,17 +1053,17 @@ Slash commands available in Claude Code after initialization:
 
 | Command | Description |
 |---------|-------------|
-| `/init-project` | Initialize dev-suite for a project (launches the dashboard wizard) |
+| `/init-project` | Configure a project — launches the dashboard wizard |
 | `/docs <technology> [topic]` | Access documentation for a technology |
 | `/generate <type>` | Generate code scaffolding (components, APIs, tests) |
 | `/show-config` | Display current dev-suite configuration |
-| `/reconfigure` | Modify existing configuration (add/remove agents, MCP servers) |
-| `/health-check` | Validate installation and diagnose issues |
-| `/sync-dev-suite` | Update dev-suite components to latest version |
+| `/reconfigure` | Add or remove agents, MCP servers and rules via the management API |
+| `/health-check` | Validate the **dev-suite checkout** and diagnose build issues |
+| `/sync-dev-suite` | **Deprecated** — alias for `/reinstall-dev-suite` |
 | `/reinstall-dev-suite` | Transactional erase-and-replace reinstall/sync (backup + rollback, orphan removal, per-file opt-out) |
-| `/ui-wizard` | Launch configuration dashboard |
-| `/uninstall` | Remove dev-suite components (interactive, preserves user content) |
-| `/uninstall-dev-suite` | Full dev-suite removal with complete cleanup |
+| `/ui-wizard` | Same dashboard, against the current directory |
+| `/uninstall` | Alias for `/uninstall-dev-suite` (non-interactive) |
+| `/uninstall-dev-suite` | Full removal, driven by the manifest. Takes **no backup** — run `--dry-run` first |
 
 ---
 
@@ -1111,17 +1124,29 @@ my-project/
 - Frontend: `frontend`, `client`, `web`, `app`, `*-frontend`
 - Backend: `backend`, `server`, `api`, `*-backend`
 
-The wizard generates `.dev-suite.json` with relative paths:
+Detection also recognises the monorepo tool config files (`pnpm-workspace.yaml`, `turbo.json`,
+`nx.json`, `lerna.json`, npm `workspaces`) and scans subprojects, so a repo with
+`frontend/package.json` and `backend/pom.xml` gets agents and MCP servers recommended for
+both stacks.
+
+**This is used to drive the wizard's recommendations; it is not persisted.**
+`.dev-suite.json` records your selection, not your layout:
 
 ```json
 {
-  "project": {
-    "isMonorepo": true,
-    "frontendPath": "frontend",
-    "backendPath": "backend"
-  }
+  "version": "…",
+  "installedAt": "…",
+  "agents":     { "enabled": ["react-expert", "…"] },
+  "mcpServers": { "enabled": ["documentation", "…"] },
+  "rules":      { "enabled": ["…"] },
+  "targets":    ["claude-code", "cursor"]
 }
 ```
+
+The file is regenerated from the install request on every install and Sync, so editing it
+by hand does not survive. The one key the installer deliberately carries forward is
+`integrationValidation`. To change what is installed, use the dashboard's **Manage** tab
+or `/reconfigure`.
 
 ---
 
