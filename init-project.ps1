@@ -69,16 +69,77 @@ Write-Host ""
 Write-Host "[2/3] Preparing MCP servers..." -ForegroundColor Blue
 
 $setupScript = Join-Path $DevSuiteDir "scripts\setup-mcp-servers.ps1"
+$setupRan = $false
 if (Test-Path $setupScript) {
     & $setupScript
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "! MCP server setup reported errors (exit $LASTEXITCODE)" -ForegroundColor Yellow
+    }
+    $setupRan = $true
 } else {
     # Try bash script via WSL or Git Bash
     $bashScript = Join-Path $DevSuiteDir "scripts/setup-mcp-servers.sh"
     if (Test-Path $bashScript) {
         if (Get-Command bash -ErrorAction SilentlyContinue) {
             bash $bashScript
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "! MCP server setup reported errors (exit $LASTEXITCODE)" -ForegroundColor Yellow
+            }
+            $setupRan = $true
         } else {
             Write-Host "! setup script not available, skipping build" -ForegroundColor Yellow
+        }
+    }
+}
+
+# Verify every workspace produced a bundle, and retry the ones that did not.
+# Mirrors the MISSING_DIST fallback in init-project.sh: the wizard will happily
+# configure servers whose dist/index.js does not exist, and the failure only
+# surfaces later, inside the assistant, as servers that refuse to start.
+if ($setupRan) {
+    $mcpDir = Join-Path $DevSuiteDir "mcp-servers"
+    $mcpPkg = Join-Path $mcpDir "package.json"
+    if (Test-Path $mcpPkg) {
+        Push-Location $mcpDir
+        try {
+            $workspaces = @(& node -e "require('./package.json').workspaces.forEach(w => console.log(w))")
+        } finally {
+            Pop-Location
+        }
+
+        $missing = @()
+        foreach ($ws in $workspaces) {
+            if (-not $ws) { continue }
+            # shared is a source-only workspace with no build script
+            if ($ws -eq "shared") { continue }
+            if (-not (Test-Path (Join-Path $mcpDir "$ws\dist\index.js"))) {
+                $missing += $ws
+            }
+        }
+
+        if ($missing.Count -gt 0) {
+            Write-Host "! Some servers missing dist/: $($missing -join ' ')" -ForegroundColor Yellow
+            Write-Host "  Attempting individual builds..." -ForegroundColor Yellow
+            foreach ($ws in $missing) {
+                Write-Host "  Building $ws... " -NoNewline
+                Push-Location $mcpDir
+                try {
+                    # No `2>&1` on a native command: in Windows PowerShell 5.1
+                    # that wraps each stderr line in a NativeCommandError, which
+                    # throws under $ErrorActionPreference = "Stop" even when npm
+                    # exits 0. The bundle check below is the real verdict.
+                    npm run build -w $ws | Out-Null
+                } catch {
+                    # fall through to the dist check
+                } finally {
+                    Pop-Location
+                }
+                if (Test-Path (Join-Path $mcpDir "$ws\dist\index.js")) {
+                    Write-Host "OK" -ForegroundColor Green
+                } else {
+                    Write-Host "FAILED" -ForegroundColor Red
+                }
+            }
         }
     }
 }
@@ -154,8 +215,15 @@ Write-Host ""
 Write-Host "Press Ctrl+C to stop the dashboard" -ForegroundColor Yellow
 Write-Host ""
 
-# Open browser
-Start-Process "http://localhost:$port"
+# Open browser. Best-effort, exactly like the xdg-open/open/wslview chain in
+# init-project.sh: with no default browser association (Windows Server, an SSH
+# session) Start-Process throws, and under $ErrorActionPreference = "Stop" that
+# killed the launcher before the server below was ever started.
+try {
+    Start-Process "http://localhost:$port" -ErrorAction Stop
+} catch {
+    Write-Host "  (could not open a browser automatically - open the URL above manually)" -ForegroundColor Yellow
+}
 
 # Start the dashboard server. cwd must be the server package so Node resolves
 # its dependencies and package.json.
