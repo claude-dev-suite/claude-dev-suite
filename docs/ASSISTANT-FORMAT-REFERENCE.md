@@ -292,6 +292,80 @@ Sources: <https://code.claude.com/docs/en/memory>, `/skills`, `/sub-agents`, `/m
   *"custom commands have been merged into skills"* and skills are the
   recommended path for new work. CONFIRMED
 
+### 3.1.1 Claude Code — plugin distribution
+
+Sources: <https://code.claude.com/docs/en/plugins>,
+<https://code.claude.com/docs/en/plugins-reference>,
+<https://code.claude.com/docs/en/plugin-marketplaces>,
+<https://code.claude.com/docs/en/discover-plugins>
+
+This is a **distribution** format, not a consumption format: it is how a third party
+ships agents, skills, commands, hooks and MCP config to Claude Code users. It is listed
+here so nobody has to re-derive it. Investigated 2026-09-19; **dev-suite does not
+implement it**, for the reasons in the last block.
+
+- **Marketplace manifest**: `.claude-plugin/marketplace.json` at the repository root.
+  Required: `name` (kebab-case), `owner` (object with a required `name`), `plugins[]`.
+  Each plugin entry requires `name` and `source`. A relative `source` must start with
+  `./`, e.g. `"./plugins/my-plugin"`. Users add it with
+  `/plugin marketplace add owner/repo`. CONFIRMED
+- **Plugin manifest**: `.claude-plugin/plugin.json`, **optional** — only `name` is
+  required when present. Everything else (`commands/`, `agents/`, `skills/`, `hooks/`,
+  `.mcp.json`) sits at the **plugin root**, never inside `.claude-plugin/`. CONFIRMED
+- **Layout**: `skills/<name>/SKILL.md`, `commands/*.md` (flat; the docs call these
+  "skills as flat Markdown files" and say *"Use `skills/` for new plugins"*),
+  `agents/*.md`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `monitors/monitors.json`,
+  `bin/`, `settings.json`. CONFIRMED
+- **Path fields**: `skills` **adds to** the default directory; `commands`, `agents` and
+  `outputStyles` **replace** it. All paths must be relative and start with `./`.
+  CONFIRMED
+- **Namespacing**: plugin skills and commands are namespaced `/plugin-name:skill-name`.
+  A project's own `/skill-name` and the plugin copy **both remain available** — neither
+  overrides the other. CONFIRMED
+- **Agents are the exception**: *"Project and user `.claude/agents/` definitions override
+  same-named plugin agents, so the plugin version only takes effect once the originals
+  are removed."* They appear in the @-mention typeahead as `my-plugin:code-reviewer`.
+  CONFIRMED — this is why shipping agents in a plugin is pointless for any project that
+  also ran the configurator.
+- **`${CLAUDE_PLUGIN_ROOT}`**: substituted inline wherever it appears in skill and agent
+  content, and passed to hook processes and MCP/LSP subprocesses. CONFIRMED
+- **No escaping the plugin root**: *"Claude Code doesn't let a plugin reference files
+  outside its own directory. It rejects a component path that resolves outside the plugin
+  root, whether the path is declared in `plugin.json` or in a marketplace entry."* A
+  symlink to elsewhere in the same marketplace is **dereferenced and its content copied
+  into the cache**. CONFIRMED
+- **Install is a fetch, not a build.** There is no documented post-install hook. Anything
+  the plugin needs at runtime must already be in the repository. CONFIRMED
+- **Version**: `version` in `plugin.json` is optional; when set, users receive updates
+  only when it is bumped, and it resolves against git tags named
+  `{plugin-name}--v{version}`. CONFIRMED
+- **Size**: a **command source** in copy mode is refused above 256 MiB or 20,000 entries.
+  No limit is documented for a relative-path source. PLAUSIBLE (the limit is stated for
+  one source type; whether it generalises is not)
+- **Local testing**: `claude --plugin-dir ./my-plugin` loads a plugin without installing;
+  `claude plugin validate ./my-plugin` runs the same check the submission pipeline does.
+  CONFIRMED
+- **Distribution reach**: `claude-plugins-official` is auto-registered on first
+  interactive launch but *"there is no application process"*. `claude-plugins-community`
+  accepts submissions via in-app forms but **must be added manually** by each user, and
+  the `/plugin` Discover tab only lists marketplaces already added. CONFIRMED
+
+**Why dev-suite does not ship one.** Three documented constraints remove every useful
+payload, independently of whether the channel is worth having:
+
+1. The launcher and the configurator live at the repository root. A plugin under
+   `plugins/` cannot reference them, and a symlink copies content into the cache without
+   bringing the build.
+2. MCP servers cannot ship: `mcp-servers/*/dist/` is gitignored (and a bare `dist/`
+   matches at any depth), and a marketplace install performs no build.
+3. Agents cannot usefully ship: a project's `.claude/agents/` overrides them, and the
+   source files use `allowed-tools`/`core_skills`, which `toInstalledAgentContent`
+   transforms at the install boundary.
+
+What remains self-contained is the skills — which are already distributed by
+`npx skills add claude-dev-suite/claude-dev-suite`, a channel that works today, needs no
+manifest, and reaches all seven target assistants rather than one.
+
 ### 3.2 GitHub Copilot
 
 Sources: <https://docs.github.com/en/copilot/reference/custom-agents-configuration>,
@@ -675,6 +749,10 @@ gracefully. Resolve one and move it into Part 3 with its source.
 | 15 | Whether any tool other than Kimi reads `.agents/agents/` | Cross-target agent writers — do not treat it as a standard yet |
 | 16 | What Kimi Code does with an **unknown** `${var}` in an agent body (substitute empty, leave literal, or error) | Kimi agent writer — bodies are copied verbatim; the adapter reports affected agents instead of rewriting prose. **Verify empirically before relying on native Kimi subagents** |
 | 17 | Version floor for every Kimi Code claim (docs are built from `main`, unversioned) | Kimi — establish by testing a pinned binary if a floor is needed |
+| 18 | Whether `"source": "./"` (the repository root as the plugin itself) is a valid Claude Code marketplace source. The spec says a path source "must start with `./`" and every example is a subdirectory | Plugin marketplace — use an explicit subdirectory, never `"./"` |
+| 19 | Precedence between a plugin **command** and a project `.claude/commands/` file of the same name. Skills are documented as both remaining available under separate names; commands are documented as "skills as flat Markdown files" but the collision is not stated directly | Plugin commands — assume both appear, and do not rely on either winning |
+| 20 | Whether the 256 MiB / 20,000-entry ceiling documented for a **command source** also applies to a relative-path source | Plugin size — stay well under it regardless |
+| 21 | Whether a Gemini CLI **extension** (`gemini-extension.json` + the `gemini-cli-extension` topic) can carry anything dev-suite could actually ship, given MCP bundles are not committed. The extension *gallery* is documented; the useful payload is not established | Gemini distribution — not implemented; skills already ship via `npx skills add` |
 
 ---
 

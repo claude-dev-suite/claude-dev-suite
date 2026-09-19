@@ -8,6 +8,178 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`npx skills add claude-dev-suite/claude-dev-suite` in the README**, above the
+  clone. It installs the framework skills into whichever assistants are already
+  on the machine, with no clone and no build — and no agents, no MCP servers and
+  no configurator, which the README says plainly so the two paths are not
+  confused. This is not a new channel: skills.sh already accounts for most of
+  dev-suite's installs, it was simply undocumented here.
+
+### Documentation
+
+- **The Claude Code plugin/marketplace format is now specified in
+  `docs/ASSISTANT-FORMAT-REFERENCE.md` (§3.1.1), with the conclusion that
+  dev-suite will not ship one.** Three documented constraints each remove a
+  different payload: a plugin cannot reference files outside its own directory
+  (so it cannot reach the launcher or the configurator, and a symlink is
+  dereferenced into the cache without bringing the build); MCP servers cannot
+  ship because `dist/` is gitignored and a marketplace install performs no
+  build; and agents cannot usefully ship because a project's `.claude/agents/`
+  overrides same-named plugin agents. What is left self-contained is the skills,
+  which `npx skills add` already distributes to all seven target assistants.
+
+  Four new entries in the Part 5 unconfirmed register: the validity of
+  `"source": "./"`, plugin-vs-project command precedence, whether the
+  256 MiB / 20,000-entry ceiling generalises beyond command sources, and whether
+  a Gemini CLI extension could carry a useful payload.
+
+- **`presets/README.md` now records that the preset files have drifted.**
+  Nothing reads them, so no gate validates them: across the nine presets, 18
+  skill names resolve to no directory and 10 are ambiguous because presets name
+  skills bare while skills live at `{category}/{tech}` — `java` alone matches
+  four directories. Any future preset loader needs a disambiguation rule and
+  must fail loudly on an unresolved name, or it will silently install a preset
+  missing a third of its skills.
+
+### Changed
+
+- **`/sync-dev-suite` is deprecated and now delegates to `/reinstall-dev-suite`.**
+  `scripts/sync-dev-suite.sh` predates the multi-assistant work: it knows only
+  `.claude/{agents,skills,commands}`, `.mcp-servers/` and `.mcp.json`, never
+  touches `.cursor/`, `.vscode/`, `.github/`, `.gemini/`, `.codex/`,
+  `.clinerules/`, `.kimi-code/`, `.agents/skills` or `AGENTS.md`, and never
+  updates `.dev-suite-manifest.json`. On a Cursor-, Gemini- or Codex-only
+  project it did almost nothing while reporting success; on any project it left
+  the manifest hashes stale, so the next drift check flagged the whole
+  installation. `reinstall.service.ts` already does the job target-aware,
+  transactionally, with backup, rollback and orphan removal. The script stays on
+  disk for Claude-Code-only projects and now prints a deprecation banner.
+
+- **`/reconfigure` no longer hand-edits `.dev-suite.json`.** It offered to change
+  "automation hooks" and "documentation strategy" — neither key exists. Worse,
+  editing the file directly bypasses `project-lock.ts`, `write-guard.ts`,
+  `managed-file.ts` and manifest tracking, leaving an untracked project that
+  `drift.service.ts` then reports as wholly modified; and the file is rebuilt
+  from the install request on every install anyway. It now documents the real
+  shape and drives the `/api/management/*` endpoints. It also no longer runs
+  `find` over the parent directory, which scanned a first-time user's entire
+  workspace.
+
+### Fixed
+
+- **Command documentation had drifted up to seven months behind the product,**
+  and four commands stated things that were simply untrue. `commands/README.md`
+  described a "CLI-based wizard" that does not exist and claimed every question
+  used `AskUserQuestion` (`/init-project` only launches the dashboard); it said
+  `/uninstall-dev-suite` "backs up user content" when `uninstall.ts` states in
+  terms that uninstall takes no backup; and it described `/uninstall` as
+  interactive and selective when it is a two-line alias to a non-interactive CLI
+  whose only flags are `--project`, `--dry-run` and `--json`. The same rows were
+  mirrored in the repository README.
+
+  `commands/init-project.md` still carried content from February 2026: the wrong
+  entry path (`./dev-suite/init-project.sh`, which assumes dev-suite is cloned
+  *inside* the project), no Windows launcher, a hard-coded port that the
+  launchers actually scan past, a four-item feature list instead of the real
+  seven wizard steps, **no mention of multi-assistant targets at all**, a file
+  tree omitting `AGENTS.md` — where routing now lives — and a stale table of
+  nine MCP servers plus a "121+ technologies" count.
+
+  `commands/generate.md` contradicted itself: it correctly stated that
+  `.dev-suite.json` holds no path information, then instructed reading
+  `project.isMonorepo`, `project.frontendPath` and `project.backendPath` from
+  it. It now detects the workspace layout from the filesystem and points at the
+  real spec-driven Codegen pipeline for contract-based generation.
+
+  Also corrected: the hard-coded technology list in `commands/docs.md`, the
+  missing `--drift` and `--promote` flags in `commands/reinstall-dev-suite.md`,
+  the "Knowledge base" label on health check 6 (it checks the documentation
+  server; the knowledge base is remote), the absent scope note saying
+  `/health-check` validates the dev-suite checkout rather than a project's
+  installation, and the missing PowerShell path in `commands/ui-wizard.md`.
+
+- **The repository README documented `.dev-suite.json` keys that do not exist.**
+  It showed a `project` object with `isMonorepo`, `frontendPath` and
+  `backendPath`. Monorepo detection is real and does drive the wizard's
+  recommendations, but it is never persisted: the installer writes only
+  `version`, `installedAt`, `agents`, `mcpServers`, `rules` and `targets`.
+
+- **`DevSuiteConfig` in `types/core.ts` declared the same fiction** — `stack`,
+  `selectedAgents`, `selectedMcpServers`, `envVars` — none of which is written.
+  Nothing used the exported type (`custom-agents.service.ts` declares its own),
+  so it was pure misdirection. Replaced with the real shape in both the client
+  and server copies.
+
+- **15 SKILL.md files had no frontmatter at all, and were invisible to every
+  skills consumer.** The Agent Skills spec makes `name` and `description`
+  mandatory; `npx skills add` skips a skill that lacks them, so
+  `skills/animation/`, `skills/graphics/` and `skills/codegen/` — three complete
+  categories — were never published. Discoverable skills go from 720 to 736.
+
+  `validate-frontmatter.mjs` could not catch it: it skips files with no
+  frontmatter by design, so that READMEs and quick-ref pages pass. That
+  exemption also covered SKILL.md. It now errors on a `SKILL.md` with no
+  frontmatter block, while leaving every other file's exemption intact.
+
+- **Windows first runs built zero MCP servers, and said nothing.**
+
+- **Windows first runs built zero MCP servers, and said nothing.**
+  `scripts/setup-mcp-servers.ps1` entered each server directory and ran
+  `npm install && npm run build` there, where `setup-mcp-servers.sh` installs
+  once at the workspace root. That can never work: `esbuild` and `typescript`
+  are devDependencies of `mcp-servers/package.json` alone, so
+  `scripts/bundle.mjs`'s `import { build } from 'esbuild'` cannot resolve from
+  inside a workspace member. A child-scoped install lands 118 packages with
+  neither of them; the root install lands 311 with both. Measured on a cold
+  clone: 0 of 11 bundles before, 11 of 11 after.
+
+  It was silent because `init-project.ps1` never checked the setup script's exit
+  code and had no equivalent of the `MISSING_DIST` retry that `init-project.sh`
+  has carried all along. The wizard ran, the user selected MCP servers, and the
+  failure surfaced later — inside the assistant, as servers that refuse to
+  start. Both the exit-code check and the retry are now present, and the retry
+  builds with `npm run build -w <workspace>` from the root for the same
+  dependency-resolution reason.
+
+- **Stock macOS aborted the launcher about ten seconds in.**
+  `setup-mcp-servers.sh` read the workspace list with `readarray`, a bash 4
+  builtin; macOS ships bash 3.2 at `/bin/bash`, and `init-project.sh` invokes
+  the script as `bash <path>`, so the shebang never selected a newer shell.
+  Under `set -e` the resulting `readarray: command not found` took the whole
+  launcher down with no explanation. Replaced with a `while read` loop that runs
+  on 3.2. Anyone with Homebrew bash was unaffected, which is why it survived.
+
+- **`/sync-dev-suite` copied the maintainer-only commands into user projects.**
+  `scripts/sync-dev-suite.sh` iterated `commands/*.md` with no filter, so
+  `release-promote.md`, `awesome-list-pr.md`, `community-draft.md` and the
+  directory's own `README.md` were installed into every project that ran it.
+  The TypeScript install path has excluded them via `MAINTAINER_ONLY` in
+  `installation/commands.ts` all along; the shell path now honours the same
+  list. Projects synced before this fix still have the four files in
+  `.claude/commands/` and must remove them by hand — the script does not delete
+  anything it finds.
+
+- **Every setup run was a full rebuild.** Both setup scripts counted the
+  `shared` workspace as missing its bundle. It is a source-only workspace with
+  no build script — the root build passes `--if-present` — so it never emits
+  one, which kept `NEEDS_BUILD` permanently true and reported a phantom failure
+  in the summary. It is now reported as source-only and excluded from both the
+  build trigger and the failure count.
+
+- **A clean `npm install` could read as a failure.** `setup-mcp-servers.sh`
+  tested `npm install 2>&1 | grep -v "^npm warn"`, which reports *grep's* exit
+  code; grep exits 1 when it filters every line away, so an install whose output
+  was nothing but warnings aborted the script. Now checks `${PIPESTATUS[0]}`.
+
+- **No browser meant no dashboard on Windows.** `init-project.ps1` called
+  `Start-Process "http://localhost:$port"` under
+  `$ErrorActionPreference = "Stop"`, so on a machine with no default browser
+  association — Windows Server, an SSH session — it threw and killed the script
+  *before* the server was started. It is now best-effort with a fallback
+  message, matching the `xdg-open`/`open`/`wslview` chain in `init-project.sh`.
+
 ## [1.16.0] - 2026-09-15
 
 ### Added
