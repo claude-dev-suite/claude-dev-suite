@@ -15,7 +15,13 @@
  * overwritten. Settings and hooks are not written (reported as skipped).
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { getLogger } from '../../../utils/logger.js';
+import type { InstallManifest } from '../../../types.js';
+import type { TargetPaths } from '../target-paths.js';
+import { validatePathWithinBase } from '../../installation/security-helpers.js';
+import { copilotRuleTemplate } from '../writers/rule-template.writer.js';
 import { writePathScopedRules } from '../../installation/path-scoped-rules.js';
 import {
   writeMcpConfigFile,
@@ -85,22 +91,29 @@ export class CopilotAdapter implements TargetAdapter {
       acknowledgedHashes: plan.acknowledgedFileHashes,
     });
 
-    if (plan.rules.length > 0) {
-      skipped.push({
-        capability: 'rule-templates',
-        reason: 'Copilot has no equivalent to Claude Code rule templates; selected rules were not written for Copilot',
-      });
-    }
-    skipped.push({ capability: 'settings', reason: 'no project-level settings file is written for Copilot' });
+    const templateFiles = await this.installRuleTemplates(plan.rules, paths, manifest, projectPath);
+
+    skipped.push({
+      capability: 'settings',
+      kind: 'limitation',
+      reason:
+        'Copilot has no project-level settings file. Nothing is lost here: the settings dev-suite writes for Claude Code carry the validator hook and a skill-listing budget, and Copilot has neither mechanism',
+    });
     // VS Code discovers agent definitions from the shared `.claude/agents`
     // substrate, but the Copilot CLI reads only `.github/agents/*.agent.md`,
     // which dev-suite does not generate — CLI users get routing via AGENTS.md.
     skipped.push({
       capability: 'agents',
+      kind: 'delivered-differently',
       reason: 'agent definitions reach Copilot in VS Code (it reads .claude/agents); the Copilot CLI reads only .github/agents/*.agent.md, which is not generated — CLI routing comes from AGENTS.md',
     });
 
-    return { ruleFiles: [...ruleResult.written, ...ruleResult.drifted], driftedRuleFiles: ruleResult.drifted, validatorHookConfigured: false, skipped };
+    return {
+      ruleFiles: [...ruleResult.written, ...ruleResult.drifted, ...templateFiles],
+      driftedRuleFiles: ruleResult.drifted,
+      validatorHookConfigured: false,
+      skipped,
+    };
   }
 
   /**
@@ -133,11 +146,62 @@ export class CopilotAdapter implements TargetAdapter {
         });
         skipped.push({
           capability: 'mcp',
+          kind: 'action-required',
           reason: `${relPath} exists but is not valid JSON; left untouched`,
         });
         return;
       }
       throw error;
     }
+  }
+
+
+  /**
+   * Write the selected rule templates as always-applied
+   * `.github/instructions/<id>.instructions.md`.
+   *
+   * `applyTo: "**"` is the always-on form — see the Copilot section of
+   * docs/ASSISTANT-FORMAT-REFERENCE.md. Mirrors `ClaudeCodeAdapter.installRules`
+   * including its bounds check: a rule id can arrive from the project's own
+   * `.dev-suite.json` during a Sync, and the destination is interpolated.
+   */
+  private async installRuleTemplates(
+    rules: string[],
+    paths: TargetPaths,
+    manifest: InstallManifest,
+    projectPath: string
+  ): Promise<string[]> {
+    if (rules.length === 0) return [];
+
+    fs.mkdirSync(paths.rulesDir, { recursive: true });
+    const { RulesService } = await import('../../rules.service.js');
+    const rulesService = new RulesService();
+    const written: string[] = [];
+
+    for (const ruleId of rules) {
+      const src = rulesService.findRuleFile(ruleId);
+      if (!src) {
+        logger.warn('Skipped unknown or unsafe rule id', { context: { ruleId, target: this.id } });
+        continue;
+      }
+      let dest: string;
+      try {
+        dest = validatePathWithinBase(paths.ruleFile(ruleId), paths.rulesDir, false);
+      } catch {
+        logger.warn('Refused a rule whose destination escapes the rules directory', {
+          context: { ruleId, target: this.id },
+        });
+        continue;
+      }
+
+      fs.writeFileSync(dest, copilotRuleTemplate(fs.readFileSync(src, 'utf-8'), ruleId), 'utf-8');
+
+      // Returned in `ruleFiles`; installation.service.ts records it with this
+      // adapter's target id, the same route writePathScopedRules output takes.
+      written.push(path.relative(projectPath, dest).split(path.sep).join('/'));
+      if (!manifest.rules.includes(ruleId)) manifest.rules.push(ruleId);
+    }
+
+    return written;
   }
 }

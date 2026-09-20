@@ -415,6 +415,10 @@ Sources: <https://cursor.com/docs/rules>, `/subagents`, `/mcp`, `/skills`, `/hoo
   markdown, no frontmatter. **`.cursorrules` has been dropped from current docs —
   do not write it.** CONFIRMED (its precedence against `AGENTS.md` is UNCONFIRMED)
 - **Rules**: `.cursor/rules/*.mdc`. Plain `.md` in that directory is ignored.
+  Dev-suite writes two kinds here: path-scoped agent routing (`alwaysApply: false`
+  + `globs`, "Auto Attached") and rule templates (`alwaysApply: true`, no `globs`,
+  "Always"). The second was reported as an unsupported capability until
+  September 2026 — it was never a Cursor limitation, only an unimplemented one.
   Frontmatter is exactly `description`, `globs`, `alwaysApply` — **no `type` key**;
   rule types are *derived*:
 

@@ -42,10 +42,12 @@ export class ClineAdapter implements TargetAdapter {
     const skipped: SkippedCapability[] = [
       {
         capability: 'mcp',
+        kind: 'limitation',
         reason: 'Cline MCP config is user-global only; there is no committable project-level MCP file',
       },
       {
         capability: 'agents',
+        kind: 'delivered-differently',
         reason: 'file-based agents apply to Cline\'s SDK/CLI, not the VS Code extension; routing is in AGENTS.md',
       },
     ];
@@ -53,6 +55,7 @@ export class ClineAdapter implements TargetAdapter {
     if (plan.rules.length > 0) {
       skipped.push({
         capability: 'rule-templates',
+        kind: 'delivered-differently',
         reason: 'Cline has no equivalent to Claude Code rule templates, so the selected rule templates were not written. (Agent routing is unaffected — path-scoped rules are still written to .clinerules/.)',
       });
     }

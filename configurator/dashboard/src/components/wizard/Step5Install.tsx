@@ -25,6 +25,56 @@ type InstallStep = {
   error?: string;
 };
 
+/**
+ * How the install's skipped-capability list is grouped.
+ *
+ * Before this existed everything rendered as one amber "Not supported by every
+ * assistant" block, so "run `codex` here once and trust the folder" — an
+ * instruction about a file that was written correctly — sat next to permanent
+ * platform limits, and "the guidance is in AGENTS.md, which Codex reads
+ * natively" read as a failure when it is a success. The tool looked more
+ * limited than it is.
+ *
+ * Order is deliberate: what the user should act on first, what is merely
+ * routed differently second, what is coming third, and the genuine dead ends
+ * last.
+ */
+const SKIPPED_GROUPS = [
+  {
+    kind: 'action-required' as const,
+    title: 'One thing to do',
+    blurb: 'Written correctly — these need a step from you before they take effect.',
+    className: 'bg-blue-500/10 border-blue-500/30 text-blue-200',
+    headingClass: 'text-blue-300',
+    badge: 'info' as const,
+  },
+  {
+    kind: 'delivered-differently' as const,
+    title: 'Delivered another way',
+    blurb: 'Not written in Claude Code’s shape because this assistant reads it elsewhere.',
+    className: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200',
+    headingClass: 'text-emerald-300',
+    badge: 'success' as const,
+  },
+  {
+    kind: 'not-implemented' as const,
+    title: 'Supported, not written yet',
+    blurb: 'The assistant can take this; dev-suite does not generate it yet.',
+    className: 'bg-surface-700/40 border-surface-600 text-surface-200',
+    headingClass: 'text-surface-300',
+    badge: 'default' as const,
+  },
+  {
+    kind: 'limitation' as const,
+    title: 'Not supported by this assistant',
+    blurb: 'No equivalent mechanism exists. Nothing to do.',
+    className: 'bg-amber-500/10 border-amber-500/30 text-amber-200',
+    headingClass: 'text-amber-400',
+    badge: 'warning' as const,
+  },
+];
+
+
 export function Step5Install({
   projectPath,
   selectedAgents,
@@ -272,29 +322,35 @@ export function Step5Install({
             it, so a user installing for Cline or Codex was never told which
             primitives their assistant cannot take. */}
         {installComplete && (installResult?.manifest?.skipped?.length ?? 0) > 0 && (
-          <div
-            className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg"
-            data-testid="skipped-capabilities"
-          >
-            <div className="flex items-center gap-2 text-amber-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <span className="font-medium">Not supported by every assistant</span>
-            </div>
-            <ul className="mt-2 space-y-1.5">
-              {installResult!.manifest!.skipped!.map((s, i) => (
-                <li key={`${s.target}-${s.capability}-${i}`} className="text-sm text-amber-200/90">
-                  <Badge variant="warning">{s.target}</Badge>{' '}
-                  <span className="text-amber-300/70">{s.capability}</span> — {s.reason}
-                </li>
-              ))}
-            </ul>
+          <div className="mt-4 space-y-3" data-testid="skipped-capabilities">
+            {SKIPPED_GROUPS.map(group => {
+              const entries = installResult!.manifest!.skipped!.filter(
+                // An entry from a manifest written before `kind` existed has none.
+                // Treat it as a limitation: that is how it already read.
+                s => (s.kind ?? 'limitation') === group.kind
+              );
+              if (entries.length === 0) return null;
+              return (
+                <div
+                  key={group.kind}
+                  className={`p-4 rounded-lg border ${group.className}`}
+                  data-testid={`skipped-${group.kind}`}
+                >
+                  <div className={`flex items-center gap-2 ${group.headingClass}`}>
+                    <span className="font-medium">{group.title}</span>
+                  </div>
+                  <p className="mt-1 text-xs opacity-70">{group.blurb}</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {entries.map((s, i) => (
+                      <li key={`${s.target}-${s.capability}-${i}`} className="text-sm opacity-90">
+                        <Badge variant={group.badge}>{s.target}</Badge>{' '}
+                        <span className="opacity-70">{s.capability}</span> — {s.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
         )}
 

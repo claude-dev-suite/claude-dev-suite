@@ -70,6 +70,7 @@ export class KimiAdapter implements TargetAdapter {
         logger.warn('Existing .kimi-code/mcp.json is unparseable — left untouched', { error });
         skipped.push({
           capability: 'mcp',
+          kind: 'action-required',
           reason: `${relConfig} exists but is not valid JSON; left untouched`,
         });
       } else {
@@ -82,6 +83,7 @@ export class KimiAdapter implements TargetAdapter {
     if (plan.rules.length > 0) {
       skipped.push({
         capability: 'rule-templates',
+        kind: 'delivered-differently',
         reason: 'Kimi Code has no project-level rule mechanism, so the selected rule templates were not written. (Agent routing is unaffected — it rides in AGENTS.md, which Kimi reads.)',
       });
     }
@@ -117,6 +119,7 @@ export class KimiAdapter implements TargetAdapter {
         });
         skipped.push({
           capability: 'agents',
+          kind: 'delivered-differently',
           reason: `"${agent.id}" collides with a built-in Kimi agent and was not written; it stays routable through AGENTS.md`,
         });
         continue;
@@ -183,6 +186,7 @@ export class KimiAdapter implements TargetAdapter {
     if (preserved.length > 0) {
       skipped.push({
         capability: 'agents',
+        kind: 'action-required',
         reason: `${preserved.length} agent file(s) already existed in ${paths.relAgentsDir} and were not written over: ${preserved.join(', ')}`,
       });
     }
@@ -193,6 +197,7 @@ export class KimiAdapter implements TargetAdapter {
     if (templated.length > 0) {
       skipped.push({
         capability: 'agent-template-vars',
+        kind: 'limitation',
         reason: `Kimi substitutes \${...} in agent bodies; ${templated.length} agent(s) contain such sequences in code examples (${templated.slice(0, 3).join(', ')}${templated.length > 3 ? ', …' : ''})`,
       });
     }

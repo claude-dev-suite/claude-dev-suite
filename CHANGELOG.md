@@ -8,6 +8,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Rule templates now reach Cursor and Copilot.** A rule template is project
+  prose — "every change gets a CHANGELOG entry" — with nothing Claude-specific
+  about it, and both assistants have a mechanism for exactly that. Cursor gets
+  `.cursor/rules/<id>.mdc` with `alwaysApply: true` and no `globs` (an "Always"
+  rule); Copilot gets `.github/instructions/<id>.instructions.md` with
+  `applyTo: "**"`. Both were reported as unsupported capabilities until now,
+  which was never true of either: it was unimplemented, not impossible.
+
+  Covered by golden-file tests, as `docs/ASSISTANT-FORMAT-REFERENCE.md` §3.3
+  asks for in terms — every failure mode here is silent, because a rule with the
+  wrong frontmatter key parses cleanly and simply never activates.
+
+### Changed
+
+- **Skipped capabilities are classified instead of being one amber list.**
+  `SkippedCapability` gains a `kind`: `limitation`, `action-required`,
+  `not-implemented` or `delivered-differently`, and the install groups them.
+
+  Reporting them identically made dev-suite look worse than it is. "Codex only
+  loads project MCP config in a trusted folder — run `codex` here once and trust
+  it" is an instruction about a file that was written correctly, not a defect.
+  "The guidance is summarised in AGENTS.md, which Codex reads natively" is a
+  success reported as a failure. Both sat under the same warning heading as
+  genuine platform dead ends.
+
+  A real install for Cursor, Copilot and Codex now reports six entries of which
+  exactly two are limitations, where before it reported eight undifferentiated
+  warnings. The field is optional and a manifest written without it reads as
+  `limitation` — the pessimistic default, which is how those entries already
+  looked.
+
 ## [1.16.1] - 2026-09-20
 
 Fixes and documentation only. Two of the three supported platforms could not

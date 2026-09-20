@@ -50,17 +50,23 @@ export class CodexAdapter implements TargetAdapter {
     // project, so the MCP servers won't load until the folder is trusted.
     skipped.push({
       capability: 'mcp-trust',
-      reason: 'Codex only loads project MCP config in a trusted project — run `codex` in this folder and trust it',
+      kind: 'action-required',
+      reason:
+        'the MCP config was written. Codex only loads project config in a trusted folder, so run `codex` here once and trust it',
     });
     skipped.push({
       capability: 'agents',
-      reason: 'native Codex agent-role TOML is not generated yet; agent routing is in AGENTS.md',
+      kind: 'not-implemented',
+      reason:
+        'native Codex agent-role TOML is not generated yet. Agent routing still reaches Codex through AGENTS.md, which it reads natively',
     });
 
     if (plan.rules.length > 0) {
       skipped.push({
         capability: 'rule-templates',
-        reason: 'Codex has no project-level rule mechanism; the selected rule templates were not written. Their guidance is summarised in AGENTS.md, which Codex reads natively',
+        kind: 'delivered-differently',
+        reason:
+          'Codex has no project-level rule mechanism, so the guidance is summarised in AGENTS.md instead, which Codex reads natively',
       });
     }
 

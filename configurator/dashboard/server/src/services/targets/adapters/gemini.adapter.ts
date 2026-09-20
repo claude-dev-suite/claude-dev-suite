@@ -65,6 +65,7 @@ export class GeminiAdapter implements TargetAdapter {
     if (plan.rules.length > 0) {
       skipped.push({
         capability: 'rule-templates',
+        kind: 'delivered-differently',
         reason: 'Gemini has no project-level rule mechanism, so the selected rule templates were not written. (Agent routing is unaffected — it rides in AGENTS.md, which Gemini reads.)',
       });
     }
@@ -145,6 +146,7 @@ export class GeminiAdapter implements TargetAdapter {
     if (preserved.length === 0) return [];
     return [{
       capability: 'agents',
+      kind: 'action-required',
       reason: `${preserved.length} agent file(s) already existed in ${paths.relAgentsDir} and were not written over: ${preserved.join(', ')}`,
     }];
   }

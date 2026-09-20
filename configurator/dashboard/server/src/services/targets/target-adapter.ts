@@ -22,7 +22,7 @@
  */
 
 import type { Agent, InstallManifest, DetectionResult } from '../../types.js';
-import type { ExtendedManifest } from '../../types/index.js';
+import type { ExtendedManifest, SkippedCapabilityKind } from '../../types/index.js';
 import type { TargetId, TargetLayout } from './target-layout.js';
 import type { TargetPaths } from './target-paths.js';
 
@@ -141,6 +141,15 @@ export interface SkippedCapability {
   capability: string;
   /** Human-readable explanation, surfaced to the user. */
   reason: string;
+  /**
+   * How to read `reason`. See {@link SkippedCapabilityKind}.
+   *
+   * Omitting it means `limitation`, which is how every entry read before this
+   * field existed. Prefer to be explicit: an install that reports "run `codex`
+   * here once and trust the folder" under the same heading as a permanent
+   * platform limit makes the tool look worse than it is.
+   */
+  kind?: SkippedCapabilityKind;
 }
 
 /** Everything an adapter needs to write one target's configuration. */

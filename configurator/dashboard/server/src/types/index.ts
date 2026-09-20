@@ -25,6 +25,8 @@ export type {
   GitRepoInfo,
   // Installation types
   InstallManifest,
+  InstallSkippedCapability,
+  SkippedCapabilityKind,
   DevSuiteConfig,
 } from './core.js';
 

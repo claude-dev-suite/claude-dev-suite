@@ -181,6 +181,25 @@ export interface InstalledFile {
 }
 
 /**
+ * Why a primitive did not reach a target in the shape dev-suite writes for
+ * Claude Code.
+ *
+ * These are not equivalent, and reporting them identically made dev-suite look
+ * more limited than it is: "run `codex` here once and trust the folder" is an
+ * instruction, not a defect, and "the guidance is in AGENTS.md, which Codex
+ * reads natively" is a success reported as a failure.
+ */
+export type SkippedCapabilityKind =
+  /** The assistant has no such mechanism. Nothing to do; this will not change. */
+  | 'limitation'
+  /** Written correctly, but the user must do something before it takes effect. */
+  | 'action-required'
+  /** The assistant supports it; dev-suite does not write it yet. */
+  | 'not-implemented'
+  /** Not written in this form because it reached the target another way. */
+  | 'delivered-differently';
+
+/**
  * One primitive an assistant could not receive during an install.
  */
 export interface InstallSkippedCapability {
@@ -190,6 +209,13 @@ export interface InstallSkippedCapability {
   capability: string;
   /** Human-readable explanation, surfaced to the user. */
   reason: string;
+  /**
+   * How to read `reason`. Optional for backward compatibility: a manifest
+   * written before this field existed has none, and is treated as
+   * `limitation` — the pessimistic reading, which is what those entries
+   * already looked like.
+   */
+  kind?: SkippedCapabilityKind;
 }
 
 /**
