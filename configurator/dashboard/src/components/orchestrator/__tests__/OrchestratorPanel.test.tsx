@@ -668,6 +668,74 @@ describe('OrchestratorPanel', () => {
     });
   });
 
+  describe('Job outcome', () => {
+    /**
+     * The panel announced success for every finished job.
+     *
+     * `onJobComplete` set the status text to "Job completed successfully", the
+     * job's status to `completed`, and the recap card's `success` to a literal
+     * `true` - so a failed job ended green, with a check mark, and a recap
+     * whose own component knows how to render a failure. The server has always
+     * sent `success` on `job_complete` (`!message.is_error`); the client threw
+     * it away.
+     */
+    async function completeJob(result: { success: boolean; error?: string }) {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      } as Response);
+
+      render(<OrchestratorPanel projectPath="/test/path" />);
+
+      await waitFor(() => {
+        expect(orchestratorWs.useOrchestratorWebSocket).toHaveBeenCalled();
+      });
+
+      const opts = vi.mocked(orchestratorWs.useOrchestratorWebSocket).mock.calls[0]?.[0];
+      opts?.onJobComplete?.(result, 'session-1', { summary: 'what happened' });
+    }
+
+    it('reports a failed job as failed', async () => {
+      vi.mocked(orchestratorState.useOrchestratorState).mockReturnValue({
+        ...mockState,
+        currentJob: { id: 'j1', title: 'Job', prompt: 'p', status: 'running', createdAt: '', projectPath: '/test/path' },
+      });
+
+      await completeJob({ success: false, error: 'Step 1 of 3 (@react-expert) failed' });
+
+      expect(mockState.setProgressStatus).toHaveBeenCalledWith('Step 1 of 3 (@react-expert) failed');
+      expect(mockState.setCurrentJob).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'failed' })
+      );
+      expect(mockState.setRecapData).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false })
+      );
+    });
+
+    it('falls back to a plain message when the failure has no reason', async () => {
+      await completeJob({ success: false });
+
+      expect(mockState.setProgressStatus).toHaveBeenCalledWith('Job failed');
+    });
+
+    it('still reports a successful job as successful', async () => {
+      vi.mocked(orchestratorState.useOrchestratorState).mockReturnValue({
+        ...mockState,
+        currentJob: { id: 'j1', title: 'Job', prompt: 'p', status: 'running', createdAt: '', projectPath: '/test/path' },
+      });
+
+      await completeJob({ success: true });
+
+      expect(mockState.setProgressStatus).toHaveBeenCalledWith('Job completed successfully');
+      expect(mockState.setCurrentJob).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'completed' })
+      );
+      expect(mockState.setRecapData).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true })
+      );
+    });
+  });
+
   describe('State Management', () => {
     it('should use orchestrator state hook', async () => {
       vi.mocked(global.fetch).mockResolvedValue({

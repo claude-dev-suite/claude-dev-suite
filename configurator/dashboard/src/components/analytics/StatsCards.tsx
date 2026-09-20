@@ -25,7 +25,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm text-surface-400">Total Requests</p>
-            <p className="text-3xl font-bold text-white mt-1">{stats.totalRequests}</p>
+            <p className="text-3xl font-bold text-white mt-1">{stats.totalCalls}</p>
           </div>
           <div className="p-2 bg-primary-500/10 rounded-lg">
             <svg
@@ -51,15 +51,15 @@ export function StatsCards({ stats }: StatsCardsProps) {
           <div>
             <p className="text-sm text-surface-400">Success Rate</p>
             <p className="text-3xl font-bold text-white mt-1">
-              {(stats.successRate * 100).toFixed(1)}%
+              {stats.successRate.toFixed(1)}%
             </p>
           </div>
           <div
             className={clsx(
               'p-2 rounded-lg',
-              stats.successRate >= 0.9
+              stats.successRate >= 90
                 ? 'bg-green-500/10'
-                : stats.successRate >= 0.7
+                : stats.successRate >= 70
                 ? 'bg-yellow-500/10'
                 : 'bg-red-500/10'
             )}
@@ -67,9 +67,9 @@ export function StatsCards({ stats }: StatsCardsProps) {
             <svg
               className={clsx(
                 'w-6 h-6',
-                stats.successRate >= 0.9
+                stats.successRate >= 90
                   ? 'text-green-400'
-                  : stats.successRate >= 0.7
+                  : stats.successRate >= 70
                   ? 'text-yellow-400'
                   : 'text-red-400'
               )}
@@ -91,13 +91,13 @@ export function StatsCards({ stats }: StatsCardsProps) {
             <div
               className={clsx(
                 'h-full',
-                stats.successRate >= 0.9
+                stats.successRate >= 90
                   ? 'bg-green-500'
-                  : stats.successRate >= 0.7
+                  : stats.successRate >= 70
                   ? 'bg-yellow-500'
                   : 'bg-red-500'
               )}
-              style={{ width: `${stats.successRate * 100}%` }}
+              style={{ width: `${Math.min(stats.successRate, 100)}%` }}
             />
           </div>
         </div>

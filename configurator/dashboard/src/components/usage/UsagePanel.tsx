@@ -139,8 +139,8 @@ const DEFAULT_DEEP_LINKS: DeepLink[] = [
 // ============================================================
 
 const METRIC_OPTIONS: Array<{ value: AlertMetric; label: string }> = [
-  { value: 'daily_cost_usd', label: 'Daily Cost (USD)' },
-  { value: 'monthly_cost_usd', label: 'Monthly Cost (USD)' },
+  { value: 'daily_cost', label: 'Daily Cost (USD)' },
+  { value: 'monthly_cost', label: 'Monthly Cost (USD)' },
   { value: 'daily_tokens', label: 'Daily Tokens' },
   { value: 'monthly_tokens', label: 'Monthly Tokens' },
 ];
@@ -148,8 +148,6 @@ const METRIC_OPTIONS: Array<{ value: AlertMetric; label: string }> = [
 const OPERATOR_OPTIONS: Array<{ value: AlertOperator; label: string }> = [
   { value: 'gt', label: '>' },
   { value: 'gte', label: '>=' },
-  { value: 'lt', label: '<' },
-  { value: 'lte', label: '<=' },
 ];
 
 const SEVERITY_OPTIONS: AlertSeverity[] = ['info', 'warning', 'critical'];
@@ -261,7 +259,7 @@ interface NewThresholdForm {
 
 const defaultThresholdForm: NewThresholdForm = {
   name: '',
-  metric: 'daily_cost_usd',
+  metric: 'daily_cost',
   operator: 'gt',
   value: '',
   severity: 'warning',
@@ -544,7 +542,6 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
   const config = useUsageStore((s) => s.config);
   const loading = useUsageStore((s) => s.loading);
   const configLoading = useUsageStore((s) => s.configLoading);
-  const configSaving = useUsageStore((s) => s.configSaving);
   const error = useUsageStore((s) => s.error);
   const fetchSummary = useUsageStore((s) => s.fetchSummary);
   const fetchConfig = useUsageStore((s) => s.fetchConfig);
@@ -557,6 +554,12 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
   const [showThresholds, setShowThresholds] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
+  // Whether the "replace the configured key" form is open.
+  //
+  // This block used to be gated on `!hasApiKey` while nested inside
+  // `{hasApiKey && …}` — always false, so a configured key could never be
+  // replaced without removing it first.
+  const [replacingKey, setReplacingKey] = useState(false);
   const [relativeTime, setRelativeTime] = useState('');
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -604,7 +607,7 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
   // Determine severity of today's cost based on thresholds
   const costSeverity: AlertSeverity | null = (() => {
     if (!config?.alertThresholds?.length) return null;
-    const triggered = activeAlerts.filter((a) => a.threshold.metric === 'daily_cost_usd');
+    const triggered = activeAlerts.filter((a) => a.threshold.metric === 'daily_cost');
     if (triggered.some((a) => a.threshold.severity === 'critical')) return 'critical';
     if (triggered.some((a) => a.threshold.severity === 'warning')) return 'warning';
     return null;
@@ -637,6 +640,8 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
       await saveConfig(projectPath, newConfig);
       await fetchSummary(projectPath);
       setApiKeyInput('');
+      // Close the replace form; on the first-time path this is already false.
+      setReplacingKey(false);
     } finally {
       setSavingKey(false);
     }
@@ -921,25 +926,33 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  if (config) {
-                    void saveConfig(projectPath, {
-                      alertThresholds: config.alertThresholds,
-                      pollingIntervalMs: config.pollingIntervalMs,
-                      adminApiKey: '',
-                    });
-                  }
-                }}
-                className="px-3 py-1.5 text-xs text-surface-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-              >
-                Remove
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => { setReplacingKey(v => !v); setApiKeyInput(''); setKeyError(null); }}
+                  className="px-3 py-1.5 text-xs text-surface-400 hover:text-primary-400 hover:bg-primary-500/10 rounded-lg transition-colors"
+                >
+                  {replacingKey ? 'Cancel' : 'Replace'}
+                </button>
+                <button
+                  onClick={() => {
+                    if (config) {
+                      void saveConfig(projectPath, {
+                        alertThresholds: config.alertThresholds,
+                        pollingIntervalMs: config.pollingIntervalMs,
+                        adminApiKey: '',
+                      });
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs text-surface-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
 
-            {/* Show banner for key input again */}
-            {!hasApiKey && (
-              <div className="flex items-center gap-2">
+            {/* Replace the configured key, without removing it first. */}
+            {replacingKey && (
+              <div className="flex items-center gap-2 mt-2">
                 <div className="relative flex-1">
                   <input
                     type={showApiKey ? 'text' : 'password'}
@@ -951,10 +964,10 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
                 </div>
                 <button
                   onClick={() => void handleSaveApiKey()}
-                  disabled={configSaving || !apiKeyInput.trim()}
+                  disabled={savingKey || !apiKeyInput.trim()}
                   className="px-4 py-2 text-sm font-medium rounded-lg bg-primary-500 hover:bg-primary-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {configSaving ? 'Saving...' : 'Update Key'}
+                  {savingKey ? 'Saving...' : 'Update Key'}
                 </button>
               </div>
             )}

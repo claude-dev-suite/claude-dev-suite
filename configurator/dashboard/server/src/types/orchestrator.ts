@@ -372,6 +372,8 @@ export interface JobCompletePayload {
   exitCode: number;
   /** Cost in USD */
   cost: number;
+  /** Why the job failed, when it did */
+  error?: string;
   /** Batch ID if applicable */
   batchId?: string;
   /** Session ID for resuming in chat (enables job-to-chat continuity) */

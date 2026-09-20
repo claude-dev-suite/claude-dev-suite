@@ -12,29 +12,16 @@ import { getLogger } from '../../utils/logger.js';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
 import type { TrackedFile, ExtendedManifest } from '../../types/index.js';
 import { targetPaths } from '../targets/target-paths.js';
+// The canonical helper. A copy used to live in this file, and its fallback
+// branch read `__dirname` — which does not exist in an ESM module, and this
+// package is `"type": "module"`. Installing an agent as an upgrade
+// prerequisite therefore threw a ReferenceError on any machine that does not
+// set DEV_SUITE_DIR, which is every machine outside the packaged Electron app.
+// The copy also checked the *resolved* path for `..`, after `path.resolve`
+// has already collapsed it — a check that can never fire.
+import { getDevSuiteDir } from '../../utils/dev-suite-dir.js';
 
 const logger = getLogger('PackageInstaller');
-
-// Get dev-suite root directory
-function getDevSuiteDir(): string {
-  if (process.env.DEV_SUITE_DIR) {
-    const raw = process.env.DEV_SUITE_DIR;
-    // SECURITY: validate the env var value before trusting it
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(resolved)) {
-      throw new Error('DEV_SUITE_DIR must be an absolute path');
-    }
-    if (resolved.includes('..')) {
-      throw new Error('DEV_SUITE_DIR must not contain path traversal sequences');
-    }
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-      throw new Error(`DEV_SUITE_DIR does not point to an existing directory: ${resolved}`);
-    }
-    return resolved;
-  }
-  // Navigate from server/src/services/upgrade to dev-suite root
-  return path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
-}
 
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun';
 

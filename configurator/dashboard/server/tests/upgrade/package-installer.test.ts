@@ -272,6 +272,24 @@ describe('PackageInstallerService', () => {
       _p: string, _rel: string, _type: TrackedFile['type'], _src?: string
     ): TrackedFile | null => null;
 
+    it('resolves the dev-suite root when DEV_SUITE_DIR is not set', async () => {
+      // Every other test in this file sets DEV_SUITE_DIR, which is the branch
+      // the packaged Electron app takes. The fallback branch read `__dirname`
+      // in an ESM module — `"type": "module"` — so it threw a ReferenceError
+      // on every machine that does not set it, which is every machine running
+      // from a clone. The failure was a crash, not a bad path, so nothing
+      // downstream could report it.
+      delete process.env.DEV_SUITE_DIR;
+
+      const result = await service.installAgent(
+        tempDir, 'definitely-not-an-agent', noopLoadManifest, noopSaveManifest, noopCreateTrackedFile
+      );
+
+      // It got far enough to look, which is the whole point.
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found in dev-suite');
+    });
+
     it('returns error for invalid agentId with path traversal', async () => {
       const result = await service.installAgent(
         tempDir, '../malicious', noopLoadManifest, noopSaveManifest, noopCreateTrackedFile

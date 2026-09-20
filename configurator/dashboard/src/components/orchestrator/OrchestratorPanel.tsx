@@ -65,10 +65,19 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
       state.setIsProcessing(true);
       state.setAgentStatuses({});
     },
-    onJobComplete: (sessionId, recap) => {
+    onJobComplete: ({ success, error }, sessionId, recap) => {
       state.setIsProcessing(false);
-      state.setProgressStatus('Job completed successfully');
-      if (state.currentJob) state.setCurrentJob({ ...state.currentJob, status: 'completed' });
+      // The server has always said whether the job succeeded; this used to
+      // announce success either way, down to the ✓ on the recap card.
+      state.setProgressStatus(
+        success ? 'Job completed successfully' : error || 'Job failed',
+      );
+      if (!success) {
+        state.addOutput(`\x1b[31m✗ ${error || 'Job failed'}\x1b[0m`);
+      }
+      if (state.currentJob) {
+        state.setCurrentJob({ ...state.currentJob, status: success ? 'completed' : 'failed' });
+      }
       state.setCurrentAgent('');
 
       if (sessionId) {
@@ -77,7 +86,7 @@ export function OrchestratorPanel({ projectPath, pendingJob, onJobSent }: Orches
       }
 
       if (recap) {
-        state.setRecapData({ success: true, ...recap });
+        state.setRecapData({ success, ...recap });
         state.setShowRecap(true);
       }
     },

@@ -10,6 +10,82 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Installing an agent as an upgrade prerequisite crashed outside the packaged
+  app.** `package-installer.service.ts` carried its own copy of
+  `getDevSuiteDir`, and the copy's fallback branch read `__dirname` — which
+  does not exist in an ESM module, and the server is `"type": "module"`. The
+  branch runs whenever `DEV_SUITE_DIR` is unset, which is every machine running
+  from a clone, and it threw a ReferenceError rather than returning a bad path,
+  so nothing downstream could report it. It now imports the canonical helper.
+  (The copy also checked the *resolved* path for `..`, after `path.resolve` has
+  collapsed it — a check that could never fire.)
+
+- **A failed job reported "Job completed successfully".** Three layers had to
+  agree for this to be visible, and none of them did:
+
+  - A multi-step job set `job.status = 'completed'` after its loop whatever the
+    steps did. `result.success` was read only to broadcast a per-subtask event.
+    So a chain whose first agent errored ran every remaining agent against its
+    broken output — paying for each one — and then announced success. Each
+    step's prompt is built from the previous step's output, so there was
+    nothing to salvage by continuing; the run now stops at the failed step and
+    says which one it was.
+  - The dashboard's socket hook destructured `sessionId`, `recap` and
+    `jobContext` out of `job_complete` and dropped the rest. Both
+    `job_complete` and `chat_complete` have always carried `success`
+    (`!message.is_error`).
+  - `OrchestratorPanel` then hardcoded the outcome: the status text, the job's
+    status, and `setRecapData({ success: true, … })` — on a recap card whose
+    own component already knows how to render a failure in red with a ✗.
+
+  `job_complete` also carries `error` now, so the panel can say which step
+  failed rather than just "failed".
+
+- **The Usage panel reported $0.00 against a billed account.** Three
+  independent faults, each of which degrades to a zero, so none of them could
+  be seen:
+
+  1. The request was built from parameters the Anthropic Admin API does not
+     define — `start_date`, `end_date`, `bucket_size`. The API ignored them and
+     answered with its own default window.
+  2. The response was parsed as a flat list of items carrying `input_tokens`
+     and `total_cost_usd`. Both endpoints return *time buckets*
+     (`data[].results[]`), with `uncached_input_tokens`, split cache-creation
+     figures, and an `amount` string denominated in the lowest currency unit.
+     Every field read missed and fell through `?? 0`.
+  3. The server returned one flat month-to-date report while the dashboard read
+     `summary.cost.today.totalCostUsd` — a shape it never produced. So the
+     tiles rendered zeros and the alert strip affirmed "All thresholds clear"
+     from data it had not read.
+
+  The request now uses `starting_at`/`ending_at`/`bucket_width` with daily
+  buckets and follows `next_page`; the parser follows the published schemas;
+  and the summary carries a real `today` and `monthly` window
+  (`UsageWindow<T>`), which is the shape the client already expected.
+
+- **A "$50/day" cost alert compared today against the whole month.** The daily
+  figures fed to the evaluator came from `getDailyTotal`/`getDailyTokens`,
+  whose own comment conceded they returned the period total "as an
+  approximation". A daily threshold therefore fired on the month-to-date spend
+  and stayed fired for the rest of the month. Both helpers are gone; each
+  metric now reads the window it names.
+
+- **The month-to-date window started a day early east of Greenwich.** The month
+  boundary was built with `new Date(y, m, 1)` — local midnight — while every
+  other date in the service is a UTC calendar date and the API's buckets are
+  UTC days. Now `Date.UTC`.
+
+- **Every deep link in the Usage panel lost its icon once the panel worked.**
+  The dashboard switches on `DeepLink.icon` and draws nothing for an unknown
+  value; the server's four links declared no icon, and they replace the
+  client's own defaults as soon as an Admin API key is configured. The server
+  type now requires the icon.
+
+- **Client usage types promised fields nothing can fill.** `UsageReport`
+  declared `totalRequests` and `ModelUsage` declared `requestCount`; the Admin
+  API's usage report carries no request count at all. `CostBreakdown` was also
+  missing `codeExecutionCostUsd`, which the server does send.
+
 - **New-component discovery never fired.** `ManagePanel` fetched
   `/api/management/new-components`, but management routes are mounted at `/api`
   (`routes/index.ts:41`), so the router-relative path *is* the public path. Every
