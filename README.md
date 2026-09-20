@@ -97,6 +97,25 @@ Dev-Suite transforms Claude Code into a full-stack development powerhouse by pro
 
 Dev-Suite began as a Claude Code toolkit and still treats Claude Code as its home, but a single install can now generate configuration for **Claude Code, GitHub Copilot, Cursor, Gemini CLI, Codex CLI, Cline, and Kimi Code**. Pick the targets in the wizard's *Target Assistants* step (detected assistants are pre-selected).
 
+![Selecting Cursor, Codex CLI and Gemini CLI alongside Claude Code in the Target Assistants step, then installing: ten agents and four MCP servers written for all four](docs/assets/demo-assistants.gif)
+
+That run wrote all of this into the project, from one catalog:
+
+```
+AGENTS.md                 routing, read natively by Copilot, Cursor, Codex, Gemini, Cline, Kimi
+CLAUDE.md                 a pointer that imports AGENTS.md — written only for Claude Code
+.claude/                  agents + skills, shared infrastructure (71 files)
+.agents/skills/           the same skills, mirrored where Codex and Gemini look (41 files)
+.mcp.json                 Claude Code
+.cursor/                  mcp.json + rules/                                     (5 files)
+.codex/config.toml        [mcp_servers.*], merged into any existing TOML
+.gemini/                  settings.json + native subagents                     (11 files)
+.mcp-servers/             the server bundles themselves
+.dev-suite-manifest.json  every written file, with its hash and target
+```
+
+The installer also reports what each assistant **cannot** do rather than papering over it — Cursor has no equivalent to rule templates, Codex only loads project MCP config in a trusted folder, Gemini has no project-level rule mechanism. Those gaps are printed at the end of the install, not buried.
+
 How it works:
 
 - **`AGENTS.md`** is the primary instructions file — the cross-assistant standard that Copilot, Cursor and others read natively. `CLAUDE.md` is generated only when Claude Code is a target, as a thin pointer that imports `AGENTS.md`.

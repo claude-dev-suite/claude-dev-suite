@@ -18,6 +18,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDemoProject } from './fixture-project.mjs';
+import { scenes } from './scenes.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DASHBOARD = path.resolve(__dirname, '..');
@@ -87,21 +88,33 @@ const server = spawn(process.execPath, [SERVER_ENTRY], {
   stdio: 'ignore',
 });
 
+// Which scenes to build. `npm run demo -- assistants` builds one.
+const requested = process.argv.slice(2).filter((a) => !a.startsWith('-'));
+const sceneNames = requested.length ? requested : Object.keys(scenes);
+
 let exitCode = 0;
 try {
   await waitForServer(port);
 
-  console.log('3/4  recording');
-  execFileSync(process.execPath, [path.join(__dirname, 'record-demo.mjs')], {
-    stdio: 'inherit',
-    env: { ...process.env, PORT: String(port), DEMO_PROJECT: project },
-  });
+  for (const name of sceneNames) {
+    if (!scenes[name]) throw new Error(`unknown scene "${name}". Known: ${Object.keys(scenes).join(', ')}`);
 
-  console.log('4/4  encoding');
-  execFileSync(process.execPath, [path.join(__dirname, 'make-gif.mjs')], {
-    stdio: 'inherit',
-    env: { ...process.env, DEMO_WIDTH: process.env.DEMO_WIDTH ?? '1280', DEMO_GIF_FPS: process.env.DEMO_GIF_FPS ?? '20' },
-  });
+    // Each scene starts from a clean project: the assistants scene installs into
+    // the fixture, and a second run against an already-configured project takes a
+    // different path through the wizard.
+    console.log(`\n3/4  recording "${name}"`);
+    createDemoProject(project);
+    execFileSync(process.execPath, [path.join(__dirname, 'record-demo.mjs'), name], {
+      stdio: 'inherit',
+      env: { ...process.env, PORT: String(port), DEMO_PROJECT: project },
+    });
+
+    console.log(`4/4  encoding "${name}"`);
+    execFileSync(process.execPath, [path.join(__dirname, 'make-gif.mjs'), name], {
+      stdio: 'inherit',
+      env: { ...process.env },
+    });
+  }
 } catch (err) {
   console.error(`\nfailed: ${err.message}`);
   exitCode = 1;

@@ -1,15 +1,25 @@
 # Demo recording
 
-Generates `docs/assets/demo-detection.gif` (README) and `.mp4` (X, and anywhere a
-video is accepted).
+Generates the README's GIFs, plus an MP4 of each for X and anywhere a video is
+accepted.
+
+| Scene | Output | Shows |
+|---|---|---|
+| `detection` | `docs/assets/demo-detection.*` | A monorepo it has never seen, read from its manifests |
+| `assistants` | `docs/assets/demo-assistants.*` | Four assistants selected, then installed from one catalog |
 
 ```bash
 cd configurator/dashboard
-npm run demo
+npm run demo                 # both scenes
+npm run demo -- assistants   # one
 ```
 
 Prerequisites: the dashboard server and UI built, and `ffmpeg` + `ffprobe` on PATH.
 `make-demo.mjs` checks both before it starts rather than failing halfway.
+
+Each scene is re-run against a freshly created fixture, because the `assistants`
+scene installs into it and a second pass over an already-configured project takes a
+different route through the wizard.
 
 ## Why this is generated rather than filmed
 
@@ -23,11 +33,16 @@ script: when the UI moves, run one command and the asset is current.
 | File | Job |
 |---|---|
 | `fixture-project.mjs` | Builds the project being demoed: a monorepo with a React/Vite workspace and a Spring Boot module, plus Postgres in compose. Detection then has something real to report |
-| `record-demo.mjs` | Drives the wizard and captures frames |
-| `make-gif.mjs` | Crops, scales, and encodes the GIF and MP4 with ffmpeg |
-| `make-demo.mjs` | Runs all three, with a dashboard on an ephemeral port in between |
+| `scenes.mjs` | What each scene does, its viewport and its crop height |
+| `recorder.mjs` | Frames, holds, and the drawn cursor — shared by every scene |
+| `record-demo.mjs` | Runs one scene to frames |
+| `make-gif.mjs` | Crops, scales, and encodes one scene's GIF and MP4 with ffmpeg |
+| `make-demo.mjs` | Orchestrates the lot, with a dashboard on an ephemeral port in between |
 
-`.frames/` is gitignored; only the two encoded files are committed.
+`.frames/` is gitignored; only the encoded files are committed.
+
+Adding a scene is an entry in `scenes.mjs`: a viewport, a crop height, an output
+name, and a `run(page, rec, { project })`. Everything else is shared.
 
 ## Things that will bite whoever changes this
 
@@ -60,6 +75,19 @@ The latter also matches the sidebar's "1 Detection — Analyze project" step but
 `.first()` then clicks the navigation instead of the action.
 
 **The run fails loudly on a bad detection.** If the results panel still says "Unknown",
-"Not detected" or a standalone `0%`, `record-demo.mjs` writes `FAILED.png` and exits
-non-zero rather than encoding a demo of a broken run. (Check for `0%` with a boundary —
+"Not detected" or a standalone `0%`, the scene writes `FAILED.png` and exits non-zero
+rather than encoding a demo of a broken run. (Check for `0%` with a boundary —
 `"100%".includes("0%")` is true, and the naive version rejected every success.)
+
+**Scrolling is asserted, not assumed.** `scrollIntoViewIfNeeded` reasons about the
+full viewport while the GIF is cropped to `cropHeight`, so an element can be "in view"
+for Playwright and absent from the asset — which is how the first `assistants` cut
+framed the progress list and cut off the line saying it worked. The scene now scrolls
+explicitly and throws if the payoff lands outside the crop.
+
+**The `assistants` crop stops above the capability-gaps panel**, deliberately. The
+installer lists what each assistant cannot do — Cursor rule templates, Codex trust,
+Gemini rules — which is a virtue of the tool, but it is six amber lines nobody can read
+in a twelve-second loop with no pause button. They are written out in the README's
+Multi-Assistant section instead, where they can be. If you widen the crop, widen the
+hold too, or it just reads as a wall of warnings.
