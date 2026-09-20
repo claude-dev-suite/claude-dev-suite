@@ -1,8 +1,8 @@
 # X thread — the local-first app that wasn't
 
-> **Hold until the Windows MCP build fix ships.** v1.16.0 leaves Windows users with zero
-> compiled MCP servers and no warning. Post this against the release that carries the fix,
-> changing only the version line at the end.
+> **Cleared to post.** The hold was because v1.16.0 left Windows users with zero compiled
+> MCP servers and no warning. v1.16.1 (20 September 2026) ships that fix, and all three
+> installers are published, so anyone arriving from this thread gets a working first run.
 
 **Angle:** not an announcement. A bug with a lesson, which is what actually travels here.
 The audience is people who ship Electron apps and people in the Claude Code / MCP
@@ -98,3 +98,21 @@ github.com/claude-dev-suite/claude-dev-suite
 - Reply to your own thread with the diff screenshot if you want a second surface — a
   picture of `style-src 'self'` replacing the Google origins reads instantly.
 - Do **not** post this and leave. The replies are where the reach comes from.
+
+## An alternative hook, if you want the release's own story
+
+The fonts bug shipped in v1.16.0; this folder is v1.16.1. That is fine — the thread never
+claims a version, and the lesson is not release-bound.
+
+But v1.16.1's own headline is arguably a better hook, and a more uncomfortable one:
+
+> Our installer built zero MCP servers on Windows. It never said so. The wizard ran, the
+> user picked their servers, and the failure surfaced days later inside the assistant.
+
+The shape is the same as the fonts thread — a bug that failed silently, a root cause that
+could not have worked (esbuild is a devDependency of the workspace root, so a per-server
+install can never resolve it), and a fix that makes the failure loud. It is stronger on
+"we found this and told you", weaker on "you have this same bug in your tree right now",
+which is what makes the fonts thread travel.
+
+Pick one. Do not post both in the same week.

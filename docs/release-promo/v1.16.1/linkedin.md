@@ -1,6 +1,7 @@
 # LinkedIn post
 
-> **Hold until the Windows MCP build fix ships** — same reason as the X thread.
+> **Cleared to post** — v1.16.1 ships the Windows fix and all three installers are
+> published. Same reasoning as the X thread.
 
 **Account:** post from the personal profile, not a company page. LinkedIn distributes
 people far more than pages, and a new page has no followers. The framing below is

@@ -460,6 +460,26 @@ al completo**. `validate-frontmatter.mjs` non li vedeva perché salta di proposi
 frontmatter (per tollerare README e quick-ref), un'esenzione che copriva anche i SKILL.md. Da 720
 skill discoverable a 736.
 
+### 20 settembre 2026 — v1.16.1 e lo sblocco dei post
+
+Il materiale promozionale era stato scritto e **trattenuto deliberatamente**: v1.16.0
+lasciava ogni utente Windows con zero MCP server compilati e nessun avviso, quindi
+annunciarla avrebbe portato gente nuova su un'installazione rotta in silenzio. La issue
+#232 lo diceva già da sola: *"Don't announce before the artefacts are verified."*
+
+v1.16.1 (PR #247, cinque commit) corregge il build Windows, l'abort del launcher su macOS
+di serie, il leak dei comandi maintainer-only in `/sync-dev-suite`, quindici SKILL.md
+senza frontmatter e la deriva della documentazione dei comandi. Tutti e tre i runner
+verdi, asset completi su Windows/macOS/Linux, `prerelease: false`.
+
+Con i fix pubblicati il vincolo decade: i testi sono passati a
+`docs/release-promo/v1.16.1/` e l'avviso in testa è stato sostituito con il via libera.
+
+**Restano da pubblicare** — è l'unico passo che nessuna automazione può fare al posto del
+maintainer. Account disponibili: X, YouTube, LinkedIn. Niente HN né Reddit, che erano i
+numeri 3 e 4 del piano per ROI; crearli ora serve per fra qualche settimana, non per
+questa release, perché entrambi pesano l'anzianità dell'account.
+
 ### Non ancora eseguito
 
 - Pubblicazione dei post (HN, Reddit, LinkedIn, X, dev.to) - i testi sono pronti in
