@@ -10,6 +10,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Adding an agent from the Manage tab ignored the project's skill-loading
+  mode.** `management.service.ts` always behaved as eager: it copied the
+  agent's full skill set and passed no `extraMcpServers`. An agent added to a
+  lazy project therefore came out unlike every other agent in it — skill
+  directories the install had deliberately not written, no `skill-loader` in
+  its `mcpServers:`, and none of the instructions for reaching the extended
+  tier. It now recovers the mode with `recoverSkillLoadingMode`, the same
+  helper reinstall and Sync already use.
+
+- **An agent that restricted nothing came out restricted.** `grantSkillTool`
+  pushed `Skill` onto the tool list unconditionally, and `toInstalledAgentContent`
+  emits a `tools:` line whenever that list is non-empty. For an agent with no
+  `allowed-tools` — every tool by omission, by design — that produced
+  `tools: Skill`, an allowlist of exactly one. The shipped catalog is safe,
+  since `validate-catalog.mjs` requires the field, but custom agents go through
+  the same transform. Both `Skill` and the MCP tool patterns are now added only
+  alongside an allowlist that already exists.
+
+- **The extended skill tier was unreachable in practice, which is the default
+  install.** `skill-loader` carries `isDefault: true`, so it is auto-included
+  and `installation.service.ts:283-286` promotes the install to lazy mode
+  whenever it is in the set. Lazy mode copies only `core_skills` to disk and
+  leaves the rest of the catalog behind the MCP server. Two things then stood
+  between an agent and that catalog:
+
+  - **Nothing told the agent it was there.** The server was connected and its
+    tools listed, but an agent rarely concludes on its own that it is missing
+    knowledge — and if it does, it has to invent a search term against ~700
+    skills, because the `extended_skills:` curated for it are discarded by
+    `toInstalledAgentContent` and never reach the installed file. Exactly two
+    agents had the protocol written by hand (`core/architect`,
+    `core/code-reviewer`) and were the only two that could use the tier as
+    designed. It is now generated into every installed agent in lazy mode:
+    `groupByCategory` for the map, then `search`, then `load_skill` — with the
+    warning that the match is a literal substring, so the term matters.
+    Deliberately no list of the agent's own skills: the tier exists so an agent
+    can reach something nobody configured for it, and an inventory would read
+    as the boundary of what it may load.
+  - **The tools were not in the allowlist.** `extraMcpServers` reached
+    `mcpServers:` only, so the server was connected to an agent whose `tools:`
+    never permitted `mcp__skill-loader__*` — and no agent in the catalog
+    declares it, while 61 of them carry a restrictive allowlist naming other
+    servers explicitly. The pattern is now added alongside the server, but only
+    where an allowlist already exists: synthesising one for an agent that
+    declared none would restrict an agent deliberately left open.
+
 - **Installing an agent as an upgrade prerequisite crashed outside the packaged
   app.** `package-installer.service.ts` carried its own copy of
   `getDevSuiteDir`, and the copy's fallback branch read `__dirname` — which

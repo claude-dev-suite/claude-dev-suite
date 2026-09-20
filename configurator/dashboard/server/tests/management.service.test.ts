@@ -115,6 +115,99 @@ describe('ManagementService', () => {
     });
   });
 
+  describe('addAgent follows the project\'s skill-loading mode', () => {
+    /**
+     * This path always behaved as eager: it copied the agent's full skill set
+     * and passed no `extraMcpServers`. An agent added from the Manage tab to a
+     * lazy project therefore came out unlike every other agent in it — skill
+     * directories the install had deliberately not written, no `skill-loader`
+     * in its `mcpServers:`, and none of the instructions for reaching the tier.
+     */
+    const AGENT = `---
+name: tiered-expert
+description: Tiered agent.
+allowed-tools: Read, Grep
+core_skills:
+  - languages/typescript
+extended_skills:
+  - testing/vitest
+---
+
+# Tiered Expert
+
+Body.
+`;
+
+    function seedCatalog(): void {
+      fs.mkdirSync(path.join(devSuiteDir, 'agents', 'core'), { recursive: true });
+      fs.writeFileSync(path.join(devSuiteDir, 'agents', 'core', 'tiered-expert.md'), AGENT);
+
+      for (const skill of ['languages/typescript', 'testing/vitest']) {
+        const dir = path.join(devSuiteDir, 'skills', ...skill.split('/'));
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(
+          path.join(dir, 'SKILL.md'),
+          `---\nname: ${skill.split('/')[1]}\ndescription: x\n---\nbody`
+        );
+      }
+    }
+
+    const installedAgent = () =>
+      fs.readFileSync(path.join(projectDir, '.claude', 'agents', 'tiered-expert.md'), 'utf-8');
+
+    const skillInstalled = (flat: string) =>
+      fs.existsSync(path.join(projectDir, '.claude', 'skills', flat));
+
+    it('copies only the core tier when the project is lazy', async () => {
+      createMockProject(projectDir, { packageJson: { name: 'test-project' } });
+      // The project's own MCP config is what states the mode.
+      fs.writeFileSync(
+        path.join(projectDir, '.mcp.json'),
+        JSON.stringify({ mcpServers: { 'skill-loader': { command: 'node', args: ['x'] } } })
+      );
+      seedCatalog();
+
+      await managementService.addAgent(projectDir, 'tiered-expert');
+
+      expect(skillInstalled('languages-typescript')).toBe(true);
+      expect(skillInstalled('testing-vitest')).toBe(false);
+    });
+
+    it('gives the agent the server and the instructions to use it', async () => {
+      createMockProject(projectDir, { packageJson: { name: 'test-project' } });
+      fs.writeFileSync(
+        path.join(projectDir, '.mcp.json'),
+        JSON.stringify({ mcpServers: { 'skill-loader': { command: 'node', args: ['x'] } } })
+      );
+      seedCatalog();
+
+      await managementService.addAgent(projectDir, 'tiered-expert');
+      const out = installedAgent();
+
+      expect(out).toMatch(/^\s+-\s+skill-loader$/m);
+      expect(out).toMatch(/^tools:.*mcp__skill-loader__\*/m);
+      expect(out).toContain('## Extended skills');
+    });
+
+    it('still copies everything when the project is eager', async () => {
+      // No `skill-loader` in the project's MCP config: the whole catalog for
+      // this agent was written to disk at install time, and the server that
+      // would serve the rest is not there.
+      createMockProject(projectDir, { packageJson: { name: 'test-project' } });
+      fs.writeFileSync(
+        path.join(projectDir, '.mcp.json'),
+        JSON.stringify({ mcpServers: { documentation: { command: 'node', args: ['x'] } } })
+      );
+      seedCatalog();
+
+      await managementService.addAgent(projectDir, 'tiered-expert');
+
+      expect(skillInstalled('languages-typescript')).toBe(true);
+      expect(skillInstalled('testing-vitest')).toBe(true);
+      expect(installedAgent()).not.toContain('## Extended skills');
+    });
+  });
+
   describe('removeAgent', () => {
     it('should throw for non-existent agent in project', async () => {
       createMockProject(projectDir, {

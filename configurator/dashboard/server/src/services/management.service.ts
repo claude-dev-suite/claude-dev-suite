@@ -13,7 +13,12 @@ import { AgentsService } from './agents.service.js';
 import { readJsonSync } from '../utils/fs-utils.js';
 import { createHash } from 'crypto';
 import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
-import { parseAgentSkills, flattenSkillName, toInstalledAgentContent } from './installation/file-operations.js';
+import {
+  parseAgentSkills,
+  parseAgentSkillsStructured,
+  flattenSkillName,
+  toInstalledAgentContent,
+} from './installation/file-operations.js';
 import { validatePathWithinBase } from './installation/index.js';
 import { targetPaths } from './targets/target-paths.js';
 import { InstallationService } from './installation.service.js';
@@ -146,10 +151,25 @@ export class ManagementService {
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.mkdirSync(skillsDir, { recursive: true });
 
-    // Copy skills (eager — copy the agent's full skill set) as FLAT top-level
-    // dirs, the only shape Claude Code resolves by name.
+    // Follow the project's own skill-loading mode.
+    //
+    // This path always behaved as eager: it copied the agent's full skill set
+    // and passed no `extraMcpServers`, so an agent added from the Manage tab to
+    // a lazy project came out unlike every other agent in it — hundreds of skill
+    // directories the install had deliberately not written, no `skill-loader` in
+    // its `mcpServers:`, and none of the instructions for reaching the tier.
+    const mode = recoverSkillLoadingMode(
+      projectPath,
+      resolveProjectTargets(projectPath, this.loadManifest(projectPath))
+    );
+    const lazy = mode === 'lazy';
+
+    // Flat top-level dirs, the only shape Claude Code resolves by name. In lazy
+    // mode only the core tier is copied; the rest stays behind `skill-loader`.
     const agentContent = fs.readFileSync(agentFile, 'utf-8');
-    const skills = parseAgentSkills(agentContent, agentId);
+    const skills = lazy
+      ? parseAgentSkillsStructured(agentContent, agentId).core
+      : parseAgentSkills(agentContent, agentId);
     const skillsSource = path.join(devSuiteDir, 'skills');
 
     const installedFlat: string[] = [];
@@ -173,7 +193,11 @@ export class ManagementService {
     const destPath = validatePathWithinBase(path.join(agentsDir, agentId + '.md'), agentsDir, false);
     fs.writeFileSync(
       destPath,
-      toInstalledAgentContent(agentContent, { installedSkillFlatNames: installedFlat, grantSkillTool: true }),
+      toInstalledAgentContent(agentContent, {
+        installedSkillFlatNames: installedFlat,
+        ...(lazy ? { extraMcpServers: ['skill-loader'] } : {}),
+        grantSkillTool: true,
+      }),
       'utf-8'
     );
 
