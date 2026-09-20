@@ -194,25 +194,33 @@ export interface InstallSkippedCapability {
 
 /**
  * Dev-suite configuration stored in .dev-suite.json
+ *
+ * This records the user's SELECTION, not the detected stack. The file is
+ * rebuilt from the install request on every install and Sync
+ * (`installation.service.ts`), so a key not listed here does not survive —
+ * except `integrationValidation`, which the installer deliberately carries
+ * forward (`USER_OWNED_CONFIG_KEYS`).
  */
 export interface DevSuiteConfig {
   /** Configuration version */
   version: string;
   /** Installation timestamp */
   installedAt: string;
-  /** Detected project stack */
-  stack: StackInfo;
-  /** Selected agent IDs */
-  selectedAgents: string[];
-  /** Selected MCP server names */
-  selectedMcpServers: string[];
-  /** Environment variable configurations */
-  envVars: Record<string, string>;
-  /** Additional metadata */
-  metadata?: {
-    detectedFrameworks?: string[];
-    monorepoType?: string;
-  };
+  /** Installed agent IDs */
+  agents: { enabled: string[] };
+  /** Installed MCP server names */
+  mcpServers: { enabled: string[] };
+  /** Installed rule IDs */
+  rules: { enabled: string[] };
+  /**
+   * Assistants this project targets: 'claude-code' | 'copilot' | 'cursor' |
+   * 'gemini' | 'codex' | 'cline' | 'kimi-code'. Typed as string[] here because
+   * this file is duplicated verbatim between client and server and must not
+   * import from the target layer.
+   */
+  targets: string[];
+  /** User-owned, preserved across installs */
+  integrationValidation?: unknown;
 }
 
 // ============================================

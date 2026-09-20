@@ -78,6 +78,9 @@ if [ -f "$DEV_SUITE_DIR/scripts/setup-mcp-servers.sh" ]; then
         SERVERS=$(node -e "console.log(require('$MCP_DIR/package.json').workspaces.join('\n'))" 2>/dev/null)
         while IFS= read -r server; do
             [ -z "$server" ] && continue
+            # shared is a source-only workspace with no build script; retrying it
+            # only ever prints `Missing script: "build"`.
+            [ "$server" = "shared" ] && continue
             if [ ! -f "$MCP_DIR/$server/dist/index.js" ]; then
                 MISSING_DIST="$MISSING_DIST $server"
             fi
@@ -89,7 +92,11 @@ if [ -f "$DEV_SUITE_DIR/scripts/setup-mcp-servers.sh" ]; then
         echo -e "${YELLOW}  Attempting individual builds...${NC}"
         for server in $MISSING_DIST; do
             echo -n "  Building $server... "
-            if (cd "$MCP_DIR/$server" && npm run build > /dev/null 2>&1); then
+            # Build from the workspace root (-w), not from inside the server:
+            # esbuild and typescript are devDependencies of the root package
+            # only, so scripts/bundle.mjs cannot resolve esbuild otherwise.
+            if (cd "$MCP_DIR" && npm run build -w "$server" > /dev/null 2>&1) \
+                && [ -f "$MCP_DIR/$server/dist/index.js" ]; then
                 echo -e "${GREEN}OK${NC}"
             else
                 echo -e "${RED}FAILED${NC}"

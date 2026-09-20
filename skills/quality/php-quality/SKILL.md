@@ -1,3 +1,14 @@
+---
+name: php-quality
+description: |
+  PHP code quality: static analysis, coding standards and best-practice
+  enforcement for PHP codebases.
+
+  USE WHEN: working with PHP codebases requiring code quality analysis, static analysis, or best practices enforcement
+
+  DO NOT USE FOR: security-specific issues (use `php-security`), runtime debugging, or deployment
+allowed-tools: Read, Grep, Glob, Bash
+---
 # PHP Code Quality Skill
 
 > **USE WHEN:** Working with PHP codebases requiring code quality analysis, static analysis, or best practices enforcement.

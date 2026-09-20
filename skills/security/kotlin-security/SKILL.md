@@ -1,3 +1,14 @@
+---
+name: kotlin-security
+description: |
+  Kotlin application security for backend and Android: vulnerability review and
+  secure implementation patterns.
+
+  USE WHEN: securing Kotlin applications (backend/Android), reviewing code for vulnerabilities, or implementing security best practices
+
+  DO NOT USE FOR: code quality issues (use `kotlin-quality`), general Kotlin patterns, UI/UX concerns
+allowed-tools: Read, Grep, Glob, Bash
+---
 # Kotlin Security Skill
 
 > **USE WHEN:** Securing Kotlin applications (backend/Android), reviewing code for vulnerabilities, or implementing security best practices.

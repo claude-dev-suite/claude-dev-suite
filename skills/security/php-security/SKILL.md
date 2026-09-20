@@ -1,3 +1,14 @@
+---
+name: php-security
+description: |
+  PHP application security: vulnerability review and secure implementation
+  patterns.
+
+  USE WHEN: securing PHP applications, reviewing code for vulnerabilities, or implementing security best practices
+
+  DO NOT USE FOR: code quality issues (use `php-quality`), general PHP development patterns
+allowed-tools: Read, Grep, Glob, Bash
+---
 # PHP Security Skill
 
 > **USE WHEN:** Securing PHP applications, reviewing code for vulnerabilities, or implementing security best practices.

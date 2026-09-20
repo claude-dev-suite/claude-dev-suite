@@ -32,8 +32,11 @@ Fetch documentation for a specific technology.
 
 ## Technologies Available
 
-Frontend: react, vue, angular, svelte, nextjs, nuxt, remix
-Backend: express, fastify, nestjs, fastapi, django, spring-boot
-Database: postgresql, mongodb, redis, prisma, drizzle
-Infra: docker, kubernetes, github-actions
-Testing: vitest, jest, playwright, cypress
+The index covers hundreds of technologies across frontend, backend, databases,
+infrastructure, testing, security and AI, and it grows with every release — so it is not
+listed here. Ask the `documentation` MCP server itself: it exposes a listing tool, and a
+lookup for an unindexed technology tells you so rather than failing silently.
+
+The index is defined in `mcp-servers/documentation/src/docs-index/`, one file per
+category, and content is fetched on demand from the knowledge-base repository with a
+two-hour cache — nothing is stored in your project.

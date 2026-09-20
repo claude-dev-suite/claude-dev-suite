@@ -38,12 +38,17 @@ fi
 
 ## What It Checks
 
+> **Scope: the dev-suite checkout, not your project's installation.** This validates that
+> dev-suite itself is able to install things. To inspect what is installed in a project,
+> use `/show-config`, or a `--dry-run` reinstall to see what has drifted.
+
 1. **Node.js & npm versions** - Verifies Node.js >= 18 and npm >= 7 (required for workspaces)
 2. **Dev-suite structure** - Checks essential directories and files exist
 3. **npm workspaces** - Verifies workspace configuration and dependencies
 4. **MCP server builds** - Checks all servers are built (dist/index.js exists)
 5. **MCP server startup** - Tests that servers can start without crashing
-6. **Knowledge base** - Verifies documentation files are present
+6. **Documentation server** - Verifies the documentation MCP server responds. The
+   knowledge base itself is remote and fetched on demand, so nothing local is checked
 
 ## Exit Codes
 

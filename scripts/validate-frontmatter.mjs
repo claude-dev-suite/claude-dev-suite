@@ -142,7 +142,18 @@ let checked = 0;
 for (const file of mdFiles) {
   const rel = path.relative(ROOT, file).replace(/\\/g, '/');
   const raw = fs.readFileSync(file, 'utf-8');
-  if (!/^---\r?\n/.test(raw)) continue; // no frontmatter block — nothing to validate
+  if (!/^---\r?\n/.test(raw)) {
+    // Files without frontmatter (READMEs, skill quick-ref pages) are fine — but
+    // a SKILL.md is not one of them. The Agent Skills spec makes name and
+    // description mandatory, and every consumer enforces it: `npx skills add`
+    // silently skipped 15 of these, so three whole categories (animation/,
+    // graphics/, codegen/) were invisible on skills.sh, the channel that
+    // already accounts for most of dev-suite's installs.
+    if (path.basename(file) === 'SKILL.md') {
+      err(`${rel}: SKILL.md has no frontmatter block (name and description are required)`);
+    }
+    continue;
+  }
 
   let data;
   try {

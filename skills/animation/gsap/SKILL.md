@@ -1,3 +1,15 @@
+---
+name: gsap
+description: |
+  GSAP (GreenSock Animation Platform) — high-performance JavaScript animation
+  engine with a plugin ecosystem. Covers tweens, easing, timelines, ScrollTrigger
+  and the useGSAP React hook.
+
+  USE WHEN: user mentions "GSAP", "GreenSock", "ScrollTrigger", "useGSAP", "timeline animation", "tween", asks about scroll-driven sequences or complex animation choreography
+
+  DO NOT USE FOR: React-idiomatic declarative animation (use `framer-motion`), SVG path morphing basics (use `svg-animation`), 3D scenes (use `three-js`)
+allowed-tools: Read, Grep, Glob, Write, Edit
+---
 # GSAP Skill
 
 GreenSock Animation Platform — high-performance JS animation engine with plugin ecosystem.

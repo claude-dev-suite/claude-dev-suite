@@ -1,3 +1,14 @@
+---
+name: api-security
+description: |
+  API security across REST, GraphQL and gRPC, organised around the OWASP API
+  Security Top 10:2023.
+
+  USE WHEN: designing, implementing, or auditing REST, GraphQL, or gRPC APIs for security vulnerabilities
+
+  DO NOT USE FOR: general API design patterns (use the `rest-api` / `graphql` skills), authentication setup (use the `jwt` / `oauth2` skills)
+allowed-tools: Read, Grep, Glob, Bash
+---
 # API Security Skill
 
 > **USE WHEN:** Designing, implementing, or auditing REST, GraphQL, or gRPC APIs for security vulnerabilities.

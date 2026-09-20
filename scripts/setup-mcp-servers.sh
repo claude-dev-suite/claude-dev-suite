@@ -50,8 +50,16 @@ if [ ! -f "package.json" ]; then
 fi
 
 # Get list of servers dynamically from workspaces in package.json
-# Uses node to parse JSON properly — read into array to avoid word-splitting issues
-readarray -t SERVERS < <(node -e "require('./package.json').workspaces.forEach(w => console.log(w))" 2>/dev/null)
+# Uses node to parse JSON properly — read into array to avoid word-splitting issues.
+# Deliberately not `readarray`: that is a bash 4 builtin and stock macOS ships
+# bash 3.2 at /bin/bash. init-project.sh invokes this file as `bash <path>`, so
+# the shebang does not select a newer bash, and under `set -e` the resulting
+# "readarray: command not found" killed the whole launcher ~10 seconds in.
+SERVERS=()
+while IFS= read -r workspace; do
+    [ -n "$workspace" ] && SERVERS+=("$workspace")
+done < <(node -e "require('./package.json').workspaces.forEach(w => console.log(w))" 2>/dev/null)
+
 if [ ${#SERVERS[@]} -eq 0 ]; then
     echo -e "${RED}Error: Could not read workspaces from package.json${NC}"
     exit 1
@@ -65,8 +73,11 @@ echo ""
 NEEDS_BUILD=false
 MISSING_DIST=""
 
-# Check for any missing dist directories
+# Check for any missing dist directories.
+# shared is a source-only workspace: it has a package.json but no build script
+# and never emits a bundle, so counting it here made every run a full rebuild.
 for dir in "${SERVERS[@]}"; do
+    [ "$dir" = "shared" ] && continue
     if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
         if [ ! -d "$dir/dist" ] || [ ! -f "$dir/dist/index.js" ]; then
             NEEDS_BUILD=true
@@ -109,7 +120,14 @@ fi
 
 # Install dependencies (shared via workspaces)
 echo -e "${BLUE}[1/2]${NC} Installing dependencies (workspaces)..."
-if ! npm install 2>&1 | grep -v "^npm warn"; then
+# PIPESTATUS, not the pipeline's status: `npm install | grep -v "^npm warn"`
+# reports grep's exit code, and grep exits 1 when it filters every line away —
+# so a clean install whose output was nothing but warnings read as a failure.
+set +e
+npm install 2>&1 | grep -v "^npm warn"
+NPM_INSTALL_STATUS=${PIPESTATUS[0]}
+set -e
+if [ "$NPM_INSTALL_STATUS" -ne 0 ]; then
     echo -e "${RED}✗${NC} Failed to install dependencies"
     exit 1
 fi
@@ -128,6 +146,12 @@ echo -e "${BLUE}Build Status:${NC}"
 BUILT_COUNT=0
 FAILED_COUNT=0
 for dir in "${SERVERS[@]}"; do
+    # shared is a source-only workspace consumed by the other servers; it has no
+    # build script (the root build passes --if-present) and never emits a bundle.
+    if [ "$dir" = "shared" ]; then
+        echo -e "  ${YELLOW}-${NC} $dir (source-only, no bundle expected)"
+        continue
+    fi
     if [ -f "$dir/dist/index.js" ]; then
         echo -e "  ${GREEN}✓${NC} $dir"
         BUILT_COUNT=$((BUILT_COUNT + 1))

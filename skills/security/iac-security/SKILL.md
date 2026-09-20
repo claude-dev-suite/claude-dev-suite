@@ -1,3 +1,14 @@
+---
+name: iac-security
+description: |
+  Infrastructure-as-Code security for Terraform, CloudFormation, Ansible, Pulumi
+  and similar configuration.
+
+  USE WHEN: securing Terraform, CloudFormation, Ansible, Pulumi, or other IaC configurations
+
+  DO NOT USE FOR: general IaC patterns, cloud architecture design, cost optimization
+allowed-tools: Read, Grep, Glob, Bash
+---
 # Infrastructure as Code Security Skill
 
 > **USE WHEN:** Securing Terraform, CloudFormation, Ansible, Pulumi, or other IaC configurations.

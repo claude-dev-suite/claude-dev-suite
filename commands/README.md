@@ -8,16 +8,16 @@ Claude Code slash commands for project initialization and management.
 
 | Command | File | Description |
 |---------|------|-------------|
-| `/init-project` | `init-project.md` | Initialize dev-suite for a project (interactive wizard) |
-| `/ui-wizard` | `ui-wizard.md` | Launch the graphical dashboard wizard |
+| `/init-project` | `init-project.md` | Configure a project — launches the dashboard wizard |
+| `/ui-wizard` | `ui-wizard.md` | Same dashboard, against the current directory |
 | `/docs` | `docs.md` | Access documentation for a technology |
 | `/generate` | `generate.md` | Generate code scaffolding (components, APIs, tests) |
 | `/show-config` | `show-config.md` | Display current dev-suite configuration |
-| `/reconfigure` | `reconfigure.md` | Modify existing configuration (add/remove agents, MCP servers) |
-| `/health-check` | `health-check.md` | Validate installation and diagnose issues |
-| `/sync-dev-suite` | `sync-dev-suite.md` | Update dev-suite components to latest version |
+| `/reconfigure` | `reconfigure.md` | Add or remove agents, MCP servers and rules via the management API |
+| `/health-check` | `health-check.md` | Validate the **dev-suite checkout** and diagnose build issues |
+| `/sync-dev-suite` | `sync-dev-suite.md` | **Deprecated** — alias for `/reinstall-dev-suite` |
 | `/reinstall-dev-suite` | `reinstall-dev-suite.md` | Transactional erase-and-replace reinstall/sync (backup + rollback, orphan removal, per-file opt-out) |
-| `/uninstall` | `uninstall.md` | Remove dev-suite components (interactive, preserves user content) |
+| `/uninstall` | `uninstall.md` | Alias for `/uninstall-dev-suite` (non-interactive) |
 | `/uninstall-dev-suite` | `uninstall-dev-suite.md` | Full dev-suite removal with complete cleanup |
 | `/release-promote` | `release-promote.md` | Generate all promotional content for a release (HN, Twitter, LinkedIn, Reddit, dev.to) |
 | `/awesome-list-pr` | `awesome-list-pr.md` | Generate a PR for adding dev-suite to an awesome list |
@@ -33,13 +33,12 @@ Claude Code slash commands for project initialization and management.
 ```
 
 **Features:**
-- Interactive multi-step wizard
-- Auto-detects 66+ technologies from `package.json`, `pom.xml`, `Cargo.toml`, etc.
-- Pre-selects agents and MCP servers based on detected stack
-- Generates `.mcp.json`, `.dev-suite.json`, `CLAUDE.md`
-- Creates `.dev-suite-backup/` before overwriting any user files
-
-All questions use Claude Code's `AskUserQuestion` tool for interactivity.
+- Launches the dashboard; the configuration happens in the browser, not in the terminal
+- Auto-detects the stack from `package.json`, `pom.xml`, `Cargo.toml`, `go.mod`, `pyproject.toml` and more, plus which assistants the project already uses
+- Pre-selects agents and MCP servers based on the detected stack
+- Seven steps, including **Rules** and **Assistants** — one install can target several assistants at once
+- Writes `AGENTS.md`, `.dev-suite.json`, `.dev-suite-manifest.json` and each selected assistant's own files
+- Creates `.dev-suite-backup/` before overwriting any user file
 
 ---
 
@@ -50,7 +49,7 @@ All questions use Claude Code's `AskUserQuestion` tool for interactivity.
 /ui-wizard
 ```
 
-Launches the graphical web dashboard wizard instead of the CLI-based wizard.
+Launches the same dashboard as `/init-project`, against the current directory.
 
 **Features:**
 - No arguments required - uses current directory
@@ -101,7 +100,10 @@ Displays the current dev-suite configuration (`.dev-suite.json`, installed agent
 /reconfigure
 ```
 
-Opens an interactive wizard to add or remove agents, MCP servers, hooks, and other components from an existing installation.
+Adds or removes agents, MCP servers and rules from an existing installation, through the
+dashboard's **Manage** tab or the `/api/management/*` endpoints behind it. It does **not**
+hand-edit `.dev-suite.json`: that file is generated output and is rebuilt on every install.
+There is no `hooks` key in it.
 
 ---
 
@@ -112,7 +114,10 @@ Opens an interactive wizard to add or remove agents, MCP servers, hooks, and oth
 /health-check
 ```
 
-Validates the dev-suite installation: checks MCP server builds, config file syntax, absolute paths in `.mcp.json`, and agent file integrity.
+Validates the **dev-suite checkout** — Node/npm versions, repository structure, npm
+workspaces, MCP server builds and startup, and the documentation server. It does not
+inspect a target project's installation; use `/show-config` or a `--dry-run` reinstall
+for that.
 
 ---
 
@@ -123,7 +128,10 @@ Validates the dev-suite installation: checks MCP server builds, config file synt
 /sync-dev-suite
 ```
 
-Syncs the installed dev-suite components with the latest version from the dev-suite source repository. Equivalent to the **Updates** tab in the dashboard.
+**Deprecated.** Now delegates to `/reinstall-dev-suite`. The shell script it used to run
+(`scripts/sync-dev-suite.sh`) only knows the Claude Code file layout and never updates
+`.dev-suite-manifest.json`, so on a Cursor-, Gemini- or Codex-only project it did almost
+nothing while reporting success, and on any project it left the manifest stale.
 
 ---
 
@@ -144,14 +152,16 @@ dashboard Updates view.
 
 ---
 
-### `/uninstall` - Interactive Removal
+### `/uninstall` - Alias
 
 **Usage:**
 ```
 /uninstall
 ```
 
-Interactively removes dev-suite components. Preserves user-created content and offers selective removal.
+Alias for `/uninstall-dev-suite`. Not interactive: it runs the same non-interactive CLI,
+whose only flags are `--project`, `--dry-run` and `--json`. Run it with `--dry-run` first
+to see exactly what would be removed.
 
 ---
 
@@ -162,7 +172,13 @@ Interactively removes dev-suite components. Preserves user-created content and o
 /uninstall-dev-suite
 ```
 
-Performs a complete dev-suite removal including MCP servers, agents, skills, commands, and generated config files. Backs up user content before removal.
+Removes everything recorded in `.dev-suite-manifest.json`: MCP servers, agents, skills,
+commands and generated config, for every target the project uses.
+
+**It takes no backup.** Files dev-suite shares with you — `AGENTS.md`, `.codex/config.toml`,
+every MCP config — are un-merged rather than deleted, so your own prose, your own servers
+and your own comments survive, as do `custom/` and any skill dev-suite did not install.
+Run `--dry-run` first; that is the safety net, not a backup.
 
 ---
 

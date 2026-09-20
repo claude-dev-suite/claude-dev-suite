@@ -1,61 +1,55 @@
 ---
 name: sync-dev-suite
-description: Synchronize dev-suite components (agents, skills, MCP servers, commands)
+description: Deprecated alias for /reinstall-dev-suite. Updates installed components from the current dev-suite source.
 allowed-tools: Bash
 ---
 
-# Sync Dev-Suite
+# /sync-dev-suite - Update installed components
 
-This command synchronizes all dev-suite components with the latest version.
+**Deprecated.** Use `/reinstall-dev-suite`. This command now runs the same transactional
+reinstall, because the shell script it used to call is not safe on a current installation.
 
-## IMPORTANT: Execute Script Directly
+## Why the old script is not used
 
-**DO NOT interpret or summarize this command.** Execute the bash script directly:
+`scripts/sync-dev-suite.sh` predates the multi-assistant work and only knows
+`.claude/agents`, `.claude/skills`, `.claude/commands`, `.mcp-servers/` and `.mcp.json`.
+It never touches `.cursor/`, `.vscode/`, `.github/`, `.gemini/`, `.codex/`, `.clinerules/`,
+`.kimi-code/`, `.agents/skills` or `AGENTS.md`, and it **never updates
+`.dev-suite-manifest.json`**.
+
+Two consequences, both silent:
+
+- On a Cursor-, Gemini- or Codex-only project it does almost nothing while reporting success.
+- On any project it leaves the manifest hashes stale, so the next Sync or drift check
+  reports the entire installation as locally modified.
+
+It also runs `git reset --hard HEAD` inside the dev-suite checkout, discarding any local
+edit there without a backup.
+
+`reinstall.service.ts` does the same job correctly: it is target-aware, transactional,
+takes a backup, rolls back on failure, removes orphans and rewrites the manifest.
+
+## Use this instead
+
+Preview first — this always prints the plan without writing anything:
 
 ```bash
-bash ./dev-suite/scripts/sync-dev-suite.sh
+cd ./dev-suite/configurator/dashboard/server
+npm run reinstall -- --project "$OLDPWD" --dry-run
 ```
 
-**Note:** Always run from project root (the parent directory of `dev-suite`).
-
-## Quick Execution
-
-Run this exact command (from project root):
+Then apply:
 
 ```bash
-bash ./dev-suite/scripts/sync-dev-suite.sh
+cd ./dev-suite/configurator/dashboard/server
+npm run reinstall -- --project "$OLDPWD"
 ```
 
-## What It Does
+See `/reinstall-dev-suite` for `--keep`, `--drift`, `--promote`, `--no-backup` and the
+exit codes. The dashboard's **Updates → Reinstall / Sync** tab is the same operation.
 
-The script runs nine steps (`[n/9]` in its output):
+## If you need the old script anyway
 
-0. **Pre-flight health check** - Verifies the dev-suite checkout and project layout
-1. **Git update** - **Discards local changes in the dev-suite checkout with
-   `git reset --hard HEAD`**, then fetches and pulls the current branch. Any edit you
-   made inside `dev-suite/` is lost. Commit or stash it first.
-2. **Analyze dependencies** - Works out which skills the installed agents need
-3. **Sync agents** - Overwrites installed agent files that differ from source
-4. **Sync skills** - Dependency-aware skill sync
-5. **Sync commands** - Overwrites installed slash commands
-6. **Sync knowledge bases** - Syncs MCP documentation content
-7. **Verify/rebuild MCP servers** - Rebuilds when the source changed
-   (7b) **Update `.mcp.json`** - Removes obsolete env placeholders, backing the file up first
-8. **Integrity check** - Verifies dependencies resolve
-9. **Analyze sibling projects** - Reports on neighbouring projects' CLAUDE.md
-
-## Warning: this overwrites local edits without a backup
-
-Only `.mcp.json` is backed up (to `.mcp.json.backup`, in step 7b). Agents, skills and
-commands whose content differs from source are overwritten with a plain copy — **your
-local modifications to those files are lost, with no backup and no prompt.**
-
-If you have local edits, use `/reinstall-dev-suite` instead: it is transactional, takes a
-full backup, supports `--dry-run`, and lets you keep individual files with `--keep`.
-
-Custom agents (ones with no counterpart in the dev-suite source) are left alone by both.
-
-## Notes
-
-- The full script is in `dev-suite/scripts/sync-dev-suite.sh`
-- Always execute the script directly, never interpret it
+It is still on disk at `scripts/sync-dev-suite.sh` and still carries its own warnings.
+Only reach for it on a Claude-Code-only project, and expect to repair the manifest
+afterwards with a `--dry-run` reinstall to see what it left inconsistent.

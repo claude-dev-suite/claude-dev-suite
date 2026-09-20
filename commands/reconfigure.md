@@ -1,80 +1,83 @@
 ---
 name: reconfigure
-description: Modify existing dev-suite configuration. Add or remove stacks, agents, or skills.
-allowed-tools: Read, Write, Edit, AskUserQuestion, Glob, Bash
+description: Add or remove installed agents, MCP servers and rules through the dashboard's management API.
+allowed-tools: Read, Bash
 ---
 
-# Reconfigure Dev Suite
+# /reconfigure - Change what is installed
 
-Modify the existing `.dev-suite.json` configuration.
+Changes an existing dev-suite installation: which agents, MCP servers and rules are
+present, and which assistants they are written for.
 
-## Process
+## Do not hand-edit `.dev-suite.json`
 
-1. Read the current `.dev-suite.json` file
-2. Ask what the user wants to modify:
-   - Add/remove stack components
-   - Enable/disable agents
-   - Modify skills for an agent
-   - Change automation hooks
-   - Update documentation strategy
+`.dev-suite.json` is **generated output, not an input file.** `installation.service.ts`
+rebuilds it from the install request on every install and every Sync, so an edit made by
+hand is silently discarded on the next run. The only key the installer deliberately
+carries forward is `integrationValidation` (`USER_OWNED_CONFIG_KEYS`).
 
-3. Show current configuration for the selected area
-4. Make requested changes
-5. Re-run the install so the generated files stay consistent (there is no JSON schema for `.dev-suite.json`; the installer is what defines its shape)
-6. Save updated configuration
-7. Show summary of changes
-8. **Analyze sibling projects** for CLAUDE.md updates (see below)
+Editing it directly also bypasses `project-lock.ts`, `write-guard.ts`, `managed-file.ts`
+and manifest tracking. The files on disk stop matching `.dev-suite-manifest.json`, and
+`drift.service.ts` then reports the whole installation as modified.
 
-## Validation
+What the file actually contains is only this:
 
-Keep the selection logically consistent (e.g. do not enable the NestJS agent without a Node.js backend). Routing is regenerated into `AGENTS.md`; `CLAUDE.md` only imports it, so never hand-edit routing into `CLAUDE.md`.
-
-## Sibling Project CLAUDE.md Analysis
-
-After reconfiguring the dev-suite (especially when adding/removing agents), analyze sibling project folders for CLAUDE.md files that may need updates.
-
-### When to Trigger
-
-This analysis should run when:
-- New agents are enabled
-- Agents are disabled/removed
-- Agent routing might be affected
-
-### Process
-
-1. Find the parent directory of the current project
-2. Search recursively for `AGENTS.md` files in sibling folders (excluding dev-suite) —
-   routing lives there now; a sibling that only has `CLAUDE.md` predates the migration
-   and should be re-synced rather than hand-edited
-3. For each found file:
-   - Check if it contains a dev-suite agent routing section
-   - Compare with the changes made in this reconfiguration
-   - Suggest updates if the routing table is missing new agents
-
-### Example
-
-If the user enables `messaging-expert` agent:
-
-```
-Found CLAUDE.md files in sibling projects:
-  • gestionale-presenze/CLAUDE.md
-  • inventory-app/CLAUDE.md
-
-⚠ Agent changes detected that may require CLAUDE.md updates:
-  + messaging-expert (newly enabled - may need routing configuration)
-
-📋 Recommended actions:
-  1. Review each project's CLAUDE.md agent routing configuration
-  2. Add messaging-expert to the routing table if the project handles events/messaging
-  3. Update agent descriptions to include new capabilities
+```json
+{
+  "version": "…",
+  "installedAt": "…",
+  "agents":     { "enabled": ["react-expert", "…"] },
+  "mcpServers": { "enabled": ["documentation", "…"] },
+  "rules":      { "enabled": ["…"] },
+  "targets":    ["claude-code", "cursor"]
+}
 ```
 
-### Implementation
+There is no `hooks` key, no `documentation strategy` key, and no stack or path
+information. If you are looking for those, they do not exist.
+
+## Preferred route — the dashboard
+
+Launch the dashboard and use the **Manage** tab, which drives the same API and keeps the
+manifest, the backup and the lock intact:
 
 ```bash
-# Find sibling CLAUDE.md files
-PARENT_DIR="$(dirname "$PROJECT_ROOT")"
-find "$PARENT_DIR" -name "CLAUDE.md" -type f 2>/dev/null | grep -v "/dev-suite/"
+./init-project.sh /path/to/your-project     # Windows: .\init-project.ps1 C:\path\to\project
 ```
 
-Then for each file, check if it needs updates based on the configuration changes made.
+## Scripted route — the management API
+
+With the dashboard already running, these endpoints do the same work. Each one
+re-installs the affected components and updates the manifest:
+
+| Endpoint | Effect |
+|----------|--------|
+| `GET  /api/management/installed-components` | What is installed right now |
+| `POST /api/management/add-agent` | Install one agent and its core skills |
+| `POST /api/management/remove-agent` | Remove one agent |
+| `POST /api/management/add-mcp-server` | Install one MCP server |
+| `POST /api/management/remove-mcp-server` | Remove one MCP server |
+| `GET  /api/management/new-components` | Components added to dev-suite since this install |
+
+## Changing target assistants, or resetting to a clean state
+
+Adding or dropping an assistant changes the file layout, not just a list, so it goes
+through the reinstall path rather than the management API:
+
+```bash
+cd ./dev-suite/configurator/dashboard/server
+npm run reinstall -- --project /path/to/your-project --dry-run   # preview first
+npm run reinstall -- --project /path/to/your-project
+```
+
+`--dry-run` prints the plan without touching anything. See `/reinstall-dev-suite` for the
+full flag list.
+
+## After any change
+
+Routing is regenerated into `AGENTS.md`; `CLAUDE.md` only imports it via `@AGENTS.md`.
+**Never hand-write routing into `CLAUDE.md`** — the next regeneration overwrites it and
+the two files disagree in the meantime.
+
+Keep the selection coherent: enabling a backend-framework agent for a stack the project
+does not have costs context on every turn and routes work to an agent with nothing to do.

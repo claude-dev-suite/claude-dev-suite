@@ -417,10 +417,65 @@ visita → star è bassa e non esisteva nessun punto d'ingresso per i contributo
 Nessuna di queste pubblica nulla all'esterno: i post restano un'azione umana, per scelta e
 perché HN e Reddit vietano l'automazione.
 
+### 18-19 settembre 2026 — l'analisi che ha ribaltato le priorità
+
+Una settimana dopo il primo intervento le metriche si erano mosse pochissimo: 35 star (da 33),
+7 fork, 207 visite uniche (da 200), 676 cloni unici (da 581), **zero referrer social**, le due
+discussion senza un commento, e la issue #232 "Promote v1.16.0" aperta dal workflow e mai toccata.
+La domanda di partenza era se spedire dev-suite come plugin marketplace di Claude Code. Sei agenti
+in parallelo hanno indagato il tema, e la risposta ha cambiato l'ordine del piano.
+
+**Il marketplace non è un canale di acquisizione.** Su ~35.000 repo con `marketplace.json`, 2.282
+entrano nel catalogo community di Anthropic (6,5%) e 309 in quello ufficiale (<1%), dove la
+documentazione dice testualmente che *"non esiste un processo di candidatura"*. Su 30 plugin
+community campionati, **0 sono raggiungibili** sulla directory pubblica claude.com/plugins. La
+scheda Discover in `/plugin` mostra solo i marketplace già aggiunti dall'utente, quindi non può
+per costruzione far scoprire il progetto. Nessuna correlazione fra marketplace e crescita su 13
+progetti comparabili: `awesome-claude-code` ha 54.262 star e non ne ha mai spedito uno. Va messo
+a budget come riduzione di frizione, non come acquisizione.
+
+**Il canale che funziona già esiste e non l'aveva impostato nessuno.** skills.sh (Vercel) elenca
+dev-suite con **14.400 installazioni**. Calibrato sul meccanismo "aggiungi il repo, ti prendi
+tutto il set" (wshobson: 12.021 installazioni per skill, dev-suite: 31,6), corrisponde a ~30
+installazioni dell'intera suite — coerente con le star, quindi non è adozione nascosta. Ma è
+distribuzione reale, automatica, e copre tutti e sette gli assistenti.
+
+**Il posizionamento si sabotava da solo.** La descrizione del repo diceva *"...for Claude Code"*:
+la stringa che ogni indicizzatore replica, in contraddizione con la prima riga del README.
+
+**Eseguito il 19 settembre:**
+
+| Azione | Dettaglio |
+|--------|-----------|
+| Descrizione repo riscritta | Via "for Claude Code", dentro tutti e sette gli assistenti |
+| Topic ribilanciati | Tolti `electron`, `react`, `typescript`, `devtools` (dettagli implementativi); messi `codex-cli`, `cline`, `kimi-code`, `agents-md`. Il tetto GitHub è 20 |
+| `npx skills add` nel README | Sopra il `git clone`, dichiarando che installa **solo** le skill |
+| 15 SKILL.md senza frontmatter | Vedi sotto — la scoperta più concreta |
+| Gate rinforzato | `validate-frontmatter.mjs` ora fallisce su un `SKILL.md` privo di frontmatter |
+
+**I 15 SKILL.md.** Provando `npx skills add` prima di metterlo nel README, il CLI ne saltava una
+quindicina: nessun blocco frontmatter, quindi niente `name` e `description`, che lo spec Agent
+Skills rende obbligatori. Le categorie `animation/`, `graphics/` e `codegen/` erano **invisibili
+al completo**. `validate-frontmatter.mjs` non li vedeva perché salta di proposito i file senza
+frontmatter (per tollerare README e quick-ref), un'esenzione che copriva anche i SKILL.md. Da 720
+skill discoverable a 736.
+
 ### Non ancora eseguito
 
 - Pubblicazione dei post (HN, Reddit, LinkedIn, X, dev.to) - i testi sono pronti in
-  `docs/release-promo/v1.15.0/`, mancano gli account e la finestra di posting
-- PR alle awesome list - candidati e one-liner in `awesome-list-entry.md`
-- Listing su directory (AlternativeTo, DevHunt, registry MCP)
+  `docs/release-promo/v1.15.0/`, mancano gli account e la finestra di posting.
+  Per v1.16.0 non è stato ancora generato nulla: la issue #232 è la traccia
+- PR alle awesome list - candidati e one-liner in `awesome-list-entry.md`.
+  Nota: `hesreallyhim/awesome-claude-code` ha già chiuso la issue #1324 come
+  `not_planned`, proposta col titolo "Claude Code toolkit"
+- Listing su directory (AlternativeTo, DevHunt, registry MCP). **I registry MCP sono
+  bloccati a monte**: nessuno dei server è pubblicato su npm, e il registry ufficiale
+  accetta solo npm e PyPI
+- Estensione Gemini CLI (topic `gemini-cli-extension` + `gemini-extension.json`) —
+  da decidere: il formato estensione non è in `docs/ASSISTANT-FORMAT-REFERENCE.md`,
+  che le regole del repo impongono di compilare prima di implementare; e nel merito
+  sarebbe in gran parte vuota, perché gli MCP server richiedono `dist/` che non è
+  committato e le skill sono già coperte da `npx skills add`
+- Marketplace plugin, ridimensionato a riduzione di frizione — subordinato alla
+  bonifica dei comandi in `commands/`, oggi fermi a febbraio 2026
 - Video demo della dashboard
