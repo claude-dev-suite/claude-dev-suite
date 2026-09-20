@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-09-20
+
+Fixes and documentation only. Two of the three supported platforms could not
+complete a first run, and fifteen skills were unusable by any consumer. Nothing
+new was built, which is why this is a patch.
+
 ### Added
 
 - **`npx skills add claude-dev-suite/claude-dev-suite` in the README**, above the
