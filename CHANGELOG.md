@@ -10,6 +10,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **A failed job reported "Job completed successfully".** Three layers had to
+  agree for this to be visible, and none of them did:
+
+  - A multi-step job set `job.status = 'completed'` after its loop whatever the
+    steps did. `result.success` was read only to broadcast a per-subtask event.
+    So a chain whose first agent errored ran every remaining agent against its
+    broken output — paying for each one — and then announced success. Each
+    step's prompt is built from the previous step's output, so there was
+    nothing to salvage by continuing; the run now stops at the failed step and
+    says which one it was.
+  - The dashboard's socket hook destructured `sessionId`, `recap` and
+    `jobContext` out of `job_complete` and dropped the rest. Both
+    `job_complete` and `chat_complete` have always carried `success`
+    (`!message.is_error`).
+  - `OrchestratorPanel` then hardcoded the outcome: the status text, the job's
+    status, and `setRecapData({ success: true, … })` — on a recap card whose
+    own component already knows how to render a failure in red with a ✗.
+
+  `job_complete` also carries `error` now, so the panel can say which step
+  failed rather than just "failed".
+
 - **The Usage panel reported $0.00 against a billed account.** Three
   independent faults, each of which degrades to a zero, so none of them could
   be seen:

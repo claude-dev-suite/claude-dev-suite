@@ -309,6 +309,29 @@ export class JobQueueService {
       });
 
       job.currentSubTaskIndex++;
+
+      // Stop at the first failed step.
+      //
+      // `result.success` was read only to broadcast it, and the job was then
+      // marked `completed` whatever happened. So a chain whose first agent
+      // errored ran every remaining agent against its broken output, paid for
+      // all of them, and reported success. Each step's prompt is built from the
+      // previous step's output, so there is nothing to salvage by continuing —
+      // and the consolidator would have summarised the wreckage as a result.
+      if (!result.success) {
+        job.status = 'failed';
+        job.error = `Step ${job.currentSubTaskIndex} of ${job.subTasks!.length} (@${currentTask.agentId}) failed`;
+        wsLogger.warn('Multi-subtask job stopped at a failed step', {
+          data: {
+            jobId: job.id,
+            step: job.currentSubTaskIndex,
+            total: job.subTasks!.length,
+            agentId: currentTask.agentId,
+          },
+        });
+        broadcastTaskComplete(job.id, job.subTasks!.length, this.wsClientService);
+        return;
+      }
     }
 
     job.status = 'completed';

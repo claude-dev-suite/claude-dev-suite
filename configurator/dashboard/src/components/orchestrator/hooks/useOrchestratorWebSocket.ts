@@ -8,7 +8,20 @@ import { config } from '@/config';
 export interface UseOrchestratorWebSocketOptions {
   projectPath: string;
   onJobStarted?: (job: Job) => void;
-  onJobComplete?: (sessionId: string | null, recap: unknown, jobContext?: JobContextSummary) => void;
+  /**
+   * A job or chat turn finished — successfully or not.
+   *
+   * `success` used to be dropped here. Both `job_complete` and `chat_complete`
+   * have always carried it (`!message.is_error`), and the panel replaced it
+   * with a hardcoded `true`, so a failed job ended on a green "Job completed
+   * successfully" and a ✓ recap.
+   */
+  onJobComplete?: (
+    result: { success: boolean; error?: string },
+    sessionId: string | null,
+    recap: unknown,
+    jobContext?: JobContextSummary,
+  ) => void;
   onJobError?: (error: string) => void;
   onJobCancelled?: () => void;
   onAgentStarted?: (agentId: string) => void;
@@ -146,6 +159,10 @@ export function useOrchestratorWebSocket(
         const sessionId = payload.sessionId as string || null;
         const recap = payload.recap;
         const jobContext = payload.jobContext as JobContextSummary | undefined;
+        // Absent means success: an older server that does not send the field
+        // only ever broadcast this message on a clean finish.
+        const success = payload.success !== false;
+        const error = payload.error as string | undefined;
 
         // Store job context for token-efficient chat continuity
         // This allows follow-up chats to use ~500 tokens instead of ~50k for session resume
@@ -157,7 +174,7 @@ export function useOrchestratorWebSocket(
           });
         }
 
-        opts.onJobComplete?.(sessionId, recap, jobContext);
+        opts.onJobComplete?.({ success, error }, sessionId, recap, jobContext);
         break;
       }
 

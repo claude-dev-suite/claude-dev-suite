@@ -49,6 +49,8 @@ export function handleJobCompletion(
       success: job.status === 'completed',
       exitCode: job.status === 'completed' ? 0 : 1,
       cost: job.cost || 0,
+      // Why it failed, so the panel can say more than "failed".
+      error: job.error,
       batchId: job.batchId,
       sessionId: currentJobSessionId || undefined,
       jobContext,
