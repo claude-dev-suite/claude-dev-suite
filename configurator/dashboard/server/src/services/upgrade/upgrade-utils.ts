@@ -24,7 +24,11 @@ const getDevSuiteDir = _getDevSuiteDir;
 const logger = getLogger('UpgradeUtils');
 
 // Constants
-export const DEV_SUITE_VERSION = '1.0.0';
+// Re-exported, not declared: this was a frozen '1.0.0' literal while the
+// package was at 1.16.x, so the Updates panel compared it against itself and
+// reported "Up to date" forever. Existing importers keep working.
+import { DEV_SUITE_VERSION } from '../../utils/dev-suite-version.js';
+export { DEV_SUITE_VERSION };
 export const MANIFEST_FILENAME = '.dev-suite-manifest.json';
 export const FEATURES_REGISTRY_PATH = 'registry/features.json';
 export const BACKUP_DIR_PREFIX = '.dev-suite-backup-';
