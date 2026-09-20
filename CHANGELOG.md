@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **An unparseable MCP config was filed under "Nothing to do."** The skip entry
+  `installation/mcp-config-file.ts` returns when it refuses to touch a malformed
+  `.mcp.json` carried no `kind`, and an absent `kind` defaults to `limitation` —
+  whose card reads "No equivalent mechanism exists. Nothing to do." A stray
+  comma means no MCP server reaches that assistant at all, which is about as
+  actionable as a finding gets. Now `action-required`, and the reason says to
+  fix the syntax and re-run. (Introduced by the classification change earlier in
+  this release; the copilot and kimi copies of the same branch were already
+  correct.)
+
+- **`CLAUDE.md` claimed detection identifies the Git provider.** It does not:
+  `DetectionResult.gitProvider` is declared and never assigned anywhere. Git
+  remote data comes from `git.service.ts`. The service map says so now.
+
 - **Detected technologies that routed nowhere.** `NPM_AUTH_RULES` has detected
   `next-auth`, `passport`, `jsonwebtoken`/`jose`, Clerk and Supabase all along —
   and none of the five values had an entry in `STACK_TO_AGENTS`, so they added

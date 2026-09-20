@@ -77,7 +77,12 @@ export function writeMergedMcpConfig(args: {
       });
       return [{
         capability: 'mcp',
-        reason: `${relPath} exists but could not be parsed; it was left untouched and dev-suite's servers were not added`,
+        // Emphatically not a `limitation`: the file is fixable and until it is,
+        // no MCP server reaches this assistant. Without the kind it defaults to
+        // `limitation`, whose card reads "No equivalent mechanism exists.
+        // Nothing to do." — the opposite of true.
+        kind: 'action-required',
+        reason: `${relPath} exists but could not be parsed, so it was left untouched and none of dev-suite's servers were added. Fix the syntax and re-run the install`,
       }];
     }
     throw error;

@@ -150,7 +150,7 @@ Path: `configurator/dashboard/server/src/services/`
 | `best-practices-validator.service.ts` | Validate projects against best practices rules |
 | `code-review.service.ts` | Code review job creation and management |
 | `custom-agents.service.ts` | User-created custom agent management |
-| `detection.service.ts` | Detect project stack (frameworks, databases, Git provider) |
+| `detection.service.ts` | Detect project stack (frameworks, databases, testing). Note `DetectionResult.gitProvider` is declared and never assigned — git remote/provider data comes from `git.service.ts`, not from detection |
 | `detection/assistant-detection.service.ts` | Detect which AI assistants a project already uses (marker files + manifest targets) and recommend which to pre-select in the wizard |
 | `git.service.ts` | Git operations and repository management |
 | `hooks.service.ts` | Git and Claude Code hooks management |
