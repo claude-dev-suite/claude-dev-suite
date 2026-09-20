@@ -83,12 +83,20 @@ export const scenes = {
    */
   assistants: {
     view: { width: 1440, height: 760 },
-    // Tighter than the detection scene on purpose. Below the completion banner
-    // the installer prints its per-assistant capability gaps — six amber lines
-    // that are a virtue of the tool, not a defect, but that nobody can read in a
-    // twelve-second loop with no pause button. They belong in the README text,
-    // where they can actually be read; the frame rests on the result.
-    cropHeight: 500,
+    /**
+     * One crop has to serve every beat, and the beats have different heights:
+     * the Assistants step ends at y=530 (the Continue row), while the summary
+     * beat's "Installation Progress" panel starts at y=440.
+     *
+     * 590 clears the Assistants step and the sidebar's last item, and cuts the
+     * progress list a row in, which reads as a list continuing rather than as
+     * damage. An earlier 500 landed 60px past the "Installation Progress"
+     * heading — title, then nothing — which reads as a broken frame.
+     *
+     * The final beat is then scrolled so the completion banner's bottom edge sits
+     * just above this line, putting the capability-gaps panel exactly outside it.
+     */
+    cropHeight: 590,
     out: 'demo-assistants',
     async run(page, rec, { project }) {
       // Everything up to the Assistants step is setup, not content.
@@ -124,14 +132,56 @@ export const scenes = {
       // viewport while the GIF is cropped to `cropHeight`, so an element at y=700
       // is "in view" for Playwright and absent from the asset. Scroll it to the
       // top explicitly, then assert it actually landed inside the crop.
-      await done.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
-      await page.waitForTimeout(800);
+      const crop = scenes.assistants.cropHeight;
+      const MARGIN = 18; // breathing room between the banner and the cut
 
-      const box = await done.boundingBox();
-      if (!box || box.y + box.height > scenes.assistants.cropHeight) {
+      // Land the banner's bottom edge just above the crop line, so the gaps panel
+      // falls exactly outside it. Measure, nudge, measure again: the panel's height
+      // is not known ahead of time and `scrollIntoView` alignments cannot express
+      // "bottom at y=N".
+      //
+      // The nudge must move the element's own scroll container, not the window —
+      // this app scrolls an inner div, so `window.scrollBy` is a silent no-op and
+      // the banner stays wherever `scrollIntoView` put it, with the warnings still
+      // in frame.
+      // Measure the whole banner, not the heading. `text=Installation Complete`
+      // resolves to the heading alone, and positioning *its* bottom edge at the
+      // crop line pushes the "Installed N agents and N MCP servers" line — the
+      // part carrying the actual numbers — below the cut.
+      const bannerBox = () =>
+        done.evaluate((el) => {
+          let n = el;
+          while (n.parentElement && !/Installed \d+ agents/.test(n.innerText ?? '')) n = n.parentElement;
+          const b = n.getBoundingClientRect();
+          return { y: b.y, height: b.height };
+        });
+
+      await done.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+      await page.waitForTimeout(500);
+
+      const first = await bannerBox();
+      if (first) {
+        const dy = Math.round(first.y + first.height - (crop - MARGIN));
+        await done.evaluate((el, delta) => {
+          let n = el.parentElement;
+          while (n) {
+            const s = getComputedStyle(n);
+            if (/(auto|scroll)/.test(s.overflowY) && n.scrollHeight > n.clientHeight + 1) {
+              n.scrollTop += delta;
+              return;
+            }
+            n = n.parentElement;
+          }
+          (document.scrollingElement ?? document.documentElement).scrollTop += delta;
+        }, dy);
+        await page.waitForTimeout(700);
+      }
+
+      const box = await bannerBox();
+      if (!box || box.y < 0 || box.y + box.height > crop) {
         throw new Error(
-          `"Installation Complete" sits at y=${Math.round(box?.y ?? -1)}, outside the ` +
-            `${scenes.assistants.cropHeight}px crop — the payoff would be cut from the GIF.`
+          `the completion banner spans y=${Math.round(box?.y ?? -1)}..${Math.round((box?.y ?? 0) + (box?.height ?? 0))}, ` +
+            `outside the ${crop}px crop — the payoff would be cut from the GIF.`
         );
       }
 
