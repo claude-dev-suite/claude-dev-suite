@@ -208,11 +208,22 @@ export class DetectionService {
       agents.add('nodejs-expert');
       agents.add('typescript-expert');
     }
+    // Python had no branch at all, so a project detected only by
+    // `requirements.txt`/`pyproject.toml` — no framework matched — got no
+    // language agent.
+    if (detection.backend?.runtime === 'python') {
+      agents.add('python-expert');
+    }
 
     // Add based on database
     if (detection.database?.dbType) {
       const recs = STACK_TO_MCP[detection.database.dbType];
       if (recs) recs.forEach((m) => mcpServers.add(m));
+      // dbType used to consult STACK_TO_MCP only, so a Postgres project got the
+      // database-query server and never `sql-expert`, which ships for exactly
+      // this case.
+      const agentRecs = STACK_TO_AGENTS[detection.database.dbType];
+      if (agentRecs) agentRecs.forEach((a) => agents.add(a));
     }
     if (detection.database?.orm) {
       const agentRecs = STACK_TO_AGENTS[detection.database.orm];

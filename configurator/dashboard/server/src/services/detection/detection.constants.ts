@@ -226,9 +226,12 @@ export const STACK_TO_AGENTS: Record<string, string[]> = {
   // Java
   'spring-boot': ['spring-boot-expert'],
   // Python
-  fastapi: ['fastapi-expert'],
-  django: ['fastapi-expert'],
-  flask: ['fastapi-expert'],
+  // django/flask used to route to `fastapi-expert`. FastAPI is a different
+  // framework with different idioms; `python-expert` is the generalist and has
+  // shipped in the catalogue all along.
+  fastapi: ['fastapi-expert', 'python-expert'],
+  django: ['python-expert'],
+  flask: ['python-expert'],
   // Go
   gin: ['go-expert'],
   fiber: ['go-expert'],
@@ -250,7 +253,7 @@ export const STACK_TO_AGENTS: Record<string, string[]> = {
   typeorm: ['prisma-expert', 'typescript-expert'],
   sequelize: ['nodejs-expert'],
   jpa: ['spring-boot-expert'],
-  sqlalchemy: ['fastapi-expert'],
+  sqlalchemy: ['python-expert'],
   mongoose: ['mongodb-expert'],
   efcore: ['dotnet-expert'],
   // Testing
@@ -269,6 +272,22 @@ export const STACK_TO_AGENTS: Record<string, string[]> = {
   // API design
   graphql: ['typescript-expert'],
   trpc: ['typescript-expert'],
+  openapi: ['contract-validator'],
+  // Auth — every value NPM_AUTH_RULES can produce. These were detected and
+  // then dropped: `security-expert` ships in the catalogue and detection could
+  // never recommend it.
+  nextauth: ['security-expert'],
+  passport: ['security-expert'],
+  jwt: ['security-expert'],
+  clerk: ['security-expert'],
+  supabase: ['security-expert'],
+  // Relational databases, matched against `database.dbType`. `sql-expert`
+  // covers exactly these four ("PostgreSQL, MySQL, Oracle, and SQL Server")
+  // and was likewise unreachable.
+  postgresql: ['sql-expert'],
+  mysql: ['sql-expert'],
+  oracle: ['sql-expert'],
+  mssql: ['sql-expert'],
   // Infrastructure
   docker: ['docker-expert'],
   'github-actions': ['devops-expert'],

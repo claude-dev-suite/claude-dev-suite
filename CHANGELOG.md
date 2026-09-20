@@ -8,6 +8,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Detected technologies that routed nowhere.** `NPM_AUTH_RULES` has detected
+  `next-auth`, `passport`, `jsonwebtoken`/`jose`, Clerk and Supabase all along —
+  and none of the five values had an entry in `STACK_TO_AGENTS`, so they added
+  to `confidence` and were then discarded. `security-expert` ships in the
+  catalogue and detection could never recommend it. Same for `sql-expert`: a
+  database's `dbType` was looked up in `STACK_TO_MCP` only, so a Postgres
+  project got the `database-query` server and never the SQL specialist.
+
+  Also: `runtime` had a branch for `nodejs` and nothing else, so a Python
+  project detected only from `requirements.txt` or `pyproject.toml` got no
+  language agent at all.
+
+- **Django and Flask projects were routed to the FastAPI specialist.**
+  `STACK_TO_AGENTS` mapped `django` and `flask` to `fastapi-expert` — a
+  different framework with different idioms — while `python-expert` shipped in
+  the catalogue unused. `sqlalchemy` likewise pointed at `fastapi-expert`
+  rather than the Python generalist.
+
+  A new test asserts that **every agent id named in `STACK_TO_AGENTS` exists on
+  disk**. That is the check that would have caught this class of bug: a missing
+  or misspelled entry fails silently, because an unmatched key simply
+  contributes nothing.
+
 ### Added
 
 - **Rule templates now reach Cursor and Copilot.** A rule template is project
