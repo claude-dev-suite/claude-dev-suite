@@ -83,11 +83,38 @@ export interface DeepLink {
   label: string;
   url: string;
   description: string;
+  /**
+   * Which glyph the panel draws beside the link.
+   *
+   * The dashboard switches on this name and draws nothing for anything else.
+   * The server sent no icon at all, and because its links replace the client's
+   * own defaults as soon as a key is configured, every link in the live panel
+   * lost its icon the moment the panel started working.
+   */
+  icon: 'credits' | 'dashboard' | 'plan' | 'settings' | 'external';
+}
+
+/**
+ * A report for each window the panel shows.
+ *
+ * The summary used to carry one flat month-to-date report while the dashboard
+ * read `summary.cost.today.totalCostUsd` — a shape the server never produced —
+ * so every tile rendered `?? 0` and the panel affirmed "All thresholds clear"
+ * from data it had not read. The daily figure was also faked internally: a
+ * `getDailyTotal` helper returned the monthly total "as an approximation",
+ * which meant a `daily_cost` alert compared today against the whole month.
+ * Both windows are now fetched for real.
+ */
+export interface UsageWindow<T> {
+  /** Today only (start === end === today). */
+  today: T | null;
+  /** Month to date. */
+  monthly: T | null;
 }
 
 export interface UsageSummary {
-  usage: UsageReport | null;
-  cost: CostReport | null;
+  usage: UsageWindow<UsageReport>;
+  cost: UsageWindow<CostReport>;
   alerts: UsageAlert[];
   deepLinks: DeepLink[];
   /** ISO timestamp of the last successful fetch, or null if never fetched */

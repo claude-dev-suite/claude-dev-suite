@@ -61,9 +61,15 @@ export interface ModelUsage {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
-  requestCount: number;
 }
 
+/**
+ * Mirrors the server's `UsageReport`.
+ *
+ * `requestCount` and `totalRequests` used to be declared here. The Admin API's
+ * usage report has no request count in it, so nothing could ever have filled
+ * them; they were a promise to any future caller that the data existed.
+ */
 export interface UsageReport {
   period: { start: string; end: string };
   models: ModelUsage[];
@@ -71,13 +77,14 @@ export interface UsageReport {
   totalOutputTokens: number;
   totalCacheCreationTokens: number;
   totalCacheReadTokens: number;
-  totalRequests: number;
 }
 
 export interface CostBreakdown {
+  /** Workspace id; `default` for the organization's default workspace. */
   workspace: string;
   tokenCostUsd: number;
   searchCostUsd: number;
+  codeExecutionCostUsd: number;
   totalCostUsd: number;
 }
 
