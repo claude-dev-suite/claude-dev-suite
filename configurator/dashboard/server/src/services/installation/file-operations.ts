@@ -319,6 +319,53 @@ export interface InstalledAgentOptions {
  * Agents that omit `allowed-tools` keep inheriting all tools (no `tools:`
  * emitted) — intentional, matches today's effective behavior.
  */
+/** Marker for the generated block, so a re-run replaces it instead of stacking. */
+const EXTENDED_SKILLS_MARKER = '<!-- dev-suite:extended-skills -->';
+
+/**
+ * The protocol for reaching the extended skill tier, appended to an installed
+ * agent's body in lazy mode.
+ *
+ * In lazy mode only `core_skills` are copied to disk; everything else in the
+ * catalog is reachable through the `skill-loader` MCP server. Nothing told the
+ * agent that. The server was connected and the tools were listed, but an agent
+ * rarely concludes on its own that it is missing knowledge — and if it does, it
+ * has to invent a search term against the whole catalog, because the
+ * `extended_skills:` curated for it are dropped at install and never reach the
+ * installed file.
+ *
+ * Two agents had this written by hand (`core/architect`, `core/code-reviewer`)
+ * and were the only two that could use the tier as designed. This generates the
+ * same protocol for the rest.
+ *
+ * Deliberately no list of paths. The tier exists so an agent can reach a skill
+ * nobody configured for it; a visible inventory would read as the boundary of
+ * what it may load, which is the opposite. `groupByCategory` gives it the map
+ * instead, and the catalog stays open.
+ */
+function extendedSkillsProtocol(): string {
+  return [
+    EXTENDED_SKILLS_MARKER,
+    '## Extended skills',
+    '',
+    'Your `skills:` are preloaded. They are a starting point, not the limit of',
+    'what you can load: the rest of the dev-suite catalog stays available through',
+    'the `skill-loader` MCP server, including skills nobody configured for you.',
+    '',
+    'When a task touches a technology or practice you do not already hold, look',
+    'before answering from general knowledge:',
+    '',
+    '1. `mcp__skill-loader__list_skills({ groupByCategory: true })` — the map of',
+    '   categories, cheap to read.',
+    '2. `mcp__skill-loader__list_skills({ category: "<name>", search: "<term>" })`',
+    '   — narrow it. `search` is a literal substring match over name, path and',
+    '   description, so try the words the user would use, not taxonomy terms.',
+    '3. `mcp__skill-loader__load_skill({ skill_path: "<path>" })` — load the body.',
+    '',
+    'A miss costs one tool call. Answering without checking costs the answer.',
+  ].join('\n');
+}
+
 export function toInstalledAgentContent(content: string, opts: InstalledAgentOptions): string {
   const { installedSkillFlatNames, extraMcpServers = [], grantSkillTool = false } = opts;
 
@@ -382,6 +429,24 @@ export function toInstalledAgentContent(content: string, opts: InstalledAgentOpt
   for (const s of extraMcpServers) if (s && !mcpServers.includes(s)) mcpServers.push(s);
   if (grantSkillTool && !toolEntries.some((t) => t === 'Skill')) toolEntries.push('Skill');
 
+  // An added MCP server also needs its tools in the allowlist.
+  //
+  // `extraMcpServers` reached `mcpServers:` only, so `skill-loader` was
+  // connected to an agent whose `tools:` never permitted `mcp__skill-loader__*`
+  // — and no agent in the catalog declares it (61 of them carry a restrictive
+  // allowlist naming other servers explicitly). Which of the two fields gates
+  // MCP access is the assistant's business, and the asymmetry decides this for
+  // us: if `tools:` gates, the entry is required for the extended tier to work
+  // at all; if it does not, the entry is inert. Only ever added alongside an
+  // existing allowlist — synthesising one where the agent declared none would
+  // restrict an agent that was deliberately left open.
+  if (toolEntries.length > 0) {
+    for (const server of extraMcpServers) {
+      const pattern = `mcp__${server}__*`;
+      if (!toolEntries.includes(pattern)) toolEntries.push(pattern);
+    }
+  }
+
   // Reassemble frontmatter: kept lines, then regenerated blocks.
   const out: string[] = [];
   for (const l of kept) if (l.trim() !== '') out.push(l);
@@ -395,7 +460,18 @@ export function toInstalledAgentContent(content: string, opts: InstalledAgentOpt
     for (const s of installedSkillFlatNames) out.push(`  - ${s}`);
   }
 
-  return `---\n${out.join('\n')}\n---\n${body.replace(/^\n/, '')}`;
+  // Lazy mode is the only mode where the tier exists: `extraMcpServers` carries
+  // `skill-loader` exactly then. In eager mode every skill is already on disk
+  // and the server is not installed, so the instructions would name tools that
+  // are not there.
+  let outBody = body.replace(/^\n/, '');
+  const lazyTier = extraMcpServers.includes('skill-loader');
+  const alreadyInstructed = outBody.includes('mcp__skill-loader__');
+  if (lazyTier && !alreadyInstructed) {
+    outBody = `${outBody.replace(/\s+$/, '')}\n\n${extendedSkillsProtocol()}\n`;
+  }
+
+  return `---\n${out.join('\n')}\n---\n${outBody}`;
 }
 
 /**
