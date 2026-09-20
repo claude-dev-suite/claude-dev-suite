@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Installing an agent as an upgrade prerequisite crashed outside the packaged
+  app.** `package-installer.service.ts` carried its own copy of
+  `getDevSuiteDir`, and the copy's fallback branch read `__dirname` — which
+  does not exist in an ESM module, and the server is `"type": "module"`. The
+  branch runs whenever `DEV_SUITE_DIR` is unset, which is every machine running
+  from a clone, and it threw a ReferenceError rather than returning a bad path,
+  so nothing downstream could report it. It now imports the canonical helper.
+  (The copy also checked the *resolved* path for `..`, after `path.resolve` has
+  collapsed it — a check that could never fire.)
+
 - **A failed job reported "Job completed successfully".** Three layers had to
   agree for this to be visible, and none of them did:
 
