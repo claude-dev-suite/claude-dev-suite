@@ -9,6 +9,7 @@ import { UpdatesTab } from './UpdatesTab';
 import { CustomAgentsPanel } from './CustomAgentsPanel';
 import { CustomSkillsPanel } from './CustomSkillsPanel';
 import { Button, Badge, ErrorBoundary, ErrorMessage } from '../common';
+import { getLogger } from '@/utils/logger';
 import { apiGet, API_BASE } from '@/utils/api';
 import { ApiError, getUserErrorMessage } from '@/utils/errors';
 import clsx from 'clsx';
@@ -20,6 +21,8 @@ export interface ManagePanelProps {
 
 type Tab = 'agents' | 'custom-agents' | 'skills' | 'mcp' | 'automations' | 'hooks' | 'updates';
 
+const logger = getLogger('ManagePanel');
+
 export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('agents');
   const [installedData, setInstalledData] = useState<InstalledComponentsResponse | null>(null);
@@ -28,17 +31,26 @@ export function ManagePanel({ projectPath, onUninstall }: ManagePanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [errorObj, setErrorObj] = useState<ApiError | null>(null);
 
-  // Fetch new components available since install
+  // Fetch new components available since install.
+  //
+  // The path is `/api/new-components`, not `/api/management/…`: management
+  // routes are mounted at `/api` (`routes/index.ts:41`), so the router-relative
+  // path IS the public path. This call carried the extra segment and 404'd on
+  // every mount, and the empty catch below meant nothing ever said so — the
+  // badge simply never appeared, which is indistinguishable from "no new
+  // components". The sibling call two functions down always had it right.
   const fetchNewComponents = useCallback(async () => {
     try {
       const res = await apiGet<{ success: boolean; data: NewComponentsResponse }>(
-        `/api/management/new-components?path=${encodeURIComponent(projectPath)}`
+        `/api/new-components?path=${encodeURIComponent(projectPath)}`
       );
       if (res.data) {
         setNewComponents(res.data);
       }
-    } catch {
-      // Non-critical — silently ignore
+    } catch (err) {
+      // Still non-fatal — a missing badge must not break the panel — but no
+      // longer invisible.
+      logger.warn('Could not check for new components', err);
     }
   }, [projectPath]);
 

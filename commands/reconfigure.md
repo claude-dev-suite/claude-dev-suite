@@ -52,12 +52,12 @@ re-installs the affected components and updates the manifest:
 
 | Endpoint | Effect |
 |----------|--------|
-| `GET  /api/management/installed-components` | What is installed right now |
-| `POST /api/management/add-agent` | Install one agent and its core skills |
-| `POST /api/management/remove-agent` | Remove one agent |
-| `POST /api/management/add-mcp-server` | Install one MCP server |
-| `POST /api/management/remove-mcp-server` | Remove one MCP server |
-| `GET  /api/management/new-components` | Components added to dev-suite since this install |
+| `GET  /api/installed-components` | What is installed right now |
+| `POST /api/add-agent` | Install one agent and its core skills |
+| `POST /api/remove-agent` | Remove one agent |
+| `POST /api/add-mcp-server` | Install one MCP server |
+| `POST /api/remove-mcp-server` | Remove one MCP server |
+| `GET  /api/new-components` | Components added to dev-suite since this install |
 
 ## Changing target assistants, or resetting to a clean state
 

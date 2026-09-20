@@ -10,6 +10,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **New-component discovery never fired.** `ManagePanel` fetched
+  `/api/management/new-components`, but management routes are mounted at `/api`
+  (`routes/index.ts:41`), so the router-relative path *is* the public path. Every
+  call 404'd, and a bare `catch {}` marked "Non-critical — silently ignore"
+  meant nothing ever said so: the badge simply never appeared, which is
+  indistinguishable from "no new components". The sibling call two functions
+  down always had it right.
+
+  This falsified CLAUDE.md's own manual-verification item — *"New-component
+  discovery works (add agent to dev-suite, reopen dashboard, verify
+  notification)"* — and quietly wasted the `availableAtInstall` catalog snapshot
+  the installer records for exactly this purpose. The catch now logs; a missing
+  badge still must not break the panel.
+
+  The same wrong prefix had propagated to two more places: the endpoint table in
+  `commands/reconfigure.md` (written in 6a6ec02, where every one of the six
+  documented paths 404'd) and the doc comment on `NewComponentsResponse` in both
+  synced copies of `types/api.ts`. One original mistake, three sites, one fix.
+
 - **An unparseable MCP config was filed under "Nothing to do."** The skip entry
   `installation/mcp-config-file.ts` returns when it refuses to touch a malformed
   `.mcp.json` carried no `kind`, and an absent `kind` defaults to `limitation` —

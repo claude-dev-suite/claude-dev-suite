@@ -297,7 +297,7 @@ export interface NewComponent {
 
 /**
  * New components API response
- * GET /api/management/new-components
+ * GET /api/new-components
  */
 export interface NewComponentsResponse {
   newAgents: NewComponent[];
