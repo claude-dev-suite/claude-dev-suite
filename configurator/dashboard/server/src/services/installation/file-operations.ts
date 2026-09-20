@@ -427,7 +427,19 @@ export function toInstalledAgentContent(content: string, opts: InstalledAgentOpt
     }
   }
   for (const s of extraMcpServers) if (s && !mcpServers.includes(s)) mcpServers.push(s);
-  if (grantSkillTool && !toolEntries.some((t) => t === 'Skill')) toolEntries.push('Skill');
+
+  // Whether the agent restricted itself at all, decided before anything is
+  // added. An agent with no `allowed-tools` inherits every tool by omission;
+  // emitting a `tools:` line for it would convert that into an allowlist of
+  // whatever we happened to append. `grantSkillTool` did exactly that — an
+  // unrestricted agent came out restricted to `tools: Skill`. It does not bite
+  // the shipped catalog, where `validate-catalog.mjs` requires `allowed-tools`,
+  // but a custom agent goes through this same transform.
+  const hasAllowlist = toolEntries.length > 0;
+
+  if (hasAllowlist && grantSkillTool && !toolEntries.includes('Skill')) {
+    toolEntries.push('Skill');
+  }
 
   // An added MCP server also needs its tools in the allowlist.
   //
@@ -440,7 +452,7 @@ export function toInstalledAgentContent(content: string, opts: InstalledAgentOpt
   // at all; if it does not, the entry is inert. Only ever added alongside an
   // existing allowlist — synthesising one where the agent declared none would
   // restrict an agent that was deliberately left open.
-  if (toolEntries.length > 0) {
+  if (hasAllowlist) {
     for (const server of extraMcpServers) {
       const pattern = `mcp__${server}__*`;
       if (!toolEntries.includes(pattern)) toolEntries.push(pattern);

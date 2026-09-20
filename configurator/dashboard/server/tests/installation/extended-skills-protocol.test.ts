@@ -116,6 +116,49 @@ describe('the allowlist the block depends on', () => {
   });
 });
 
+describe('an agent that restricted nothing', () => {
+  const OPEN = ['---', 'name: open-agent', 'description: Anything.', '---', '', '# Body', ''].join(
+    '\n'
+  );
+
+  it('is not restricted to the tools we wanted to add', () => {
+    // No `allowed-tools` means every tool by omission. `grantSkillTool` pushed
+    // `Skill` onto the empty list regardless, and the emitted `tools: Skill`
+    // turned an unrestricted agent into one that could do nothing else. The
+    // shipped catalog is safe — `validate-catalog.mjs` requires the field — but
+    // a custom agent goes through this same transform.
+    const out = toInstalledAgentContent(OPEN, {
+      installedSkillFlatNames: [],
+      extraMcpServers: ['skill-loader'],
+      grantSkillTool: true,
+    });
+    const fm = out.slice(0, out.indexOf('\n---', 3));
+
+    expect(fm).not.toMatch(/^tools:/m);
+    // The server still reaches `mcpServers:`; only the allowlist is left alone.
+    expect(fm).toMatch(/^\s+-\s+skill-loader$/m);
+  });
+
+  it('an empty allowed-tools is no allowlist either', () => {
+    const EMPTY = ['---', 'name: open-agent', 'allowed-tools:', '---', '', '# Body', ''].join('\n');
+    const out = toInstalledAgentContent(EMPTY, {
+      installedSkillFlatNames: [],
+      grantSkillTool: true,
+    });
+
+    expect(out.slice(0, out.indexOf('\n---', 3))).not.toMatch(/^tools:/m);
+  });
+
+  it('still gets the Skill tool when it does restrict itself', () => {
+    const out = toInstalledAgentContent(AGENT, {
+      installedSkillFlatNames: [],
+      grantSkillTool: true,
+    });
+
+    expect(out.slice(0, out.indexOf('\n---', 3))).toMatch(/^tools:.*\bSkill\b/m);
+  });
+});
+
 describe('eager mode', () => {
   it('says nothing about a server that is not installed', () => {
     const out = eager();

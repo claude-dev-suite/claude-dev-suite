@@ -10,6 +10,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Adding an agent from the Manage tab ignored the project's skill-loading
+  mode.** `management.service.ts` always behaved as eager: it copied the
+  agent's full skill set and passed no `extraMcpServers`. An agent added to a
+  lazy project therefore came out unlike every other agent in it — skill
+  directories the install had deliberately not written, no `skill-loader` in
+  its `mcpServers:`, and none of the instructions for reaching the extended
+  tier. It now recovers the mode with `recoverSkillLoadingMode`, the same
+  helper reinstall and Sync already use.
+
+- **An agent that restricted nothing came out restricted.** `grantSkillTool`
+  pushed `Skill` onto the tool list unconditionally, and `toInstalledAgentContent`
+  emits a `tools:` line whenever that list is non-empty. For an agent with no
+  `allowed-tools` — every tool by omission, by design — that produced
+  `tools: Skill`, an allowlist of exactly one. The shipped catalog is safe,
+  since `validate-catalog.mjs` requires the field, but custom agents go through
+  the same transform. Both `Skill` and the MCP tool patterns are now added only
+  alongside an allowlist that already exists.
+
 - **The extended skill tier was unreachable in practice, which is the default
   install.** `skill-loader` carries `isDefault: true`, so it is auto-included
   and `installation.service.ts:283-286` promotes the install to lazy mode
