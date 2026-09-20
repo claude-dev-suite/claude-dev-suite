@@ -8,7 +8,9 @@
 
 **Point it at a repo and it configures your AI coding assistant for that stack** — specialized agents, framework skills with an on-demand knowledge base, MCP servers, and path-scoped rules. One install, seven assistants: Claude Code, GitHub Copilot, Cursor, Gemini CLI, Codex CLI, Cline, Kimi Code.
 
-![How Dev-Suite works: one source catalog of agents, skills and MCP servers, installed into your project for seven AI coding assistants](docs/assets/hero.svg)
+![The Dev-Suite wizard reading a monorepo and reporting the detected stack: fullstack, React frontend, Spring Boot backend, PostgreSQL with JPA, Vitest and Playwright](docs/assets/demo-detection.gif)
+
+<sub>Pointed at a monorepo it has never seen. No questionnaire — it reads the manifests.</sub>
 
 **Just the skills**, into whichever assistants you already have — no clone, no build:
 
@@ -76,6 +78,8 @@ Dev-Suite transforms Claude Code into a full-stack development powerhouse by pro
 - **Skills** - Framework-specific knowledge bases with quick-reference guides, covering frontend, backend, databases, testing, infrastructure, messaging, industrial automation, AI/RAG integration, embeddings, vector stores, document processing, animation, 3D graphics, and more
 - **Web Dashboard & Electron App** - Visual project configuration with stack detection and component selection
 - **Project Templates** - Scaffolding for React, Next.js, Spring Boot, FastAPI, NestJS, Unity 2D, and more
+
+![How Dev-Suite works: one source catalog of agents, skills and MCP servers, installed into your project for seven AI coding assistants](docs/assets/hero.svg)
 - **Task Orchestrator** - Submit complex multi-agent tasks from the GUI with real-time streaming updates
 - **Custom Agents Builder** - Create and edit custom agents directly from the dashboard
 - **Recipes & Automations** - Pre-built automation workflows for common development tasks

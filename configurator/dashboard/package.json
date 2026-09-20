@@ -23,7 +23,8 @@
     "server:dev": "cd server && npm run dev",
     "server:build": "cd server && npm run build",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "npm run build && electron-builder"
+    "electron:build": "npm run build && electron-builder",
+    "demo": "node demo/make-demo.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
