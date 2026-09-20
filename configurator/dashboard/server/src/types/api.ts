@@ -609,9 +609,23 @@ export interface KBUsageEntry {
  * KB usage stats
  */
 export interface KBUsageStats {
-  /** Total requests */
-  totalRequests: number;
-  /** Success rate (0-1) */
+  /**
+   * Total requests.
+   *
+   * Named `totalCalls` on the wire — this is what `analytics.service.ts`
+   * actually emits. It was declared as `totalRequests` here and the Analytics
+   * panel rendered that name, so the "Total Requests" card was permanently
+   * blank.
+   */
+  totalCalls: number;
+  /**
+   * Success rate as a **percentage, 0-100** — the server already multiplies
+   * (`Math.round((successCount / entries.length) * 100)`).
+   *
+   * This said "(0-1)" and the panel multiplied again, rendering 92% as
+   * "9200.0%" and setting the progress bar to `width: 9200%`. The colour
+   * thresholds compared against 0.9/0.7 and were therefore always true.
+   */
   successRate: number;
   /** Usage by technology */
   byTechnology: Record<string, number>;
