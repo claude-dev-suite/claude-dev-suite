@@ -8,8 +8,25 @@ import { API_BASE } from '../utils/api';
 // ============================================================
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
-export type AlertMetric = 'daily_cost_usd' | 'monthly_cost_usd' | 'daily_tokens' | 'monthly_tokens';
-export type AlertOperator = 'gt' | 'gte' | 'lt' | 'lte';
+/**
+ * Alert metric names, as the server defines them.
+ *
+ * These were `daily_cost_usd` / `monthly_cost_usd` here while
+ * `AlertThresholdSchema` accepts `daily_cost` / `monthly_cost`, so saving any
+ * cost threshold 400'd at the validation middleware — taking the rest of the
+ * config with it, since the whole object is one request. Token thresholds saved
+ * fine, which made it look like user error.
+ */
+export type AlertMetric = 'daily_cost' | 'monthly_cost' | 'daily_tokens' | 'monthly_tokens';
+
+/**
+ * Only `gt` and `gte` exist.
+ *
+ * `lt`/`lte` were offered in the UI, rejected by the schema, and would have
+ * been wrong anyway: the evaluator in `usage.service.ts` is a binary
+ * `operator === 'gt' ? > : >=`, so `lt` would have silently meant `>=`.
+ */
+export type AlertOperator = 'gt' | 'gte';
 
 export interface AlertThreshold {
   id: string;

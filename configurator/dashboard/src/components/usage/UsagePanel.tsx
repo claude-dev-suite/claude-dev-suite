@@ -139,8 +139,8 @@ const DEFAULT_DEEP_LINKS: DeepLink[] = [
 // ============================================================
 
 const METRIC_OPTIONS: Array<{ value: AlertMetric; label: string }> = [
-  { value: 'daily_cost_usd', label: 'Daily Cost (USD)' },
-  { value: 'monthly_cost_usd', label: 'Monthly Cost (USD)' },
+  { value: 'daily_cost', label: 'Daily Cost (USD)' },
+  { value: 'monthly_cost', label: 'Monthly Cost (USD)' },
   { value: 'daily_tokens', label: 'Daily Tokens' },
   { value: 'monthly_tokens', label: 'Monthly Tokens' },
 ];
@@ -148,8 +148,6 @@ const METRIC_OPTIONS: Array<{ value: AlertMetric; label: string }> = [
 const OPERATOR_OPTIONS: Array<{ value: AlertOperator; label: string }> = [
   { value: 'gt', label: '>' },
   { value: 'gte', label: '>=' },
-  { value: 'lt', label: '<' },
-  { value: 'lte', label: '<=' },
 ];
 
 const SEVERITY_OPTIONS: AlertSeverity[] = ['info', 'warning', 'critical'];
@@ -261,7 +259,7 @@ interface NewThresholdForm {
 
 const defaultThresholdForm: NewThresholdForm = {
   name: '',
-  metric: 'daily_cost_usd',
+  metric: 'daily_cost',
   operator: 'gt',
   value: '',
   severity: 'warning',
@@ -609,7 +607,7 @@ export function UsagePanel({ projectPath }: UsagePanelProps) {
   // Determine severity of today's cost based on thresholds
   const costSeverity: AlertSeverity | null = (() => {
     if (!config?.alertThresholds?.length) return null;
-    const triggered = activeAlerts.filter((a) => a.threshold.metric === 'daily_cost_usd');
+    const triggered = activeAlerts.filter((a) => a.threshold.metric === 'daily_cost');
     if (triggered.some((a) => a.threshold.severity === 'critical')) return 'critical';
     if (triggered.some((a) => a.threshold.severity === 'warning')) return 'warning';
     return null;
