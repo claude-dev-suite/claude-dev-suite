@@ -211,6 +211,44 @@ describe('suggest-skills.mjs', () => {
     });
   });
 
+  describe('a catalog nested deeper than two levels', () => {
+    it('finds a skill under <category>/<area>/<name>', () => {
+      // A quarter of the real catalog lives here — every bitcoin skill is
+      // `bitcoin/<area>/<name>` — and the server's own index walks the whole
+      // tree. A two-level scan suggested from 74% of what `load_skill` can
+      // actually serve, and the gap was invisible: a miss looks like "nothing
+      // matched".
+      const dir = path.join(
+        tempDir, '.mcp-servers', 'skill-loader', 'skills', 'bitcoin', 'lightning', 'channels'
+      );
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, 'SKILL.md'),
+        '---\nname: channels\ndescription: |\n  Lightning channel lifecycle and liquidity management\n---\n\n# Channels\n'
+      );
+
+      const out = parse(task({ prompt: 'Rebalance the lightning channel liquidity' }).stdout);
+      expect(out.hookSpecificOutput?.additionalContext).toContain('bitcoin/lightning/channels');
+    });
+
+    it('does not suggest a nested skill that is already installed', () => {
+      // The installed directory is the path flattened with every separator
+      // replaced, not just the first.
+      const dir = path.join(
+        tempDir, '.mcp-servers', 'skill-loader', 'skills', 'bitcoin', 'lightning', 'channels'
+      );
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, 'SKILL.md'),
+        '---\nname: channels\ndescription: |\n  Lightning channel lifecycle and liquidity management\n---\n'
+      );
+      preload('bitcoin-lightning-channels');
+
+      const out = parse(task({ prompt: 'Rebalance the lightning channel liquidity' }).stdout);
+      expect(out).toEqual({});
+    });
+  });
+
   describe('a skill whose frontmatter is not a block scalar', () => {
     it('is still matched', () => {
       const dir = path.join(tempDir, '.mcp-servers', 'skill-loader', 'skills', 'languages', 'kotlin');
