@@ -52,6 +52,19 @@ export class ClineAdapter implements TargetAdapter {
       },
     ];
 
+    // Lazy mode defers the rest of the catalog to `skill-loader`, which Cline
+    // cannot be given. A Cline-only install is promoted to eager before it gets
+    // here; this is the mixed case, where another assistant justifies lazy and
+    // Cline silently ends up with only the core tier, permanently.
+    if (plan.skillLoadingMode === 'lazy') {
+      skipped.push({
+        capability: 'skills',
+        kind: 'limitation',
+        reason:
+          'skills beyond each agent\'s core tier stay behind the skill-loader MCP server, which Cline cannot be configured with — for Cline they are unreachable, not deferred. Install with eager skill loading if Cline is the assistant you work in.',
+      });
+    }
+
     if (plan.rules.length > 0) {
       skipped.push({
         capability: 'rule-templates',

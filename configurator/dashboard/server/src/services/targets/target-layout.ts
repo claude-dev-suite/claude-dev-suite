@@ -526,6 +526,48 @@ export function mcpConfigFilesFor(target: TargetId): string[] {
 }
 
 /** True when at least one of these targets has a glob-activated rule mechanism. */
+/**
+ * Targets that read the instructions file but load no agent files, while still
+ * getting project MCP config.
+ *
+ * These are the assistants the `## Extended skills` protocol in an installed
+ * agent body never reaches — there is no agent body — even though
+ * `skill-loader` is configured for them and works. Codex is the case today.
+ * For them the instructions file is the only place the protocol can live.
+ */
+export function targetsNeedingInlineSkillProtocol(
+  targets: readonly TargetId[]
+): TargetId[] {
+  return targets.filter(t => {
+    try {
+      const { capabilities } = getTargetLayout(t);
+      return capabilities.agentsSource === 'none' && capabilities.mcp === 'project';
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * True when not one selected target can be given project MCP config.
+ *
+ * Lazy skill loading is a deferral: the catalog stays reachable through the
+ * `skill-loader` MCP server. Where no target can receive MCP config at all —
+ * a Cline-only install — nothing is deferred. The skills that were not copied
+ * are unreachable for the life of the project, because there is no tool that
+ * could fetch them.
+ */
+export function noTargetAcceptsProjectMcp(targets: readonly TargetId[]): boolean {
+  if (targets.length === 0) return false;
+  return targets.every(t => {
+    try {
+      return getTargetLayout(t).capabilities.mcp !== 'project';
+    } catch {
+      return false;
+    }
+  });
+}
+
 export function anyTargetSupportsGlobs(targets: readonly TargetId[]): boolean {
   return targets.some(t => {
     try {

@@ -27,6 +27,7 @@ import {
   FILE_CHANGE_HOOK_SCRIPT,
   BASH_COMMAND_HOOK_SCRIPT,
   STALE_DOCS_HOOK_SCRIPT,
+  SKILL_SUGGESTION_HOOK_SCRIPT,
   INTEGRATION_VALIDATOR_MARK_SCRIPT,
   INTEGRATION_VALIDATOR_DECIDE_SCRIPT,
   INTEGRATION_VALIDATOR_TOOL_MATCHER,
@@ -125,10 +126,14 @@ function handlerCommand(handler: unknown): string | null {
  * template cannot drift away from the script it depends on.
  */
 function scriptsReferencedBy(template: { hooks: Array<{ hooks?: unknown[] }> }): string[] {
+  // A script missing from this list is never copied, and the template then
+  // points `node` at a file that is not there — the silently-inert hook this
+  // whole mechanism was rewritten to stop shipping.
   const known = [
     FILE_CHANGE_HOOK_SCRIPT,
     BASH_COMMAND_HOOK_SCRIPT,
     STALE_DOCS_HOOK_SCRIPT,
+    SKILL_SUGGESTION_HOOK_SCRIPT,
   ];
   const found = new Set<string>();
   for (const entry of template.hooks ?? []) {
