@@ -183,7 +183,34 @@ export const CONVENTIONAL_COMMIT_PATTERN = '^(feat|fix|docs|style|refactor|perf|
 /**
  * Claude Code hook events
  */
+/**
+ * The events the dashboard offers when a user builds a hook by hand.
+ *
+ * This listed five. Claude Code documents far more, and the omissions were the
+ * useful ones: `UserPromptSubmit` and `SubagentStart` are the only two places a
+ * script sees a prompt before the model acts on it, and neither could be picked
+ * from the UI. Every entry below is from the vendor hooks reference, matcher
+ * semantics included — an event whose matcher target was guessed would silently
+ * fire on everything, which is how `SubagentStop` was already wrong once.
+ *
+ * Not exhaustive: the reference lists ~34 events, most of them lifecycle
+ * notifications with no use in a project hook. Add one when it has a use, with
+ * its matcher confirmed.
+ */
 export const CLAUDE_HOOK_EVENTS: Record<string, ClaudeHookEvent> = {
+  SessionStart: {
+    name: 'SessionStart',
+    description: 'Runs when a session begins or resumes',
+    hasMatcher: true,
+    matcherType: 'source',
+    matcherDescription: 'How the session started: startup, resume, clear, compact or fork',
+  },
+  UserPromptSubmit: {
+    name: 'UserPromptSubmit',
+    description: 'Runs when a prompt is submitted, before Claude processes it',
+    // No matcher: the event carries the prompt, and there is nothing to match on.
+    hasMatcher: false,
+  },
   PreToolUse: {
     name: 'PreToolUse',
     description: 'Runs before a tool is used',
@@ -209,6 +236,34 @@ export const CLAUDE_HOOK_EVENTS: Record<string, ClaudeHookEvent> = {
     name: 'Stop',
     description: 'Runs when Claude finishes responding',
     hasMatcher: false,
+  },
+  SubagentStart: {
+    name: 'SubagentStart',
+    description: 'Runs when a subagent is spawned',
+    hasMatcher: true,
+    matcherType: 'agent',
+    matcherDescription: 'Subagent type (e.g. "code-reviewer" or "a|b"); omit to match every subagent',
+  },
+  PermissionRequest: {
+    name: 'PermissionRequest',
+    description: 'Runs when a tool call needs a permission decision',
+    hasMatcher: true,
+    matcherType: 'tool',
+    matcherDescription: 'Tool name regex',
+  },
+  PreCompact: {
+    name: 'PreCompact',
+    description: 'Runs before context compaction',
+    hasMatcher: true,
+    matcherType: 'trigger',
+    matcherDescription: 'What triggered compaction: manual or auto',
+  },
+  SessionEnd: {
+    name: 'SessionEnd',
+    description: 'Runs when a session terminates',
+    hasMatcher: true,
+    matcherType: 'reason',
+    matcherDescription: 'Why the session ended: clear, resume, logout, prompt_input_exit or other',
   },
   SubagentStop: {
     name: 'SubagentStop',
@@ -245,6 +300,7 @@ export const CLAUDE_HOOK_EVENTS: Record<string, ClaudeHookEvent> = {
 export const FILE_CHANGE_HOOK_SCRIPT = 'on-file-change.mjs';
 export const BASH_COMMAND_HOOK_SCRIPT = 'on-bash-command.mjs';
 export const STALE_DOCS_HOOK_SCRIPT = 'warn-stale-docs.mjs';
+export const SKILL_SUGGESTION_HOOK_SCRIPT = 'suggest-skills.mjs';
 
 /** Every template's command starts with one of these. */
 export const HOOK_SCRIPT_COMMANDS = {
@@ -356,6 +412,22 @@ export const CLAUDE_HOOK_TEMPLATES: Record<string, ClaudeHookTemplate> = {
     description: 'Run ESLint after file modifications',
     hooks: [{ matcher: 'Write|Edit|MultiEdit', hooks: [`${HOOK_SCRIPT_COMMANDS.file} --ext .js,.jsx,.ts,.tsx -- npx eslint --fix`] }],
     event: 'PostToolUse',
+  },
+  'suggest-skills': {
+    id: 'suggest-skills',
+    name: 'Suggest skills when delegating',
+    description:
+      'Before a subagent starts, matches the task text against the skill catalog and names any '
+      + 'skills that are not preloaded. Turns "the agent has to decide to go looking" into "the '
+      + 'agent decides whether to load a named skill". Only useful with lazy skill loading.',
+    event: 'PreToolUse',
+    scriptFile: SKILL_SUGGESTION_HOOK_SCRIPT,
+    hooks: [
+      {
+        matcher: 'Task',
+        hooks: [`${HOOK_SCRIPT_RUNNER} .claude/hooks/${SKILL_SUGGESTION_HOOK_SCRIPT}`],
+      },
+    ],
   },
   'doc-freshness': {
     id: 'doc-freshness',

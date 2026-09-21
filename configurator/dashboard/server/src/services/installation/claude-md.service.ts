@@ -32,6 +32,7 @@ import {
   type TargetId,
   anyTargetLoadsAgents,
   anyTargetSupportsGlobs,
+  targetsNeedingInlineSkillProtocol,
   DEFAULT_TARGET,
 } from '../targets/target-layout.js';
 import { writePathScopedRules } from './path-scoped-rules.js';
@@ -71,6 +72,13 @@ export interface InstructionsSectionOptions {
    * natively. Omitted means Claude Code (the historical single-target default).
    */
   targets?: TargetId[];
+  /**
+   * How skills were installed. In `lazy` mode only each agent's core tier is on
+   * disk and the rest of the catalog is reachable through the `skill-loader`
+   * MCP server — which an assistant has to be told about. Omitted means eager,
+   * where everything is already on disk and there is nothing to say.
+   */
+  skillLoadingMode?: 'eager' | 'lazy';
 }
 
 /**
@@ -299,6 +307,43 @@ function capabilityTag(agent: Agent): string {
   return parts.length > 0 ? ` [${parts.join(' · ')}]` : '';
 }
 
+/**
+ * The extended-skill protocol, for assistants that load no agent files.
+ *
+ * The same instructions `extendedSkillsProtocol` writes into an installed agent
+ * body, compressed, and emitted here only for the targets that cannot receive
+ * that copy. Codex reads `AGENTS.md` natively and runs `skill-loader` from
+ * `.codex/config.toml`, so it had the server and no idea what it was for.
+ *
+ * Kept out of the file when every selected target does load agent files: they
+ * get it in a better place, scoped to the agent that needs it, and this section
+ * is inherited by every subagent a session spawns.
+ */
+function inlineSkillProtocol(opts: InstructionsSectionOptions): string {
+  if (opts.skillLoadingMode !== 'lazy') return '';
+  const targets = opts.targets ?? [DEFAULT_TARGET];
+  if (targetsNeedingInlineSkillProtocol(targets).length === 0) return '';
+
+  return `
+
+## Extended Skills
+
+Installed skills under the skills directory are the core tier. The rest of the
+dev-suite catalog is not on disk — it is served on demand by the \`skill-loader\`
+MCP server, including skills nobody configured for this project.
+
+When a task touches a technology or practice the installed skills do not cover,
+look before answering from general knowledge:
+
+1. \`list_skills({ groupByCategory: true })\` — the map of categories.
+2. \`list_skills({ category: "<name>", search: "<term>" })\` — narrow it. \`search\`
+   is a literal substring match over name, path and description, so use the
+   words someone would say, not taxonomy terms.
+3. \`load_skill({ skill_path: "<path>" })\` — load the body.
+
+A miss costs one tool call.`;
+}
+
 export function generateDevSuiteSection(opts: InstructionsSectionOptions): string {
   const { agents, customAgents = [], detectedStack, validatorHookConfigured = false } = opts;
 
@@ -451,7 +496,7 @@ without data fetching: those paths never match. Set \`integrationValidation\` to
 
 ## Installed Agents
 
-${agentList}${customAgentsSection}${alwaysOnRouting}${scopedSection}${validationSection}${commandsSection}
+${agentList}${customAgentsSection}${alwaysOnRouting}${scopedSection}${inlineSkillProtocol(opts)}${validationSection}${commandsSection}
 ${DEV_SUITE_END_MARKER}`;
 }
 

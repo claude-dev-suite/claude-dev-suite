@@ -10,6 +10,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Codex had `skill-loader` configured and no idea what it was for.** Codex
+  loads no agent files (`agentsSource: 'none'`), so the `## Extended skills`
+  protocol written into every installed agent body never reached it — while
+  `.codex/config.toml` gave it the server. The protocol is now also emitted
+  into the generated `AGENTS.md` section, which Codex reads natively, and only
+  for targets that cannot receive the agent-body copy.
+
+- **Lazy skill loading deferred skills to nowhere on a Cline-only install.**
+  Cline's MCP config is user-global — a permanent gap — so `skill-loader`
+  cannot be configured for it. Lazy mode there did not defer the rest of the
+  catalog, it made it unreachable for the life of the project. An install where
+  no selected target accepts project MCP config is now promoted to eager; in a
+  mixed install, where another assistant justifies lazy, the Cline adapter
+  reports the gap instead of leaving it silent.
+
+### Added
+
+- **A hook that suggests skills when delegating** (`suggest-skills.mjs`,
+  `PreToolUse` with matcher `Task`). The extended tier depends on a model
+  noticing, unprompted, that it lacks knowledge and then guessing a search term
+  against hundreds of skills; both steps fail quietly. The hook is the one place
+  code sees the task text before the model acts on it, so it runs the match
+  itself and names the skills — the agent chooses whether to load a named skill
+  rather than whether to go looking. Additive only: `additionalContext` carries
+  the suggestion, and `updatedInput` appends to the subagent's own prompt when
+  the input has a prompt field to append to, never replacing it. Fail-open on
+  every malformed payload, since a suggestion is never worth a failed
+  delegation.
+
+- **Six more hook events in the dashboard.** The catalog offered five;
+  `UserPromptSubmit` and `SubagentStart` — the only two places a script sees a
+  prompt before the model acts — could not be selected at all. Added with their
+  matcher semantics from the vendor reference, since an event whose matcher
+  target is wrong fires on everything.
+
+### Changed
+
+- **`docs/ASSISTANT-FORMAT-REFERENCE.md` Part 5** gains six entries: whether a
+  Cursor, Gemini, Copilot, Codex or Cline hook can inject context the model
+  reads (the events are confirmed for all five; an output contract that reaches
+  the model is not), and whether Claude Code's `updatedInput` applies to the
+  `Task` tool. Until those resolve, every assistant keeps the model-driven
+  protocol as its baseline and the hook layer is strictly additive.
+
 - **Adding an agent from the Manage tab ignored the project's skill-loading
   mode.** `management.service.ts` always behaved as eager: it copied the
   agent's full skill set and passed no `extraMcpServers`. An agent added to a

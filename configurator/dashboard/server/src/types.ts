@@ -388,8 +388,15 @@ export interface ClaudeHookEvent {
   name: string;
   description: string;
   hasMatcher: boolean;
-  /** What the matcher is compared against: a tool name, a notification type, or a subagent type. */
-  matcherType?: 'tool' | 'type' | 'agent';
+  /**
+   * What the matcher is compared against.
+   *
+   * Not cosmetic: the dashboard renders the field from this, and an event whose
+   * matcher target is described wrongly produces a hook that fires on
+   * everything. `SubagentStop` was declared matcher-less for exactly that
+   * reason and dropped the matcher the user had typed.
+   */
+  matcherType?: 'tool' | 'type' | 'agent' | 'source' | 'trigger' | 'reason';
   matcherDescription?: string;
 }
 

@@ -12,7 +12,12 @@ import { resolveProjectPath, PathValidationError } from '../utils/utilities.js';
 import { execSync, execFileSync } from 'child_process';
 import type { DetectionResult, InstallConfig, InstallManifest, InstallSkippedCapability } from '../types.js';
 import type { TrackedFile, ExtendedManifest, StackInfo } from '../types/index.js';
-import { DEFAULT_TARGET, getTargetLayout, type TargetId } from './targets/target-layout.js';
+import {
+  DEFAULT_TARGET,
+  getTargetLayout,
+  noTargetAcceptsProjectMcp,
+  type TargetId,
+} from './targets/target-layout.js';
 import { targetPaths, type TargetPaths } from './targets/target-paths.js';
 import type { InstallPlan, McpServerEntry } from './targets/target-adapter.js';
 import { getAdapter } from './targets/adapters/index.js';
@@ -291,6 +296,18 @@ export class InstallationService {
     // and this guards direct service callers.
     const targets: TargetId[] = config.targets?.length ? [...config.targets] : [DEFAULT_TARGET];
 
+    // Lazy is a deferral, and a deferral needs somewhere to defer to. Where no
+    // selected target can take project MCP config — a Cline-only install, since
+    // Cline's MCP is user-global — `skill-loader` cannot be configured at all,
+    // so the skills lazy mode declines to copy are not deferred but unreachable
+    // for the life of the project. Copy them.
+    if (skillLoadingMode === 'lazy' && noTargetAcceptsProjectMcp(targets)) {
+      logger.info('Installing skills eagerly: no selected assistant accepts project MCP config', {
+        context: { targets },
+      });
+      skillLoadingMode = 'eager';
+    }
+
     // State an earlier install accumulated. A re-install replaces *files*, not
     // history: zeroing these turned every add/remove-agent into a silent
     // downgrade of the project (see readCarriedForwardState).
@@ -550,6 +567,7 @@ export class InstallationService {
         detectedStack,
         validatorHookConfigured,
         targets,
+        skillLoadingMode,
       });
       for (const file of instructionFiles) {
         // Legacy manifest has no 'generated' type; 'config' is its closest match.
