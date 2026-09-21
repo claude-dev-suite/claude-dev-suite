@@ -34,7 +34,7 @@
     "dompurify": "^3.4.7",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
-    "express-rate-limit": "^8.4.1",
+    "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
