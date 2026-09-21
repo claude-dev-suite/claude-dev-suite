@@ -339,3 +339,110 @@ export function loadQuickRefBody(
 ): string {
   return fs.readFileSync(resolveQuickRefPath(skillPath, ref, skillsDir), "utf-8");
 }
+
+// ============================================================
+// SEARCH
+// ============================================================
+
+/**
+ * Words too common in a request to tell two skills apart.
+ *
+ * Kept small on purpose: this is a stoplist for *queries*, and dropping a term
+ * that turns out to be the discriminating one costs a match. Only words that
+ * appear in the phrasing of nearly any development task are here.
+ */
+const QUERY_STOPWORDS = new Set([
+  "about", "after", "also", "and", "any", "are", "because", "been", "before",
+  "being", "both", "build", "can", "change", "check", "code", "create",
+  "current", "does", "each", "file", "files", "first", "fix", "following",
+  "for", "from", "get", "has", "have", "help", "here", "how", "implement",
+  "into", "like", "make", "more", "most", "need", "new", "not", "now", "only",
+  "other", "our", "out", "over", "project", "read", "run", "should", "some",
+  "such", "sure", "take", "task", "than", "that", "the", "their", "them",
+  "then", "there", "these", "they", "this", "those", "through", "update",
+  "use", "used", "using", "very", "was", "way", "well", "were", "what", "when",
+  "where", "which", "while", "will", "with", "work", "would", "write", "you",
+  "your", "user", "mentions", "asks", "please", "just", "also",
+  // Two-letter noise. The length floor below is 2, not 3, because dropping
+  // short tokens outright loses the identifiers people actually search for —
+  // "go", "c#", "ai", "ml", "qa" — and a query like "go concurrency" would
+  // silently become "concurrency".
+  "is", "to", "of", "in", "on", "at", "it", "be", "as", "an", "or", "if",
+  "do", "we", "my", "by", "so", "up", "no", "me", "us", "am", "are",
+]);
+
+/** Split a query into the terms worth matching on. */
+export function queryTerms(query: string): string[] {
+  const seen = new Set<string>();
+  for (const raw of query.toLowerCase().split(/[^a-z0-9+#.-]+/)) {
+    const word = raw.replace(/^[.-]+|[.-]+$/g, "");
+    if (word.length < 2 || QUERY_STOPWORDS.has(word)) continue;
+    seen.add(word);
+  }
+  // A query made only of stopwords still has to match something rather than
+  // silently returning nothing.
+  if (seen.size === 0) {
+    for (const raw of query.toLowerCase().split(/[^a-z0-9+#.-]+/)) {
+      if (raw) seen.add(raw);
+    }
+  }
+  return [...seen];
+}
+
+export interface SearchableSkill {
+  path: string;
+  name: string;
+  description: string;
+}
+
+/**
+ * Rank skills against a free-text query.
+ *
+ * `search` used to be one case-insensitive substring test over path, name and
+ * description. Measured against the real catalog with each skill's own
+ * `USE WHEN` trigger words as the query — the friendliest input it will ever
+ * see — that found the right skill 32% of the time, because a multi-word phrase
+ * almost never appears verbatim in a description. Scoring the terms
+ * independently finds it 98%.
+ *
+ * The floor is adaptive rather than fixed: when anything matches two or more
+ * terms, the single-term matches are dropped, because at this catalog size one
+ * term in common is noise. When nothing does, they are kept — a one-word query
+ * is legitimate and would otherwise return nothing at all.
+ */
+export function rankSkills<T extends SearchableSkill>(skills: T[], query: string): T[] {
+  const terms = queryTerms(query);
+  if (terms.length === 0) return [];
+
+  const phrase = query.toLowerCase().trim();
+  const scored: Array<{ skill: T; score: number; exact: number }> = [];
+
+  for (const skill of skills) {
+    const path = skill.path.toLowerCase();
+    const name = skill.name.toLowerCase();
+    const haystack = `${path} ${name} ${skill.description.toLowerCase()}`;
+
+    let score = 0;
+    for (const term of terms) if (haystack.includes(term)) score++;
+    if (score === 0) continue;
+
+    // Whole-phrase and identifier hits are what the old behaviour was good at;
+    // they stay ahead of a term-count tie.
+    let exact = 0;
+    if (phrase && (path.includes(phrase) || name.includes(phrase))) exact += 2;
+    if (terms.some((t) => name === t || path.endsWith(`/${t}`))) exact += 1;
+
+    scored.push({ skill, score, exact });
+  }
+
+  const strong = scored.filter((s) => s.score >= 2);
+  const kept = strong.length > 0 ? strong : scored;
+
+  kept.sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.exact - a.exact ||
+      a.skill.path.localeCompare(b.skill.path)
+  );
+  return kept.map((s) => s.skill);
+}

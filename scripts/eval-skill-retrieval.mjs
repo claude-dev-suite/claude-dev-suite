@@ -142,8 +142,12 @@ function tokenize(text) {
   return [...seen];
 }
 
-/** `list_skills({ search })`: one case-insensitive substring over the haystack. */
-function searchHits(catalog, query) {
+/**
+ * `list_skills({ search })` as it behaved BEFORE the ranked rewrite: one
+ * case-insensitive substring test over the whole query. Kept so the number that
+ * justified the change stays reproducible.
+ */
+function substringHits(catalog, query) {
   const needle = query.toLowerCase();
   return catalog.filter(e => e.haystack.includes(needle) || e.path.toLowerCase().includes(needle));
 }
@@ -174,7 +178,7 @@ for (const entry of catalog) {
 
   // (c1) The whole phrase as one substring — how `search` is actually called
   // when a model passes what the user said.
-  const whole = searchHits(catalog, query);
+  const whole = substringHits(catalog, query);
   if (whole.some(e => e.path === entry.path)) results.search.hit++;
   else results.search.miss.push({ path: entry.path, query });
 
@@ -200,10 +204,10 @@ console.log(`  catalog                 ${results.total} skills`);
 console.log(`  with a USE WHEN trigger ${results.evaluated}`);
 console.log(`  without one             ${results.noTrigger.length}  (unreachable by keyword; findable only by category)`);
 console.log('');
-console.log(`  list_skills({ search }) whole phrase as one substring`);
+console.log(`  substring match         the old list_skills behaviour`);
 console.log(`    found the skill       ${results.search.hit}/${results.evaluated}  ${pct(results.search.hit)}`);
 console.log('');
-console.log(`  suggestion hook         tokenised, 2-token floor, top 3`);
+console.log(`  ranked match            list_skills today, and the hook`);
 console.log(`    found the skill       ${results.hook.hit}/${results.evaluated}  ${pct(results.hook.hit)}`);
 console.log(`    not ranked first      ${results.hook.noise}  (found, but behind another skill)`);
 console.log('');

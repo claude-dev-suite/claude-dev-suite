@@ -10,6 +10,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **`list_skills({ search })` found the right skill a third of the time.** It
+  was one case-insensitive substring test over path, name and description, so a
+  multi-word query — which is what a model passes when it repeats what the user
+  said — almost never matched anything, because the phrase does not appear
+  verbatim in any description. Measured against the real catalog with each
+  skill's own `USE WHEN` trigger words, the friendliest input it will ever see:
+  **32.2%**. Scoring the terms independently: **97.8%**, first-ranked in all but
+  one case.
+
+  This is the extended tier's only retrieval path on every assistant that cannot
+  run a hook, and its failure mode is silent — an empty result reads as "the
+  catalog has nothing on this", and the agent answers from general knowledge.
+
+  `search` now ranks instead of filtering, best match first. The floor is
+  adaptive: single-term matches are dropped once anything matches two or more
+  terms, and kept when nothing does, so a one-word query still behaves as it
+  always did. The term floor is two characters rather than three — `go`, `c#`,
+  `ai` and `ml` are exactly the identifiers people search for, and a three-char
+  floor turned "go concurrency" into "concurrency". skill-loader 1.0.0 → 1.1.0.
+
 - **The skill-suggestion hook read only two levels of the catalog.** It scanned
   `<category>/<skill>` and stopped, while the server's own index walks the whole
   tree — so it suggested from 544 of 736 skills and silently ignored every

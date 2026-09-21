@@ -26,6 +26,7 @@ import {
   resolveQuickRefPath,
   resolveSkillPath as resolveSkillPathLib,
   resolveSkillsDir,
+  rankSkills,
 } from "./lib.js";
 import { SkillIndex, DEFAULT_INDEX_TTL_MS } from "./skill-index.js";
 import { TtlCache } from "./ttl-cache.js";
@@ -114,7 +115,7 @@ function readCached(filePath: string): string {
 const server = new Server(
   {
     name: "skill-loader",
-    version: "1.0.0",
+    version: "1.1.0",
   },
   {
     capabilities: {
@@ -145,7 +146,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             search: {
               type: "string",
               description:
-                "Case-insensitive substring search across skill name, path, and description.",
+                "Free-text search over name, path and description. Terms score independently; best matches first.",
             },
             verbose: {
               type: "boolean",
@@ -221,8 +222,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const category =
         typeof args?.category === "string" ? args.category : undefined;
       const search =
-        typeof args?.search === "string"
-          ? args.search.toLowerCase()
+        typeof args?.search === "string" && args.search.trim() !== ""
+          ? args.search
           : undefined;
       const verbose = args?.verbose === true;
       const groupByCategory = args?.groupByCategory === true;
@@ -240,12 +241,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       if (search) {
-        entries = entries.filter(
-          (e) =>
-            e.path.toLowerCase().includes(search) ||
-            e.name.toLowerCase().includes(search) ||
-            e.description.toLowerCase().includes(search)
-        );
+        // Ranked, not filtered. A single substring test over the whole query
+        // found the right skill 32% of the time when handed the skill's own
+        // trigger words (scripts/eval-skill-retrieval.mjs); scoring the terms
+        // independently finds it 98%. Results come back best-first, so `limit`
+        // now truncates the tail rather than an arbitrary slice.
+        entries = rankSkills(entries, search);
       }
 
       const total = entries.length;

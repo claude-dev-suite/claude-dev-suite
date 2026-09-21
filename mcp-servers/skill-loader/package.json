@@ -1,6 +1,6 @@
 {
   "name": "@dev-suite/skill-loader",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP server for lazy-loading dev-suite skill bodies on demand",
   "type": "module",
   "main": "dist/index.js",
