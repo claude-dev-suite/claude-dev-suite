@@ -36,7 +36,7 @@
     "electron-updater": "^6.8.3",
     "express-rate-limit": "^8.4.1",
     "helmet": "^8.3.0",
-    "react": "^19.2.4",
+    "react": "^19.3.0",
     "react-dom": "^19.2.8",
     "shiki": "^4.4.3",
     "zustand": "^5.0.15"
@@ -47,7 +47,7 @@
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
-    "@types/react": "^19.2.14",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.0",
     "@vitest/coverage-v8": "^5.0.0",
