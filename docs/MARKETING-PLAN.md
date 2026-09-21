@@ -412,10 +412,16 @@ visita → star è bassa e non esisteva nessun punto d'ingresso per i contributo
 | `metrics.yml` | lunedì 06:30 UTC | Salva views/clone/referrer in `docs/metrics/`, che l'API cancella dopo 14 giorni |
 | `contributor-queue.yml` | ogni giorno 07:00 UTC | Riapre la coda good-first-issue quando scende sotto 5; segnala le PR esterne ferme da 48h |
 | `claim.yml` | commento `/claim` | Assegna l'issue o la etichetta `claimed` |
-| `release-checklist.yml` | push di un tag stabile | Apre la issue di promozione con l'ordine dei canali |
 
 Nessuna di queste pubblica nulla all'esterno: i post restano un'azione umana, per scelta e
 perché HN e Reddit vietano l'automazione.
+
+C'era anche `release-checklist.yml`, che apriva una issue di promozione a ogni tag stabile.
+Rimosso il 21 settembre 2026. Ne aveva aperte tre — v1.16.0, v1.16.1, v1.17.0 — tutte
+identiche e nessuna mai chiusa, perché il promemoria non era la parte mancante: la copy
+esisteva già in `docs/release-promo/`, e ciò che non c'era era il momento di pubblicarla.
+Un robot che ricorda una cosa che sai già è rumore, e tre issue aperte sullo stesso lavoro
+somigliano a un backlog senza esserlo.
 
 ### 18-19 settembre 2026 — l'analisi che ha ribaltato le priorità
 

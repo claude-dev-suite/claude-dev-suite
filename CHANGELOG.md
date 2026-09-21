@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- **`release-checklist.yml`**, which opened a promotion checklist issue on every
+  stable tag. It had produced three — v1.16.0, v1.16.1, v1.17.0 — all identical,
+  none ever closed. The reminder was never the missing part: the copy already
+  exists under `docs/release-promo/`. Three open issues for one piece of work
+  look like a backlog without being one.
+
 ## [1.17.0] - 2026-09-21
 
 ### Fixed
