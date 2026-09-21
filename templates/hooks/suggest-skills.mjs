@@ -138,32 +138,41 @@ function readSkillHeader(file) {
 function loadCatalog(projectDir) {
   const root = path.join(projectDir, '.mcp-servers', 'skill-loader', 'skills');
   const entries = [];
-  let categories;
-  try {
-    categories = fs.readdirSync(root, { withFileTypes: true });
-  } catch {
-    return entries;
-  }
 
-  for (const category of categories) {
-    if (!category.isDirectory()) continue;
-    let skills;
+  // Walk, do not assume two levels. A quarter of the catalog is nested deeper
+  // than `<category>/<skill>` — every bitcoin skill lives under
+  // `bitcoin/<area>/<skill>` — and the server's own index walks the whole tree,
+  // so a two-level scan quietly suggests from 74% of what `load_skill` can
+  // actually serve.
+  const walk = (dir, rel, depth) => {
+    if (depth > 4) return;
+    let children;
     try {
-      skills = fs.readdirSync(path.join(root, category.name), { withFileTypes: true });
+      children = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
-      continue;
+      return;
     }
-    for (const skill of skills) {
-      if (!skill.isDirectory()) continue;
-      const file = path.join(root, category.name, skill.name, 'SKILL.md');
-      const header = readSkillHeader(file);
-      if (!header) continue;
+
+    const header = children.some(c => c.isFile() && c.name === 'SKILL.md')
+      ? readSkillHeader(path.join(dir, 'SKILL.md'))
+      : null;
+
+    if (header && rel) {
       entries.push({
-        path: `${category.name}/${skill.name}`,
-        haystack: `${category.name} ${skill.name} ${header.name} ${header.description}`.toLowerCase(),
+        path: rel,
+        haystack: `${rel.split('/').join(' ')} ${header.name} ${header.description}`.toLowerCase(),
       });
+      // A skill directory is a leaf; anything below it is quick-ref material.
+      return;
     }
-  }
+
+    for (const child of children) {
+      if (!child.isDirectory()) continue;
+      walk(path.join(dir, child.name), rel ? `${rel}/${child.name}` : child.name, depth + 1);
+    }
+  };
+
+  walk(root, '', 0);
   return entries;
 }
 
@@ -185,7 +194,7 @@ function preloadedFlatNames(projectDir) {
 function rank(catalog, tokens, preloaded) {
   const scored = [];
   for (const entry of catalog) {
-    if (preloaded.has(entry.path.replace('/', '-'))) continue;
+    if (preloaded.has(entry.path.split('/').join('-'))) continue;
     let score = 0;
     for (const token of tokens) {
       if (entry.haystack.includes(token)) score++;

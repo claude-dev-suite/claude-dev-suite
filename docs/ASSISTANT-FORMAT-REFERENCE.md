@@ -292,6 +292,21 @@ Sources: <https://code.claude.com/docs/en/memory>, `/skills`, `/sub-agents`, `/m
   *"custom commands have been merged into skills"* and skills are the
   recommended path for new work. CONFIRMED
 
+- **Hook output that reaches the model**: `SubagentStart` returns
+  `hookSpecificOutput.additionalContext`, *"String added to the subagent's
+  context at the start of its conversation, before its first prompt"* — it lands
+  inside the subagent, and Claude Code re-injects it only when an earlier copy is
+  gone, so the subagent's prompt cache survives. It matches on `agent_type`.
+  **But its input carries only `agent_id` and `agent_type` — never the task
+  text**, so a hook that needs to match on what was asked cannot do it here.
+  `PreToolUse` (matcher `Task`) does see the task text and returns
+  `additionalContext` plus `updatedInput`; its context lands in the *caller*.
+  The two are complementary, not alternatives: whichever one has the text does
+  not land in the subagent, and the one that lands in the subagent has no text.
+  `UserPromptSubmit` returns `additionalContext` nested under
+  `hookSpecificOutput` — placed at the top level it is silently ignored.
+  CONFIRMED
+
 ### 3.1.1 Claude Code — plugin distribution
 
 Sources: <https://code.claude.com/docs/en/plugins>,
@@ -406,6 +421,11 @@ Sources: <https://docs.github.com/en/copilot/reference/custom-agents-configurati
   `http`, `prompt` (sessionStart only). Other keys: `disableAllHooks`, `cwd`,
   `env`, `timeoutSec`, `matcher`. **CLI and cloud agent only — not VS Code**
   project-level. CONFIRMED
+- **Hook output that reaches the model**: `subagentStart` returns
+  `additionalContext`, *"prepended to the subagent's prompt"* — it lands inside
+  the subagent, not beside it. `postToolUse` / `postToolUseFailure` /
+  `notification` also take `additionalContext`; `preToolUse` substitutes tool
+  arguments with `modifiedArgs`. `userPromptSubmitted` takes neither. CONFIRMED
 
 ### 3.3 Cursor
 
@@ -447,6 +467,11 @@ Sources: <https://cursor.com/docs/rules>, `/subagents`, `/mcp`, `/skills`, `/hoo
   documented. CONFIRMED
 - **Hooks**: `.cursor/hooks.json`, requires a `version` key, 21 camelCase events
   (`beforeShellExecution`, `afterFileEdit`, `preToolUse`, …), optional `matcher`. CONFIRMED
+- **Hook output that reaches the model**: field names are **snake_case**, unlike
+  every other surface here. `preToolUse` returns `updated_input` (modified tool
+  parameters); `postToolUse`, `postToolUseFailure` and `sessionStart` return
+  `additional_context`. `subagentStart` exists but takes only `permission` /
+  `user_message` — no context injection at subagent start. CONFIRMED
 - **Permissions**: `.cursor/cli.json` with `permissions.allow`/`deny`; global
   counterpart has a **different filename**, `~/.cursor/cli-config.json`. Rule
   syntax `Shell(git)`, `Read(src/**/*.ts)`, `Mcp(server:tool)`; deny beats allow. CONFIRMED
@@ -489,11 +514,18 @@ Sources: <https://learn.chatgpt.com/docs/agent-configuration/agents-md>,
 - **Commands**: `~/.codex/prompts/*.md`, top-level files only, **user-level only —
   never project-level**, so not shareable via a repo. Officially deprecated in
   favour of skills and reported broken from CLI ≥ 0.117.0. **Do not emit.** CONFIRMED
-- **Hooks**: `hooks.json` in the config folder or `[hooks]` in `config.toml`.
-  Sits behind a feature flag in source. Events `preToolUse`, `permissionRequest`,
-  `postToolUse`, `preCompact`, `postCompact`, `sessionStart`, `sessionEnd`,
-  `userPromptSubmit`, `subagentStart`, `subagentStop`, `stop` — wire enum is
-  camelCase while config matchers use PascalCase. PLAUSIBLE (treat as opt-in)
+- **Hooks**: `<repo>/.codex/hooks.json` or `[hooks]` in `<repo>/.codex/config.toml`
+  (also `~/.codex/`, and plugin-bundled `hooks/hooks.json`). Events `SessionStart`,
+  `SessionEnd`, `SubagentStart`, `SubagentStop`, `PreToolUse`, `PostToolUse`,
+  `PermissionRequest`, `PreCompact`, `PostCompact`, `UserPromptSubmit`, `Stop`,
+  `Interrupt` — wire enum is camelCase while config matchers use PascalCase.
+  **Enabled by default**; disable with `[features] hooks = false`. CONFIRMED
+  (supersedes the earlier "feature-flagged, treat as opt-in" reading)
+- **Hook output that reaches the model**: `SubagentStart` returns
+  `hookSpecificOutput.additionalContext`, *"added as extra developer context for
+  the subagent"*; `UserPromptSubmit` returns the same shape for the main turn.
+  `PreToolUse` substitutes arguments with `updatedInput`. No hook can rewrite a
+  subagent's prompt directly — only add context beside it. CONFIRMED
 
 ### 3.5 Google Gemini CLI
 
@@ -537,6 +569,13 @@ Sources: `google-gemini/gemini-cli` `docs/cli/gemini-md.md`, `docs/tools/mcp-ser
   `PreCompress`, `Notification`. `type` accepts only `"command"`. `timeout` in ms,
   default 60000. **Hooks must emit only JSON on stdout** — a stray `echo` breaks
   parsing and silently degrades to "Allow". CONFIRMED
+- **Hook output that reaches the model**: `BeforeAgent` returns
+  `hookSpecificOutput.additionalContext`, *"appended to the prompt for this turn
+  only"* — the closest analogue to Claude Code's `UserPromptSubmit`. `AfterTool`
+  appends to the tool result, `SessionStart` injects a first turn. `BeforeTool`
+  returns `hookSpecificOutput.tool_input`, an object that *"merges with and
+  overrides the model's arguments before execution"*. There is no subagent-start
+  event. CONFIRMED
 
 ### 3.6 Devin Desktop (formerly Windsurf)
 
@@ -742,7 +781,6 @@ gracefully. Resolve one and move it into Part 3 with its source.
 | 4 | Skill/agent name-collision precedence between `.cursor/` and `.claude/` | Cursor — write skills once |
 | 5 | Whether nested `.cursor/rules/` in subfolders are honoured | Cursor rules — emit at root only |
 | 6 | Codex precedence between `.codex/skills` and `.agents/skills` | Codex skills — use `.agents/skills` |
-| 7 | Whether Codex hooks are enabled by default (feature-flagged in source) | Codex hooks — treat as opt-in |
 | 8 | Whether **Devin Desktop** (not just Devin CLI) reads `.devin/config.json` for MCP | Devin MCP writer — **blocking**, verify empirically |
 | 9 | Cline hooks path: `.clinerules/hooks/` vs `.cline/hooks/` (docs contradict) | Cline hooks — **blocking**, verify before generating |
 | 10 | Devin Desktop project-level custom agent format | Devin agents — no writer until resolved |
@@ -757,12 +795,7 @@ gracefully. Resolve one and move it into Part 3 with its source.
 | 19 | Precedence between a plugin **command** and a project `.claude/commands/` file of the same name. Skills are documented as both remaining available under separate names; commands are documented as "skills as flat Markdown files" but the collision is not stated directly | Plugin commands — assume both appear, and do not rely on either winning |
 | 20 | Whether the 256 MiB / 20,000-entry ceiling documented for a **command source** also applies to a relative-path source | Plugin size — stay well under it regardless |
 | 21 | Whether a Gemini CLI **extension** (`gemini-extension.json` + the `gemini-cli-extension` topic) can carry anything dev-suite could actually ship, given MCP bundles are not committed. The extension *gallery* is documented; the useful payload is not established | Gemini distribution — not implemented; skills already ship via `npx skills add` |
-| 22 | Whether a **Cursor** hook (`.cursor/hooks.json`, 21 camelCase events) can return context the model reads, the way Claude Code's `additionalContext` does. The events are confirmed; an output contract that reaches the model is not | Skill-suggestion hooks — Cursor gets the model-driven protocol only |
-| 23 | Whether a **Gemini CLI** hook (`BeforeAgent` / `BeforeModel` / `BeforeToolSelection`) can inject context. Gemini hooks must emit only JSON on stdout, so a channel exists; what the schema accepts is not documented | Skill-suggestion hooks — Gemini gets the model-driven protocol only |
-| 24 | Whether a **Copilot** hook (`.github/hooks/*.json`) can inject context. The `prompt` type is documented for `sessionStart` only, and `command`/`http` output handling is not stated. Note these are CLI/cloud-agent only — never VS Code | Skill-suggestion hooks — Copilot gets the model-driven protocol only |
-| 25 | Whether **Codex** `userPromptSubmit` / `subagentStart` hooks can inject context, and whether the feature flag is on by default (see #7) | Skill-suggestion hooks — Codex gets the protocol inline in AGENTS.md instead |
-| 26 | Whether a **Cline** hook script can inject context, on top of the unresolved path in #9. Moot for skills while Cline has no committable MCP: there is no `skill-loader` to point at | Skill-suggestion hooks — not applicable to Cline |
-| 27 | Whether Claude Code's `updatedInput` on `PreToolUse` applies to the **`Task`** tool, i.e. whether rewriting a subagent's prompt before it spawns is honoured. `additionalContext` and `updatedInput` are documented for `PreToolUse` generally; the `Task` case is not called out. `SubagentStart` exists and matches on `agent_type`, but its decision-control row was not readable | Skill-suggestion hook — verify empirically before relying on either |
+| 26 | Whether a **Cline** hook can inject context, and from which project directory (see #9). The SDK plugin docs name `before_agent_start` as the context-injection stage and a `contextModification` response field, but publish no schema and no project path; the hooks reference page defers to the SDK plugins page, which defers again | Skill-suggestion hooks — Cline keeps the model-driven protocol only. Moot for skills regardless: with no committable MCP there is no `skill-loader` to point at |
 
 ---
 

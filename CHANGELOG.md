@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **The skill-suggestion hook read only two levels of the catalog.** It scanned
+  `<category>/<skill>` and stopped, while the server's own index walks the whole
+  tree — so it suggested from 544 of 736 skills and silently ignored every
+  bitcoin skill, all of which live under `bitcoin/<area>/<name>`. A miss looked
+  exactly like "nothing matched". Found by the new retrieval eval, not by a
+  test. The preloaded-skill check had the same shape of bug: it flattened a
+  path with `replace('/', '-')`, which replaces only the first separator.
+
 - **Codex had `skill-loader` configured and no idea what it was for.** Codex
   loads no agent files (`agentsSource: 'none'`), so the `## Extended skills`
   protocol written into every installed agent body never reached it — while
@@ -26,6 +34,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   reports the gap instead of leaving it silent.
 
 ### Added
+
+- **`scripts/eval-skill-retrieval.mjs`** — measures the one step of skill
+  retrieval that can be measured without a model: whether the matcher returns
+  the right skill. It queries the real catalog with each skill's own `USE WHEN`
+  trigger words, which is the strongest case a matcher will ever face, so the
+  result is an upper bound. It exists because the reasoning for leaving the
+  matcher alone was an assumption nobody had checked — and the first run
+  contradicted it (see below).
 
 - **A hook that suggests skills when delegating** (`suggest-skills.mjs`,
   `PreToolUse` with matcher `Task`). The extended tier depends on a model
