@@ -15,7 +15,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.6.5",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.1"
   },
   "keywords": [
     "mcp",
