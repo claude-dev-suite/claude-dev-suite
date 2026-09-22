@@ -1004,7 +1004,7 @@ Control the dashboard and orchestrator from Claude Code.
 
 <!-- BEGIN GENERATED: agents-reference -->
 
-Dev-suite ships **67 agents** across **15 categories**. Claude Code routes
+Dev-suite ships **68 agents** across **15 categories**. Claude Code routes
 to them automatically from the generated `AGENTS.md`; you can also call one by name.
 
 Skill assignments are omitted here because most agents carry dozens — see
@@ -1102,6 +1102,7 @@ per-agent skill and MCP breakdown. Both files are generated from agent frontmatt
 | Agent | Model | Focus | MCP servers |
 |-------|-------|-------|-------------|
 | **data-engineering-expert** | sonnet | Python data engineering specialist | `documentation` |
+| **decision-model-expert** | sonnet | Specialist for the places where a codebase uses a language model as a classifier, judge or router rather than as a writer —… | `documentation` |
 | **rag-expert** | sonnet | Retrieval-Augmented Generation specialist | `documentation` |
 
 ### Security
