@@ -39,3 +39,13 @@ snapshot_date,path,count,uniques
 2026-09-21,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/googletest/SKILL.md",13,7
 2026-09-21,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/axum/SKILL.md",12,9
 2026-09-21,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/go-testing/SKILL.md",9,6
+2026-09-28,"/claude-dev-suite/claude-dev-suite",139,92
+2026-09-28,"/claude-dev-suite/claude-dev-suite/tree/main",34,21
+2026-09-28,"/claude-dev-suite/claude-dev-suite/tree/main/skills",31,24
+2026-09-28,"/claude-dev-suite/claude-dev-suite/pull/219",24,3
+2026-09-28,"/claude-dev-suite/claude-dev-suite/issues/223",18,2
+2026-09-28,"/claude-dev-suite/claude-dev-suite/blob/main/skills/state-management/redux-toolkit/quick-ref/rtk-query.md",18,1
+2026-09-28,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/spring-batch/SKILL.md",14,10
+2026-09-28,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/axum/SKILL.md",14,9
+2026-09-28,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/go-testing/SKILL.md",14,7
+2026-09-28,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/googletest/SKILL.md",11,5
