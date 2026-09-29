@@ -1,250 +1,80 @@
 // SPDX-License-Identifier: MIT
 /**
- * Security regression tests for code-quality MCP server (finding C2).
- *
- * These tests cover:
- * 1. Zod input validation schemas — verifying that malformed or missing
- *    arguments are rejected before reaching any tool implementation.
- * 2. Path validation helper — null bytes and relative paths are rejected.
+ * Input validation and guards, against the schemas the server really uses
+ * (the previous version re-declared copies of them, which could drift).
  */
 
 import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
-import { isAbsolute, normalize } from 'path';
+import {
+  AnalyzeComplexitySchema, AnalyzeImportGraphSchema, CheckStyleSchema, CodeMetricsSchema, DetectAntiPatternsSchema,
+  FindDeadCodeSchema, FindDuplicatesSchema, QualityGateSchema, jsonSchema,
+} from '../src/schemas.js';
+import { dispatch } from '../src/dispatch.js';
+import { validateGitRef } from '../src/core/git.js';
+import { resolveScope } from '../src/core/files.js';
+import { redact } from '../src/core/report.js';
 
-// ── Re-declare the schemas (matches src/index.ts exactly) ────────────────────
-
-const AnalyzeComplexitySchema = z.object({
-  path: z.string().min(1),
-  threshold: z.number().optional(),
-  includeAll: z.boolean().optional(),
-});
-
-const FindDuplicatesSchema = z.object({
-  path: z.string().min(1),
-  minLines: z.number().optional(),
-  minTokens: z.number().optional(),
-});
-
-const CheckStyleSchema = z.object({
-  path: z.string().min(1),
-  fix: z.boolean().optional(),
-  rules: z.array(z.string()).optional(),
-});
-
-const AntiPatternTypeSchema = z.enum([
-  'god-class', 'long-method', 'deep-nesting', 'excessive-parameters',
-  'magic-numbers', 'empty-catch', 'duplicate-code', 'feature-envy',
-  'data-clump', 'primitive-obsession',
-]);
-
-const DetectAntiPatternsSchema = z.object({
-  path: z.string().min(1),
-  patterns: z.array(AntiPatternTypeSchema).optional(),
-  thresholds: z.object({
-    maxCyclomaticComplexity: z.number().optional(),
-    maxCognitiveComplexity: z.number().optional(),
-    maxFunctionLines: z.number().optional(),
-    maxClassLines: z.number().optional(),
-    maxNestingDepth: z.number().optional(),
-    maxParameters: z.number().optional(),
-    maxFileLines: z.number().optional(),
-  }).optional(),
-});
-
-const FindDeadCodeSchema = z.object({
-  path: z.string().min(1),
-  includeTests: z.boolean().optional(),
-  confidence: z.enum(['high', 'medium', 'low']).optional(),
-});
-
-const AnalyzeImportGraphSchema = z.object({
-  path: z.string().min(1),
-  maxDepth: z.number().optional(),
-  excludeNodeModules: z.boolean().optional(),
-});
-
-const CodeMetricsSchema = z.object({
-  path: z.string().min(1),
-  sortBy: z.enum(['loc', 'complexity', 'functions']).optional(),
-  limit: z.number().optional(),
-});
-
-// ── Path validation helper (matches analyzers/*.ts) ────────────────────────
-
-function validateFilePath(filePath: string): void {
-  if (filePath.includes('\0')) {
-    throw new Error('Invalid file path: contains null byte');
-  }
-  if (!isAbsolute(normalize(filePath))) {
-    throw new Error('File path must be absolute');
-  }
-}
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
-describe('Zod input validation — analyze_complexity', () => {
-  it('accepts a valid absolute path', () => {
-    const r = AnalyzeComplexitySchema.safeParse({ path: '/src/foo.ts' });
-    expect(r.success).toBe(true);
+describe('schemas', () => {
+  it('accept the historical argument shapes agents already send', () => {
+    expect(AnalyzeComplexitySchema.safeParse({ path: '/src', threshold: 15, includeAll: true }).success).toBe(true);
+    expect(FindDuplicatesSchema.safeParse({ path: '/src', minLines: 6, minTokens: 50 }).success).toBe(true);
+    expect(CheckStyleSchema.safeParse({ path: '/src', fix: false, rules: ['no-console'] }).success).toBe(true);
+    expect(DetectAntiPatternsSchema.safeParse({ path: '/src', patterns: ['god-class', 'long-method'], thresholds: { maxCyclomaticComplexity: 10, maxNestingDepth: 4 } }).success).toBe(true);
+    expect(FindDeadCodeSchema.safeParse({ path: '/src', includeTests: true, confidence: 'high' }).success).toBe(true);
+    expect(AnalyzeImportGraphSchema.safeParse({ path: '/p', maxDepth: 5, excludeNodeModules: true }).success).toBe(true);
+    for (const sortBy of ['loc', 'complexity', 'functions']) expect(CodeMetricsSchema.safeParse({ path: '/src', sortBy }).success).toBe(true);
   });
 
-  it('accepts optional fields', () => {
-    const r = AnalyzeComplexitySchema.safeParse({
-      path: '/src/foo.ts',
-      threshold: 15,
-      includeAll: true,
-    });
-    expect(r.success).toBe(true);
+  it('reject malformed input', () => {
+    expect(AnalyzeComplexitySchema.safeParse({ threshold: 5 }).success).toBe(false);
+    expect(AnalyzeComplexitySchema.safeParse({ path: '' }).success).toBe(false);
+    expect(AnalyzeComplexitySchema.safeParse({ path: '/src', threshold: 'high' }).success).toBe(false);
+    expect(AnalyzeComplexitySchema.safeParse({ path: '/src', bogus: 1 }).success).toBe(false);
+    expect(DetectAntiPatternsSchema.safeParse({ path: '/src', patterns: ['sql-injection'] }).success).toBe(false);
+    expect(CheckStyleSchema.safeParse({ path: '/src', linters: ['rm'] }).success).toBe(false);
+    expect(QualityGateSchema.safeParse({ path: '/src', action: 'delete' }).success).toBe(false);
   });
 
-  it('rejects missing path', () => {
-    const r = AnalyzeComplexitySchema.safeParse({ threshold: 5 });
-    expect(r.success).toBe(false);
-  });
-
-  it('rejects empty path string', () => {
-    const r = AnalyzeComplexitySchema.safeParse({ path: '' });
-    expect(r.success).toBe(false);
-  });
-
-  it('rejects non-string path', () => {
-    const r = AnalyzeComplexitySchema.safeParse({ path: 42 });
-    expect(r.success).toBe(false);
-  });
-
-  it('rejects string threshold (type coercion not allowed)', () => {
-    const r = AnalyzeComplexitySchema.safeParse({ path: '/src', threshold: 'high' });
-    expect(r.success).toBe(false);
+  it('advertise JSON Schema derived from the same definitions', () => {
+    const js = jsonSchema(CheckStyleSchema) as { type: string; required: string[]; properties: Record<string, unknown> };
+    expect(js.type).toBe('object');
+    expect(js.required).toEqual(['path']);
+    expect(Object.keys(js.properties)).toEqual(expect.arrayContaining(['path', 'fix', 'rules', 'linters', 'changedSince', 'format', 'limit']));
   });
 });
 
-describe('Zod input validation — find_duplicates', () => {
-  it('accepts valid input', () => {
-    const r = FindDuplicatesSchema.safeParse({ path: '/src', minLines: 6, minTokens: 50 });
-    expect(r.success).toBe(true);
+describe('dispatch', () => {
+  it('returns isError for invalid arguments and for thrown errors, never crashes', async () => {
+    const bad = await dispatch('analyze_complexity', AnalyzeComplexitySchema, async () => ({ data: {}, markdown: '' }), { path: 42 });
+    expect(bad.isError).toBe(true);
+    expect(bad.content[0].text).toMatch(/Invalid arguments for analyze_complexity: path/);
+    const thrown = await dispatch('analyze_complexity', AnalyzeComplexitySchema, async () => {
+      throw new Error('boom');
+    }, { path: '/x' });
+    expect(thrown).toEqual({ content: [{ type: 'text', text: 'Error: boom' }], isError: true });
   });
 
-  it('rejects missing path', () => {
-    const r = FindDuplicatesSchema.safeParse({ minLines: 6 });
-    expect(r.success).toBe(false);
-  });
-});
-
-describe('Zod input validation — check_style', () => {
-  it('accepts valid input with rules array', () => {
-    const r = CheckStyleSchema.safeParse({
-      path: '/src/app.js',
-      fix: false,
-      rules: ['no-console', 'max-line-length'],
-    });
-    expect(r.success).toBe(true);
-  });
-
-  it('rejects non-array rules', () => {
-    const r = CheckStyleSchema.safeParse({ path: '/src', rules: 'no-console' });
-    expect(r.success).toBe(false);
+  it('caps oversized output with an explicit marker', async () => {
+    const r = await dispatch('code_metrics', CodeMetricsSchema, async () => ({ data: {}, markdown: 'x'.repeat(500_000) }), { path: '/x' });
+    expect(r.content[0].text.length).toBeLessThan(401_000);
+    expect(r.content[0].text).toContain('[truncated');
   });
 });
 
-describe('Zod input validation — detect_antipatterns', () => {
-  it('accepts valid pattern list', () => {
-    const r = DetectAntiPatternsSchema.safeParse({
-      path: '/src',
-      patterns: ['god-class', 'long-method'],
-    });
-    expect(r.success).toBe(true);
+describe('guards', () => {
+  it('require absolute paths without null bytes', async () => {
+    await expect(resolveScope({ path: 'relative/dir' })).rejects.toThrow(/absolute/);
+    await expect(resolveScope({ path: '/safe/path\0attack' })).rejects.toThrow(/null byte/);
   });
 
-  it('rejects unknown pattern names', () => {
-    const r = DetectAntiPatternsSchema.safeParse({
-      path: '/src',
-      patterns: ['god-class', 'sql-injection'], // sql-injection is not in enum
-    });
-    expect(r.success).toBe(false);
+  it('refuse option-like or malformed git refs', () => {
+    for (const ok of ['main', 'origin/main', 'HEAD~3', 'v1.2.0', 'a1b2c3d', 'feature/x-y_z']) expect(() => validateGitRef(ok)).not.toThrow();
+    for (const bad of ['--upload-pack=x', '-n', 'a b', 'main;rm', 'a..b', '$(id)']) expect(() => validateGitRef(bad)).toThrow();
   });
 
-  it('accepts valid thresholds object', () => {
-    const r = DetectAntiPatternsSchema.safeParse({
-      path: '/src',
-      thresholds: { maxCyclomaticComplexity: 10, maxNestingDepth: 4 },
-    });
-    expect(r.success).toBe(true);
-  });
-
-  it('rejects string threshold values inside thresholds object', () => {
-    const r = DetectAntiPatternsSchema.safeParse({
-      path: '/src',
-      thresholds: { maxCyclomaticComplexity: 'high' }, // should be number
-    });
-    expect(r.success).toBe(false);
-  });
-});
-
-describe('Zod input validation — find_dead_code', () => {
-  it('accepts valid confidence level', () => {
-    const r = FindDeadCodeSchema.safeParse({ path: '/src', confidence: 'high' });
-    expect(r.success).toBe(true);
-  });
-
-  it('rejects invalid confidence level', () => {
-    const r = FindDeadCodeSchema.safeParse({ path: '/src', confidence: 'ultra' });
-    expect(r.success).toBe(false);
-  });
-});
-
-describe('Zod input validation — analyze_import_graph', () => {
-  it('accepts valid input', () => {
-    const r = AnalyzeImportGraphSchema.safeParse({
-      path: '/project',
-      maxDepth: 5,
-      excludeNodeModules: true,
-    });
-    expect(r.success).toBe(true);
-  });
-
-  it('rejects missing path', () => {
-    const r = AnalyzeImportGraphSchema.safeParse({ maxDepth: 5 });
-    expect(r.success).toBe(false);
-  });
-});
-
-describe('Zod input validation — code_metrics', () => {
-  it('accepts valid sort options', () => {
-    for (const sortBy of ['loc', 'complexity', 'functions'] as const) {
-      const r = CodeMetricsSchema.safeParse({ path: '/src', sortBy });
-      expect(r.success).toBe(true);
-    }
-  });
-
-  it('rejects invalid sortBy value', () => {
-    const r = CodeMetricsSchema.safeParse({ path: '/src', sortBy: 'name' });
-    expect(r.success).toBe(false);
-  });
-});
-
-describe('Path validation helper (null bytes and relative paths)', () => {
-  it('throws on null byte in path', () => {
-    expect(() => validateFilePath('/safe/path\0attack')).toThrow(/null byte/);
-  });
-
-  it('throws on relative path', () => {
-    expect(() => validateFilePath('relative/path/file.ts')).toThrow(/absolute/);
-  });
-
-  it('throws on path traversal that resolves to relative', () => {
-    // normalize('../../etc/passwd') = '../../etc/passwd' — not absolute
-    expect(() => validateFilePath('../../etc/passwd')).toThrow(/absolute/);
-  });
-
-  it('accepts a well-formed absolute path', () => {
-    // Should not throw
-    expect(() => validateFilePath('/usr/src/project/file.ts')).not.toThrow();
-  });
-
-  it.runIf(process.platform === 'win32')('accepts a Windows absolute path', () => {
-    // path.isAbsolute() only recognises drive-letter paths on Windows,
-    // so this assertion is meaningful (and true) only there
-    expect(() => validateFilePath('C:\\Users\\project\\file.ts')).not.toThrow();
+  it('redact credentials from tool output', () => {
+    expect(redact('postgres://admin:s3cret@db:5432/x')).toBe('postgres://admin:***@db:5432/x');
+    expect(redact('token=abcdef123456')).toBe('token=***');
+    expect(redact('using ghp_0123456789abcdefghijABCDEFGHIJ')).toBe('using ***');
   });
 });

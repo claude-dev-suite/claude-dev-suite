@@ -1,192 +1,62 @@
 // SPDX-License-Identifier: MIT
 /**
- * Tool: find_dead_code
- * Finds unused exports, functions, and variables
+ * find_dead_code — unused files, exports, dependencies, imports and private
+ * functions, built on the resolved import graph.
  */
 
-import { promises as fs } from 'fs';
-import { glob } from 'glob';
-import * as path from 'path';
-import type { DeadCodeItem, DeadCodeResult, FindDeadCodeInput } from '../types.js';
-import { getAnalyzerForFile, isFileSupported, getSupportedExtensions } from '../analyzers/index.js';
+import { isChanged, type ScopeOptions } from '../core/files.js';
+import { isTestFile } from '../core/paths.js';
+import { bound, mdTable, notesSection, truncatedLine, type ToolResult } from '../core/report.js';
+import { runParse } from '../analysis/pipeline.js';
+import { buildGraph } from '../analysis/graph.js';
+import { analyzeDeadCode, type Confidence, type DeadItem, type DeadKind } from '../analysis/deadcode.js';
 
-export interface DeadCodeReport {
-  items: DeadCodeItem[];
-  byType: DeadCodeResult['byType'];
-  byConfidence: {
-    high: DeadCodeItem[];
-    medium: DeadCodeItem[];
-    low: DeadCodeItem[];
-  };
-  summary: {
-    totalFiles: number;
-    totalUnused: number;
-    estimatedDeadLines: number;
-  };
+export interface DeadCodeInput extends ScopeOptions {
+  confidence?: Confidence;
+  entries?: string[];
+  kinds?: DeadKind[];
+  limit?: number;
 }
 
-/**
- * Find dead code in a path (file or directory)
- */
-export async function findDeadCode(input: FindDeadCodeInput): Promise<DeadCodeReport> {
-  const { path: targetPath, includeTests = false, confidence = 'medium' } = input;
+const RANK: Record<Confidence, number> = { high: 3, medium: 2, low: 1 };
 
-  const stats = await fs.stat(targetPath);
-  const files: Map<string, string> = new Map();
-
-  // Determine ignore patterns
-  const ignorePatterns = ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**', '**/target/**', '**/vendor/**'];
-  if (!includeTests) {
-    ignorePatterns.push('**/*.test.*', '**/*.spec.*', '**/__tests__/**', '**/tests/**', '**/test/**');
-  }
-
-  if (stats.isDirectory()) {
-    const patterns = ['**/*.ts', '**/*.js', '**/*.tsx', '**/*.jsx', '**/*.py', '**/*.java', '**/*.go', '**/*.rs'];
-    for (const pattern of patterns) {
-      const matches = await glob(pattern, {
-        cwd: targetPath,
-        ignore: ignorePatterns,
-        absolute: true
-      });
-
-      for (const filePath of matches) {
-        try {
-          const content = await fs.readFile(filePath, 'utf-8');
-          files.set(filePath, content);
-        } catch {
-          // Skip unreadable files
-        }
-      }
-    }
-  } else if (isFileSupported(targetPath)) {
-    const content = await fs.readFile(targetPath, 'utf-8');
-    files.set(path.resolve(targetPath), content);
-  }
-
-  // Analyze each file for dead code
-  const allItems: DeadCodeItem[] = [];
-
-  // Group files by language for better analysis
-  const filesByLang: Map<string, Map<string, string>> = new Map();
-
-  for (const [filePath, content] of files) {
-    const analyzer = getAnalyzerForFile(filePath);
-    if (analyzer) {
-      const lang = analyzer.language;
-      if (!filesByLang.has(lang)) {
-        filesByLang.set(lang, new Map());
-      }
-      filesByLang.get(lang)!.set(filePath, content);
-    }
-  }
-
-  // Run dead code detection per language
-  for (const [lang, langFiles] of filesByLang) {
-    const analyzer = getAnalyzerForFile([...langFiles.keys()][0]);
-    if (analyzer) {
-      const items = analyzer.findDeadCode(langFiles);
-      allItems.push(...items);
-    }
-  }
-
-  // Filter by confidence level
-  const confidenceOrder = { high: 3, medium: 2, low: 1 };
-  const minConfidence = confidenceOrder[confidence];
-  const filteredItems = allItems.filter(item =>
-    confidenceOrder[item.confidence] >= minConfidence
+export async function collectDeadCode(input: DeadCodeInput): Promise<{ items: DeadItem[]; root: string; notes: string[]; files: number }> {
+  // Tests always take part as consumers; `includeTests` only controls reporting inside them.
+  const run = await runParse({ ...input, includeTests: true }, { magicNumbers: false, modules: true, identifiers: true, onlyChanged: false });
+  const g = buildGraph(run.parsed, run.scope.root);
+  const { items, notes } = analyzeDeadCode(g, run.scope.root, { entries: input.entries });
+  const min = RANK[input.confidence ?? 'medium'];
+  const changedRel = new Set(run.parsed.filter((p) => isChanged(run.scope, p.file.abs)).map((p) => p.file.rel));
+  const kinds = input.kinds?.length ? new Set(input.kinds) : null;
+  const filtered = items.filter(
+    (i) =>
+      RANK[i.confidence] >= min &&
+      (!kinds || kinds.has(i.kind)) &&
+      (input.includeTests || !isTestFile(i.file)) &&
+      (run.scope.changed === null || changedRel.has(i.file) || i.kind === 'dependency')
   );
-
-  // Build reports
-  const byType: DeadCodeResult['byType'] = {};
-  for (const item of filteredItems) {
-    byType[item.type] = (byType[item.type] || 0) + 1;
-  }
-
-  const byConfidence = {
-    high: filteredItems.filter(i => i.confidence === 'high'),
-    medium: filteredItems.filter(i => i.confidence === 'medium'),
-    low: filteredItems.filter(i => i.confidence === 'low')
-  };
-
-  // Estimate dead lines (rough estimate based on average function size)
-  const estimatedDeadLines = filteredItems.reduce((sum, item) => {
-    switch (item.type) {
-      case 'function': return sum + 15;
-      case 'class': return sum + 50;
-      case 'variable': return sum + 2;
-      case 'export': return sum + 5;
-      case 'import': return sum + 1;
-      case 'type': return sum + 3;
-      default: return sum + 5;
-    }
-  }, 0);
-
-  return {
-    items: filteredItems,
-    byType,
-    byConfidence,
-    summary: {
-      totalFiles: files.size,
-      totalUnused: filteredItems.length,
-      estimatedDeadLines
-    }
-  };
+  const order: Record<Confidence, number> = { high: 0, medium: 1, low: 2 };
+  filtered.sort((a, b) => order[a.confidence] - order[b.confidence] || a.kind.localeCompare(b.kind) || a.file.localeCompare(b.file) || a.line - b.line);
+  return { items: filtered, root: run.scope.root, notes: [...run.notes, ...notes], files: run.parsed.length };
 }
 
-/**
- * Format dead code report as text
- */
-export function formatDeadCodeReport(report: DeadCodeReport): string {
-  const lines: string[] = [];
-
-  lines.push('# Dead Code Analysis Report\n');
-
-  lines.push('## Summary');
-  lines.push(`- Files analyzed: ${report.summary.totalFiles}`);
-  lines.push(`- Unused items found: ${report.summary.totalUnused}`);
-  lines.push(`- Estimated dead lines: ~${report.summary.estimatedDeadLines}`);
-  lines.push('');
-
-  lines.push('## By Type');
-  lines.push('');
-  lines.push('| Type | Count |');
-  lines.push('|------|-------|');
-  for (const [type, count] of Object.entries(report.byType)) {
-    lines.push(`| ${type} | ${count} |`);
+export async function findDeadCode(input: DeadCodeInput): Promise<ToolResult> {
+  const limit = input.limit ?? 100;
+  const { items, root, notes, files } = await collectDeadCode(input);
+  const byKind: Record<string, number> = {};
+  for (const i of items) byKind[i.kind] = (byKind[i.kind] ?? 0) + 1;
+  const b = bound(items, limit);
+  const data = { root, summary: { files, total: items.length, byKind, minConfidence: input.confidence ?? 'medium' }, items: b.items, truncated: b.truncated, notes };
+  const md: string[] = ['# Dead code report', '', `Root: \`${root}\``, ''];
+  md.push(`- Files analysed: ${files} · findings: **${items.length}** (confidence ≥ ${input.confidence ?? 'medium'})`);
+  if (items.length) {
+    md.push('', mdTable(['Kind', 'Count'], Object.entries(byKind)), '');
+    md.push(mdTable(['Confidence', 'Kind', 'Name', 'Location', 'Why'], b.items.map((i) => [i.confidence, i.kind, i.name, `${i.file}:${i.line}`, i.reason])));
+    md.push(truncatedLine(b, 'findings'));
+  } else {
+    md.push('', 'No unused code found at this confidence level.');
   }
-  lines.push('');
-
-  lines.push('## By Confidence');
-  lines.push(`- 🔴 High confidence: ${report.byConfidence.high.length}`);
-  lines.push(`- 🟡 Medium confidence: ${report.byConfidence.medium.length}`);
-  lines.push(`- 🔵 Low confidence: ${report.byConfidence.low.length}`);
-  lines.push('');
-
-  if (report.byConfidence.high.length > 0) {
-    lines.push('## High Confidence (Likely Unused)\n');
-    for (const item of report.byConfidence.high) {
-      lines.push(`- **${item.type}** \`${item.name}\` at ${path.basename(item.file)}:${item.line}`);
-    }
-    lines.push('');
-  }
-
-  if (report.byConfidence.medium.length > 0) {
-    lines.push('## Medium Confidence (Possibly Unused)\n');
-    for (const item of report.byConfidence.medium.slice(0, 30)) {
-      lines.push(`- ${item.type} \`${item.name}\` at ${path.basename(item.file)}:${item.line}`);
-    }
-    if (report.byConfidence.medium.length > 30) {
-      lines.push(`- ... and ${report.byConfidence.medium.length - 30} more`);
-    }
-    lines.push('');
-  }
-
-  lines.push('## Recommendations');
-  lines.push('');
-  lines.push('1. Review high-confidence items first - these are likely safe to remove');
-  lines.push('2. Check medium-confidence items manually - they may be used dynamically');
-  lines.push('3. Consider using a tool like `ts-prune` or `knip` for more accurate detection');
-  lines.push('4. Remember that test files may have different usage patterns');
-
-  return lines.join('\n');
+  md.push('', '_Dynamic access (reflection, string-based imports, framework conventions) is invisible to static analysis — verify before deleting._');
+  md.push(notesSection(notes));
+  return { data, markdown: md.join('\n') };
 }
