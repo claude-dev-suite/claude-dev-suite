@@ -1,0 +1,188 @@
+{
+ "auditReportVersion": 2,
+ "vulnerabilities": {
+  "lodash": {
+   "name": "lodash",
+   "severity": "high",
+   "isDirect": true,
+   "via": [
+    {
+     "source": 1106913,
+     "name": "lodash",
+     "dependency": "lodash",
+     "title": "Command Injection in lodash",
+     "url": "https://github.com/advisories/GHSA-35jh-r3h4-6jhm",
+     "severity": "high",
+     "cwe": [
+      "CWE-77",
+      "CWE-94"
+     ],
+     "cvss": {
+      "score": 7.2,
+      "vectorString": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H"
+     },
+     "range": "<4.17.21"
+    },
+    {
+     "source": 1106920,
+     "name": "lodash",
+     "dependency": "lodash",
+     "title": "Prototype Pollution in lodash",
+     "url": "https://github.com/advisories/GHSA-p6mc-m468-83gw",
+     "severity": "high",
+     "cwe": [
+      "CWE-770",
+      "CWE-1321"
+     ],
+     "cvss": {
+      "score": 7.4,
+      "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H"
+     },
+     "range": ">=3.7.0 <4.17.19"
+    },
+    {
+     "source": 1108258,
+     "name": "lodash",
+     "dependency": "lodash",
+     "title": "Regular Expression Denial of Service (ReDoS) in lodash",
+     "url": "https://github.com/advisories/GHSA-29mw-wpgm-hmr9",
+     "severity": "moderate",
+     "cwe": [
+      "CWE-400",
+      "CWE-1333"
+     ],
+     "cvss": {
+      "score": 5.3,
+      "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+     },
+     "range": ">=4.0.0 <4.17.21"
+    },
+    {
+     "source": 1115806,
+     "name": "lodash",
+     "dependency": "lodash",
+     "title": "lodash vulnerable to Code Injection via `_.template` imports key names",
+     "url": "https://github.com/advisories/GHSA-r5fr-rjxr-66jc",
+     "severity": "high",
+     "cwe": [
+      "CWE-94"
+     ],
+     "cvss": {
+      "score": 8.1,
+      "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+     },
+     "range": ">=4.0.0 <=4.17.23"
+    },
+    {
+     "source": 1115810,
+     "name": "lodash",
+     "dependency": "lodash",
+     "title": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+     "url": "https://github.com/advisories/GHSA-f23m-r3pf-42rh",
+     "severity": "moderate",
+     "cwe": [
+      "CWE-1321"
+     ],
+     "cvss": {
+      "score": 6.5,
+      "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L"
+     },
+     "range": "<=4.17.23"
+    },
+    {
+     "source": 1120370,
+     "name": "lodash",
+     "dependency": "lodash",
+     "title": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+     "url": "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg",
+     "severity": "moderate",
+     "cwe": [
+      "CWE-1321"
+     ],
+     "cvss": {
+      "score": 6.5,
+      "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L"
+     },
+     "range": ">=4.0.0 <=4.17.22"
+    }
+   ],
+   "effects": [],
+   "range": "<=4.17.23",
+   "nodes": [
+    "node_modules/lodash"
+   ],
+   "fixAvailable": {
+    "name": "lodash",
+    "version": "4.18.1",
+    "isSemVerMajor": false
+   }
+  },
+  "minimist": {
+   "name": "minimist",
+   "severity": "critical",
+   "isDirect": true,
+   "via": [
+    {
+     "source": 1096465,
+     "name": "minimist",
+     "dependency": "minimist",
+     "title": "Prototype Pollution in minimist",
+     "url": "https://github.com/advisories/GHSA-vh95-rmgr-6w4m",
+     "severity": "moderate",
+     "cwe": [
+      "CWE-1321"
+     ],
+     "cvss": {
+      "score": 5.6,
+      "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L"
+     },
+     "range": ">=1.0.0 <1.2.3"
+    },
+    {
+     "source": 1097678,
+     "name": "minimist",
+     "dependency": "minimist",
+     "title": "Prototype Pollution in minimist",
+     "url": "https://github.com/advisories/GHSA-xvch-5gv4-984h",
+     "severity": "critical",
+     "cwe": [
+      "CWE-1321"
+     ],
+     "cvss": {
+      "score": 9.8,
+      "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+     },
+     "range": ">=1.0.0 <1.2.6"
+    }
+   ],
+   "effects": [],
+   "range": "1.0.0 - 1.2.5",
+   "nodes": [
+    "node_modules/minimist"
+   ],
+   "fixAvailable": {
+    "name": "minimist",
+    "version": "1.2.8",
+    "isSemVerMajor": false
+   }
+  }
+ },
+ "metadata": {
+  "vulnerabilities": {
+   "info": 0,
+   "low": 0,
+   "moderate": 0,
+   "high": 1,
+   "critical": 1,
+   "total": 2
+  },
+  "dependencies": {
+   "prod": 3,
+   "dev": 0,
+   "optional": 0,
+   "peer": 0,
+   "peerOptional": 0,
+   "total": 2
+  }
+ }
+}

@@ -1,0 +1,1489 @@
+{
+ "results": [
+  {
+   "source": {
+    "path": "/project/api/requirements.txt",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "django",
+      "version": "3.2.0",
+      "ecosystem": "PyPI"
+     },
+     "groups": [
+      {
+       "ids": [
+        "PYSEC-2021-109",
+        "GHSA-xpfp-f569-q3p2"
+       ],
+       "aliases": [
+        "BIT-django-2021-35042",
+        "CVE-2021-35042",
+        "GHSA-xpfp-f569-q3p2",
+        "PYSEC-2021-109"
+       ],
+       "max_severity": "9.8"
+      },
+      {
+       "ids": [
+        "PYSEC-2021-439",
+        "GHSA-v6rh-hp5x-86rv"
+       ],
+       "aliases": [
+        "BIT-django-2021-44420",
+        "CVE-2021-44420",
+        "GHSA-v6rh-hp5x-86rv",
+        "PYSEC-2021-439"
+       ],
+       "max_severity": "7.3"
+      }
+     ],
+     "vulnerabilities": [
+      {
+       "id": "PYSEC-2021-109",
+       "details": "Django 3.1.x before 3.1.13 and 3.2.x before 3.2.5 allows QuerySet.order_by SQL injection if order_by",
+       "aliases": [
+        "BIT-django-2021-35042",
+        "CVE-2021-35042",
+        "GHSA-xpfp-f569-q3p2"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "django",
+          "purl": "pkg:pypi/django"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "3.1"
+            },
+            {
+             "fixed": "3.1.13"
+            },
+            {
+             "introduced": "3.2"
+            },
+            {
+             "fixed": "3.2.5"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://docs.djangoproject.com/en/3.2/releases/security/"
+        },
+        {
+         "type": "WEB",
+         "url": "https://www.openwall.com/lists/oss-security/2021/07/02/2"
+        }
+       ]
+      },
+      {
+       "id": "PYSEC-2021-439",
+       "details": "In Django 2.2 before 2.2.25, 3.1 before 3.1.14, and 3.2 before 3.2.10, HTTP requests for URLs with t",
+       "aliases": [
+        "BIT-django-2021-44420",
+        "CVE-2021-44420",
+        "GHSA-v6rh-hp5x-86rv"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "django",
+          "purl": "pkg:pypi/django"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "2.2"
+            },
+            {
+             "fixed": "2.2.25"
+            },
+            {
+             "introduced": "3.1"
+            },
+            {
+             "fixed": "3.1.14"
+            },
+            {
+             "introduced": "3.2"
+            },
+            {
+             "fixed": "3.2.10"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://docs.djangoproject.com/en/3.2/releases/security/"
+        },
+        {
+         "type": "WEB",
+         "url": "https://www.openwall.com/lists/oss-security/2021/12/07/1"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-v6rh-hp5x-86rv",
+       "summary": "Potential bypass of an upstream access control based on URL paths in Django",
+       "details": "In Django 2.2 before 2.2.25, 3.1 before 3.1.14, and 3.2 before 3.2.10, HTTP requests for URLs with t",
+       "aliases": [
+        "BIT-django-2021-44420",
+        "CVE-2021-44420",
+        "PYSEC-2021-439"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "django",
+          "purl": "pkg:pypi/django"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "2.2a1"
+            },
+            {
+             "fixed": "2.2.25"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "django",
+          "purl": "pkg:pypi/django"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "3.0a1"
+            },
+            {
+             "fixed": "3.1.14"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "django",
+          "purl": "pkg:pypi/django"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "3.2a1"
+            },
+            {
+             "fixed": "3.2.10"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44420"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/django/django/commit/d4dcd5b9dd9e462fec8220e33e3e6c822b7e88a6"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L",
+         "type": "CVSS_V3"
+        },
+        {
+         "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:L/VA:L/SC:N/SI:N/SA:N",
+         "type": "CVSS_V4"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-xpfp-f569-q3p2",
+       "summary": "SQL Injection in Django",
+       "details": "Django 3.1.x before 3.1.13 and 3.2.x before 3.2.5 allows QuerySet.order_by SQL injection if order_by",
+       "aliases": [
+        "BIT-django-2021-35042",
+        "CVE-2021-35042",
+        "PYSEC-2021-109"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "django",
+          "purl": "pkg:pypi/django"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "3.2a1"
+            },
+            {
+             "fixed": "3.2.5"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "django",
+          "purl": "pkg:pypi/django"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "3.0a1"
+            },
+            {
+             "fixed": "3.1.13"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-35042"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/django/django/commit/0bd57a879a0d54920bb9038a732645fb917040e9"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+         "type": "CVSS_V3"
+        },
+        {
+         "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+         "type": "CVSS_V4"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": {
+    "path": "/project/api/requirements.txt",
+    "type": "unknown"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "idna",
+      "version": "2.7.0",
+      "ecosystem": "PyPI"
+     },
+     "groups": [
+      {
+       "ids": [
+        "PYSEC-2024-60",
+        "GHSA-jjg7-2v4v-x38h"
+       ],
+       "aliases": [
+        "CVE-2024-3651",
+        "GHSA-jjg7-2v4v-x38h",
+        "PYSEC-2024-60"
+       ],
+       "max_severity": "7.5"
+      },
+      {
+       "ids": [
+        "PYSEC-2026-215",
+        "GHSA-65pc-fj4g-8rjx"
+       ],
+       "aliases": [
+        "CVE-2026-45409",
+        "GHSA-65pc-fj4g-8rjx",
+        "PYSEC-2026-215"
+       ],
+       "max_severity": "6.9"
+      }
+     ],
+     "vulnerabilities": [
+      {
+       "id": "PYSEC-2024-60",
+       "details": "A vulnerability was identified in the kjd/idna library, specifically within the `idna.encode()` func",
+       "aliases": [
+        "CVE-2024-3651",
+        "GHSA-jjg7-2v4v-x38h"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "idna",
+          "purl": "pkg:pypi/idna"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "1d365e17e10d72d0b7876316fc7b9ca0eebdd38d"
+            }
+           ],
+           "repo": "https://github.com/kjd/idna",
+           "type": "GIT"
+          },
+          {
+           "events": [
+            {
+             "introduced": "0.1"
+            },
+            {
+             "fixed": "3.7"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "EVIDENCE",
+         "url": "https://huntr.com/bounties/93d78d07-d791-4b39-a845-cbfabc44aadb"
+        },
+        {
+         "type": "FIX",
+         "url": "https://huntr.com/bounties/93d78d07-d791-4b39-a845-cbfabc44aadb"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+         "type": "CVSS_V3"
+        }
+       ]
+      },
+      {
+       "id": "PYSEC-2026-215",
+       "details": "Internationalized Domain Names in Applications (IDNA) for Python provides support for Internationali",
+       "aliases": [
+        "CVE-2026-45409",
+        "GHSA-65pc-fj4g-8rjx"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "idna",
+          "purl": "pkg:pypi/idna"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "3.15"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://github.com/kjd/idna/security/advisories/GHSA-65pc-fj4g-8rjx"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+         "type": "CVSS_V3"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-65pc-fj4g-8rjx",
+       "summary": "Internationalized Domain Names in Applications (IDNA): Specially crafted inputs to idna.encode() can bypass CVE-2024-3651 fix",
+       "details": "This is the same issue as CVE-2024-3651, however the original remediation in 2024 was not a complete",
+       "aliases": [
+        "CVE-2026-45409",
+        "PYSEC-2026-215"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "idna",
+          "purl": "pkg:pypi/idna"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "3.15"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://github.com/kjd/idna/security/advisories/GHSA-65pc-fj4g-8rjx"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-45409"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+         "type": "CVSS_V3"
+        },
+        {
+         "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N",
+         "type": "CVSS_V4"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-jjg7-2v4v-x38h",
+       "summary": "Internationalized Domain Names in Applications (IDNA) vulnerable to denial of service from specially crafted inputs to idna.encode",
+       "details": "### Impact\nA specially crafted argument to the `idna.encode()` function could consume significant re",
+       "aliases": [
+        "CVE-2024-3651",
+        "PYSEC-2024-60"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "idna",
+          "purl": "pkg:pypi/idna"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "3.7"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://github.com/kjd/idna/security/advisories/GHSA-jjg7-2v4v-x38h"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-3651"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+         "type": "CVSS_V3"
+        },
+        {
+         "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N",
+         "type": "CVSS_V4"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": {
+    "path": "/project/php/composer.lock",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "guzzlehttp/guzzle",
+      "version": "7.4.0",
+      "ecosystem": "Packagist"
+     },
+     "groups": [
+      {
+       "ids": [
+        "GHSA-25mq-v84q-4j7r"
+       ],
+       "aliases": [
+        "CVE-2022-31090",
+        "GHSA-25mq-v84q-4j7r"
+       ],
+       "max_severity": "7.7"
+      },
+      {
+       "ids": [
+        "GHSA-94pj-82f3-465w"
+       ],
+       "aliases": [
+        "CVE-2026-67339",
+        "GHSA-94pj-82f3-465w"
+       ],
+       "max_severity": "5.3"
+      }
+     ],
+     "vulnerabilities": [
+      {
+       "id": "GHSA-25mq-v84q-4j7r",
+       "summary": "CURLOPT_HTTPAUTH option not cleared on change of origin",
+       "details": "### Impact\n\n`Authorization` headers on requests are sensitive information. When using our Curl handl",
+       "aliases": [
+        "CVE-2022-31090"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "Packagist",
+          "name": "guzzlehttp/guzzle",
+          "purl": "pkg:composer/guzzlehttp/guzzle"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "6.5.8"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "Packagist",
+          "name": "guzzlehttp/guzzle",
+          "purl": "pkg:composer/guzzlehttp/guzzle"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "7.0.0"
+            },
+            {
+             "fixed": "7.4.5"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://github.com/guzzle/guzzle/security/advisories/GHSA-25mq-v84q-4j7r"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-31090"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
+         "type": "CVSS_V3"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-94pj-82f3-465w",
+       "summary": "Guzzle: Proxy-Authorization headers can be sent to origin servers",
+       "details": "### Impact\n\nIn affected versions, the built-in cURL handlers (`CurlHandler` and `CurlMultiHandler`) ",
+       "aliases": [
+        "CVE-2026-67339"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "Packagist",
+          "name": "guzzlehttp/guzzle",
+          "purl": "pkg:composer/guzzlehttp/guzzle"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "7.14.2"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://github.com/guzzle/guzzle/security/advisories/GHSA-94pj-82f3-465w"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-67339"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+         "type": "CVSS_V3"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": {
+    "path": "/project/rust/Cargo.lock",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "smallvec",
+      "version": "1.6.0",
+      "ecosystem": "crates.io"
+     },
+     "groups": [
+      {
+       "ids": [
+        "RUSTSEC-2021-0003",
+        "GHSA-43w2-9j62-hq99"
+       ],
+       "aliases": [
+        "CVE-2021-25900",
+        "GHSA-43w2-9j62-hq99",
+        "RUSTSEC-2021-0003"
+       ],
+       "max_severity": "9.8"
+      }
+     ],
+     "vulnerabilities": [
+      {
+       "id": "RUSTSEC-2021-0003",
+       "summary": "Buffer overflow in SmallVec::insert_many",
+       "details": "A bug in the `SmallVec::insert_many` method caused it to allocate a buffer that was smaller than nee",
+       "aliases": [
+        "CVE-2021-25900",
+        "GHSA-43w2-9j62-hq99"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "crates.io",
+          "name": "smallvec",
+          "purl": "pkg:cargo/smallvec"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0.6.3"
+            },
+            {
+             "fixed": "0.6.14"
+            },
+            {
+             "introduced": "1.0.0"
+            },
+            {
+             "fixed": "1.6.1"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "PACKAGE",
+         "url": "https://crates.io/crates/smallvec"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://rustsec.org/advisories/RUSTSEC-2021-0003.html"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+         "type": "CVSS_V3"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-43w2-9j62-hq99",
+       "summary": "Buffer overflow in SmallVec::insert_many",
+       "details": "A bug in the SmallVec::insert_many method caused it to allocate a buffer that was smaller than neede",
+       "aliases": [
+        "CVE-2021-25900",
+        "RUSTSEC-2021-0003"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "crates.io",
+          "name": "smallvec",
+          "purl": "pkg:cargo/smallvec"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0.6.3"
+            },
+            {
+             "fixed": "0.6.14"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "crates.io",
+          "name": "smallvec",
+          "purl": "pkg:cargo/smallvec"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "1.0.0"
+            },
+            {
+             "fixed": "1.6.1"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-25900"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/servo/rust-smallvec/issues/252"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+         "type": "CVSS_V3"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": {
+    "path": "/project/svc/go.mod",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "golang.org/x/text",
+      "version": "0.3.5",
+      "ecosystem": "Go"
+     },
+     "groups": [
+      {
+       "ids": [
+        "GO-2021-0113",
+        "GHSA-ppp9-7jff-5vj2"
+       ],
+       "aliases": [
+        "CVE-2021-38561",
+        "GHSA-ppp9-7jff-5vj2",
+        "GO-2021-0113"
+       ],
+       "max_severity": "7.5"
+      },
+      {
+       "ids": [
+        "GO-2022-1059",
+        "GHSA-69ch-w2m2-3vjp"
+       ],
+       "aliases": [
+        "CVE-2022-32149",
+        "GHSA-69ch-w2m2-3vjp",
+        "GO-2022-1059"
+       ],
+       "max_severity": "7.5"
+      }
+     ],
+     "vulnerabilities": [
+      {
+       "id": "GO-2021-0113",
+       "summary": "Out-of-bounds read in golang.org/x/text/language",
+       "details": "Due to improper index calculation, an incorrectly formatted language tag can cause Parse to panic vi",
+       "aliases": [
+        "CVE-2021-38561",
+        "GHSA-ppp9-7jff-5vj2"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "Go",
+          "name": "golang.org/x/text",
+          "purl": "pkg:golang/golang.org/x/text"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "0.3.7"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "FIX",
+         "url": "https://go.dev/cl/340830"
+        },
+        {
+         "type": "FIX",
+         "url": "https://go.googlesource.com/text/+/383b2e75a7a4198c42f8f87833eefb772868a56f"
+        }
+       ]
+      },
+      {
+       "id": "GO-2022-1059",
+       "summary": "Denial of service via crafted Accept-Language header in golang.org/x/text/language",
+       "details": "An attacker may cause a denial of service by crafting an Accept-Language header which ParseAcceptLan",
+       "aliases": [
+        "CVE-2022-32149",
+        "GHSA-69ch-w2m2-3vjp"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "Go",
+          "name": "golang.org/x/text",
+          "purl": "pkg:golang/golang.org/x/text"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "0.3.8"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "REPORT",
+         "url": "https://go.dev/issue/56152"
+        },
+        {
+         "type": "FIX",
+         "url": "https://go.dev/cl/442235"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-69ch-w2m2-3vjp",
+       "summary": "golang.org/x/text/language Denial of service via crafted Accept-Language header",
+       "details": "The BCP 47 tag parser has quadratic time complexity due to inherent aspects of its design. Since the",
+       "aliases": [
+        "CVE-2022-32149",
+        "GO-2022-1059"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "Go",
+          "name": "golang.org/x/text",
+          "purl": "pkg:golang/golang.org/x/text"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "0.3.8"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-32149"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/golang/go/issues/56152"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+         "type": "CVSS_V3"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-ppp9-7jff-5vj2",
+       "summary": "golang.org/x/text/language Out-of-bounds Read vulnerability",
+       "details": "golang.org/x/text/language in golang.org/x/text before 0.3.7 can panic with an out-of-bounds read du",
+       "aliases": [
+        "CVE-2021-38561",
+        "GO-2021-0113"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "Go",
+          "name": "golang.org/x/text",
+          "purl": "pkg:golang/golang.org/x/text"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "0.3.7"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-38561"
+        },
+        {
+         "type": "WEB",
+         "url": "https://deps.dev/advisory/OSV/GO-2021-0113"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+         "type": "CVSS_V3"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": {
+    "path": "/project/web/package-lock.json",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "lodash",
+      "version": "4.17.15",
+      "ecosystem": "npm"
+     },
+     "groups": [
+      {
+       "ids": [
+        "GHSA-29mw-wpgm-hmr9"
+       ],
+       "aliases": [
+        "CVE-2020-28500",
+        "GHSA-29mw-wpgm-hmr9"
+       ],
+       "max_severity": "5.3"
+      },
+      {
+       "ids": [
+        "GHSA-35jh-r3h4-6jhm",
+        "GHSA-r5fr-rjxr-66jc"
+       ],
+       "aliases": [
+        "CVE-2021-23337",
+        "CVE-2026-4800",
+        "GHSA-35jh-r3h4-6jhm",
+        "GHSA-r5fr-rjxr-66jc"
+       ],
+       "max_severity": "8.1"
+      }
+     ],
+     "vulnerabilities": [
+      {
+       "id": "GHSA-29mw-wpgm-hmr9",
+       "summary": "Regular Expression Denial of Service (ReDoS) in lodash",
+       "details": "All versions of package lodash prior to 4.17.21 are vulnerable to Regular Expression Denial of Servi",
+       "aliases": [
+        "CVE-2020-28500"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash",
+          "purl": "pkg:npm/lodash"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "fixed": "4.17.21"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash-es",
+          "purl": "pkg:npm/lodash-es"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "fixed": "4.17.21"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash.trimend",
+          "purl": "pkg:npm/lodash.trimend"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "last_affected": "4.5.1"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash.trim",
+          "purl": "pkg:npm/lodash.trim"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "last_affected": "4.5.1"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "RubyGems",
+          "name": "lodash-rails",
+          "purl": "pkg:gem/lodash-rails"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "fixed": "4.17.21"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-28500"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/github/advisory-database/pull/6139"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+         "type": "CVSS_V3"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-35jh-r3h4-6jhm",
+       "summary": "Command Injection in lodash",
+       "details": "`lodash` versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+       "aliases": [
+        "CVE-2021-23337",
+        "CVE-2026-4800",
+        "GHSA-r5fr-rjxr-66jc"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash",
+          "purl": "pkg:npm/lodash"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "4.17.21"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash-es",
+          "purl": "pkg:npm/lodash-es"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "4.17.21"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash.template",
+          "purl": "pkg:npm/lodash.template"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "last_affected": "4.5.0"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash-template",
+          "purl": "pkg:npm/lodash-template"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "last_affected": "1.0.0"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "RubyGems",
+          "name": "lodash-rails",
+          "purl": "pkg:gem/lodash-rails"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "4.17.21"
+            }
+           ],
+           "type": "ECOSYSTEM"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23337"
+        },
+        {
+         "type": "WEB",
+         "url": "https://github.com/lodash/lodash/commit/3469357cff396a26c363f8c1b5a91dde28ba4b1c"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+         "type": "CVSS_V3"
+        }
+       ]
+      },
+      {
+       "id": "GHSA-r5fr-rjxr-66jc",
+       "summary": "lodash vulnerable to Code Injection via `_.template` imports key names",
+       "details": "### Impact\n\nThe fix for [CVE-2021-23337](https://github.com/advisories/GHSA-35jh-r3h4-6jhm) added va",
+       "aliases": [
+        "CVE-2021-23337",
+        "CVE-2026-4800",
+        "GHSA-35jh-r3h4-6jhm"
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash",
+          "purl": "pkg:npm/lodash"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "fixed": "4.18.0"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash-es",
+          "purl": "pkg:npm/lodash-es"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "fixed": "4.18.0"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash-amd",
+          "purl": "pkg:npm/lodash-amd"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "fixed": "4.18.0"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        },
+        {
+         "package": {
+          "ecosystem": "npm",
+          "name": "lodash.template",
+          "purl": "pkg:npm/lodash.template"
+         },
+         "ranges": [
+          {
+           "events": [
+            {
+             "introduced": "4.0.0"
+            },
+            {
+             "fixed": "4.18.0"
+            }
+           ],
+           "type": "SEMVER"
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "WEB",
+         "url": "https://github.com/lodash/lodash/security/advisories/GHSA-r5fr-rjxr-66jc"
+        },
+        {
+         "type": "ADVISORY",
+         "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4800"
+        }
+       ],
+       "severity": [
+        {
+         "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+         "type": "CVSS_V3"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "experimental_config": {
+  "licenses": {
+   "summary": false,
+   "allowlist": null
+  }
+ }
+}

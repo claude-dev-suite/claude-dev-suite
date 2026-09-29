@@ -1,0 +1,903 @@
+{
+ "SchemaVersion": 2,
+ "Trivy": {
+  "Version": "0.74.0"
+ },
+ "ReportID": "01a0ecbc-6f87-7d1d-ab24-2d8963c581d0",
+ "CreatedAt": "2026-09-29T12:36:07.4318595+02:00",
+ "ArtifactID": "sha256:0722d6103bbee7c50a1795cc3ddbfce9352ee2ac12da7d78e6f1e7bbe1cc1469",
+ "ArtifactName": "/project",
+ "ArtifactType": "repository",
+ "Results": [
+  {
+   "Target": "api/requirements.txt",
+   "Class": "lang-pkgs",
+   "Type": "pip",
+   "Packages": [
+    {
+     "Name": "django",
+     "Identifier": {
+      "PURL": "pkg:pypi/django@3.2.0",
+      "UID": "a6e55b41393be3ea"
+     },
+     "Version": "3.2.0",
+     "Locations": [
+      {
+       "StartLine": 1,
+       "EndLine": 1
+      }
+     ],
+     "AnalyzedBy": "pip"
+    },
+    {
+     "Name": "requests",
+     "Identifier": {
+      "PURL": "pkg:pypi/requests@2.19.0",
+      "UID": "32e5598f16dbc02a"
+     },
+     "Version": "2.19.0",
+     "Locations": [
+      {
+       "StartLine": 2,
+       "EndLine": 2
+      }
+     ],
+     "AnalyzedBy": "pip"
+    }
+   ],
+   "Vulnerabilities": [
+    {
+     "VulnerabilityID": "CVE-2021-35042",
+     "VendorIDs": [
+      "GHSA-xpfp-f569-q3p2"
+     ],
+     "PkgName": "django",
+     "PkgIdentifier": {
+      "PURL": "pkg:pypi/django@3.2.0",
+      "UID": "a6e55b41393be3ea"
+     },
+     "InstalledVersion": "3.2.0",
+     "FixedVersion": "3.2.5, 3.1.13",
+     "Status": "fixed",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2021-35042",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory pip",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+     },
+     "Fingerprint": "sha256:6a9f600635f3c8d230e2754c370014c13243e2f48476ec8cd33094a2b7f2a66d",
+     "Title": "django: potential SQL injection via unsanitized QuerySet.order_by() input",
+     "Description": "Django 3.1.x before 3.1.13 and 3.2.x before 3.2.5 allows QuerySet.order_by SQL injection if order_by is untrusted input ",
+     "Severity": "CRITICAL",
+     "CweIDs": [
+      "CWE-89"
+     ],
+     "VendorSeverity": {
+      "bitnami": 4,
+      "ghsa": 4,
+      "nvd": 4,
+      "redhat": 3
+     },
+     "CVSS": {
+      "bitnami": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      },
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+       "V3Score": 9.8,
+       "V40Score": 9.3
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V2Score": 7.5,
+       "V3Score": 9.8
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      }
+     },
+     "References": [
+      "https://access.redhat.com/security/cve/CVE-2021-35042",
+      "https://docs.djangoproject.com/en/3.1/releases/3.1.13/"
+     ],
+     "PublishedDate": "2021-07-02T10:15:07.653Z",
+     "LastModifiedDate": "2026-06-17T03:57:01.887Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2022-28346",
+     "VendorIDs": [
+      "GHSA-2gwj-7jmv-h26r"
+     ],
+     "PkgName": "django",
+     "PkgIdentifier": {
+      "PURL": "pkg:pypi/django@3.2.0",
+      "UID": "a6e55b41393be3ea"
+     },
+     "InstalledVersion": "3.2.0",
+     "FixedVersion": "2.2.28, 3.2.13, 4.0.4",
+     "Status": "fixed",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-28346",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory pip",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+     },
+     "Fingerprint": "sha256:cf75024a106500b637949e4de35c6d5a19302268f5a155183e9b9c2ffe056bb8",
+     "Title": "Django: SQL injection in QuerySet.annotate(),aggregate() and extra()",
+     "Description": "An issue was discovered in Django 2.2 before 2.2.28, 3.2 before 3.2.13, and 4.0 before 4.0.4. QuerySet.annotate(), aggre",
+     "Severity": "CRITICAL",
+     "CweIDs": [
+      "CWE-89"
+     ],
+     "VendorSeverity": {
+      "bitnami": 4,
+      "ghsa": 4,
+      "nvd": 4,
+      "redhat": 3,
+      "ubuntu": 3
+     },
+     "CVSS": {
+      "bitnami": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 9.8
+      },
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+       "V3Score": 9.8,
+       "V40Score": 9.3
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "V2Score": 7.5,
+       "V3Score": 9.8
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:L",
+       "V3Score": 9.4
+      }
+     },
+     "References": [
+      "http://www.openwall.com/lists/oss-security/2022/04/11/1",
+      "https://access.redhat.com/security/cve/CVE-2022-28346"
+     ],
+     "PublishedDate": "2022-04-12T05:15:06.927Z",
+     "LastModifiedDate": "2026-06-17T04:38:24.5Z"
+    }
+   ]
+  },
+  {
+   "Target": "php/composer.lock",
+   "Class": "lang-pkgs",
+   "Type": "composer",
+   "Packages": [
+    {
+     "ID": "guzzlehttp/guzzle@7.4.0",
+     "Name": "guzzlehttp/guzzle",
+     "Identifier": {
+      "PURL": "pkg:composer/guzzlehttp/guzzle@7.4.0",
+      "UID": "9b93b9745ebedddd"
+     },
+     "Version": "7.4.0",
+     "Locations": [
+      {
+       "StartLine": 1,
+       "EndLine": 1
+      }
+     ],
+     "AnalyzedBy": "composer"
+    }
+   ],
+   "Vulnerabilities": [
+    {
+     "VulnerabilityID": "CVE-2022-29248",
+     "PkgID": "guzzlehttp/guzzle@7.4.0",
+     "PkgName": "guzzlehttp/guzzle",
+     "PkgIdentifier": {
+      "PURL": "pkg:composer/guzzlehttp/guzzle@7.4.0",
+      "UID": "9b93b9745ebedddd"
+     },
+     "InstalledVersion": "7.4.0",
+     "FixedVersion": "7.4.3, 6.5.6",
+     "Status": "fixed",
+     "SeveritySource": "nvd",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-29248",
+     "DataSource": {
+      "ID": "php-security-advisories",
+      "Name": "PHP Security Advisories Database",
+      "URL": "https://github.com/FriendsOfPHP/security-advisories"
+     },
+     "Fingerprint": "sha256:82b267ade096a9e675d4b8dfab3a86c3b56c0b7973bfdd4f7a0fe56e2502aefd",
+     "Title": "Guzzle is a PHP HTTP client. Guzzle prior to versions 6.5.6 and 7.4.3  ...",
+     "Description": "Guzzle is a PHP HTTP client. Guzzle prior to versions 6.5.6 and 7.4.3 contains a vulnerability with the cookie middlewar",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-200",
+      "CWE-565"
+     ],
+     "VendorSeverity": {
+      "bitnami": 3,
+      "ghsa": 3,
+      "nvd": 3
+     },
+     "CVSS": {
+      "bitnami": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+       "V3Score": 8.1
+      },
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:H/A:N",
+       "V3Score": 8
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:M/Au:N/C:P/I:P/A:N",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+       "V2Score": 5.8,
+       "V3Score": 8.1
+      }
+     },
+     "References": [
+      "https://github.com/FriendsOfPHP/security-advisories/blob/master/guzzlehttp/guzzle/CVE-2022-29248.yaml",
+      "https://github.com/guzzle/guzzle"
+     ],
+     "PublishedDate": "2022-05-25T18:15:08.503Z",
+     "LastModifiedDate": "2026-06-17T04:39:54.95Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2022-31042",
+     "PkgID": "guzzlehttp/guzzle@7.4.0",
+     "PkgName": "guzzlehttp/guzzle",
+     "PkgIdentifier": {
+      "PURL": "pkg:composer/guzzlehttp/guzzle@7.4.0",
+      "UID": "9b93b9745ebedddd"
+     },
+     "InstalledVersion": "7.4.0",
+     "FixedVersion": "7.4.4, 6.5.7",
+     "Status": "fixed",
+     "SeveritySource": "nvd",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-31042",
+     "DataSource": {
+      "ID": "php-security-advisories",
+      "Name": "PHP Security Advisories Database",
+      "URL": "https://github.com/FriendsOfPHP/security-advisories"
+     },
+     "Fingerprint": "sha256:dc7aedac35bdba1d2f4ded1adb2eedaeb7c2227d54ec66310b7648ec165c3287",
+     "Title": "Guzzle is an open source PHP HTTP client. In affected versions the `Co ...",
+     "Description": "Guzzle is an open source PHP HTTP client. In affected versions the `Cookie` headers on requests are sensitive informatio",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-200",
+      "CWE-212"
+     ],
+     "VendorSeverity": {
+      "bitnami": 3,
+      "ghsa": 3,
+      "nvd": 3
+     },
+     "CVSS": {
+      "bitnami": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "V3Score": 7.5
+      },
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "V3Score": 7.5
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "V2Score": 5,
+       "V3Score": 7.5
+      }
+     },
+     "References": [
+      "https://github.com/FriendsOfPHP/security-advisories/blob/master/guzzlehttp/guzzle/CVE-2022-31042.yaml",
+      "https://github.com/guzzle/guzzle"
+     ],
+     "PublishedDate": "2022-06-10T00:15:07.69Z",
+     "LastModifiedDate": "2026-06-17T04:44:40.3Z"
+    }
+   ]
+  },
+  {
+   "Target": "rust/Cargo.lock",
+   "Class": "lang-pkgs",
+   "Type": "cargo",
+   "Packages": [
+    {
+     "ID": "r@0.1.0",
+     "Identifier": {
+      "UID": "fa8f7b3804838bb8"
+     },
+     "Relationship": "root",
+     "AnalyzedBy": "cargo"
+    }
+   ]
+  },
+  {
+   "Target": "svc/go.mod",
+   "Class": "lang-pkgs",
+   "Type": "gomod",
+   "Packages": [
+    {
+     "ID": "example.com/svc",
+     "Name": "example.com/svc",
+     "Identifier": {
+      "PURL": "pkg:golang/example.com/svc",
+      "UID": "1e3b06d74de0d65d"
+     },
+     "Relationship": "root",
+     "DependsOn": [
+      "golang.org/x/text@v0.3.5"
+     ],
+     "AnalyzedBy": "gomod"
+    },
+    {
+     "ID": "golang.org/x/text@v0.3.5",
+     "Name": "golang.org/x/text",
+     "Identifier": {
+      "PURL": "pkg:golang/golang.org/x/text@v0.3.5",
+      "UID": "3df5d210aba02fae"
+     },
+     "Version": "v0.3.5",
+     "Relationship": "direct",
+     "AnalyzedBy": "gomod"
+    }
+   ],
+   "Vulnerabilities": [
+    {
+     "VulnerabilityID": "CVE-2021-38561",
+     "VendorIDs": [
+      "GHSA-ppp9-7jff-5vj2",
+      "GO-2021-0113"
+     ],
+     "PkgID": "golang.org/x/text@v0.3.5",
+     "PkgName": "golang.org/x/text",
+     "PkgIdentifier": {
+      "PURL": "pkg:golang/golang.org/x/text@v0.3.5",
+      "UID": "3df5d210aba02fae"
+     },
+     "InstalledVersion": "v0.3.5",
+     "FixedVersion": "0.3.7",
+     "Status": "fixed",
+     "SeveritySource": "nvd",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2021-38561",
+     "DataSource": {
+      "ID": "govulndb",
+      "Name": "The Go Vulnerability Database",
+      "URL": "https://pkg.go.dev/vuln/"
+     },
+     "Fingerprint": "sha256:d931cd27528410c3c75545567d9897cae0918de9b09baf4cb0c81a2af0df385e",
+     "Title": "golang: out-of-bounds read in golang.org/x/text/language leads to DoS",
+     "Description": "golang.org/x/text/language in golang.org/x/text before 0.3.7 can panic with an out-of-bounds read during BCP 47 language",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-125"
+     ],
+     "VendorSeverity": {
+      "azure": 3,
+      "nvd": 3,
+      "redhat": 2,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "nvd": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V3Score": 7.5
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V3Score": 7.5
+      }
+     },
+     "References": [
+      "https://access.redhat.com/security/cve/CVE-2021-38561",
+      "https://deps.dev/advisory/OSV/GO-2021-0113"
+     ],
+     "PublishedDate": "2022-12-26T06:15:10.56Z",
+     "LastModifiedDate": "2026-06-17T04:02:21.823Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2022-32149",
+     "VendorIDs": [
+      "GHSA-69ch-w2m2-3vjp",
+      "GO-2022-1059"
+     ],
+     "PkgID": "golang.org/x/text@v0.3.5",
+     "PkgName": "golang.org/x/text",
+     "PkgIdentifier": {
+      "PURL": "pkg:golang/golang.org/x/text@v0.3.5",
+      "UID": "3df5d210aba02fae"
+     },
+     "InstalledVersion": "v0.3.5",
+     "FixedVersion": "0.3.8",
+     "Status": "fixed",
+     "SeveritySource": "nvd",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-32149",
+     "DataSource": {
+      "ID": "govulndb",
+      "Name": "The Go Vulnerability Database",
+      "URL": "https://pkg.go.dev/vuln/"
+     },
+     "Fingerprint": "sha256:15e407ec2f70a116751f3982d99dddb945659dd8d4375732374f4e75496a2a51",
+     "Title": "golang: golang.org/x/text/language: ParseAcceptLanguage takes a long time to parse complex tags",
+     "Description": "An attacker may cause a denial of service by crafting an Accept-Language header which ParseAcceptLanguage will take sign",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-772"
+     ],
+     "VendorSeverity": {
+      "azure": 3,
+      "cbl-mariner": 3,
+      "nvd": 3,
+      "redhat": 2,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "nvd": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V3Score": 7.5
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V3Score": 7.5
+      }
+     },
+     "References": [
+      "https://access.redhat.com/security/cve/CVE-2022-32149",
+      "https://github.com/golang/text/commit/434eadcdbc3b0256971992e8c70027278364c72c%20%28v0.3.8%29"
+     ],
+     "PublishedDate": "2022-10-14T15:15:34.543Z",
+     "LastModifiedDate": "2026-06-17T04:46:45.967Z"
+    }
+   ]
+  },
+  {
+   "Target": "web/package-lock.json",
+   "Class": "lang-pkgs",
+   "Type": "npm",
+   "Packages": [
+    {
+     "ID": "lodash@4.17.15",
+     "Name": "lodash",
+     "Identifier": {
+      "PURL": "pkg:npm/lodash@4.17.15",
+      "UID": "d1c1c34210ff0361"
+     },
+     "Version": "4.17.15",
+     "Licenses": [
+      "MIT"
+     ],
+     "Relationship": "direct",
+     "Locations": [
+      {
+       "StartLine": 15,
+       "EndLine": 20
+      }
+     ],
+     "AnalyzedBy": "npm"
+    },
+    {
+     "ID": "minimist@1.2.0",
+     "Name": "minimist",
+     "Identifier": {
+      "PURL": "pkg:npm/minimist@1.2.0",
+      "UID": "1375bb13a02178b5"
+     },
+     "Version": "1.2.0",
+     "Licenses": [
+      "MIT"
+     ],
+     "Relationship": "direct",
+     "Locations": [
+      {
+       "StartLine": 21,
+       "EndLine": 26
+      }
+     ],
+     "AnalyzedBy": "npm"
+    }
+   ],
+   "Vulnerabilities": [
+    {
+     "VulnerabilityID": "CVE-2020-8203",
+     "VendorIDs": [
+      "GHSA-p6mc-m468-83gw"
+     ],
+     "PkgID": "lodash@4.17.15",
+     "PkgName": "lodash",
+     "PkgIdentifier": {
+      "PURL": "pkg:npm/lodash@4.17.15",
+      "UID": "d1c1c34210ff0361"
+     },
+     "InstalledVersion": "4.17.15",
+     "FixedVersion": "4.17.19",
+     "Status": "fixed",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2020-8203",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory npm",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+     },
+     "Fingerprint": "sha256:2a60d6fb881500e6dbe679ca6250e08e52674c20a46e5ad13a8f19878d95eeef",
+     "Title": "nodejs-lodash: prototype pollution in zipObjectDeep function",
+     "Description": "Prototype pollution attack when using _.zipObjectDeep in lodash before 4.17.20.",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-770",
+      "CWE-1321"
+     ],
+     "VendorSeverity": {
+      "ghsa": 3,
+      "nvd": 3,
+      "redhat": 2,
+      "ruby-advisory-db": 3,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+       "V3Score": 7.4
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:M/Au:N/C:N/I:P/A:P",
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+       "V2Score": 5.8,
+       "V3Score": 7.4
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+       "V3Score": 7.4
+      }
+     },
+     "References": [
+      "https://access.redhat.com/security/cve/CVE-2020-8203",
+      "https://github.com/advisories/GHSA-p6mc-m468-83gw"
+     ],
+     "PublishedDate": "2020-07-15T17:15:11.797Z",
+     "LastModifiedDate": "2026-06-17T03:26:02.917Z"
+    },
+    {
+     "VulnerabilityID": "CVE-2021-23337",
+     "VendorIDs": [
+      "GHSA-35jh-r3h4-6jhm"
+     ],
+     "PkgID": "lodash@4.17.15",
+     "PkgName": "lodash",
+     "PkgIdentifier": {
+      "PURL": "pkg:npm/lodash@4.17.15",
+      "UID": "d1c1c34210ff0361"
+     },
+     "InstalledVersion": "4.17.15",
+     "FixedVersion": "4.17.21",
+     "Status": "fixed",
+     "SeveritySource": "ghsa",
+     "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2021-23337",
+     "DataSource": {
+      "ID": "ghsa",
+      "Name": "GitHub Security Advisory npm",
+      "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+     },
+     "Fingerprint": "sha256:a3526981507d6b776e96e3f191cf0309d279391bf24b4a1e33b3f5e2aabbce75",
+     "Title": "nodejs-lodash: command injection via template",
+     "Description": "Lodash versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+     "Severity": "HIGH",
+     "CweIDs": [
+      "CWE-94"
+     ],
+     "VendorSeverity": {
+      "ghsa": 3,
+      "nvd": 3,
+      "redhat": 2,
+      "ruby-advisory-db": 3,
+      "ubuntu": 2
+     },
+     "CVSS": {
+      "ghsa": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 7.2
+      },
+      "nvd": {
+       "V2Vector": "AV:N/AC:L/Au:S/C:P/I:P/A:P",
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+       "V2Score": 6.5,
+       "V3Score": 7.2
+      },
+      "redhat": {
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+       "V3Score": 7.2
+      }
+     },
+     "References": [
+      "https://access.redhat.com/security/cve/CVE-2021-23337",
+      "https://cert-portal.siemens.com/productcert/pdf/ssa-637483.pdf"
+     ],
+     "PublishedDate": "2021-02-15T13:15:12.56Z",
+     "LastModifiedDate": "2026-06-17T03:38:34.773Z"
+    }
+   ]
+  },
+  {
+   "Target": "Dockerfile",
+   "Class": "config",
+   "Type": "dockerfile",
+   "MisconfSummary": {
+    "Successes": 22,
+    "Failures": 5
+   },
+   "Misconfigurations": [
+    {
+     "Type": "Dockerfile Security Check",
+     "ID": "DS-0001",
+     "Title": "':latest' tag used",
+     "Description": "When using a 'FROM' statement you should use a specific tag to avoid uncontrolled behavior when the image is updated.",
+     "Message": "Specify a tag in the 'FROM' statement for image 'ubuntu'",
+     "Namespace": "builtin.dockerfile.DS001",
+     "Query": "data.builtin.dockerfile.DS001.deny",
+     "Resolution": "Add a tag to the image in the 'FROM' statement",
+     "Severity": "MEDIUM",
+     "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0001",
+     "References": [
+      "https://avd.aquasec.com/misconfig/ds-0001"
+     ],
+     "Status": "FAIL",
+     "CauseMetadata": {
+      "Provider": "Dockerfile",
+      "Service": "general",
+      "StartLine": 1,
+      "EndLine": 1,
+      "Code": {
+       "Lines": []
+      }
+     }
+    },
+    {
+     "Type": "Dockerfile Security Check",
+     "ID": "DS-0002",
+     "Title": "Image user should not be 'root'",
+     "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+     "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+     "Namespace": "builtin.dockerfile.DS002",
+     "Query": "data.builtin.dockerfile.DS002.deny",
+     "Resolution": "Add 'USER <non root user name>' line to the Dockerfile",
+     "Severity": "HIGH",
+     "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+     "References": [
+      "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+      "https://avd.aquasec.com/misconfig/ds-0002"
+     ],
+     "Status": "FAIL",
+     "CauseMetadata": {
+      "Provider": "Dockerfile",
+      "Service": "general",
+      "Code": {
+       "Lines": []
+      }
+     }
+    }
+   ]
+  },
+  {
+   "Target": "infra/k8s/deploy.yaml",
+   "Class": "config",
+   "Type": "kubernetes",
+   "MisconfSummary": {
+    "Successes": 80,
+    "Failures": 18
+   },
+   "Misconfigurations": [
+    {
+     "Type": "Kubernetes Security Check",
+     "ID": "KSV-0001",
+     "Title": "Can elevate its own privileges",
+     "Description": "A program inside the container can elevate its own privileges and run as root, which might give the program control over the container and node.",
+     "Message": "Container 'web' of Deployment 'web' should set 'securityContext.allowPrivilegeEscalation' to false",
+     "Namespace": "builtin.kubernetes.KSV001",
+     "Query": "data.builtin.kubernetes.KSV001.deny",
+     "Resolution": "Set 'set containers[].securityContext.allowPrivilegeEscalation' to 'false'.",
+     "Severity": "MEDIUM",
+     "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0001",
+     "References": [
+      "https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted",
+      "https://avd.aquasec.com/misconfig/ksv-0001"
+     ],
+     "Status": "FAIL",
+     "CauseMetadata": {
+      "Provider": "Kubernetes",
+      "Service": "general",
+      "StartLine": 13,
+      "EndLine": 16,
+      "Code": {
+       "Lines": []
+      }
+     }
+    },
+    {
+     "Type": "Kubernetes Security Check",
+     "ID": "KSV-0003",
+     "Title": "Default capabilities: some containers do not drop all",
+     "Description": "The container should drop all default capabilities and add only those that are needed for its execution.",
+     "Message": "Container 'web' of Deployment 'web' should add 'ALL' to 'securityContext.capabilities.drop'",
+     "Namespace": "builtin.kubernetes.KSV003",
+     "Query": "data.builtin.kubernetes.KSV003.deny",
+     "Resolution": "Add 'ALL' to containers[].securityContext.capabilities.drop.",
+     "Severity": "LOW",
+     "PrimaryURL": "https://avd.aquasec.com/misconfig/ksv-0003",
+     "References": [
+      "https://kubesec.io/basics/containers-securitycontext-capabilities-drop-index-all/",
+      "https://avd.aquasec.com/misconfig/ksv-0003"
+     ],
+     "Status": "FAIL",
+     "CauseMetadata": {
+      "Provider": "Kubernetes",
+      "Service": "general",
+      "StartLine": 13,
+      "EndLine": 16,
+      "Code": {
+       "Lines": []
+      }
+     }
+    }
+   ]
+  },
+  {
+   "Target": "infra/tf",
+   "Class": "config",
+   "Type": "terraform",
+   "MisconfSummary": {
+    "Successes": 69,
+    "Failures": 0
+   }
+  },
+  {
+   "Target": "infra/tf/main.tf",
+   "Class": "config",
+   "Type": "terraform",
+   "MisconfSummary": {
+    "Successes": 0,
+    "Failures": 12
+   },
+   "Misconfigurations": [
+    {
+     "Type": "Terraform Security Check",
+     "ID": "AWS-0086",
+     "Title": "S3 Access block should block public ACL",
+     "Description": "S3 buckets should block public ACLs on buckets and any objects they contain. By blocking, PUTs with fail if the object has any public ACL a.\n",
+     "Message": "No public access block so not blocking public acls",
+     "Namespace": "builtin.aws.s3.aws0086",
+     "Query": "data.builtin.aws.s3.aws0086.deny",
+     "Resolution": "Enable blocking any PUT calls with a public ACL specified",
+     "Severity": "HIGH",
+     "PrimaryURL": "https://avd.aquasec.com/misconfig/aws-0086",
+     "References": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+      "https://avd.aquasec.com/misconfig/aws-0086"
+     ],
+     "Status": "FAIL",
+     "CauseMetadata": {
+      "Resource": "aws_s3_bucket.b",
+      "Provider": "AWS",
+      "Service": "s3",
+      "StartLine": 1,
+      "EndLine": 4,
+      "Code": {
+       "Lines": []
+      }
+     }
+    },
+    {
+     "Type": "Terraform Security Check",
+     "ID": "AWS-0087",
+     "Title": "S3 Access block should block public policy",
+     "Description": "S3 bucket policy should have block public policy to prevent users from putting a policy that enable public access.\n",
+     "Message": "No public access block so not blocking public policies",
+     "Namespace": "builtin.aws.s3.aws0087",
+     "Query": "data.builtin.aws.s3.aws0087.deny",
+     "Resolution": "Prevent policies that allow public access being PUT",
+     "Severity": "HIGH",
+     "PrimaryURL": "https://avd.aquasec.com/misconfig/aws-0087",
+     "References": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/dev-retired/access-control-block-public-access.html",
+      "https://avd.aquasec.com/misconfig/aws-0087"
+     ],
+     "Status": "FAIL",
+     "CauseMetadata": {
+      "Resource": "aws_s3_bucket.b",
+      "Provider": "AWS",
+      "Service": "s3",
+      "StartLine": 1,
+      "EndLine": 4,
+      "Code": {
+       "Lines": []
+      }
+     }
+    }
+   ]
+  },
+  {
+   "Target": "api/new.py",
+   "Class": "secret",
+   "Secrets": [
+    {
+     "RuleID": "stripe-secret-token",
+     "Category": "Stripe",
+     "Severity": "CRITICAL",
+     "Title": "Stripe Secret Key",
+     "StartLine": 6,
+     "EndLine": 6,
+     "Code": {
+      "Lines": []
+     },
+     "Match": "KEY = \"****************************************TAILFAKE\"",
+     "Offset": 66
+    }
+   ]
+  },
+  {
+   "Target": "config.env",
+   "Class": "secret",
+   "Secrets": [
+    {
+     "RuleID": "aws-access-key-id",
+     "Category": "AWS",
+     "Severity": "CRITICAL",
+     "Title": "AWS Access Key ID",
+     "StartLine": 1,
+     "EndLine": 1,
+     "Code": {
+      "Lines": []
+     },
+     "Match": "KEY = \"****************************************TAILFAKE\"",
+     "Offset": 18
+    },
+    {
+     "RuleID": "aws-secret-access-key",
+     "Category": "AWS",
+     "Severity": "CRITICAL",
+     "Title": "AWS Secret Access Key",
+     "StartLine": 2,
+     "EndLine": 2,
+     "Code": {
+      "Lines": []
+     },
+     "Match": "KEY = \"****************************************TAILFAKE\"",
+     "Offset": 64
+    }
+   ]
+  },
+  {
+   "Target": "web/package-lock.json",
+   "Class": "license",
+   "Licenses": [
+    {
+     "Severity": "LOW",
+     "Category": "notice",
+     "PkgName": "lodash",
+     "FilePath": "web/package-lock.json",
+     "Name": "MIT",
+     "Text": "",
+     "Confidence": 1,
+     "Link": ""
+    },
+    {
+     "Severity": "LOW",
+     "Category": "notice",
+     "PkgName": "minimist",
+     "FilePath": "web/package-lock.json",
+     "Name": "MIT",
+     "Text": "",
+     "Confidence": 1,
+     "Link": ""
+    }
+   ]
+  }
+ ]
+}

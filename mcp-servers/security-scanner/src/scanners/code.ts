@@ -1,100 +1,117 @@
 // SPDX-License-Identifier: MIT
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import { resolve } from 'path';
-import type { ScanResult, SecurityFinding, ScanCodeInput } from '../types.js';
-import { isToolAvailable, getInstallCommand } from '../utils/tool-checker.js';
-import { createEmptyResult, calculateSummary, normalizeSeverity } from '../utils/normalizer.js';
+/**
+ * SAST with Semgrep. Rulesets are configurable (registry packs such as
+ * `p/security-audit`, `p/owasp-top-ten`, or local rule files); in diff mode
+ * only files changed since `baseRef` are scanned.
+ */
 
-const execFileAsync = promisify(execFile);
+import type { ScanCodeInput, ScanResult } from '../types.js';
+import { runTool, stderrTail } from '../utils/exec.js';
+import { buildResult, errorResult } from '../utils/normalizer.js';
+import { makeExcludeMatcher, toRelPosix, validateScanPath } from '../utils/paths.js';
+import { parseJson } from '../utils/report-file.js';
+import { getTool, unavailableMessage } from '../utils/tool-checker.js';
+import { changedFilesSince } from '../utils/git.js';
+import { parseSemgrep } from '../parsers/semgrep.js';
+import { timeoutMs } from './engines.js';
 
-export async function scanCode(input: ScanCodeInput): Promise<ScanResult> {
-  const startTime = Date.now();
-  const scanner = 'semgrep';
-  const { path, rules = ['p/security-audit'] } = input;
+const MAX_TARGET_ARG_CHARS = 24000; // stay well under the Windows 32K command-line limit
 
-  if (!(await isToolAvailable('semgrep'))) {
-    return createEmptyResult(scanner, false, `semgrep not installed. ${getInstallCommand('semgrep')}`);
-  }
-
-  try {
-    const semgrepArgs = [...rules.map(r => `--config=${r}`), '--json', resolve(path)];
-    const { stdout } = await execFileAsync(
-      'semgrep',
-      semgrepArgs,
-      {
-        maxBuffer: 50 * 1024 * 1024,
-        timeout: 300000, // 5 minute timeout
-      }
-    ).catch(e => ({ stdout: (e as { stdout?: string }).stdout || '{}', stderr: '' }));
-
-    const results = JSON.parse(stdout);
-    const findings: SecurityFinding[] = (results.results || []).map((r: any) => ({
-      id: r.check_id || 'semgrep-finding',
-      severity: normalizeSeverity(r.extra?.severity || 'WARNING', 'semgrep'),
-      category: categorizeRule(r.check_id),
-      source: 'semgrep',
-      title: r.extra?.message || r.check_id,
-      description: r.extra?.message || 'Security issue detected by Semgrep',
-      location: {
-        file: r.path,
-        line: r.start?.line,
-        column: r.start?.col,
-      },
-      remediation: r.extra?.fix || r.extra?.metadata?.fix || undefined,
-      references: r.extra?.metadata?.references || [],
-      metadata: {
-        ruleId: r.check_id,
-        category: r.extra?.metadata?.category,
-        confidence: r.extra?.metadata?.confidence,
-        cwe: r.extra?.metadata?.cwe,
-        owasp: r.extra?.metadata?.owasp,
-      },
-    }));
-
-    return {
-      scanner,
-      timestamp: new Date(),
-      duration: Date.now() - startTime,
-      findings,
-      summary: calculateSummary(findings),
-      toolAvailable: true,
-    };
-  } catch (error) {
-    return createEmptyResult(scanner, true, `semgrep failed: ${error}`);
+export function validateRuleConfig(rule: string): void {
+  if (!rule || rule.startsWith('-') || /[\0\r\n]/.test(rule) || rule.length > 500) {
+    throw new Error(`Invalid semgrep rule/config "${rule}"`);
   }
 }
 
-function categorizeRule(ruleId: string): SecurityFinding['category'] {
-  const ruleLower = ruleId.toLowerCase();
+export async function scanCode(input: ScanCodeInput): Promise<ScanResult> {
+  const startedAt = Date.now();
+  const root = validateScanPath(input.path);
+  const rules = input.rules?.length ? input.rules : ['p/security-audit'];
+  rules.forEach(validateRuleConfig);
+  const excludes = input.excludePaths ?? [];
+  const isExcluded = makeExcludeMatcher(excludes);
+  const warnings: string[] = [];
 
-  if (
-    ruleLower.includes('injection') ||
-    ruleLower.includes('sqli') ||
-    ruleLower.includes('xss') ||
-    ruleLower.includes('command-injection') ||
-    ruleLower.includes('path-traversal')
-  ) {
-    return 'vulnerability';
+  const tool = await getTool('semgrep');
+  if (!tool.available || !tool.command) {
+    return errorResult('code', 'unavailable', 'semgrep', unavailableMessage('semgrep', tool), startedAt);
   }
 
-  if (
-    ruleLower.includes('hardcoded') ||
-    ruleLower.includes('secret') ||
-    ruleLower.includes('password') ||
-    ruleLower.includes('credential')
-  ) {
-    return 'secret';
+  let targets = [root];
+  let changed: { base: string; files: string[] } | undefined;
+  if (input.baseRef) {
+    changed = await changedFilesSince(root, input.baseRef);
+    const files = changed.files.filter((f) => !isExcluded(f));
+    if (files.length === 0) {
+      return buildResult({
+        scanType: 'code',
+        engines: [{ engine: 'semgrep', version: tool.version, status: 'skipped', error: 'no changed files' }],
+        findings: [],
+        startedAt,
+        status: 'ok',
+        diffBase: changed.base,
+        warnings: [`No files changed since ${input.baseRef}; nothing to scan`],
+      });
+    }
+    const joined = files.join(' ');
+    if (joined.length <= MAX_TARGET_ARG_CHARS) targets = files;
+    else warnings.push(`${files.length} changed files: scanned the whole path and filtered results to the changed files`);
   }
 
-  if (
-    ruleLower.includes('config') ||
-    ruleLower.includes('header') ||
-    ruleLower.includes('cors') ||
-    ruleLower.includes('csrf')
-  ) {
-    return 'misconfiguration';
+  // `--config auto` needs metrics enabled; everything else runs with metrics off.
+  const metrics = rules.includes('auto') ? [] : ['--metrics=off'];
+  const args = [
+    'scan',
+    ...rules.map((r) => `--config=${r}`),
+    '--json',
+    '--quiet',
+    '--disable-version-check',
+    ...metrics,
+    ...excludes.map((e) => `--exclude=${e}`),
+    '--',
+    ...targets,
+  ];
+
+  const started = Date.now();
+  let parsed;
+  try {
+    const r = await runTool(tool.command, args, { cwd: root, timeoutMs: timeoutMs(input.timeoutSeconds) }, 'semgrep');
+    if (!r.stdout.trim()) {
+      throw new Error(`semgrep exited with ${r.exitCode} and no output: ${stderrTail(r.stderr) || 'no error output'}`);
+    }
+    parsed = parseSemgrep(parseJson(r.stdout, 'semgrep'), (p) => toRelPosix(root, p));
+    if (parsed.fatal || (r.exitCode !== 0 && r.exitCode !== 1 && parsed.findings.length === 0)) {
+      throw new Error(`semgrep reported errors (exit ${r.exitCode}): ${parsed.errors.slice(0, 3).join(' | ') || stderrTail(r.stderr)}`);
+    }
+  } catch (err) {
+    return buildResult({
+      scanType: 'code',
+      engines: [{ engine: 'semgrep', version: tool.version, status: 'failed', durationMs: Date.now() - started, error: err instanceof Error ? err.message : String(err) }],
+      findings: [],
+      startedAt,
+    });
   }
 
-  return 'code-smell';
+  warnings.push(...parsed.errors.slice(0, 10));
+  let findings = parsed.findings;
+  const before = findings.length;
+  findings = findings.filter((f) => !f.location.file || !isExcluded(f.location.file));
+  const excludedByPath = before - findings.length;
+  if (changed) {
+    const set = new Set(changed.files);
+    findings = findings.filter((f) => f.location.file !== undefined && set.has(f.location.file));
+  }
+
+  return buildResult({
+    scanType: 'code',
+    engines: [{ engine: 'semgrep', version: tool.version, status: 'ok', durationMs: Date.now() - started, findings: findings.length }],
+    findings,
+    startedAt,
+    severityThreshold: input.severityThreshold,
+    maxResults: input.maxResults,
+    warnings,
+    excludedByPath,
+    diffBase: changed?.base,
+    extra: { rules, scannedFiles: parsed.scannedFiles },
+  });
 }
