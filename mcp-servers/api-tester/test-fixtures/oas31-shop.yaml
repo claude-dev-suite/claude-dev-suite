@@ -1,0 +1,95 @@
+openapi: 3.1.0
+info:
+  title: Shop API
+  version: 2.0.0
+servers:
+  - url: /v2
+paths:
+  /orders:
+    post:
+      operationId: createOrder
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './refs/order.yaml#/Order'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: './refs/order.yaml#/Order'
+        '401':
+          description: unauthorized
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderView'
+              examples:
+                paid:
+                  value: { id: 1, status: paid, total: 10.5, items: [{ sku: A1, qty: 1 }], note: null, payment: { kind: card, last4: '4242' } }
+  /tree:
+    get:
+      operationId: getTree
+      responses:
+        '200':
+          description: recursive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Node'
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  schemas:
+    OrderView:
+      allOf:
+        - $ref: './refs/order.yaml#/Order'
+        - type: object
+          required: [id, status]
+          properties:
+            id: { type: integer }
+            status: { type: string, enum: [new, paid, shipped] }
+            note: { type: [string, 'null'] }
+            payment:
+              oneOf:
+                - $ref: '#/components/schemas/Card'
+                - $ref: '#/components/schemas/Transfer'
+    Card:
+      type: object
+      required: [kind, last4]
+      properties:
+        kind: { const: card }
+        last4: { type: string, pattern: '^[0-9]{4}$' }
+    Transfer:
+      type: object
+      required: [kind, iban]
+      properties:
+        kind: { const: transfer }
+        iban: { type: string }
+    Node:
+      type: object
+      required: [value]
+      properties:
+        value: { type: string }
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'
