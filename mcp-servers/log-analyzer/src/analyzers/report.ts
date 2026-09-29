@@ -1,113 +1,125 @@
 // SPDX-License-Identifier: MIT
 /**
- * Log Report Generator
- * Generate comprehensive log analysis reports in various formats
+ * export_report: one streaming pass feeds the stats, error and pattern
+ * accumulators, then renders HTML, JSON or Markdown.
+ *
+ * The output path is always validated — including the default one, which
+ * previously skipped LOG_EXPORT_DIR because the check only ran on an explicit
+ * outputPath. An existing file is only replaced with overwrite: true.
  */
 
-import { writeFile } from 'fs/promises';
-import { basename, dirname, join } from 'path';
-import { parseLogFile } from '../parsers/index.js';
-import { findErrors } from './errors.js';
-import { analyzePatterns } from './patterns.js';
-import { aggregateStats } from './stats.js';
-import type {
-  ExportReportInput,
-  ExportReportResult,
-  LogLevel,
-  ErrorGroup,
-  Pattern,
-  LogStats,
-} from '../types.js';
+import { access, writeFile } from 'fs/promises';
+import { basename, dirname, join, resolve } from 'path';
+import type { LogStats, Pattern, SourceInput } from '../types.js';
+import { scan, type PipelineDeps } from '../pipeline/index.js';
+import { StatsAccumulator } from './stats.js';
+import { ErrorAccumulator } from './errors.js';
+import { PatternAccumulator, recommendations } from './patterns.js';
+import { redactDeep, validateExportPath } from '../utils.js';
 
-/**
- * Export a log analysis report
- */
-export async function exportReport(input: ExportReportInput): Promise<ExportReportResult> {
-  const {
-    filePath,
-    format = 'auto',
-    outputFormat,
-    outputPath,
-    includeCharts = true,
-    title,
-  } = input;
+export interface ExportReportOptions {
+  outputFormat: 'html' | 'json' | 'markdown';
+  outputPath?: string;
+  includeCharts?: boolean;
+  title?: string;
+  overwrite?: boolean;
+  startTime?: Date;
+  endTime?: Date;
+}
 
-  // Gather all analysis data
-  const [parseResult, errorsResult, patternsResult, statsResult] = await Promise.all([
-    parseLogFile(filePath, format),
-    findErrors({ filePath, format, groupByException: true }),
-    analyzePatterns({ filePath, format }),
-    aggregateStats({ filePath, format }),
-  ]);
+const EXT = { html: '.html', json: '.json', markdown: '.md' } as const;
 
-  // Build report data
-  const reportData = {
-    title: title || `Log Analysis Report: ${basename(filePath)}`,
-    generatedAt: new Date().toISOString(),
-    filePath,
-    format: parseResult.format,
-    summary: {
-      totalLines: parseResult.result.totalLines,
-      parsedEntries: parseResult.result.parsedEntries,
-      failedLines: parseResult.result.failedLines,
-      timeRange: statsResult.timeRange,
-    },
-    stats: statsResult.stats,
-    errors: {
-      totalErrors: errorsResult.totalErrors,
-      totalWarnings: errorsResult.totalWarnings,
-      groups: errorsResult.errorGroups,
-      timeline: errorsResult.errorTimeline,
-    },
-    patterns: {
-      total: patternsResult.summary.totalPatterns,
-      critical: patternsResult.summary.criticalPatterns,
-      warning: patternsResult.summary.warningPatterns,
-      patterns: patternsResult.patterns,
-      recommendations: patternsResult.recommendations,
-    },
-  };
+/** Where the report goes when no outputPath is given: LOG_EXPORT_DIR if set, else next to the log. */
+export function defaultReportPath(sourceLabel: string, outputFormat: ExportReportOptions['outputFormat']): string {
+  const stem = basename(sourceLabel).replace(/[^\w.-]+/g, '_').replace(/\.(log|gz|txt|json)$/g, '') || 'logs';
+  const name = `${stem}-report${EXT[outputFormat]}`;
+  const root = process.env.LOG_EXPORT_DIR;
+  if (root && root.length > 0) return join(resolve(root), name);
+  return join(dirname(sourceLabel), name);
+}
 
-  // Generate report content
-  let content: string;
-  let extension: string;
-
-  switch (outputFormat) {
-    case 'html':
-      content = generateHtmlReport(reportData, includeCharts);
-      extension = '.html';
-      break;
-    case 'json':
-      content = JSON.stringify(reportData, null, 2);
-      extension = '.json';
-      break;
-    case 'markdown':
-      content = generateMarkdownReport(reportData, includeCharts);
-      extension = '.md';
-      break;
+export async function exportReport(input: SourceInput, o: ExportReportOptions, deps: PipelineDeps = {}): Promise<Record<string, unknown>> {
+  const firstPath = input.paths?.[0];
+  if (!o.outputPath && !firstPath) throw new Error('outputPath is required when the source is not a file');
+  // For a glob, name the report after its directory.
+  const labelForDefault = firstPath && /[*?{[]/.test(firstPath) ? join(dirname(firstPath.replace(/[*?{[].*$/, 'x')), 'logs') : firstPath;
+  const outputPath = o.outputPath ?? defaultReportPath(labelForDefault!, o.outputFormat);
+  validateExportPath(outputPath);
+  if (input.paths?.some((p) => resolve(p) === resolve(outputPath))) {
+    throw new Error('outputPath would overwrite the log being analysed');
   }
+  const exists = await access(outputPath).then(() => true, () => false);
+  if (exists && !o.overwrite) throw new Error(`${outputPath} already exists; pass overwrite: true to replace it`);
 
-  // Determine output path
-  const finalOutputPath = outputPath || join(
-    dirname(filePath),
-    `${basename(filePath, '.log')}-report${extension}`
-  );
+  const stats = new StatsAccumulator('hour');
+  const errors = new ErrorAccumulator(false, 20);
+  const patterns = new PatternAccumulator();
+  const summary = await scan(input, { filter: { startTime: o.startTime, endTime: o.endTime } }, (e) => {
+    stats.add(e);
+    errors.add(e);
+    patterns.add(e);
+  }, deps);
 
-  // Write report
-  await writeFile(finalOutputPath, content, 'utf-8');
+  const s = stats.result();
+  const pats = patterns.patterns(2);
+  const groups = errors.sortedGroups().slice(0, 50).map((g) => ({
+    fingerprint: g.fingerprint,
+    exceptionType: g.type,
+    message: g.message,
+    count: g.count,
+    firstOccurrence: g.span.start?.toISOString() ?? null,
+    lastOccurrence: g.span.end?.toISOString() ?? null,
+    stackTrace: g.frames,
+  }));
+  const sourceLabel = summary.sources.map((x) => x.source).join(', ');
+  const data: ReportData = redactDeep({
+    title: o.title || `Log Analysis Report: ${summary.sources.length === 1 ? basename(sourceLabel) : `${summary.sources.length} sources`}`,
+    generatedAt: new Date().toISOString(),
+    filePath: sourceLabel,
+    format: [...new Set(summary.sources.map((x) => x.format))].join(', '),
+    summary: {
+      totalLines: summary.sources.reduce((n, x) => n + x.lines, 0),
+      parsedEntries: summary.entriesScanned,
+      failedLines: summary.sources.reduce((n, x) => n + x.unparsedLines, 0),
+      timeRange: s.timeRange,
+    },
+    stats: s.stats,
+    errors: { totalErrors: errors.errors, totalWarnings: errors.warnings, groups, timeline: errors.timelineArray() },
+    patterns: {
+      total: pats.length,
+      critical: pats.filter((p) => p.severity === 'critical').length,
+      warning: pats.filter((p) => p.severity === 'warning').length,
+      patterns: pats,
+      recommendations: recommendations(pats),
+    },
+  });
 
-  // Calculate sections included
+  const includeCharts = o.includeCharts ?? true;
+  const content = o.outputFormat === 'html'
+    ? generateHtmlReport(data, includeCharts)
+    : o.outputFormat === 'markdown'
+      ? generateMarkdownReport(data, includeCharts)
+      : JSON.stringify(data, null, 2);
+  await writeFile(outputPath, content, 'utf-8');
+
   const sections = ['Summary', 'Statistics'];
-  if (errorsResult.totalErrors > 0) sections.push('Errors');
-  if (patternsResult.patterns.length > 0) sections.push('Patterns');
-  if (patternsResult.recommendations.length > 0) sections.push('Recommendations');
-
+  if (errors.errors > 0) sections.push('Errors');
+  if (pats.length > 0) sections.push('Patterns');
+  if (data.patterns.recommendations.length > 0) sections.push('Recommendations');
   return {
-    outputPath: finalOutputPath,
-    format: outputFormat,
+    outputPath,
+    format: o.outputFormat,
     size: Buffer.byteLength(content, 'utf-8'),
+    overwritten: exists,
     sections,
+    entries: summary.entriesScanned,
+    sources: summary.sources.map((x) => ({ source: x.source, format: x.format, entries: x.entries })),
   };
+}
+
+/** Escape a value for a Markdown table cell. */
+function md(text: string): string {
+  return String(text).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 
 /**
@@ -212,7 +224,7 @@ function generateHtmlReport(data: ReportData, includeCharts: boolean): string {
         </div>
         <div class="stat">
           <div class="stat-value">${summary.failedLines.toLocaleString()}</div>
-          <div class="stat-label">Failed Lines</div>
+          <div class="stat-label">Unparsed Lines</div>
         </div>
         <div class="stat">
           <div class="stat-value">${Math.round(stats.errorRate * 10) / 10}</div>
@@ -263,7 +275,7 @@ function generateHtmlReport(data: ReportData, includeCharts: boolean): string {
           <tbody>
             ${patterns.patterns.slice(0, 15).map((p) => `
               <tr>
-                <td>${escapeHtml(p.pattern.substring(0, 60))}${p.pattern.length > 60 ? '...' : ''}</td>
+                <td>${escapeHtml(p.description)}</td>
                 <td>${p.category}</td>
                 <td>${p.count}</td>
                 <td><span class="badge badge-${p.severity}">${p.severity}</span></td>
@@ -335,7 +347,7 @@ function generateMarkdownReport(data: ReportData, includeCharts: boolean): strin
     '|--------|-------|',
     `| Total Lines | ${summary.totalLines.toLocaleString()} |`,
     `| Parsed Entries | ${summary.parsedEntries.toLocaleString()} |`,
-    `| Failed Lines | ${summary.failedLines.toLocaleString()} |`,
+    `| Unparsed Lines | ${summary.failedLines.toLocaleString()} |`,
     `| Error Rate | ${Math.round(stats.errorRate * 10) / 10} per 1000 |`,
     '',
     '## 📈 Log Levels',
@@ -361,10 +373,10 @@ function generateMarkdownReport(data: ReportData, includeCharts: boolean): strin
 
     for (const group of errors.groups.slice(0, 10)) {
       lines.push(
-        `### ${group.exceptionType}`,
+        `### ${md(group.exceptionType)}`,
         '',
         `- **Count:** ${group.count}`,
-        `- **Message:** ${group.message.substring(0, 200)}${group.message.length > 200 ? '...' : ''}`,
+        `- **Message:** ${md(group.message.substring(0, 200))}${group.message.length > 200 ? '...' : ''}`,
         ''
       );
       if (group.stackTrace.length > 0) {
@@ -383,8 +395,7 @@ function generateMarkdownReport(data: ReportData, includeCharts: boolean): strin
     );
 
     for (const p of patterns.patterns.slice(0, 15)) {
-      const shortPattern = p.pattern.substring(0, 50) + (p.pattern.length > 50 ? '...' : '');
-      lines.push(`| ${shortPattern} | ${p.category} | ${p.count} | ${p.severity} |`);
+      lines.push(`| ${md(p.description)} | ${p.category} | ${p.count} | ${p.severity} |`);
     }
   }
 
@@ -408,7 +419,7 @@ function generateMarkdownReport(data: ReportData, includeCharts: boolean): strin
   );
 
   for (const l of stats.topLoggers.slice(0, 10)) {
-    lines.push(`| ${l.logger} | ${l.count.toLocaleString()} | ${l.errorCount} |`);
+    lines.push(`| ${md(l.logger)} | ${l.count.toLocaleString()} | ${l.errorCount} |`);
   }
 
   if (includeCharts && stats.byHour.length > 0) {
@@ -429,7 +440,7 @@ function generateMarkdownReport(data: ReportData, includeCharts: boolean): strin
  * Generate ASCII bar chart
  */
 function generateAsciiBarChart(data: Record<string, number>): string {
-  const maxValue = Math.max(...Object.values(data));
+  const maxValue = Math.max(0, ...Object.values(data));
   const maxBarLength = 40;
   const lines: string[] = [];
 
@@ -446,7 +457,7 @@ function generateAsciiBarChart(data: Record<string, number>): string {
  * Generate timeline chart
  */
 function generateTimelineChart(byHour: Array<{ hour: string; total: number; errors: number }>): string {
-  const maxTotal = Math.max(...byHour.map((h) => h.total));
+  const maxTotal = byHour.reduce((m, h) => Math.max(m, h.total), 0);
   const maxBarLength = 50;
   const lines: string[] = [];
 
@@ -483,13 +494,13 @@ interface ReportData {
     totalLines: number;
     parsedEntries: number;
     failedLines: number;
-    timeRange: { start: Date | null; end: Date | null; durationMinutes: number };
+    timeRange: Record<string, unknown>;
   };
   stats: LogStats;
   errors: {
     totalErrors: number;
     totalWarnings: number;
-    groups: ErrorGroup[];
+    groups: Array<{ exceptionType: string; message: string; count: number; stackTrace: string[] }>;
     timeline: Array<{ hour: string; count: number }>;
   };
   patterns: {

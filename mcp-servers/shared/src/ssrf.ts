@@ -11,22 +11,32 @@
  * nowhere for a shared helper to live.
  *
  * Policy:
- *  - Explicit "localhost" hostname is ALLOWED (profiling local endpoints is
- *    the primary use-case for this tool).
+ *  - Loopback is ALLOWED: the `localhost` hostname, 127.0.0.0/8, ::1 and
+ *    IPv4-mapped 127.x. These are dev tools and a local server is their main
+ *    target. The guard used to allow the name `localhost` but refuse
+ *    `127.0.0.1` — the same socket — which protected nothing and broke the URL
+ *    most dev servers print.
  *  - 169.254.0.0/16 (cloud metadata — AWS IMDSv1/v2, GCP, Azure) is ALWAYS
  *    blocked, even for local-profiling use-cases.
- *  - All other RFC-1918 private ranges (10.x, 172.16-31.x, 192.168.x),
- *    the loopback range (127.0.0.0/8 except "localhost"), IPv6 loopback (::1),
- *    IPv6 ULA (fc00::/7), IPv6 link-local (fe80::/10), and IPv4-mapped IPv6
- *    addresses are blocked by default but can be bypassed (except metadata)
- *    by the caller passing `allowPrivate: true` — each server decides which of
- *    its own env vars, if any, turns that on.
+ *  - The RFC-1918 private ranges (10.x, 172.16-31.x, 192.168.x), 0.0.0.0/8,
+ *    IPv6 ULA (fc00::/7) and IPv6 link-local (fe80::/10) are blocked by default
+ *    but can be bypassed (except metadata) by the caller passing
+ *    `allowPrivate: true` — each server decides which of its own env vars, if
+ *    any, turns that on.
+ *  - A hostname that cannot be resolved is REFUSED. Failing open meant the
+ *    guard checked nothing while the connection resolved on its own later.
+ *  - Errors never echo the URL: it can carry credentials (a database URL's
+ *    password, a token in the query string).
+ *  - The check is a point in time. `createGuardedLookup` re-applies it to the
+ *    address a socket actually connects to, which is what closes DNS
+ *    rebinding; use it wherever the HTTP client accepts a `lookup` option.
  *  - Decimal/octal/hex-encoded IPv4 literals (e.g. 2852039166, 0x0a000001,
  *    0177.0.0.1) are normalised to dotted-quad before the range check.
  *  - Redirects: callers MUST call validateUrl on the Location header before
  *    following each hop (see http-client.ts).
  */
 
+import { lookup as dnsLookup, type LookupAddress } from 'dns';
 import { lookup } from 'dns/promises';
 import { isIPv4, isIPv6 } from 'net';
 
@@ -98,7 +108,7 @@ function decodeAlternativeIpv4(raw: string): string | null {
  * Check whether a dotted-quad IPv4 address falls within a private/reserved
  * range.  Returns the range name if blocked, null if public.
  */
-function getBlockedIpv4Range(ip: string, allowPrivate: boolean): string | null {
+function getBlockedIpv4Range(ip: string, allowPrivate: boolean, allowLoopback = true): string | null {
   const parts = ip.split('.').map(Number);
   if (parts.length !== 4 || parts.some((p) => isNaN(p))) return null;
 
@@ -107,10 +117,12 @@ function getBlockedIpv4Range(ip: string, allowPrivate: boolean): string | null {
   // Cloud metadata endpoint — always blocked
   if (a === 169 && b === 254) return 'link-local/cloud-metadata (169.254.x.x)';
 
+  // Loopback is permitted unless the caller opted out — see the policy note.
+  if (a === 127) return allowLoopback ? null : 'loopback (127.x.x.x)';
+
   // Allow remaining ranges when the caller opted in.
   if (allowPrivate) return null;
 
-  if (a === 127) return 'loopback (127.x.x.x)';
   if (a === 0) return 'unspecified (0.x.x.x)';
   if (a === 10) return 'private (10.x.x.x)';
   if (a === 172 && b >= 16 && b <= 31) return 'private (172.16-31.x.x)';
@@ -179,13 +191,13 @@ function parseIpv6Groups(addr: string): number[] | null {
  *  fc00::/7             — Unique Local Address (ULA)
  *  fe80::/10            — Link-local
  */
-function getBlockedIpv6Range(addr: string, allowPrivate: boolean): string | null {
+function getBlockedIpv6Range(addr: string, allowPrivate: boolean, allowLoopback = true): string | null {
   const groups = parseIpv6Groups(addr);
-  if (!groups) return null; // Can't parse — let it pass (DNS will fail anyway)
+  if (!groups) return 'an unparseable IPv6 address';
 
-  // Loopback ::1
+  // Loopback ::1 — treated like 127.0.0.0/8.
   if (groups.every((g, i) => (i < 7 ? g === 0 : g === 1))) {
-    if (!allowPrivate) return 'IPv6 loopback (::1)';
+    return allowLoopback ? null : 'IPv6 loopback (::1)';
   }
 
   // IPv4-mapped ::ffff:a.b.c.d  (groups[0..4]=0, groups[5]=0xffff)
@@ -207,7 +219,7 @@ function getBlockedIpv6Range(addr: string, allowPrivate: boolean): string | null
       (lo >>> 8) & 0xff,
       lo & 0xff,
     ].join('.');
-    const blocked = getBlockedIpv4Range(embeddedIpv4, allowPrivate);
+    const blocked = getBlockedIpv4Range(embeddedIpv4, allowPrivate, allowLoopback);
     if (blocked) return `IPv4-mapped IPv6 embedding ${blocked}`;
     return null; // Embedded public IPv4 — allow
   }
@@ -244,29 +256,39 @@ export interface SsrfOptions {
    * so one server's escape hatch cannot silently widen another's.
    */
   allowPrivate?: boolean;
+  /**
+   * Permit loopback (`localhost`, 127.0.0.0/8, ::1). Default true. A server
+   * whose operator asked to block local targets passes false; `allowPrivate`
+   * does not imply it either way.
+   */
+  allowLoopback?: boolean;
 }
 
 export async function validateUrl(rawUrl: string, opts: SsrfOptions = {}): Promise<void> {
   const allowPrivate = opts.allowPrivate === true;
+  const allowLoopback = opts.allowLoopback !== false;
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
   } catch {
-    throw new Error(`Invalid URL: ${rawUrl}`);
+    // Never echo the input: it may be a credential-bearing URL.
+    throw new Error('Invalid URL');
   }
 
   const rawHostname = parsed.hostname;
   const hostname = rawHostname.toLowerCase();
 
-  // Allow explicit localhost (primary use-case)
-  if (hostname === 'localhost') return;
+  if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
+    if (allowLoopback) return;
+    throw new Error('SSRF protection: requests to loopback (localhost) are not allowed');
+  }
 
   // Strip IPv6 brackets: [::1] → ::1
   const stripped = hostname.replace(/^\[|\]$/g, '');
 
   // --- IPv6 literal ---
   if (isIPv6(stripped) || stripped.includes(':')) {
-    const reason = getBlockedIpv6Range(stripped, allowPrivate);
+    const reason = getBlockedIpv6Range(stripped, allowPrivate, allowLoopback);
     if (reason) {
       throw new Error(`SSRF protection: requests to ${reason} are not allowed (${stripped})`);
     }
@@ -275,7 +297,7 @@ export async function validateUrl(rawUrl: string, opts: SsrfOptions = {}): Promi
 
   // --- IPv4 literal (standard dotted-quad) ---
   if (isIPv4(stripped)) {
-    const blockedRange = getBlockedIpv4Range(stripped, allowPrivate);
+    const blockedRange = getBlockedIpv4Range(stripped, allowPrivate, allowLoopback);
     if (blockedRange) {
       throw new Error(
         `SSRF protection: requests to ${blockedRange} are not allowed (${stripped})`
@@ -288,7 +310,7 @@ export async function validateUrl(rawUrl: string, opts: SsrfOptions = {}): Promi
   const decoded = decodeAlternativeIpv4(stripped);
   if (decoded !== null) {
     // It looks like an alternative-encoding IPv4 literal
-    const blockedRange = getBlockedIpv4Range(decoded, allowPrivate);
+    const blockedRange = getBlockedIpv4Range(decoded, allowPrivate, allowLoopback);
     if (blockedRange) {
       throw new Error(
         `SSRF protection: requests to ${blockedRange} are not allowed ` +
@@ -310,20 +332,23 @@ export async function validateUrl(rawUrl: string, opts: SsrfOptions = {}): Promi
     });
     addresses = results as string[];
   } catch {
-    // DNS resolution failure — fail open (let the request fail at network level)
-    return;
+    // Fail closed: an address we could not check is an address we do not allow.
+    throw new Error(`SSRF protection: could not resolve host "${hostname}"`);
+  }
+  if (addresses.length === 0) {
+    throw new Error(`SSRF protection: host "${hostname}" resolved to no addresses`);
   }
 
   for (const addr of addresses) {
     if (isIPv6(addr) || addr.includes(':')) {
-      const reason = getBlockedIpv6Range(addr, allowPrivate);
+      const reason = getBlockedIpv6Range(addr, allowPrivate, allowLoopback);
       if (reason) {
         throw new Error(
           `SSRF protection: hostname "${hostname}" resolves to an address in a blocked range: ${reason}`
         );
       }
     } else if (isIPv4(addr)) {
-      const blockedRange = getBlockedIpv4Range(addr, allowPrivate);
+      const blockedRange = getBlockedIpv4Range(addr, allowPrivate, allowLoopback);
       if (blockedRange) {
         throw new Error(
           `SSRF protection: hostname "${hostname}" resolves to ${addr} ` +
@@ -332,4 +357,68 @@ export async function validateUrl(rawUrl: string, opts: SsrfOptions = {}): Promi
       }
     }
   }
+}
+
+/**
+ * Check one already-resolved address against the same policy as `validateUrl`.
+ * Throws when it is blocked. Synchronous: no DNS is involved.
+ */
+export function assertAddressAllowed(address: string, opts: SsrfOptions = {}): void {
+  const allowPrivate = opts.allowPrivate === true;
+  const allowLoopback = opts.allowLoopback !== false;
+  const a = address.replace(/^\[|\]$/g, '');
+  const reason = isIPv4(a)
+    ? getBlockedIpv4Range(a, allowPrivate, allowLoopback)
+    : isIPv6(a)
+      ? getBlockedIpv6Range(a, allowPrivate, allowLoopback)
+      : 'a non-IP address';
+  if (reason) throw new Error(`SSRF protection: ${a} is in a blocked range: ${reason}`);
+}
+
+type LookupCallback = (
+  err: NodeJS.ErrnoException | null,
+  address: string | LookupAddress[],
+  family?: number,
+) => void;
+
+/**
+ * A drop-in `lookup` for `http.request`, `net.connect` or `ws` that applies the
+ * policy to every address the hostname resolves to, at connect time.
+ *
+ * `validateUrl` resolves the name once; the socket then resolves it again. A
+ * hostname with a short TTL can answer the first lookup with a public address
+ * and the second with 169.254.169.254 (DNS rebinding). Checking inside the
+ * socket's own lookup leaves no gap between the check and the connection.
+ */
+export function createGuardedLookup(opts: SsrfOptions = {}) {
+  return function guardedLookup(hostname: string, options: unknown, callback?: unknown): void {
+    const cb = (typeof options === 'function' ? options : callback) as LookupCallback;
+    const o = (typeof options === 'object' && options !== null ? options : {}) as {
+      all?: boolean;
+      family?: number;
+    };
+    dnsLookup(hostname, { family: (o.family ?? 0) as 0 | 4 | 6, all: true }, (err, addresses) => {
+      if (err) return cb(err, o.all ? [] : '');
+      const list = addresses as LookupAddress[];
+      if (!list || list.length === 0) {
+        return cb(
+          Object.assign(new Error(`DNS lookup returned no addresses for ${hostname}`), { code: 'ENOTFOUND' }),
+          o.all ? [] : '',
+        );
+      }
+      try {
+        for (const entry of list) assertAddressAllowed(entry.address, opts);
+      } catch (e) {
+        const reason = e instanceof Error ? e.message : String(e);
+        return cb(
+          Object.assign(new Error(`"${hostname}" resolved at connect time to a blocked address — ${reason}`), {
+            code: 'ESSRF',
+          }),
+          o.all ? [] : '',
+        );
+      }
+      if (o.all) cb(null, list);
+      else cb(null, list[0].address, list[0].family);
+    });
+  };
 }

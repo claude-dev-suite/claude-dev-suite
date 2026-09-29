@@ -2,7 +2,9 @@
 /**
  * Docker Manager MCP Server
  *
- * Provides Docker and Docker Compose management capabilities.
+ * Docker and Docker Compose management over the docker CLI: containers,
+ * exec/cp, images and builds, registries, compose projects, networks,
+ * volumes, system info and prune with an exact preview.
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -11,12 +13,29 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 import { handlers, errorResponse } from "./handlers/index.js";
+import {
+  CleanupUnusedSchema,
+  ComposeActionSchema,
+  ContainerActionSchema,
+  DockerBuildSchema,
+  DockerCpSchema,
+  DockerExecSchema,
+  DockerPsSchema,
+  DockerRegistrySchema,
+  DockerRunSchema,
+  DockerStatsSchema,
+  ImageActionSchema,
+  NetworksSchema,
+  SystemSchema,
+  VolumesSchema,
+} from "./handlers/types.js";
 
 const server = new Server(
   {
     name: "docker-manager-server",
-    version: "2.2.0",
+    version: "2.3.0",
   },
   {
     capabilities: {
@@ -25,148 +44,88 @@ const server = new Server(
   }
 );
 
-// List available tools
+/** The ListTools input schema is generated from the same zod schema the handler validates with. */
+function inputSchema(schema: z.ZodType): Record<string, unknown> {
+  const json = z.toJSONSchema(schema, { io: "input", unrepresentable: "any" }) as Record<string, unknown>;
+  delete json.$schema;
+  return json;
+}
+
+const TOOLS = [
+  {
+    name: "docker_ps",
+    description: "List containers with filters (status, label, name, image, compose project, network, health)",
+    schema: DockerPsSchema,
+  },
+  {
+    name: "docker_container",
+    description: "Container lifecycle + logs, inspect (env redacted), top, port, diff, wait, health, stats",
+    schema: ContainerActionSchema,
+  },
+  {
+    name: "docker_run",
+    description: "Run or create a container: ports, env, volumes, network, restart, limits, labels, command",
+    schema: DockerRunSchema,
+  },
+  {
+    name: "docker_exec",
+    description: "Run a command in a running container (non-interactive; user, workdir, env, timeout, output cap)",
+    schema: DockerExecSchema,
+  },
+  {
+    name: "docker_cp",
+    description: "Copy files between a container and the host (host path confined to allowed roots)",
+    schema: DockerCpSchema,
+  },
+  {
+    name: "docker_compose",
+    description: "Docker Compose on a chosen project (dir, files, name, profiles): up, down, ps, logs, exec, run, config…",
+    schema: ComposeActionSchema,
+  },
+  {
+    name: "docker_images",
+    description: "Images: list, pull, remove, inspect, history, tag, push, search, save, load",
+    schema: ImageActionSchema,
+  },
+  {
+    name: "docker_build",
+    description: "Build an image (context, Dockerfile, tags, build args, target, platform, no-cache); returns image ID",
+    schema: DockerBuildSchema,
+  },
+  {
+    name: "docker_registry",
+    description: "Registry login (password via stdin, never echoed) and logout",
+    schema: DockerRegistrySchema,
+  },
+  {
+    name: "docker_stats",
+    description: "Show resource usage statistics for containers",
+    schema: DockerStatsSchema,
+  },
+  {
+    name: "docker_networks",
+    description: "Networks: list, inspect, create, remove, connect, disconnect, prune (exact preview)",
+    schema: NetworksSchema,
+  },
+  {
+    name: "docker_volumes",
+    description: "Volumes: list, inspect, create, remove, prune (exact preview, dry run by default)",
+    schema: VolumesSchema,
+  },
+  {
+    name: "docker_system",
+    description: "Daemon status, disk usage (df), info, version, bounded event window, contexts",
+    schema: SystemSchema,
+  },
+  {
+    name: "cleanup_unused",
+    description: "Prune unused resources; dry run (default) lists exactly what would go; volumes need opt-in",
+    schema: CleanupUnusedSchema,
+  },
+];
+
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: "docker_ps",
-      description: "List running Docker containers with their status",
-      inputSchema: {
-        type: "object",
-        properties: {
-          all: {
-            type: "boolean",
-            description: "Show all containers (including stopped)",
-            default: false,
-          },
-        },
-      },
-    },
-    {
-      name: "docker_container",
-      description: "Manage a Docker container (start, stop, restart, logs, inspect)",
-      inputSchema: {
-        type: "object",
-        properties: {
-          container: {
-            type: "string",
-            description: "Container name or ID",
-          },
-          action: {
-            type: "string",
-            enum: ["start", "stop", "restart", "logs", "inspect"],
-            description: "Action to perform",
-          },
-          tail: {
-            type: "number",
-            description: "Number of log lines (for logs action)",
-            default: 100,
-          },
-        },
-        required: ["container", "action"],
-      },
-    },
-    {
-      name: "docker_compose",
-      description: "Run Docker Compose commands (up, down, ps, logs, build, restart)",
-      inputSchema: {
-        type: "object",
-        properties: {
-          action: {
-            type: "string",
-            enum: ["up", "down", "ps", "logs", "build", "restart"],
-            description: "Compose action to perform",
-          },
-          service: {
-            type: "string",
-            description: "Specific service name (optional)",
-          },
-          detach: {
-            type: "boolean",
-            description: "Run in detached mode (for up)",
-            default: true,
-          },
-          build: {
-            type: "boolean",
-            description: "Build images before starting (for up)",
-          },
-        },
-        required: ["action"],
-      },
-    },
-    {
-      name: "docker_images",
-      description: "Manage Docker images (list, pull, remove, inspect)",
-      inputSchema: {
-        type: "object",
-        properties: {
-          action: {
-            type: "string",
-            enum: ["list", "pull", "remove", "inspect"],
-            description: "Image action to perform",
-          },
-          image: {
-            type: "string",
-            description: "Image name (required for pull/remove/inspect)",
-          },
-        },
-        required: ["action"],
-      },
-    },
-    {
-      name: "docker_stats",
-      description: "Show resource usage statistics for containers",
-      inputSchema: {
-        type: "object",
-        properties: {
-          container: {
-            type: "string",
-            description: "Specific container (optional, shows all if omitted)",
-          },
-        },
-      },
-    },
-    {
-      name: "docker_networks",
-      description: "List Docker networks",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "docker_volumes",
-      description: "List Docker volumes",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "cleanup_unused",
-      description: "Remove unused Docker resources (images, containers, volumes, networks)",
-      inputSchema: {
-        type: "object",
-        properties: {
-          target: {
-            type: "string",
-            enum: ["all", "images", "containers", "volumes", "networks"],
-            description: "What to clean up (default: all)",
-          },
-          force: {
-            type: "boolean",
-            description: "Skip confirmation prompts",
-            default: true,
-          },
-          dryRun: {
-            type: "boolean",
-            description: "Show what would be removed without actually removing",
-            default: false,
-          },
-        },
-      },
-    },
-  ],
+  tools: TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: inputSchema(t.schema) })),
 }));
 
 // Handle tool calls using handlers registry

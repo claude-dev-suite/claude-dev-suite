@@ -1,31 +1,76 @@
 {
   "name": "database-query",
-  "description": "Executes SQL queries, manages schemas, generates migrations, and performs database operations",
-  "shortDescription": "Database operations",
+  "description": "Read-only-by-default SQL access to PostgreSQL, MySQL/MariaDB and SQLite: querying with engine-enforced read-only transactions, timeouts and row caps; full schema introspection; query plans; slow-query, index and health diagnostics; schema diff and migration generation; engine-native backup/restore. Supports several named connections; writes only on connections explicitly marked writable and only with confirmation. MongoDB is not supported. SQLite needs Node.js >= 22.13; backups need pg_dump/psql or mysqldump/mysql on PATH.",
+  "shortDescription": "PostgreSQL, MySQL/MariaDB and SQLite queries, schema and diagnostics",
   "category": "database",
   "tools": [
+    "list_connections",
     "execute_query",
+    "execute_write",
+    "list_schemas",
     "list_tables",
     "describe_table",
     "get_schema",
+    "list_objects",
+    "search_objects",
+    "preview_table",
     "explain_query",
-    "compare_schemas",
     "find_slow_queries",
+    "index_recommendations",
+    "health_check",
+    "compare_schemas",
     "generate_migration",
     "backup_restore"
   ],
   "envVars": [
     {
       "name": "DATABASE_URL",
-      "description": "Database connection string",
+      "description": "Default connection URL: postgres://, mysql:// / mariadb://, or sqlite:<path>. sslmode/sslrootcert query parameters are honoured. Set this or DATABASE_URLS.",
       "default": "",
-      "required": true,
+      "required": false,
       "secret": true
     },
     {
-      "name": "DB_BACKUP_DIR",
-      "description": "Directory that backup and restore paths must stay inside. Unset keeps the historical unconfined behaviour.",
+      "name": "DATABASE_URLS",
+      "description": "Extra named connections as JSON: {\"name\": \"url\"} or {\"name\": {\"url\": \"...\", \"readOnly\": false}}. Connections are read-only unless readOnly is false.",
       "default": "",
+      "required": false,
+      "secret": true
+    },
+    {
+      "name": "DATABASE_ALLOW_WRITES",
+      "description": "Set to true to make the DATABASE_URL connection writable (execute_write, restore). Default: read-only.",
+      "default": "false",
+      "required": false
+    },
+    {
+      "name": "DB_STATEMENT_TIMEOUT_MS",
+      "description": "Per-statement timeout in milliseconds, enforced by the database (SQLite: by killing the helper process).",
+      "default": "30000",
+      "required": false
+    },
+    {
+      "name": "DB_MAX_ROWS",
+      "description": "Hard cap on rows returned by one execute_query call.",
+      "default": "10000",
+      "required": false
+    },
+    {
+      "name": "DB_BACKUP_DIR",
+      "description": "Directory every backup/restore/list path is confined to. Default: ~/.dev-suite/db-backups (outside any repository).",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "DB_CLIENT_BIN_DIR",
+      "description": "Directory containing pg_dump/pg_restore/psql or mysqldump/mysql when they are not on PATH.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "DB_ALLOW_PRIVATE_ADHOC_URLS",
+      "description": "Allow targetDatabaseUrl tool arguments to reach private hosts (loopback is always allowed) (cloud metadata stays blocked). Configured connections are always allowed.",
+      "default": "false",
       "required": false
     }
   ],
@@ -38,10 +83,11 @@
     "drizzle",
     "typeorm",
     "sequelize",
+    "knex",
+    "sqlalchemy",
     "postgresql",
     "mysql",
-    "mongodb",
-    "sqlite",
-    "sqlalchemy"
+    "mariadb",
+    "sqlite"
   ]
 }

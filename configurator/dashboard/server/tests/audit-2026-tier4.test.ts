@@ -123,6 +123,9 @@ describe('Tier 4 #38 — runtime artifacts are declared', () => {
     expect(gitignore).toContain('.dev-suite-analytics/');
     expect(gitignore).toContain('.dev-suite-live.json');
     expect(gitignore).toContain('.dev-suite-backup-*/');
+    // Profiler artifacts are ignored; its saved baselines are meant to be shared.
+    expect(gitignore).toContain('.perf-profiler/runs/');
+    expect(gitignore).not.toContain('.perf-profiler/baselines');
   });
 });
 

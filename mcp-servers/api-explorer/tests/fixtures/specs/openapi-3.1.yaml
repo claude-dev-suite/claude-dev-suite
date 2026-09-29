@@ -1,0 +1,55 @@
+openapi: 3.1.0
+info:
+  title: Events
+  version: 1.0.0
+paths:
+  /things/{thingId}.{format}:
+    get:
+      operationId: getThing
+      parameters:
+        - name: thingId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: format
+          in: path
+          required: true
+          schema: { type: string, enum: [json, xml] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Thing'
+webhooks:
+  thingCreated:
+    post:
+      operationId: onThingCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Thing'
+      responses:
+        '200':
+          description: Ack
+components:
+  schemas:
+    Thing:
+      type: object
+      required: [kind, name]
+      properties:
+        kind:
+          const: thing
+        name:
+          type: [string, 'null']
+          examples: [Widget]
+        size:
+          type: [integer, 'null']
+          minimum: 3
+        tags:
+          type: array
+          prefixItems:
+            - type: string
+            - type: integer

@@ -1,0 +1,48 @@
+type: collection.insomnia.rest/5.0
+name: Orders v5
+meta:
+  id: wrk_abc
+collection:
+  - name: Orders
+    meta:
+      id: fld_1
+    authentication:
+      type: bearer
+      token: "{{ _.token }}"
+    children:
+      - url: "{{ _.base }}/orders"
+        name: List orders
+        meta:
+          id: req_1
+        method: GET
+        parameters:
+          - name: page
+            value: "2"
+          - name: hidden
+            value: "x"
+            disabled: true
+      - url: "{{ _.base }}/orders"
+        name: Create order
+        meta:
+          id: req_2
+        method: POST
+        body:
+          mimeType: application/json
+          text: '{"sku": "A1"}'
+        headers:
+          - name: X-Trace
+            value: abc
+  - url: "{{ _.base }}/health"
+    name: Health
+    meta:
+      id: req_3
+    method: GET
+environments:
+  name: Base Environment
+  data:
+    base: http://localhost:3333
+  subEnvironments:
+    - name: Staging
+      data:
+        base: https://staging.example.com
+        token: staging-token

@@ -177,12 +177,9 @@ describe('validateUrl — SSRF protection', () => {
     await expect(validateUrl('http://192.168.1.1/')).rejects.toThrow(/SSRF protection/i);
   });
 
-  it('blocks IPv6 loopback ::1', async () => {
-    await expect(validateUrl('http://[::1]:8080/')).rejects.toThrow(/SSRF protection/i);
-  });
-
-  it('blocks 127.0.0.1 (loopback literal)', async () => {
-    await expect(validateUrl('http://127.0.0.1:8080/')).rejects.toThrow(/SSRF protection/i);
+  it('allows loopback literals, like the localhost hostname (shared policy)', async () => {
+    await expect(validateUrl('http://[::1]:8080/')).resolves.toBeUndefined();
+    await expect(validateUrl('http://127.0.0.1:8080/')).resolves.toBeUndefined();
   });
 
   it('allows private URLs when PERF_PROFILER_ALLOW_PRIVATE_URLS=1 (except metadata)', async () => {

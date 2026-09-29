@@ -1,0 +1,28 @@
+asyncapi: 3.0.0
+info:
+  title: Lights
+  version: 1.0.0
+channels:
+  lightingMeasured:
+    address: smartylighting/{streetlightId}/measured
+    messages:
+      lightMeasured:
+        $ref: '#/components/messages/LightMeasured'
+operations:
+  receiveLightMeasurement:
+    action: receive
+    channel:
+      $ref: '#/channels/lightingMeasured'
+    summary: Inform about environmental lighting conditions
+    messages:
+      - $ref: '#/channels/lightingMeasured/messages/lightMeasured'
+components:
+  messages:
+    LightMeasured:
+      name: LightMeasured
+      payload:
+        type: object
+        properties:
+          lumens:
+            type: integer
+            minimum: 0

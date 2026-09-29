@@ -8,6 +8,147 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+The eight domain MCP servers — database-query, docker-manager, api-tester,
+api-explorer, log-analyzer, performance-profiler, code-quality and
+security-scanner — were audited against their code, not their descriptions,
+and rebuilt. The audit's headline was not missing features but wrong answers
+presented as right ones: a scanner that crashed reported zero vulnerabilities,
+a profiler measured its own wrapper's heap, and a linter wrapper fell back to
+five regexes while calling the result a lint. Every server now reports a tool
+that is missing, crashed or timed out as exactly that. All existing tool names
+still work; the full tool lists are in the README's MCP Servers Reference.
+
+### Security
+
+- **database-query: a read-only query could write.** `SELECT 1; COMMIT; CREATE
+  TABLE …` committed its write on PostgreSQL, because the "read-only" check was a
+  prefix test on the SQL string. Multi-statement strings and transaction-control
+  statements are now refused, and read-only is enforced by the database itself
+  (read-only transactions, `PRAGMA query_only`). `restore` used to write with no
+  guard at all; it now needs a writable connection and `confirm: true`.
+- **security-scanner: trufflehog returned the raw secret** in its results, and
+  trivy's partially-masked match was copied through. Neither reaches the model
+  any more; gitleaks runs with `--redact`.
+- **docker-manager: inspect returned `Config.Env` verbatim**, so any secret in a
+  container's environment went straight into the model's context. Environment
+  values are redacted unless `revealEnv` is set, and secrets passed in (build
+  args, registry passwords, env values) are scrubbed from all output.
+- **Shared SSRF guard** (`mcp-servers/shared`):
+  - An "Invalid URL" error echoed the input, which for database-query is a URL
+    carrying a password. It no longer does.
+  - A hostname that failed to resolve was let through; it is now refused.
+  - New `createGuardedLookup` re-checks the address a socket actually connects
+    to, closing DNS rebinding; api-tester uses it for HTTP, WebSocket and SSE.
+  - `assertWithinRoot` now resolves symlinks, so a link inside an allowed
+    directory pointing outside it is refused.
+
+### Changed
+
+- **Loopback is allowed consistently.** The shared guard allowed the hostname
+  `localhost` but refused `127.0.0.1` and `::1` — the same socket — which
+  protected nothing and rejected the URL most dev servers print. All loopback
+  forms are now allowed by default; `allowLoopback: false` (and api-explorer's
+  `API_EXPLORER_ALLOW_PRIVATE_URLS=0`) blocks every one of them.
+- **docker-manager `cleanup_unused` is a dry run by default**, and the preview
+  lists exactly what the real prune would delete — it used to list only dangling
+  images while the real run pruned every unused one, and could remove volumes in
+  the same call. Deleting volumes now needs `includeVolumes: true`. The `force`
+  parameter, which was never read, is gone.
+- **database-query is described as what it is**: PostgreSQL, MySQL/MariaDB and
+  SQLite. It was PostgreSQL-only while its metadata recommended it for MySQL,
+  MongoDB and SQLite projects. MongoDB remains out of scope and says so.
+- **`log-analyst` and `performance-expert` take their whole server**
+  (`mcp__<server>__*`). They listed tools by name, so nothing added since was
+  reachable. `sql-expert` gains the read-only introspection and diagnostic tools
+  but deliberately not `execute_write` or `backup_restore`.
+
+### Added
+
+- **database-query**: MySQL/MariaDB and SQLite (via `node:sqlite`, Node 22.13+);
+  several named connections (`DATABASE_URLS`), each read-only unless marked
+  writable; `execute_write` (dry run unless confirmed); schemas, views, enums,
+  functions, triggers and constraints; `search_objects`, `preview_table`;
+  `find_slow_queries` from `pg_stat_statements` / `performance_schema`;
+  `index_recommendations` and `health_check`; per-query timeout; schema diff and
+  migrations covering indexes, constraints and enums; `EXPLAIN` no longer
+  executes the query unless `analyze: true`.
+- **docker-manager**: `docker_run`, `docker_exec`, `docker_cp`, `docker_build`,
+  `docker_registry`, `docker_system`; container kill/pause/rename/top/port/diff/
+  wait/health; image tag/push/history/search/save/load; network and volume
+  create/connect/prune; Compose on a chosen project (`projectDir`, `files`,
+  `projectName`, `profiles`, `envFile`), with exec, run, config and a fallback to
+  standalone `docker-compose`; per-call timeouts, output caps, Docker contexts.
+- **api-tester**: auth helpers (bearer, basic, API key, digest, OAuth2 with token
+  caching), cookie sessions, environments and `{{variables}}`, JSONPath/schema
+  assertions, `run_scenario` with value extraction, `validate_contract` against
+  OpenAPI, `export_collection`, `graphql_request`, `websocket`, `sse_listen`,
+  bounded `load_test`; imports Bruno, `.http`/`.rest`, HAR and Insomnia v5;
+  form, multipart and raw bodies; Swagger 2 and OAS 3.1 throughout; the mock
+  server validates requests and binds to 127.0.0.1.
+- **api-explorer**: local spec files and git revisions as sources, runtime
+  `add_api_source`, `discover_api_specs`, `match_api_operation`,
+  `get_api_security`, `lint_api_spec`, `diff_api_specs` with breaking-change
+  classification, `generate_api_request` snippets, and GraphQL, AsyncAPI 2/3
+  and gRPC `.proto` exploration; full `$ref` resolution across files and URLs
+  with explicit cycle and truncation markers.
+- **log-analyzer**: `query_logs` (group-by, counts over time, top-k,
+  percentiles), `mine_templates` (Drain), `access_log_stats`, `trace_timeline`,
+  `detect_format`; directories, globs, rotated `.gz` files and live `docker`,
+  `docker compose`, `kubectl` and `journalctl` sources; logfmt, zap, zerolog,
+  logrus, Serilog, .NET, Rails, CRI, Docker json-file, Heroku, CloudWatch and
+  OpenTelemetry formats; error fingerprints with new-vs-known against a baseline.
+- **performance-profiler**: Go and .NET, py-spy sampling and attach, Node attach
+  via the inspector; flame graph SVG and speedscope files kept on disk; heap
+  snapshot diffs; A/B benchmarks with confidence intervals and a significance
+  test; open-model load tests with thresholds and background jobs (`get_job`,
+  `stop_job`, `list_jobs`); `save_baseline`, `list_baselines`,
+  `compare_results`; `audit_web_vitals`; startup measured to readiness.
+- **code-quality**: tree-sitter parsing for JS/TS/TSX, Python, Go, Java, Rust
+  and C# (Sonar-spec cognitive complexity, Halstead, maintainability index);
+  token-based clone detection including renamed identifiers; unused files,
+  exports and dependencies; resolved import graph with tsconfig paths,
+  workspaces and boundary rules; `check_types` (tsc, mypy, pyright),
+  `analyze_coverage` (LCOV, Cobertura, JaCoCo), `quality_gate`; `changedSince`
+  on every tool; SARIF output.
+- **security-scanner**: recursive, multi-ecosystem dependency scanning through
+  trivy or osv-scanner with native auditors as fallback (npm, yarn, pnpm, pip,
+  cargo, go); `scan_iac`, `scan_licenses` with an allow/deny policy,
+  `generate_sbom` (CycloneDX, SPDX); SARIF 2.1.0 output; diff-only secrets and
+  SAST against a git ref; `check_tools` with per-OS install hints.
+- Installed projects gitignore `.perf-profiler/runs/`; saved baselines stay
+  tracked.
+- Detection recognises Compose v2's `compose.yaml`/`compose.yml`, so a project
+  using only those is offered Docker and has its compose-declared database found.
+
+### Fixed
+
+- **security-scanner**: a crashed, missing or timed-out scanner came back as
+  zero findings. pip-audit output could not be parsed and audited the server's
+  own Python environment; govulncheck always returned nothing; cargo-audit
+  severity was read from a field that does not exist; npm reported the advisory
+  range instead of the installed version; trivy never ran its misconfiguration
+  scanner; gitleaks failed on Windows.
+- **code-quality**: `check_style` fell back to four regex checks on almost every
+  project — `npx.cmd` cannot be spawned on Windows, no linter got the project as
+  its working directory, `fix` was ignored, Clippy never matched a file and
+  Checkstyle always failed. Dead-code analysis reported every function on
+  Windows as unused, and the import graph was empty for ESM TypeScript.
+- **performance-profiler**: Node memory analysis measured the wrapper instead of
+  the target; Java script profiling always returned nothing and counted every
+  frame as self time; CPU profiles of long-running processes were never
+  written; the env flags documented as `true` only accepted `1`; Windows spawned
+  user arguments through `cmd.exe`.
+- **log-analyzer**: the first line of every Java and Python stack trace was
+  dropped, so every exception type read `Unknown`; an unparseable timestamp
+  became "now" and landed in the wrong time window; format detection and
+  `tail_logs` read whole files.
+- **api-tester**: every body was forced to JSON, so forms, multipart and falsy
+  bodies were sent wrong; recursive schemas overflowed the stack.
+- **api-explorer**: resolving an endpoint mutated the cached spec, and framework
+  detection confidence was always "high".
+- **smoke-test-expert** told the model to pass `interval`/`maxRetries` to
+  `health_check`, which has never accepted them.
+
 ### Removed
 
 - **`release-checklist.yml`**, which opened a promotion checklist issue on every

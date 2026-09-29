@@ -1,0 +1,51 @@
+{
+  "info": {
+    "name": "Auth Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:1111" }],
+  "event": [
+    { "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set(\"tenant\", \"acme\");"] } }
+  ],
+  "item": [
+    {
+      "name": "Admin",
+      "auth": { "type": "basic", "basic": [{ "key": "username", "value": "admin" }, { "key": "password", "value": "{{adminPass}}" }] },
+      "item": [
+        {
+          "name": "Login form",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/login?debug=1", "query": [{ "key": "debug", "value": "1" }, { "key": "off", "value": "x", "disabled": true }] },
+            "body": { "mode": "urlencoded", "urlencoded": [{ "key": "user", "value": "ada" }, { "key": "tenant", "value": "{{tenant}}" }, { "key": "skip", "value": "1", "disabled": true }] }
+          }
+        },
+        {
+          "name": "Upload",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/files/:fileId",
+            "body": { "mode": "formdata", "formdata": [{ "key": "note", "value": "hi", "type": "text" }, { "key": "doc", "type": "file", "src": "docs/readme.txt" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Me",
+      "request": { "method": "GET", "url": "{{baseUrl}}/me", "header": [{ "key": "X-Tenant", "value": "{{tenant}}" }] }
+    },
+    {
+      "name": "Public",
+      "request": { "method": "GET", "auth": { "type": "noauth" }, "url": "{{baseUrl}}/public" }
+    },
+    {
+      "name": "Search (GraphQL)",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/graphql",
+        "body": { "mode": "graphql", "graphql": { "query": "query($q:String){ search(q:$q) { id } }", "variables": "{\"q\":\"x\"}" } }
+      }
+    }
+  ]
+}

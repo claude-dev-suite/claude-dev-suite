@@ -1,7 +1,7 @@
 {
   "name": "performance-profiler",
-  "description": "Script/function profiling, memory analysis, startup measurement, bottleneck detection, and HAR import for flow replay",
-  "shortDescription": "Performance profiling",
+  "description": "CPU profiling with flame graphs and kept artifacts (Node.js V8, Python cProfile/py-spy, Java JFR, Go pprof, .NET dotnet-trace), live attach to running processes, target-process memory and leak analysis (heap snapshot, tracemalloc and class-histogram diffs), microbenchmarks with confidence intervals and A/B significance, startup time-to-ready, HTTP load testing (open/closed model, thresholds, background jobs) with HAR flow replay, baselines with regression comparison, and Lighthouse / Core Web Vitals audits",
+  "shortDescription": "CPU/memory profiling, benchmarks, load tests",
   "category": "performance",
   "tools": [
     "profile_script",
@@ -16,19 +16,80 @@
     "import_har",
     "list_flows",
     "replay_flow",
-    "stress_test_flow"
+    "stress_test_flow",
+    "get_job",
+    "stop_job",
+    "list_jobs",
+    "save_baseline",
+    "list_baselines",
+    "compare_results",
+    "audit_web_vitals"
   ],
   "envVars": [
     {
       "name": "PERF_PROFILER_ALLOW_PRIVATE_URLS",
-      "description": "Set to \"true\" to allow profiling endpoints on private/loopback addresses. Off by default as an SSRF guard.",
+      "description": "Set to \"true\" to allow load-testing / auditing private IP ranges (loopback such as localhost or 127.0.0.1 is always allowed). Cloud metadata (169.254.0.0/16) stays blocked.",
       "default": "false",
       "required": false
     },
     {
       "name": "PERF_PROFILER_ALLOW_RAW_CODE",
-      "description": "Set to \"true\" to allow benchmarking arbitrary code snippets. Off by default because it executes what it is given.",
+      "description": "Set to \"true\" to allow benchmarking inline code snippets. Off by default because it executes what it is given.",
       "default": "false",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_OUTPUT_DIR",
+      "description": "Where profiles, flame graphs, heap snapshots, run records and baselines are kept. Relative paths resolve against the server's working directory.",
+      "default": ".perf-profiler",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_MAX_VUS",
+      "description": "Hard cap on concurrent virtual users / requests in flight for load tests.",
+      "default": "200",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_MAX_RATE",
+      "description": "Hard cap on the arrival rate (iterations per second) of open-model load tests.",
+      "default": "1000",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_MAX_DURATION_S",
+      "description": "Hard cap in seconds on load-test and profiling durations.",
+      "default": "600",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_MAX_REQUESTS",
+      "description": "Hard cap on the total number of HTTP requests in one load test.",
+      "default": "100000",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_SYNC_MAX_S",
+      "description": "Runs expected to take longer than this many seconds start as background jobs (poll with get_job) unless background is set explicitly.",
+      "default": "30",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_PYTHON",
+      "description": "Path to the Python 3 interpreter to use (default: python3/python, or python/py -3 on Windows).",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_LIGHTHOUSE",
+      "description": "Path to the Lighthouse CLI (cli/index.js or executable) when it is not installed in the project or globally.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_CHROME",
+      "description": "Path to a Chrome/Chromium/Edge executable for Web Vitals audits when it is not in a standard location.",
+      "default": "",
       "required": false
     }
   ],
@@ -38,6 +99,9 @@
   "detectedWhen": [
     "nodejs",
     "java",
-    "spring-boot"
+    "spring-boot",
+    "python",
+    "go",
+    "dotnet"
   ]
 }

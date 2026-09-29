@@ -276,19 +276,19 @@ Access from the **Files** tab in the right tool window bar.
 
 Specialized MCP servers extend Claude Code with powerful tools:
 
-| Server | Tools | Description |
-|--------|-------|-------------|
-| **documentation** | 5 | Fetch docs via the Git-based KB; `list_docs` enumerates what is indexed |
-| **database-query** | 9 | SQL queries, schema inspection, migrations |
-| **docker-manager** | 8 | Containers, images, Compose services |
-| **api-tester** | 6 | HTTP requests, collection import, mock servers |
-| **api-explorer** | 7 | OpenAPI schema explorer, endpoint details |
-| **log-analyzer** | 10 | Multi-format log parsing, pattern detection |
-| **performance-profiler** | 13 | CPU/memory profiling, bottleneck detection, HAR replay |
-| **code-quality** | 7 | Complexity analysis, dead code, duplicates, import graph |
-| **security-scanner** | 6 | Dependency audit, secrets scan, SAST |
-| **dashboard-bridge** | 9 | Dashboard control, orchestrator queue |
-| **skill-loader** ⭐ | 3 | Built-in: lazy-loads dev-suite skill bodies on demand. Always installed; powers tiered `core_skills` / `extended_skills` agent schema |
+| Server | Description |
+|--------|-------------|
+| **documentation** | Fetch docs via the Git-based KB; `list_docs` enumerates what is indexed |
+| **database-query** | PostgreSQL, MySQL/MariaDB and SQLite: read-only queries, introspection, diagnostics, schema diff and migrations |
+| **docker-manager** | Containers, images, Compose projects, networks, volumes; exact dry-run cleanup |
+| **api-tester** | HTTP with auth and assertions, scenarios, contract validation, spec mocks, GraphQL/WebSocket/SSE |
+| **api-explorer** | OpenAPI, GraphQL, AsyncAPI and gRPC exploration, lint and breaking-change diff |
+| **log-analyzer** | Streaming multi-format parsing, live sources, queries, error fingerprints, traces |
+| **performance-profiler** | CPU/memory profiling, flame graphs, benchmarks, load tests, baselines, Web Vitals |
+| **code-quality** | Tree-sitter metrics, clones, dead code, import graph, project linters/type-checkers, coverage, quality gate |
+| **security-scanner** | SCA, secrets, SAST, container and IaC scanning, licenses, SBOM, SARIF |
+| **dashboard-bridge** | Dashboard control, orchestrator queue |
+| **skill-loader** ⭐ | Built-in: lazy-loads dev-suite skill bodies on demand. Always installed; powers tiered `core_skills` / `extended_skills` agent schema |
 
 See [MCP Servers Reference](#mcp-servers-reference) for detailed documentation.
 
@@ -748,144 +748,236 @@ fetch_docs({ technology: "spring-boot", topic: "security" })
 
 ### Database Query Server
 
-Execute safe SQL queries and manage database schemas.
+Query, inspect and diagnose **PostgreSQL, MySQL/MariaDB and SQLite** (MongoDB is not supported). Every connection is read-only unless marked writable; read-only is enforced by the database itself, and each query runs with a timeout and a row cap.
 
 **Tools**:
-- `execute_query({ sql, params?, limit?, offset? })` - Execute SELECT queries
-- `list_tables()` - List all tables with row counts
-- `describe_table({ table })` - Get table schema details
-- `get_schema({ table?, compact? })` - Get full database schema
-- `explain_query({ sql, params?, verbose? })` - Analyze query performance
-- `compare_schemas({ targetDatabaseUrl, tables? })` - Compare schemas
-- `find_slow_queries({ table? })` - Identify potential performance issues
-- `generate_migration({ targetDatabaseUrl, migrationName? })` - Generate migration script
-- `backup_restore({ operation, backupPath?, format?, tables? })` - Backup/restore database
+- `list_connections` — List configured database connections (engine, read-only flag, host/db, SSL) and which tools each engine supports
+- `execute_query` — Run one read-only SQL statement (engine-enforced read-only txn, timeout, row cap + paging). PG, MySQL, SQLite
+- `execute_write` — Run DML/DDL on a connection marked writable. Dry run (rolled back / EXPLAIN) unless confirm=true
+- `list_schemas` — List schemas (Postgres), databases (MySQL) or attached databases (SQLite) with object counts
+- `list_tables` — List tables, views and materialized views in a schema with row estimates, sizes and comments
+- `describe_table` — Full table definition: columns, PK, FKs (composite), unique/check constraints, indexes, triggers
+- `get_schema` — Schema overview of all tables (or one): columns, keys, indexes, enums. compact=true for names only
+- `list_objects` — List enums, types, functions, procedures, triggers, sequences, views, indexes or extensions in a schema
+- `search_objects` — Find tables, views, columns, functions and types whose name contains a pattern
+- `preview_table` — Sample rows from a table or view (optional columns and ordering), read-only and row-capped
+- `explain_query` — Show a query plan with a summary (full scans, misestimates). analyze=true executes it in a rolled-back txn
+- `find_slow_queries` — Top queries by time from pg_stat_statements (Postgres) or performance_schema (MySQL), plus scan stats
+- `index_recommendations` — Find unused, duplicate and redundant indexes and foreign keys without a supporting index
+- `health_check` — Health report: connections, long queries, blocking locks, cache hit, bloat, vacuum/analyze, replication
+- `compare_schemas` — Diff two schemas: tables, columns, types, nullability, defaults, keys, constraints, indexes, enums
+- `generate_migration` — Generate up/down migration SQL from a schema diff (Postgres first-class; MySQL/SQLite best effort)
+- `backup_restore` — Backup, list or restore (confirm required) via pg_dump/pg_restore, mysqldump or SQLite VACUUM INTO
 
-**Requires**: `DATABASE_URL` environment variable
+Configure one connection with `DATABASE_URL`, or several named ones with `DATABASE_URLS` (JSON). Writes need `DATABASE_ALLOW_WRITES=true` (or a writable entry) and `confirm: true`; without it `execute_write` and restore are dry runs.
+
+SQLite uses Node's built-in `node:sqlite` and needs Node 22.13+. Backups use `pg_dump`/`mysqldump` from PATH (or `DB_CLIENT_BIN_DIR`) and stay inside `DB_BACKUP_DIR`.
+
+`find_slow_queries` reads `pg_stat_statements` on Postgres (and says how to enable it when missing) and `performance_schema` on MySQL.
+
+**Environment variables**: `DATABASE_URL`, `DATABASE_URLS`, `DATABASE_ALLOW_WRITES`, `DB_STATEMENT_TIMEOUT_MS`, `DB_MAX_ROWS`, `DB_BACKUP_DIR`, `DB_CLIENT_BIN_DIR`, `DB_ALLOW_PRIVATE_ADHOC_URLS` (descriptions and defaults in `mcp-servers/database-query/metadata.json`; the wizard prompts for them).
 
 ---
 
 ### Docker Manager Server
 
-Manage Docker containers, images, and Compose services.
+Containers, images, Compose projects, networks, volumes and the daemon, through the `docker` CLI (Podman via `DOCKER_CLI`). Every call has a timeout and an output cap; inspect output redacts environment values unless `revealEnv` is set.
 
 **Tools**:
-- `docker_ps({ all? })` - List running containers
-- `docker_container({ container, action, tail? })` - Manage container (start/stop/logs/inspect)
-- `docker_compose({ action, service?, build?, detach? })` - Manage Compose services
-- `docker_images({ action, image? })` - Manage images
-- `docker_stats({ container? })` - View resource usage
-- `docker_networks()` - List networks
-- `docker_volumes()` - List volumes
-- `cleanup_unused({ target?, dryRun?, force? })` - Remove unused resources
+- `docker_ps` — List containers with filters (status, label, name, image, compose project, network, health)
+- `docker_container` — Container lifecycle + logs, inspect (env redacted), top, port, diff, wait, health, stats
+- `docker_run` — Run or create a container: ports, env, volumes, network, restart, limits, labels, command
+- `docker_exec` — Run a command in a running container (non-interactive; user, workdir, env, timeout, output cap)
+- `docker_cp` — Copy files between a container and the host (host path confined to allowed roots)
+- `docker_compose` — Docker Compose on a chosen project (dir, files, name, profiles): up, down, ps, logs, exec, run, config…
+- `docker_images` — Images: list, pull, remove, inspect, history, tag, push, search, save, load
+- `docker_build` — Build an image (context, Dockerfile, tags, build args, target, platform, no-cache); returns image ID
+- `docker_registry` — Registry login (password via stdin, never echoed) and logout
+- `docker_stats` — Show resource usage statistics for containers
+- `docker_networks` — Networks: list, inspect, create, remove, connect, disconnect, prune (exact preview)
+- `docker_volumes` — Volumes: list, inspect, create, remove, prune (exact preview, dry run by default)
+- `docker_system` — Daemon status, disk usage (df), info, version, bounded event window, contexts
+- `cleanup_unused` — Prune unused resources; dry run (default) lists exactly what would go; volumes need opt-in
+
+Compose commands take `projectDir`, `files`, `projectName`, `profiles` and `envFile`. Host paths (bind mounts, build context, `docker_cp`) must stay inside `DOCKER_MCP_ALLOWED_ROOTS` (default: the server's working directory).
+
+`cleanup_unused` and the network/volume `prune` actions are **dry runs by default** and preview exactly what the real prune would delete; deleting volumes needs `includeVolumes: true`.
+
+**Environment variables**: `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_CLI`, `DOCKER_MCP_ALLOWED_ROOTS`, `DOCKER_MCP_TIMEOUT_MS`, `DOCKER_MCP_LONG_TIMEOUT_MS`, `DOCKER_MCP_MAX_OUTPUT_BYTES` (descriptions and defaults in `mcp-servers/docker-manager/metadata.json`; the wizard prompts for them).
 
 ---
 
 ### API Tester Server
 
-Test REST APIs with requests, collection import, and mock servers.
+Send and assert HTTP requests, run multi-step scenarios, validate a live API against its OpenAPI contract, mock an API from its spec, and talk GraphQL, WebSocket and SSE.
 
 **Tools**:
-- `http_request({ method, url, headers?, body?, timeout? })` - Make HTTP request
-- `health_check({ url, endpoints? })` - Check API health
-- `batch_request({ requests, sequential? })` - Execute multiple requests
-- `import_collection({ filePath, format?, variables? })` - Import Postman or Insomnia collection (auto-detects format)
-- `generate_tests({ specPath, outputFormat?, includeNegativeTests? })` - Generate test cases from OpenAPI
-- `mock_server({ action, specPath?, port?, delay? })` - Start/stop mock server
+- `http_request` — Send an HTTP request (any body type, auth, env vars, cookies, TLS/proxy) and assert on the response
+- `health_check` — Probe common health endpoints (or given paths) of a base URL and report status and latency
+- `batch_request` — Run many requests in parallel or in sequence, each with optional assertions
+- `import_collection` — Import Postman, Insomnia, Bruno, .http/.rest, HAR or OpenAPI into runnable requests and variables
+- `export_collection` — Export requests (or any importable source) as a Postman v2.1 collection or a .http file
+- `generate_tests` — Generate positive/negative tests with schema checks from OpenAPI 2/3.x as Vitest, Jest, pytest, .http or scenario
+- `mock_server` — Start/stop/list OpenAPI mock servers with request validation, examples, Prefer codes, latency, logs
+- `validate_contract` — Call spec operations on a live API and check status, content type and body schema against OpenAPI
+- `environment` — Manage named environments of {{variables}} stored in the project; secret values are never shown
+- `session` — List or clear cookie-jar sessions and the cached OAuth2 tokens
+- `run_scenario` — Run ordered request steps with assertions, value extraction into variables and a per-step report
+- `graphql_request` — Run a GraphQL query/mutation with variables, or introspect the schema (summary or SDL)
+- `websocket` — WebSocket client: connect, send, receive buffered messages, close, or a one-shot exchange
+- `sse_listen` — Open a Server-Sent Events stream and collect events for a duration or up to a count
+- `load_test` — Short bounded load test (concurrency or RPS, max 60 s) reporting p50/p95/p99 and error rate
+
+Auth helpers: bearer, basic, API key, digest and OAuth2 (client credentials, password) with token caching; cookie sessions; environments with `{{variables}}` stored in `.api-tester/` (secret values in a gitignored file, never echoed).
+
+Imports Postman, Insomnia (v4/v5), Bruno, `.http`/`.rest`, HAR and OpenAPI 2/3.x. Loopback targets are allowed; other private networks need `API_TESTER_ALLOW_PRIVATE=1`. Cloud metadata addresses are always blocked, including at connect time.
+
+**Environment variables**: `API_TESTER_ALLOW_PRIVATE`, `API_TESTER_PROJECT_DIR`, `CLAUDE_PROJECT_DIR`, `API_TESTER_PROXY` (descriptions and defaults in `mcp-servers/api-tester/metadata.json`; the wizard prompts for them).
 
 ---
 
 ### API Explorer Server
 
-Explore OpenAPI/Swagger schemas and endpoints.
+Explore, lint and diff API descriptions: **OpenAPI 2.0/3.0/3.1, GraphQL, AsyncAPI 2/3 and gRPC `.proto`**, loaded from URLs, project files or a git revision.
 
 **Tools**:
-- `list_api_endpoints()` - List configured API endpoints
-- `get_api_schema({ alias?, format?, refresh? })` - Fetch OpenAPI schema
-- `list_api_paths({ alias?, method?, tag?, limit? })` - List API paths
-- `get_api_endpoint_details({ path, method, alias?, resolveRefs? })` - Get endpoint details
-- `get_api_models({ alias?, model?, compact?, limit? })` - Get schema models/DTOs
-- `search_api({ query, alias?, searchIn?, limit? })` - Search across specs
-- `detect_api_frameworks({ path?, maxDepth?, includeConfidence? })` - Detect API frameworks
+- `list_api_endpoints` — List registered API sources (alias, location, kind, origin). Same as list_api_sources; kept for compatibility.
+- `list_api_sources` — List registered API sources (env + runtime) with alias, location, kind, and any config errors
+- `add_api_source` — Register a spec at runtime: URL or project file (OpenAPI/Swagger, AsyncAPI, GraphQL SDL/endpoint, .proto)
+- `remove_api_source` — Unregister an API source by alias for the rest of this session
+- `get_api_schema` — Get a source's full document (size-capped) or a summary: version, servers, tags, counts, webhooks
+- `list_api_paths` — List OpenAPI operations and webhooks, filtered by tag/method/prefix, paginated
+- `get_api_endpoint_details` — Operation details: params, bodies per media type, responses, headers, security, servers, callbacks; refs resolved
+- `match_api_operation` — Match a concrete URL and method (GET /users/42) to its OpenAPI operation (/users/{id}) with path params
+- `get_api_models` — List or get schema models (components.schemas / definitions) with usage, optional $ref resolution and examples
+- `get_api_security` — Security schemes, global requirements, operations per scheme and unauthenticated operations
+- `search_api` — Ranked search across sources: operations, models, tags, GraphQL fields/types, channels, messages, rpcs
+- `lint_api_spec` — Lint an OpenAPI spec with a Spectral-style ruleset (operationIds, path params, refs, unused components...)
+- `diff_api_specs` — Diff two OpenAPI specs (alias, file, URL or git ref) and classify changes as breaking/non-breaking/info
+- `generate_api_request` — Generate curl, HTTPie, fetch and Python requests snippets plus a sample body for an operation
+- `list_graphql_operations` — List GraphQL queries, mutations and subscriptions with arguments and return types
+- `list_graphql_types` — List GraphQL types, optionally filtered by kind (object, interface, union, enum, input, scalar)
+- `get_graphql_type` — Get a GraphQL type: fields with args, interfaces, implementations, enum values, input fields and SDL
+- `list_asyncapi_channels` — List AsyncAPI 2/3 channels with their operations (publish/subscribe or send/receive) and messages
+- `get_asyncapi_message` — Get an AsyncAPI message with resolved payload and headers, or list all messages
+- `list_grpc_services` — List gRPC services in a .proto source with RPCs, request/response types and streaming mode
+- `get_proto_message` — Get a protobuf message (fields, numbers, oneofs, maps) or enum from a .proto source
+- `discover_api_specs` — Find OpenAPI/Swagger, AsyncAPI, GraphQL and .proto files in the project; optionally register them
+- `detect_api_frameworks` — Detect API frameworks per module with confidence, evidence, candidate docs URLs and checked-in spec files
 
-**Configuration**: set `API_EXPLORER_ENDPOINTS` to a JSON array of endpoints, e.g.
-`[{"alias":"api","url":"http://localhost:8080/v3/api-docs"}]`. The wizard prompts for it when you
-select this server. Without the variable the server starts but reports no configured endpoints;
-`detect_api_frameworks` still scans a directory on demand.
+Register specs at startup with `API_EXPLORER_ENDPOINTS` (JSON array, e.g. `[{"alias":"api","url":"http://localhost:8080/v3/api-docs"}]`), at runtime with `add_api_source`, or let `discover_api_specs` find the files checked into the project.
+
+`diff_api_specs` classifies changes as breaking / non-breaking / info and accepts a git ref, so an agent reviewing a PR can check the spec it changes. Local and private hosts are allowed; `API_EXPLORER_ALLOW_PRIVATE_URLS=0` blocks them.
+
+**Environment variables**: `API_EXPLORER_ENDPOINTS`, `API_EXPLORER_PROJECT_ROOT`, `API_EXPLORER_CACHE_TTL`, `API_EXPLORER_TIMEOUT`, `API_EXPLORER_RETRY_COUNT`, `API_EXPLORER_MAX_SPEC_BYTES`, `API_EXPLORER_ALLOW_PRIVATE_URLS` (descriptions and defaults in `mcp-servers/api-explorer/metadata.json`; the wizard prompts for them).
 
 ---
 
 ### Log Analyzer Server
 
-Parse and analyze logs in multiple formats (Spring Boot, Node.js, Python, Nginx, Kubernetes, etc.).
+Stream-parse logs from files, directories, globs and rotated `.gz` files, or live from `docker logs`, `docker compose logs`, `kubectl logs` and `journalctl`. A stack trace stays one entry with its exception type, message and frames (Java, Python, Node, Go, .NET, Ruby).
 
 **Tools**:
-- `parse_logs({ filePath, format?, levels?, filter?, limit? })` - Parse log entries
-- `find_errors({ filePath, format?, groupByException?, includeWarnings? })` - Find and group errors
-- `analyze_patterns({ filePath, format?, minOccurrences? })` - Detect problematic patterns
-- `aggregate_stats({ filePath, format?, groupBy? })` - Aggregate statistics
-- `correlate_events({ filePaths, correlationField, targetValue? })` - Correlate events across logs
-- `tail_logs({ filePath, lines?, format?, levels?, filter? })` - Get last N log lines
-- `search_logs({ filePaths, query, useRegex?, caseSensitive?, limit? })` - Search across logs
-- `compare_logs({ baselineFile, comparisonFile, format?, compareBy? })` - Compare log files
-- `export_report({ filePath, outputFormat, format?, title? })` - Generate analysis report
-- `watch_logs({ action, filePath?, format?, alertLevels?, alertPatterns? })` - Real-time monitoring
+- `parse_logs` — Parse logs into structured entries (multiline exceptions, fields, ids) with filters and paging.
+- `find_errors` — Group errors by fingerprint with first/last seen, causes, timeline; new vs known against a baseline.
+- `analyze_patterns` — Detect known problem patterns (timeouts, pools, OOM, disk, crashes) with severity and suggestions.
+- `aggregate_stats` — Aggregate counts by level, logger and time bucket, error rate, peak and quiet periods.
+- `correlate_events` — Chain events across files/services by request, trace, span, session, user or custom id.
+- `tail_logs` — Last N entries of a log, read from the end of the file; filter by level or regex.
+- `search_logs` — Grep across files, directories, globs, .gz and live sources with context lines.
+- `compare_logs` — Compare two logs (e.g. before/after deploy) by level, pattern, time, error fingerprints or templates.
+- `export_report` — Write an HTML, JSON or Markdown analysis report (stats, errors, patterns) to disk.
+- `watch_logs` — Follow a log file (rotation-safe, multiline) with alert rules; start, status, stop or list.
+- `query_logs` — Filter, group, count over time, top-k and percentiles on any field (LogQL-lite or JSON query).
+- `mine_templates` — Cluster log messages into templates (Drain) with counts, levels and first/last seen.
+- `access_log_stats` — HTTP access analytics: status classes, error rate over time, p50/p95/p99 per endpoint, top IPs/UAs.
+- `trace_timeline` — Timeline of one trace or request id across files/services, with the span tree when logged.
+- `detect_format` — Detect each source's log format and envelope with confidence and sample parsed entries.
 
-**Supported formats**: Spring Boot, Logback, Winston, Pino, Python, JSON, Nginx, Apache, Kubernetes, Syslog
+**Formats** (auto-detected, with confidence): Spring Boot, Logback, Log4j2, Winston, Pino, Morgan/CLF, Python, Django, JSON lines, logfmt, zap, zerolog, logrus, Serilog, .NET console, Rails, Nginx, Apache, syslog (RFC 3164/5424), journald, Kubernetes, CRI, Docker json-file, Heroku, CloudWatch, OpenTelemetry, or a custom regex with named groups.
+
+`LOG_ALLOWED_ROOTS` confines which files can be read; `LOG_REDACT` controls secret masking in all output.
+
+**Environment variables**: `LOG_EXPORT_DIR`, `LOG_ALLOWED_ROOTS`, `LOG_REDACT` (descriptions and defaults in `mcp-servers/log-analyzer/metadata.json`; the wizard prompts for them).
 
 ---
 
 ### Performance Profiler Server
 
-Profile CPU, memory, and endpoint performance.
+CPU and memory profiling, benchmarks, load tests and Web Vitals for **Node.js, Python, Java, Go and .NET**. Profiles, flame graphs (SVG), speedscope files and heap snapshots are kept under `PERF_PROFILER_OUTPUT_DIR` (default `.perf-profiler/`).
 
 **Tools**:
-- `profile_script({ scriptPath, runtime?, duration?, args? })` - Profile script execution
-- `profile_function({ modulePath, functionName, runtime, iterations?, args? })` - Profile specific function
-- `benchmark_code({ code, runtime, iterations?, warmup? })` - Benchmark code snippet
-- `analyze_memory({ scriptPath, runtime?, duration?, snapshotInterval? })` - Analyze memory usage
-- `measure_startup({ scriptPath, runtime?, runs? })` - Measure startup time
-- `find_bottlenecks({ scriptPath, runtime?, threshold? })` - Identify performance bottlenecks
-- `attach_profiler({ pid?, port?, processName?, duration? })` - Attach to running Java process (JFR)
-- `profile_endpoint({ url, method?, iterations?, concurrency?, headers?, body? })` - Profile HTTP endpoint
-- `list_java_processes()` - List running Java processes
-- `import_har({ harPath, flowName, filterHost?, excludeStaticAssets? })` - Import HAR file from DevTools
-- `list_flows()` - List saved request flows
-- `replay_flow({ flowName, baseUrl?, variables?, withProfiling?, respectTiming? })` - Replay saved flow
-- `stress_test_flow({ flowName, users, duration, baseUrl?, rampUp?, variables? })` - Load test a flow
+- `profile_script` — CPU-profile a script (Node, Python, Java, Go, .NET): self/total time, hot paths, flame graph + speedscope files.
+- `profile_function` — Time one exported function over many calls: mean/median/p95/p99, 95% CI, memory delta (Node, Python, Java).
+- `benchmark_code` — Microbenchmark a script (or A/B two variants): warmup, outlier removal, CI, Welch t-test significance.
+- `analyze_memory` — Track the target's heap over time, diff snapshots/histograms and give a leak verdict (Node, Python, Java, .NET).
+- `measure_startup` — Measure time-to-ready over several runs (port open, log line or HTTP 200), or time to exit if none given.
+- `find_bottlenecks` — Profile a script and classify hotspots from profile evidence (GC, idle, I/O, locks, CPU) with advice.
+- `attach_profiler` — CPU-profile a running process: Java (JFR), Node (--inspect), Python (py-spy), .NET (dotnet-trace).
+- `profile_endpoint` — Load-test one HTTP endpoint: closed or open (rate) model, latency percentiles, histogram, thresholds.
+- `list_java_processes` — List running Java processes (jps) to find the PID to attach the profiler to.
+- `import_har` — Import a HAR file exported from Chrome DevTools. Creates a replayable flow from recorded HTTP requests.
+- `list_flows` — List all saved flows. Returns flow names, descriptions, request counts, and base URLs.
+- `replay_flow` — Replay a saved flow. Optionally attach JFR profiler during replay to identify bottlenecks.
+- `stress_test_flow` — Load-test a saved flow with virtual users or a constant arrival rate; caps, thresholds, background jobs.
+- `get_job` — Status, live progress and (when finished) the result of a background job.
+- `stop_job` — Stop a running background job; partial results are returned when the tool supports them.
+- `list_jobs` — List background jobs of this server session with their status.
+- `save_baseline` — Save a recorded run (runId from any measuring tool) as a named baseline for later regression checks.
+- `list_baselines` — List saved baselines with their kind, subject and headline metrics.
+- `compare_results` — Compare a run against a baseline or another run: per-metric change, significance, regression verdict.
+- `audit_web_vitals` — Measure a page with Lighthouse (or headless Chrome): LCP, CLS, TBT, FCP, TTI, score, top opportunities.
 
-**Supported runtimes**: Node.js, Java, Python
+Runtime tools are used when installed: py-spy for Python sampling and attach, JFR/`jcmd` for Java, `go test -cpuprofile` for Go, `dotnet-trace`/`dotnet-counters` for .NET, Lighthouse (or headless Chrome) for Web Vitals.
+
+Load tests have hard caps (`PERF_PROFILER_MAX_*`); long runs become background jobs (`get_job`, `stop_job`). Save a run with `save_baseline` and check later runs with `compare_results`. `.perf-profiler/runs/` is gitignored in installed projects; `baselines/` is meant to be committed.
+
+**Environment variables**: `PERF_PROFILER_ALLOW_PRIVATE_URLS`, `PERF_PROFILER_ALLOW_RAW_CODE`, `PERF_PROFILER_OUTPUT_DIR`, `PERF_PROFILER_MAX_VUS`, `PERF_PROFILER_MAX_RATE`, `PERF_PROFILER_MAX_DURATION_S`, `PERF_PROFILER_MAX_REQUESTS`, `PERF_PROFILER_SYNC_MAX_S`, `PERF_PROFILER_PYTHON`, `PERF_PROFILER_LIGHTHOUSE`, `PERF_PROFILER_CHROME` (descriptions and defaults in `mcp-servers/performance-profiler/metadata.json`; the wizard prompts for them).
 
 ---
 
 ### Code Quality Server
 
-Analyze code complexity, duplicates, and dependencies.
+Static analysis on real syntax trees (tree-sitter) for JS/TS/TSX, Python, Go, Java, Rust and C#, plus the project's own linters and type-checkers run with its own configuration.
 
 **Tools**:
-- `analyze_complexity({ path, threshold?, includeAll? })` - Analyze cyclomatic/cognitive complexity
-- `find_duplicates({ path, minLines?, minTokens? })` - Detect code duplication
-- `check_style({ path, fix?, rules? })` - Run linting (ESLint/Biome/Pylint/Checkstyle)
-- `detect_antipatterns({ path, patterns?, thresholds? })` - Detect code smells
-- `find_dead_code({ path, includeTests?, confidence? })` - Find unused code
-- `analyze_import_graph({ path, excludeNodeModules?, maxDepth? })` - Analyze import graph and detect circular dependencies
-- `code_metrics({ path, sortBy?, limit? })` - Calculate code metrics (LOC, SLOC, etc.)
+- `analyze_complexity` — Per-function cyclomatic, cognitive (Sonar), nesting, Halstead and maintainability index from tree-sitter.
+- `find_duplicates` — Cross-file token clone detection, incl. renamed identifiers; every match re-verified; duplication %.
+- `check_style` — Run the project's linters/formatters (ESLint, Biome, Prettier, Ruff, golangci-lint, Clippy…) once per project.
+- `check_types` — Run the project's type-checkers (tsc, mypy, pyright) with its own config; normalized diagnostics or SARIF.
+- `detect_antipatterns` — Code smells: god class, long/complex method, deep nesting, many params, data clumps, empty catch, duplicates…
+- `find_dead_code` — Unused files, exports and dependencies (JS/TS), unused imports/definitions (Python), never-called private functions.
+- `analyze_import_graph` — Resolved import graph (tsconfig paths, workspaces, Python/Go/Java/Rust): cycles, orphans, fan-in/out, boundary rules.
+- `code_metrics` — Code/comment/blank lines, functions, classes, imports/exports, complexity and maintainability per file and language.
+- `analyze_coverage` — Read LCOV/Cobertura/JaCoCo coverage: per-file and patch coverage, risky untested functions ranked by CRAP.
+- `quality_gate` — Save a findings baseline (dry run unless confirm) or check new issues against it and thresholds: pass/fail.
+
+`check_style` runs ESLint, Biome, Prettier, Ruff, Pylint, golangci-lint, Clippy, Checkstyle, PMD and `dotnet format` once per project, locally installed binaries first; `fix: true` applies their autofixes. A missing or unconfigured tool is reported as such, never as "0 issues".
+
+Every tool accepts `changedSince` (a git ref) to analyse only changed files. `quality_gate` saves a baseline (dry run unless `confirm: true`) and fails only on new issues; output is available as SARIF.
+
+**Environment variables**: `CHECKSTYLE_JAR` (descriptions and defaults in `mcp-servers/code-quality/metadata.json`; the wizard prompts for them).
 
 ---
 
 ### Security Scanner Server
 
-Scan for vulnerabilities, secrets, and security issues.
+Dependency, secret, code, container, IaC and license scanning, SBOM generation and SARIF output, wrapping the scanners installed on the machine. A scanner that is missing, crashes or times out is reported as `unavailable`/`failed` with the reason, never as zero findings.
 
 **Tools**:
-- `scan_dependencies({ path, packageManager?, severityThreshold? })` - Scan dependencies (npm audit, pip-audit)
-- `scan_secrets({ path, tool?, scanHistory?, excludePaths? })` - Scan for hardcoded secrets (gitleaks, trufflehog)
-- `scan_code({ path, rules? })` - SAST with Semgrep
-- `scan_container({ target, type, severityThreshold? })` - Scan Docker images (Trivy)
-- `check_tools()` - Check installed security tools
-- `scan_all({ path, include?, containerTarget? })` - Run all scans in parallel
+- `scan_dependencies` — SCA across ecosystems and monorepos: trivy or osv-scanner, native auditors as fallback, uncovered files listed
+- `scan_secrets` — Find hardcoded secrets in the working tree and optionally git history (gitleaks, trufflehog, trivy, built-in)
+- `scan_code` — SAST with Semgrep: configurable rulesets, severity filter, optional diff-only mode against a git ref
+- `scan_container` — Scan a container image or filesystem with Trivy for vulnerabilities, secrets and misconfigurations
+- `scan_iac` — Scan IaC (Dockerfile, Kubernetes, Helm, Terraform, CloudFormation) for misconfigurations with Trivy
+- `scan_licenses` — Inventory dependency licenses and flag violations of an allow/deny policy (osv-scanner or trivy)
+- `generate_sbom` — Generate a CycloneDX or SPDX SBOM for a directory or container image (trivy, syft or osv-scanner)
+- `check_tools` — Report installed security tools, their versions, which scans they enable, and per-OS install hints
+- `scan_all` — Run every applicable scan; each sub-scan is reported as ok, partial, failed or skipped with the reason
 
-**External tools used** (auto-detected): npm audit, pip-audit, cargo audit, gitleaks, trufflehog, semgrep, trivy
+**External tools** (auto-detected; `check_tools` lists what is installed and how to install the rest): trivy, osv-scanner, npm/yarn/pnpm audit, pip-audit, cargo-audit, govulncheck, gitleaks, trufflehog, semgrep, syft.
+
+Dependency manifests are found recursively (monorepos included); every finding names the tool that produced it, and ecosystems found but not scanned are listed. Every scan accepts a severity threshold and can write SARIF 2.1.0 for GitHub code scanning.
 
 ---
 

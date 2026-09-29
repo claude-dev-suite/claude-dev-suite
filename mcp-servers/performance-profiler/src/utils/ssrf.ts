@@ -9,16 +9,18 @@
  * Policy summary (see the shared module for the full ranges):
  *  - `localhost` is allowed — profiling local endpoints is the primary use case.
  *  - 169.254.0.0/16 (cloud metadata) is ALWAYS blocked.
- *  - Other private/loopback/ULA/link-local ranges are blocked unless
- *    PERF_PROFILER_ALLOW_PRIVATE_URLS=1.
+ *  - Loopback (localhost, 127.0.0.0/8, ::1) is allowed.
+ *  - Other private/ULA/link-local ranges are blocked unless
+ *    PERF_PROFILER_ALLOW_PRIVATE_URLS=true (or 1).
  *  - Callers MUST re-validate each redirect Location (see http-client.ts).
  */
 
 import { validateUrl as validateUrlShared } from '@dev-suite/shared';
+import { allowPrivateUrls } from './env.js';
 
-/** True when the operator opted into private-range profiling. */
+/** True when the operator opted into private-range profiling ("true" or "1"). */
 function allowPrivate(): boolean {
-  return process.env['PERF_PROFILER_ALLOW_PRIVATE_URLS'] === '1';
+  return allowPrivateUrls();
 }
 
 /** Validate a URL for SSRF risks. Throws when the URL is blocked. */

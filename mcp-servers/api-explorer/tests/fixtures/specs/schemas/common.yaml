@@ -1,0 +1,23 @@
+User:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    manager:
+      $ref: '#/User'
+    avatar:
+      $ref: '#/Avatar'
+Avatar:
+  type: object
+  properties:
+    url:
+      type: string
+      format: uri
+parameters:
+  UserId:
+    name: userId
+    in: path
+    required: true
+    schema:
+      type: string

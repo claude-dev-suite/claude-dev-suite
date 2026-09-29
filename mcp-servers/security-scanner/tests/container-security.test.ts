@@ -6,66 +6,71 @@
  * rejected before it is passed to trivy (where it would be interpreted as a
  * CLI flag).
  *
- * We do not actually invoke trivy; the guard fires before any subprocess call.
+ * trivy is faked (tests/helpers/fake-exec.ts); the guard fires before any
+ * subprocess call, which the recorded call list proves.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-
-// ── Mock execFile so trivy is never actually invoked ─────────────────────────
-vi.mock('child_process', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('child_process')>();
-  return {
-    ...actual,
-    execFile: vi.fn((_cmd: string, _args: string[], _opts: unknown, cb?: Function) => {
-      // If somehow called, return an empty result
-      if (cb) cb(null, '{}', '');
-    }),
-  };
-});
-
-// Also mock isToolAvailable so trivy is reported as "available"
-vi.mock('../src/utils/tool-checker.js', () => ({
-  isToolAvailable: vi.fn(async () => true),
-  getInstallCommand: vi.fn(() => ''),
-}));
-
+import { afterEach, describe, it, expect } from 'vitest';
+import { writeFileSync } from 'fs';
+import { argAfter, fakeExec, resetExec } from './helpers/fake-exec.js';
 import { scanContainer } from '../src/scanners/container.js';
+
+function fakeTrivy() {
+  return fakeExec({
+    trivy: (args) => {
+      writeFileSync(argAfter(args, '--output')!, JSON.stringify({ Results: [] }));
+      return {};
+    },
+  });
+}
+
+afterEach(() => resetExec());
 
 describe('scanContainer — leading-dash injection guard', () => {
   it('rejects a target starting with a single dash', async () => {
+    const calls = fakeTrivy();
     const result = await scanContainer({
       target: '-v /etc/passwd:/etc/passwd',
       type: 'image',
     });
-    expect(result.toolAvailable).toBe(true);
-    // The guard returns an error result (not a throw) for graceful UX
     expect(result.findings.length).toBe(0);
-    // The summary should indicate an error
+    expect(result.status).toBe('failed');
     expect(JSON.stringify(result)).toMatch(/must not start with a dash/i);
+    expect(calls).toHaveLength(0);
   });
 
   it('rejects a target starting with double dash', async () => {
+    const calls = fakeTrivy();
     const result = await scanContainer({
       target: '--privileged',
       type: 'image',
     });
     expect(JSON.stringify(result)).toMatch(/must not start with a dash/i);
+    expect(calls).toHaveLength(0);
   });
 
-  it('accepts a normal image name', async () => {
-    // The target is valid; trivy is mocked so it returns empty JSON
+  it('rejects an image reference containing whitespace', async () => {
+    const calls = fakeTrivy();
+    const result = await scanContainer({ target: 'alpine --debug', type: 'image' });
+    expect(result.status).toBe('failed');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('accepts a normal image name and passes it after "--"', async () => {
+    const calls = fakeTrivy();
     const result = await scanContainer({
       target: 'alpine:latest',
       type: 'image',
     });
-    // Should not be the leading-dash error
     expect(JSON.stringify(result)).not.toMatch(/must not start with a dash/i);
+    expect(calls[0].args.slice(-2)).toEqual(['--', 'alpine:latest']);
   });
 
   it('accepts a filesystem path', async () => {
+    fakeTrivy();
     const result = await scanContainer({
       target: '/tmp/myapp',
-      type: 'fs',
+      type: 'filesystem',
     });
     expect(JSON.stringify(result)).not.toMatch(/must not start with a dash/i);
   });

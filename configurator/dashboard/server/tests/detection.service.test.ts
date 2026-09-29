@@ -825,6 +825,20 @@ describe('DetectionService', () => {
       expect(result.additionalTechnologies).toContain('docker');
     });
 
+    it('should detect Docker from a Compose v2 compose.yaml alone', async () => {
+      createMockProject(tempDir, {
+        packageJson: { name: 'compose-v2-app' },
+        files: {
+          'compose.yaml': 'services:\n  db:\n    image: postgres:17',
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.additionalTechnologies).toContain('docker');
+      expect(result.database?.dbType).toBe('postgresql');
+    });
+
     it('should detect GitHub Actions', async () => {
       createMockProject(tempDir, {
         packageJson: { name: 'ci-app' },

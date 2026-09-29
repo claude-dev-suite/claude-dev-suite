@@ -1,17 +1,52 @@
 {
   "name": "api-tester",
-  "description": "HTTP request testing, Postman/Insomnia import, test generation, and mock server",
-  "shortDescription": "API testing",
+  "description": "HTTP, GraphQL, WebSocket and SSE API testing: every body type, auth helpers (bearer, basic, API key, digest, OAuth2 with token cache), cookie sessions, project environments with {{variables}} and secrets, assertions incl. JSON Schema/OpenAPI validation, multi-step scenarios with value extraction, collection import (Postman, Insomnia v4/v5, Bruno, .http/.rest, HAR, OpenAPI) and export (Postman, .http), test generation from OpenAPI 2/3.x (Vitest, Jest, pytest, .http, scenarios), contract validation, OpenAPI mock servers with request validation, and short bounded load tests",
+  "shortDescription": "API testing, contracts and mocks",
   "category": "testing",
   "tools": [
     "http_request",
     "health_check",
     "batch_request",
     "import_collection",
+    "export_collection",
     "generate_tests",
-    "mock_server"
+    "mock_server",
+    "validate_contract",
+    "environment",
+    "session",
+    "run_scenario",
+    "graphql_request",
+    "websocket",
+    "sse_listen",
+    "load_test"
   ],
-  "envVars": [],
+  "envVars": [
+    {
+      "name": "API_TESTER_ALLOW_PRIVATE",
+      "description": "Set to 1/true to allow requests to private networks (10/8, 172.16/12, 192.168/16, fc00::/7, fe80::/10). Loopback is always allowed; cloud metadata (169.254/16) is always blocked",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "API_TESTER_PROJECT_DIR",
+      "description": "Project root for .api-tester/ environments, uploadable files and written outputs (default: CLAUDE_PROJECT_DIR, then the working directory)",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "CLAUDE_PROJECT_DIR",
+      "description": "Set by Claude Code; used as the project root when API_TESTER_PROJECT_DIR is not set",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "API_TESTER_PROXY",
+      "description": "Default http:// proxy URL for outgoing requests (per-request `proxy` overrides it); may embed credentials",
+      "default": "",
+      "required": false,
+      "secret": true
+    }
+  ],
   "recommendedFor": [
     "nestjs-expert",
     "spring-boot-expert",
@@ -21,6 +56,11 @@
   "detectedWhen": [
     "openapi",
     "swagger",
+    "postman",
+    "insomnia",
+    "bruno",
+    "graphql",
+    "websocket",
     "express",
     "nestjs",
     "fastapi",
