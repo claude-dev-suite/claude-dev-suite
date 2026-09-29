@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-09-29
+
 The eight domain MCP servers — database-query, docker-manager, api-tester,
 api-explorer, log-analyzer, performance-profiler, code-quality and
 security-scanner — were audited against their code, not their descriptions,
