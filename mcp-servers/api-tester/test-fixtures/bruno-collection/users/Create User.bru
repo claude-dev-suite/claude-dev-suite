@@ -1,0 +1,40 @@
+meta {
+  name: Create User
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/users/:org
+  body: json
+  auth: bearer
+}
+
+params:path {
+  org: acme
+}
+
+params:query {
+  notify: true
+  ~dryRun: 1
+}
+
+headers {
+  X-Request-Id: 42
+  ~X-Disabled: nope
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Ada",
+    "tags": ["a", "b"]
+  }
+}
+
+script:pre-request {
+  req.setHeader("x", "y");
+}

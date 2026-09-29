@@ -1,0 +1,18 @@
+Order:
+  type: object
+  required: [total, items]
+  properties:
+    total:
+      type: number
+      exclusiveMinimum: 0
+    items:
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/Item'
+Item:
+  type: object
+  required: [sku, qty]
+  properties:
+    sku: { type: string }
+    qty: { type: integer, minimum: 1 }
