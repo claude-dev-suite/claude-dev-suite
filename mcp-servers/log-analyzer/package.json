@@ -1,7 +1,7 @@
 {
   "name": "@dev-suite/log-analyzer-server",
-  "version": "2.2.0",
-  "description": "MCP server for analyzing application logs - Spring Boot, Node.js, Python, Nginx, Apache, Kubernetes, Syslog",
+  "version": "2.3.0",
+  "description": "MCP server for streaming log analysis: multi-format parsing, multiline exceptions, queries, error fingerprints, traces, access analytics and watching",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dev-suite/shared": "*",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.6.5"
   },

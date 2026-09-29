@@ -1,175 +1,98 @@
 // SPDX-License-Identifier: MIT
 /**
  * Python Log Parser
- * Parses Python logging module output
+ *
+ * Recognised layouts:
+ *   2024-12-13 10:30:45,123 - module - INFO - message            (common custom format)
+ *   2024-12-13 10:30:45,123 - module - INFO - file.py:42 - message
+ *   2024-12-13 10:30:45,123 INFO module: message                 (asctime levelname name)
+ *   2024-12-13 10:30:45,123 [INFO] module: message
+ *   WARNING:root:message                                         (logging.basicConfig default)
+ *   [2024-12-13 10:30:45 +0000] [12345] [INFO] message           (gunicorn)
+ *   INFO:     127.0.0.1:54321 - "GET / HTTP/1.1" 200 OK          (uvicorn)
+ *   [13/Dec/2024 10:30:45] "GET /path HTTP/1.1" 200 1234         (Django runserver)
+ *
+ * The bare "LEVEL:" layouts only accept real Python level names. The previous
+ * catch-all `^(\w+):\s+(.*)$` also matched `ValueError: bad value`, so the
+ * last line of every traceback was split off into its own INFO entry.
  */
 
 import { BaseParser } from './base.js';
 import type { LogEntry, LogFormat } from '../types.js';
 
-/**
- * Python logging default format:
- * 2024-12-13 10:30:45,123 - module - INFO - Message here
- *
- * Or with more details:
- * 2024-12-13 10:30:45,123 - module - INFO - module.py:42 - Message here
- */
+const PY_LEVELS = 'DEBUG|INFO|WARNING|WARN|ERROR|CRITICAL|FATAL|NOTSET';
+const TS = '(\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,]\\d{1,6})?(?:Z|[+-]\\d{2}:?\\d{2})?)';
+
 export class PythonParser extends BaseParser {
   readonly format: LogFormat = 'python';
 
-  // Standard Python logging patterns
-  private readonly patterns = [
-    // With filename and line number
-    /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:,\d{3})?)\s+-\s+(\S+)\s+-\s+(\w+)\s+-\s+(\S+):(\d+)\s+-\s+(.*)$/,
-    // Without filename
-    /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:,\d{3})?)\s+-\s+(\S+)\s+-\s+(\w+)\s+-\s+(.*)$/,
-    // Simple format
-    /^(\w+):(\S+):(\d+)\s+(\w+)\s+(.*)$/,
-    // Django format: [13/Dec/2024 10:30:45] "GET /path HTTP/1.1" 200 1234
-    /^\[([^\]]+)\]\s+"([A-Z]+)\s+([^\s]+)\s+HTTP\/[\d.]+"\s+(\d+)\s+(\d+)$/,
-  ];
+  private readonly dashedWithFile = new RegExp(`^${TS}\\s+-\\s+(\\S+)\\s+-\\s+(${PY_LEVELS})\\s+-\\s+(\\S+?):(\\d+)\\s+-\\s?(.*)$`);
+  private readonly dashed = new RegExp(`^${TS}\\s+-\\s+(\\S+)\\s+-\\s+(${PY_LEVELS})\\s+-\\s?(.*)$`);
+  private readonly levelName = new RegExp(`^${TS}\\s+\\[?(${PY_LEVELS})\\]?\\s+(?:\\[?([\\w.\\-]+)\\]?:?\\s+)?(.*)$`);
+  private readonly basic = new RegExp(`^(${PY_LEVELS}):([\\w.\\-]*):(.*)$`);
+  private readonly gunicorn = /^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\s+[+-]\d{4})?)\]\s+\[(\d+)\]\s+\[(\w+)\]\s+(.*)$/;
+  private readonly uvicorn = new RegExp(`^(${PY_LEVELS}):\\s+(.*)$`);
+  private readonly django = /^\[(\d{2}\/\w{3}\/\d{4}\s+\d{2}:\d{2}:\d{2})\]\s+"([A-Z]+)\s+([^\s"]+)\s+HTTP\/[\d.]+"\s+(\d{3})\s+(\d+|-)$/;
 
   parseLine(line: string, lineNumber: number): LogEntry | null {
-    for (let i = 0; i < this.patterns.length; i++) {
-      const match = line.match(this.patterns[i]);
-      if (match) {
-        return this.parseMatch(match, i, line, lineNumber);
-      }
+    let m = line.match(this.dashedWithFile);
+    if (m) {
+      const [, ts, logger, level, file, lineNo, message] = m;
+      return this.entry(line, lineNumber, ts, level, message, { logger, class: file, line: parseInt(lineNo, 10) });
     }
-
-    // Try as Django-style log
-    return this.parseDjangoLine(line, lineNumber);
-  }
-
-  private parseMatch(match: RegExpMatchArray, patternIndex: number, line: string, lineNumber: number): LogEntry | null {
-    switch (patternIndex) {
-      case 0: {
-        // With filename and line number
-        const [, timestamp, module, level, file, lineNo, message] = match;
-        return {
-          timestamp: this.parsePythonTimestamp(timestamp),
-          level: this.parseLevel(level),
-          message: message.trim(),
-          logger: module,
-          class: file,
-          line: parseInt(lineNo, 10),
-          raw: line,
-          lineNumber,
-        };
-      }
-      case 1: {
-        // Without filename
-        const [, timestamp, module, level, message] = match;
-        return {
-          timestamp: this.parsePythonTimestamp(timestamp),
-          level: this.parseLevel(level),
-          message: message.trim(),
-          logger: module,
-          raw: line,
-          lineNumber,
-        };
-      }
-      case 2: {
-        // Simple format
-        const [, level, module, lineNo, levelAgain, message] = match;
-        return {
-          timestamp: new Date(),
-          level: this.parseLevel(levelAgain || level),
-          message: message.trim(),
-          logger: module,
-          line: parseInt(lineNo, 10),
-          raw: line,
-          lineNumber,
-        };
-      }
-      default:
-        return null;
+    m = line.match(this.dashed);
+    if (m) {
+      const [, ts, logger, level, message] = m;
+      return this.entry(line, lineNumber, ts, level, message, { logger });
     }
-  }
-
-  private parseDjangoLine(line: string, lineNumber: number): LogEntry | null {
-    // Django development server log
-    // [13/Dec/2024 10:30:45] "GET /admin/ HTTP/1.1" 200 1234
-    const djangoMatch = line.match(/^\[(\d{2}\/\w{3}\/\d{4}\s+\d{2}:\d{2}:\d{2})\]\s+"([A-Z]+)\s+([^\s"]+)\s+HTTP\/[\d.]+"\s+(\d+)\s+(\d+)$/);
-
-    if (djangoMatch) {
-      const [, dateStr, method, url, status, size] = djangoMatch;
-      const statusNum = parseInt(status, 10);
-
+    m = line.match(this.levelName);
+    if (m) {
+      const [, ts, level, logger, message] = m;
+      return this.entry(line, lineNumber, ts, level, message, { logger });
+    }
+    m = line.match(this.gunicorn);
+    if (m) {
+      const [, ts, pid, level, message] = m;
+      if (!this.strictLevel(level)) return null;
+      return this.entry(line, lineNumber, ts, level, message, { metadata: { pid: parseInt(pid, 10) } });
+    }
+    m = line.match(this.django);
+    if (m) {
+      const [, ts, method, path, status, size] = m;
+      const code = parseInt(status, 10);
       return {
-        timestamp: this.parseDjangoDate(dateStr),
-        level: statusNum >= 500 ? 'ERROR' : statusNum >= 400 ? 'WARN' : 'INFO',
-        message: `${method} ${url} ${status}`,
-        metadata: {
-          method,
-          url,
-          status: statusNum,
-          size: parseInt(size, 10),
-        },
+        timestamp: this.parseTimestamp(ts),
+        level: code >= 500 ? 'ERROR' : code >= 400 ? 'WARN' : 'INFO',
+        message: `${method} ${path} ${status}`,
+        metadata: { method, path, status: code, bytes: size === '-' ? 0 : parseInt(size, 10) },
         raw: line,
         lineNumber,
       };
     }
-
-    // Django/Gunicorn worker log
-    // [2024-12-13 10:30:45 +0000] [12345] [INFO] Message
-    const gunicornMatch = line.match(/^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\s+[+-]\d{4})?)\]\s+\[(\d+)\]\s+\[(\w+)\]\s+(.*)$/);
-
-    if (gunicornMatch) {
-      const [, timestamp, pid, level, message] = gunicornMatch;
-      return {
-        timestamp: this.parseTimestamp(timestamp),
-        level: this.parseLevel(level),
-        message: message.trim(),
-        metadata: { pid: parseInt(pid, 10) },
-        raw: line,
-        lineNumber,
-      };
+    m = line.match(this.uvicorn);
+    if (m) {
+      // uvicorn has no timestamp in its default format.
+      return this.entry(line, lineNumber, null, m[1], m[2], {});
     }
-
-    // uvicorn/hypercorn format
-    // INFO:     127.0.0.1:54321 - "GET / HTTP/1.1" 200
-    const uvicornMatch = line.match(/^(\w+):\s+(.*)$/);
-    if (uvicornMatch) {
-      const [, level, message] = uvicornMatch;
-      return {
-        timestamp: new Date(),
-        level: this.parseLevel(level),
-        message: message.trim(),
-        raw: line,
-        lineNumber,
-      };
+    m = line.match(this.basic);
+    if (m) {
+      // logging.basicConfig() default: LEVEL:logger:message — no timestamp.
+      return this.entry(line, lineNumber, null, m[1], m[3], { logger: m[2] || undefined });
     }
-
     return null;
   }
 
-  private parsePythonTimestamp(timestamp: string): Date {
-    // Python uses comma for milliseconds: 2024-12-13 10:30:45,123
-    const normalized = timestamp.replace(',', '.');
-    return this.parseTimestamp(normalized);
-  }
-
-  private parseDjangoDate(dateStr: string): Date {
-    // Format: 13/Dec/2024 10:30:45
-    const months: Record<string, number> = {
-      'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-      'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11,
+  private entry(
+    line: string, lineNumber: number, ts: string | null, level: string, message: string,
+    extra: Partial<LogEntry>,
+  ): LogEntry {
+    return {
+      timestamp: ts ? this.parseTimestamp(ts) : null,
+      level: this.parseLevel(level),
+      message: message.trim(),
+      ...extra,
+      raw: line,
+      lineNumber,
     };
-
-    const match = dateStr.match(/(\d{2})\/(\w{3})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
-    if (match) {
-      const [, day, month, year, hour, min, sec] = match;
-      return new Date(
-        parseInt(year),
-        months[month],
-        parseInt(day),
-        parseInt(hour),
-        parseInt(min),
-        parseInt(sec)
-      );
-    }
-
-    return new Date();
   }
 }

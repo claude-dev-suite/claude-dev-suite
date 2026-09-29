@@ -1,7 +1,7 @@
 {
   "name": "log-analyzer",
-  "description": "Multi-format log parsing (Nginx, Apache, K8s, Spring Boot), pattern analysis, error correlation, and real-time monitoring",
-  "shortDescription": "Log analysis",
+  "description": "Streaming log analysis for files, directories, globs, gzip rotations and live docker/compose/kubectl/journald sources: auto-detected formats (Java, Node, Python, Go, .NET, Rails, nginx/Apache, syslog, logfmt, JSON, docker/CRI, Heroku, CloudWatch, OpenTelemetry), multiline exceptions, LogQL-lite queries, error fingerprints with baselines, Drain templates, trace timelines, access-log latency percentiles, and rotation-safe watching with alert rules",
+  "shortDescription": "Log analysis and querying",
   "category": "monitoring",
   "tools": [
     "parse_logs",
@@ -13,13 +13,30 @@
     "search_logs",
     "compare_logs",
     "export_report",
-    "watch_logs"
+    "watch_logs",
+    "query_logs",
+    "mine_templates",
+    "access_log_stats",
+    "trace_timeline",
+    "detect_format"
   ],
   "envVars": [
     {
       "name": "LOG_EXPORT_DIR",
-      "description": "Directory that exported report paths must stay inside. Unset keeps the historical unconfined behaviour.",
+      "description": "Directory that report and error-baseline output must stay inside (also the default report location). Unset allows any absolute path.",
       "default": "",
+      "required": false
+    },
+    {
+      "name": "LOG_ALLOWED_ROOTS",
+      "description": "Optional list of directories (OS path-delimiter separated) that log paths must resolve inside, after symlinks. Unset allows any absolute path.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "LOG_REDACT",
+      "description": "Set to false to stop masking secrets (URL credentials, bearer tokens, password/api_key values) in tool output. Default: redaction on.",
+      "default": "true",
       "required": false
     }
   ],
@@ -32,6 +49,14 @@
     "nginx",
     "apache",
     "kubernetes",
-    "spring-boot"
+    "docker",
+    "spring-boot",
+    "express",
+    "django",
+    "flask",
+    "fastapi",
+    "rails",
+    "dotnet",
+    "go"
   ]
 }
