@@ -46,7 +46,11 @@ type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 type UrlGuard = (url: string) => Promise<void>;
 
 let fetchImpl: FetchLike = (input, init) => fetch(input, init);
-let urlGuard: UrlGuard = (url) => validateUrl(url, { allowPrivate: getSettings().allowPrivate });
+// API_EXPLORER_ALLOW_PRIVATE_URLS=0 blocks local targets too, loopback included.
+let urlGuard: UrlGuard = (url) => {
+  const allowPrivate = getSettings().allowPrivate;
+  return validateUrl(url, { allowPrivate, allowLoopback: allowPrivate });
+};
 
 /** Test seam: replace the network layer. Returns a restore function. */
 export function setFetchImpl(impl: FetchLike): () => void {

@@ -17,9 +17,12 @@
  * address during validation cannot then resolve to 169.254.169.254 at connect.
  */
 
-import { lookup as dnsLookup, type LookupAddress } from 'dns';
 import { isIP } from 'net';
-import { validateUrl as validateUrlShared } from '@dev-suite/shared';
+import {
+  validateUrl as validateUrlShared,
+  assertAddressAllowed as assertAddressAllowedShared,
+  createGuardedLookup,
+} from '@dev-suite/shared';
 import { envFlag } from '../util/limits.js';
 
 export function privateNetworksAllowed(): boolean {
@@ -51,7 +54,7 @@ export async function validateTargetUrl(rawUrl: string): Promise<URL> {
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new Error(`Invalid URL: ${rawUrl}`);
+    throw new Error('Invalid URL');
   }
   const httpProto =
     url.protocol === 'http:' || url.protocol === 'ws:'
@@ -76,36 +79,26 @@ export async function validateTargetUrl(rawUrl: string): Promise<URL> {
 
 /** Check one resolved address (used by the connect-time lookup hook). */
 export async function assertAddressAllowed(address: string, hostname: string): Promise<void> {
-  if (isLoopbackAddress(address)) return;
-  const literal = isIP(address) === 6 ? `[${address}]` : address;
   try {
-    await validateUrlShared(`http://${literal}/`, { allowPrivate: privateNetworksAllowed() });
+    assertAddressAllowedShared(address, { allowPrivate: privateNetworksAllowed() });
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     throw withHint(new Error(`SSRF protection: "${hostname}" resolved to ${address} at connect time — ${reason}`));
   }
 }
 
-type LookupCallback = (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
-
 /**
  * Drop-in `lookup` for http.request / net.connect / ws that validates every
- * resolved address before the socket connects to it.
+ * resolved address before the socket connects to it. The policy flag is read
+ * per call, so a change to API_TESTER_ALLOW_PRIVATE takes effect immediately.
  */
 export function guardedLookup(hostname: string, options: unknown, callback?: unknown): void {
-  const cb = (typeof options === 'function' ? options : callback) as LookupCallback;
-  const opts = (typeof options === 'object' && options !== null ? options : {}) as { all?: boolean; family?: number };
-  dnsLookup(hostname, { family: opts.family as 0 | 4 | 6 | undefined, all: true }, (err, addresses) => {
-    if (err) return cb(err, opts.all ? [] : '');
-    const list = addresses as LookupAddress[];
-    if (!list || list.length === 0) {
-      return cb(Object.assign(new Error(`DNS lookup returned no addresses for ${hostname}`), { code: 'ENOTFOUND' }), '');
+  const cb = (typeof options === 'function' ? options : callback) as (err: Error | null, ...rest: unknown[]) => void;
+  const inner = createGuardedLookup({ allowPrivate: privateNetworksAllowed() });
+  inner(hostname, typeof options === 'function' ? {} : options, (err: Error | null, ...rest: unknown[]) => {
+    if (err && (err as NodeJS.ErrnoException).code === 'ESSRF') {
+      return cb(Object.assign(withHint(err), { code: 'ESSRF' }), ...rest);
     }
-    Promise.all(list.map((a) => assertAddressAllowed(a.address, hostname)))
-      .then(() => {
-        if (opts.all) cb(null, list);
-        else cb(null, list[0].address, list[0].family);
-      })
-      .catch((e: Error) => cb(Object.assign(e, { code: 'ESSRF' }), opts.all ? [] : ''));
+    cb(err, ...rest);
   });
 }

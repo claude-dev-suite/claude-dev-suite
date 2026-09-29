@@ -9,7 +9,8 @@
  * Policy summary (see the shared module for the full ranges):
  *  - `localhost` is allowed — profiling local endpoints is the primary use case.
  *  - 169.254.0.0/16 (cloud metadata) is ALWAYS blocked.
- *  - Other private/loopback/ULA/link-local ranges are blocked unless
+ *  - Loopback (localhost, 127.0.0.0/8, ::1) is allowed.
+ *  - Other private/ULA/link-local ranges are blocked unless
  *    PERF_PROFILER_ALLOW_PRIVATE_URLS=true (or 1).
  *  - Callers MUST re-validate each redirect Location (see http-client.ts).
  */

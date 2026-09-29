@@ -18,7 +18,6 @@ describe('openAdhoc', () => {
     'postgresql://u:p@10.0.0.1/db',
     'postgresql://u:p@172.16.0.1/db',
     'postgresql://u:p@192.168.1.1/db',
-    'postgresql://u:p@[::1]/db',
     'postgresql://u:p@[fc00::1]/db',
     'postgresql://u:p@[fe80::1]/db',
     'postgresql://u:p@[::ffff:10.0.0.1]/db',

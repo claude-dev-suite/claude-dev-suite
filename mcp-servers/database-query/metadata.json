@@ -69,7 +69,7 @@
     },
     {
       "name": "DB_ALLOW_PRIVATE_ADHOC_URLS",
-      "description": "Allow targetDatabaseUrl tool arguments to reach private/loopback hosts (cloud metadata stays blocked). Configured connections are always allowed.",
+      "description": "Allow targetDatabaseUrl tool arguments to reach private hosts (loopback is always allowed) (cloud metadata stays blocked). Configured connections are always allowed.",
       "default": "false",
       "required": false
     }

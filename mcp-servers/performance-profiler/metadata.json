@@ -28,7 +28,7 @@
   "envVars": [
     {
       "name": "PERF_PROFILER_ALLOW_PRIVATE_URLS",
-      "description": "Set to \"true\" to allow load-testing / auditing private and loopback IP addresses (localhost by name is always allowed). Cloud metadata (169.254.0.0/16) stays blocked.",
+      "description": "Set to \"true\" to allow load-testing / auditing private IP ranges (loopback such as localhost or 127.0.0.1 is always allowed). Cloud metadata (169.254.0.0/16) stays blocked.",
       "default": "false",
       "required": false
     },

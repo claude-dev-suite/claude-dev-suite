@@ -73,7 +73,7 @@ export function requireEngine(driver: Driver, tool: string, supported: readonly 
  * An ad-hoc URL passed as a TOOL ARGUMENT (e.g. compare_schemas'
  * targetDatabaseUrl). Unlike operator-configured connections these are not
  * trusted: the model chose the host, so the shared SSRF policy applies —
- * cloud metadata is always blocked; loopback/private ranges are blocked
+ * cloud metadata is always blocked; loopback is allowed; private ranges are blocked
  * unless DB_ALLOW_PRIVATE_ADHOC_URLS=true (explicit "localhost" is allowed by
  * the shared policy). SQLite paths are refused: a file path from the model
  * would be an arbitrary local-file read. Ad-hoc connections are always

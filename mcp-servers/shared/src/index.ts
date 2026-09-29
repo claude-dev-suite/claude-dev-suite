@@ -11,7 +11,7 @@
  * bundler inlines it, so there is no separate build step to keep in order.
  */
 
-export { validateUrl, type SsrfOptions } from './ssrf.js';
+export { validateUrl, assertAddressAllowed, createGuardedLookup, type SsrfOptions } from './ssrf.js';
 export { validateFilePath, assertWithinRoot } from './file-path.js';
 export { SingleFlight } from './single-flight.js';
 export { Semaphore } from './semaphore.js';
