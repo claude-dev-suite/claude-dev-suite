@@ -1,0 +1,1 @@
+{ "name": "nest-app", "dependencies": { "@nestjs/core": "^10.0.0", "@nestjs/swagger": "^7.0.0" } }

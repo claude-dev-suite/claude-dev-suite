@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: Split spec
+  version: 1.0.0
+paths:
+  /users:
+    $ref: './paths/users.yaml'
+  /users/{userId}/avatar:
+    get:
+      operationId: getAvatar
+      parameters:
+        - $ref: './schemas/common.yaml#/parameters/UserId'
+      responses:
+        '200':
+          description: Avatar
+          content:
+            application/json:
+              schema:
+                $ref: './schemas/common.yaml#/Avatar'
+        '404':
+          description: Missing
+          content:
+            application/json:
+              schema:
+                $ref: './schemas/missing.yaml#/Nope'

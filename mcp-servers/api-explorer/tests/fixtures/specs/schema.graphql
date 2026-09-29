@@ -1,0 +1,43 @@
+"""A user of the system"""
+type User implements Node {
+  id: ID!
+  name: String
+  posts(first: Int = 10, after: String): [Post!]!
+}
+
+interface Node {
+  id: ID!
+}
+
+type Post implements Node {
+  id: ID!
+  title: String!
+  status: PostStatus!
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED @deprecated(reason: "use DRAFT")
+}
+
+input NewPost {
+  title: String!
+  draft: Boolean = true
+}
+
+union SearchResult = User | Post
+
+type Query {
+  "Fetch a user by id"
+  user(id: ID!): User
+  search(term: String!): [SearchResult!]!
+}
+
+type Mutation {
+  createPost(input: NewPost!): Post!
+}
+
+type Subscription {
+  postPublished: Post!
+}

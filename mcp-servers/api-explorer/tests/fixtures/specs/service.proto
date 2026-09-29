@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package shop.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Catalog operations
+service CatalogService {
+  // Fetch one product
+  rpc GetProduct(GetProductRequest) returns (Product);
+  rpc WatchPrices(stream PriceQuery) returns (stream PriceUpdate);
+}
+
+message GetProductRequest {
+  string id = 1;
+}
+
+message Product {
+  string id = 1;
+  string name = 2;
+  repeated string tags = 3;
+  map<string, string> attributes = 4;
+  oneof price {
+    int64 cents = 5;
+    string quote = 6;
+  }
+  Status status = 7;
+  google.protobuf.Timestamp created_at = 8;
+
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    ACTIVE = 1;
+  }
+}
+
+message PriceQuery { string product_id = 1; }
+message PriceUpdate { string product_id = 1; int64 cents = 2; }
