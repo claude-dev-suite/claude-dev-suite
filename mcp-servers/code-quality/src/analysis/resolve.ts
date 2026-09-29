@@ -302,7 +302,9 @@ export class Resolver {
         }
         if (mid === null) continue;
         for (const t of targets) {
-          const r = this.jsFile(path.resolve(ts.pathsBase, t.replace('*', () => mid)));
+          // tsconfig allows one `*` per target; split/join substitutes it literally
+          // (no `$&` replacement patterns) and every occurrence if there were more.
+          const r = this.jsFile(path.resolve(ts.pathsBase, t.split('*').join(mid)));
           if (r) return r;
         }
       }

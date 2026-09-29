@@ -70,7 +70,13 @@ beforeAll(async () => {
           res.end();
           return;
         }
-        const p = Object.fromEntries([...h.matchAll(/(\w+)=(?:"([^"]*)"|([^,\s]*))/g)].map((m) => [m[1], m[2] ?? m[3]]));
+        // Split on commas instead of a global regex (the values here never contain one).
+        const p = Object.fromEntries(
+          h.slice('Digest '.length).split(',').map((part) => {
+            const eq = part.indexOf('=');
+            return [part.slice(0, eq).trim(), part.slice(eq + 1).trim().replace(/^"|"$/g, '')];
+          })
+        );
         const H = (s: string) => createHash('md5').update(s).digest('hex');
         const expected = H(`${H('alice:test:wonder')}:n0nce:${p.nc}:${p.cnonce}:auth:${H(`GET:${p.uri}`)}`);
         return json(res, p.response === expected ? 200 : 403, { ok: p.response === expected });
