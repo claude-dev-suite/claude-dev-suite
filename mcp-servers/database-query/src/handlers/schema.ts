@@ -52,7 +52,7 @@ export const handleListConnections: Handler = async (args) => {
     defaultConnection: reg.defaultName,
     ...(reg.errors.length ? { configErrors: reg.errors } : {}),
     settings: { statementTimeoutMs: statementTimeoutMs(), maxRows: maxRowsCap() },
-    toolEngines: TOOL_ENGINES,
+    toolEngines: Object.fromEntries(Object.entries(TOOL_ENGINES).map(([tool, engines]) => [tool, engines.join(", ")])),
     ...(connections.length === 0
       ? { hint: 'Set DATABASE_URL, or DATABASE_URLS={"name":"postgres://…"} (add "readOnly": false to allow writes).' }
       : {}),

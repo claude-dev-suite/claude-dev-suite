@@ -26,12 +26,20 @@ export { jsonResponse, errorResponse, formatBytes } from "./types.js";
 export * from "./types.js";
 
 export const handlers: Record<string, Handler> = {
+  list_connections: handleListConnections,
   execute_query: handleExecuteQuery,
+  execute_write: handleExecuteWrite,
+  list_schemas: handleListSchemas,
   list_tables: handleListTables,
   describe_table: handleDescribeTable,
   get_schema: handleGetSchema,
+  list_objects: handleListObjects,
+  search_objects: handleSearchObjects,
+  preview_table: handlePreviewTable,
   explain_query: handleExplainQuery,
   find_slow_queries: handleFindSlowQueries,
+  index_recommendations: handleIndexRecommendations,
+  health_check: handleHealthCheck,
   compare_schemas: handleCompareSchemas,
   generate_migration: handleGenerateMigration,
   backup_restore: handleBackupRestore,

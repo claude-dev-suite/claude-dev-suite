@@ -55,9 +55,24 @@ function schema(s: z.ZodType): Record<string, unknown> {
 /** Tool list. Engine support per tool is reported by list_connections (toolEngines). */
 const TOOLS = [
   {
+    name: "list_connections",
+    description: "List configured database connections (engine, read-only flag, host/db, SSL) and which tools each engine supports",
+    inputSchema: schema(ListConnectionsSchema),
+  },
+  {
     name: "execute_query",
     description: "Run one read-only SQL statement (engine-enforced read-only txn, timeout, row cap + paging). PG, MySQL, SQLite",
     inputSchema: schema(QuerySchema),
+  },
+  {
+    name: "execute_write",
+    description: "Run DML/DDL on a connection marked writable. Dry run (rolled back / EXPLAIN) unless confirm=true",
+    inputSchema: schema(WriteSchema),
+  },
+  {
+    name: "list_schemas",
+    description: "List schemas (Postgres), databases (MySQL) or attached databases (SQLite) with object counts",
+    inputSchema: schema(ListSchemasSchema),
   },
   {
     name: "list_tables",
@@ -75,6 +90,21 @@ const TOOLS = [
     inputSchema: schema(SchemaIntrospectionSchema),
   },
   {
+    name: "list_objects",
+    description: "List enums, types, functions, procedures, triggers, sequences, views, indexes or extensions in a schema",
+    inputSchema: schema(ListObjectsSchema),
+  },
+  {
+    name: "search_objects",
+    description: "Find tables, views, columns, functions and types whose name contains a pattern",
+    inputSchema: schema(SearchObjectsSchema),
+  },
+  {
+    name: "preview_table",
+    description: "Sample rows from a table or view (optional columns and ordering), read-only and row-capped",
+    inputSchema: schema(PreviewTableSchema),
+  },
+  {
     name: "explain_query",
     description: "Show a query plan with a summary (full scans, misestimates). analyze=true executes it in a rolled-back txn",
     inputSchema: schema(ExplainQuerySchema),
@@ -83,6 +113,16 @@ const TOOLS = [
     name: "find_slow_queries",
     description: "Top queries by time from pg_stat_statements (Postgres) or performance_schema (MySQL), plus scan stats",
     inputSchema: schema(FindSlowQueriesSchema),
+  },
+  {
+    name: "index_recommendations",
+    description: "Find unused, duplicate and redundant indexes and foreign keys without a supporting index",
+    inputSchema: schema(IndexRecommendationsSchema),
+  },
+  {
+    name: "health_check",
+    description: "Health report: connections, long queries, blocking locks, cache hit, bloat, vacuum/analyze, replication",
+    inputSchema: schema(HealthCheckSchema),
   },
   {
     name: "compare_schemas",
