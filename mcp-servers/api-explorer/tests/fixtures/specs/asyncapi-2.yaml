@@ -1,0 +1,45 @@
+asyncapi: 2.6.0
+info:
+  title: Orders events
+  version: 1.0.0
+servers:
+  prod:
+    url: broker.example.com:9092
+    protocol: kafka
+channels:
+  orders/created:
+    description: Order created events
+    subscribe:
+      operationId: onOrderCreated
+      summary: Receive order created
+      message:
+        $ref: '#/components/messages/OrderCreated'
+  orders/{orderId}/cancel:
+    parameters:
+      orderId:
+        schema:
+          type: string
+    publish:
+      operationId: cancelOrder
+      message:
+        name: CancelOrder
+        payload:
+          type: object
+          properties:
+            reason:
+              type: string
+components:
+  messages:
+    OrderCreated:
+      name: OrderCreated
+      summary: An order was created
+      payload:
+        $ref: '#/components/schemas/Order'
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        total:
+          type: number

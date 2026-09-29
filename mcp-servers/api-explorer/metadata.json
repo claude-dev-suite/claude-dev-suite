@@ -1,22 +1,74 @@
 {
   "name": "api-explorer",
-  "description": "Explores and analyzes OpenAPI/Swagger specifications, lists endpoints, models, and detects API frameworks",
-  "shortDescription": "OpenAPI explorer",
+  "description": "Explores, lints and diffs API descriptions: OpenAPI 3.0/3.1 and Swagger 2.0 from URLs, project files or git revisions (full $ref resolution, URL-to-operation matching, breaking-change diff, request snippets), GraphQL (SDL or introspection), AsyncAPI 2/3 and gRPC .proto files; detects API frameworks and discovers checked-in spec files",
+  "shortDescription": "OpenAPI/GraphQL/AsyncAPI/gRPC explorer, linter and diff",
   "category": "api",
   "tools": [
     "list_api_endpoints",
+    "list_api_sources",
+    "add_api_source",
+    "remove_api_source",
     "get_api_schema",
     "list_api_paths",
     "get_api_endpoint_details",
+    "match_api_operation",
     "get_api_models",
+    "get_api_security",
     "search_api",
+    "lint_api_spec",
+    "diff_api_specs",
+    "generate_api_request",
+    "list_graphql_operations",
+    "list_graphql_types",
+    "get_graphql_type",
+    "list_asyncapi_channels",
+    "get_asyncapi_message",
+    "list_grpc_services",
+    "get_proto_message",
+    "discover_api_specs",
     "detect_api_frameworks"
   ],
   "envVars": [
     {
       "name": "API_EXPLORER_ENDPOINTS",
-      "description": "JSON array of OpenAPI endpoints to explore, e.g. [{\"alias\":\"api\",\"url\":\"http://localhost:8080/v3/api-docs\"}]. Without it the server starts but has no endpoints configured.",
+      "description": "Sources to load at startup: a URL or project file path, a comma-separated list, or a JSON array like [{\"alias\":\"api\",\"url\":\"http://localhost:8080/v3/api-docs\"},{\"alias\":\"events\",\"path\":\"docs/asyncapi.yaml\"}]. Optional: sources can also be added at runtime with add_api_source.",
       "default": "",
+      "required": false
+    },
+    {
+      "name": "API_EXPLORER_PROJECT_ROOT",
+      "description": "Directory that local spec files, detection scans and git diffs are confined to. Defaults to the server's working directory.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "API_EXPLORER_CACHE_TTL",
+      "description": "Seconds a spec fetched from a URL or git revision stays cached (local files are re-read as soon as they change).",
+      "default": "300",
+      "required": false
+    },
+    {
+      "name": "API_EXPLORER_TIMEOUT",
+      "description": "HTTP and git timeout in milliseconds.",
+      "default": "30000",
+      "required": false
+    },
+    {
+      "name": "API_EXPLORER_RETRY_COUNT",
+      "description": "Retries for transient HTTP failures (network errors, timeouts, 5xx, 429).",
+      "default": "2",
+      "required": false
+    },
+    {
+      "name": "API_EXPLORER_MAX_SPEC_BYTES",
+      "description": "Maximum size of a fetched or read document, in bytes.",
+      "default": "20971520",
+      "required": false
+    },
+    {
+      "name": "API_EXPLORER_ALLOW_PRIVATE_URLS",
+      "description": "Set to 0 to refuse loopback/private-network spec URLs. Cloud metadata (169.254.0.0/16) is always refused.",
+      "default": "1",
       "required": false
     }
   ],
@@ -26,6 +78,10 @@
   ],
   "detectedWhen": [
     "openapi",
-    "swagger"
+    "swagger",
+    "asyncapi",
+    "graphql",
+    "grpc",
+    "protobuf"
   ]
 }

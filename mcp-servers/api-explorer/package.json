@@ -1,7 +1,7 @@
 {
   "name": "@dev-suite/api-explorer-server",
-  "version": "2.2.0",
-  "description": "MCP server for fetching and exploring OpenAPI/Swagger schemas from multiple API endpoints",
+  "version": "2.3.0",
+  "description": "MCP server to explore, lint and diff OpenAPI/Swagger, GraphQL, AsyncAPI and gRPC API descriptions",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -13,16 +13,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dev-suite/shared": "*",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^4.6.5",
-    "yaml": "^2.9.1"
+    "graphql": "^16.14.2",
+    "protobufjs": "^8.8.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
   },
   "keywords": [
     "mcp",
     "openapi",
     "swagger",
     "api-explorer",
-    "api-documentation"
+    "api-documentation",
+    "graphql",
+    "asyncapi",
+    "grpc"
   ],
   "author": "dev-suite",
   "license": "MIT"

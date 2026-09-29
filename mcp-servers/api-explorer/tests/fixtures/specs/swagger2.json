@@ -1,0 +1,50 @@
+{
+  "swagger": "2.0",
+  "info": { "title": "Legacy", "version": "0.9" },
+  "host": "legacy.example.com",
+  "basePath": "/api",
+  "schemes": ["https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "securityDefinitions": {
+    "key": { "type": "apiKey", "in": "header", "name": "X-Key" }
+  },
+  "security": [{ "key": [] }],
+  "paths": {
+    "/orders": {
+      "post": {
+        "operationId": "createOrder",
+        "summary": "Create order",
+        "parameters": [
+          { "name": "body", "in": "body", "required": true, "schema": { "$ref": "#/definitions/Order" } },
+          { "name": "dryRun", "in": "query", "type": "boolean" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "schema": { "$ref": "#/definitions/Order" }, "headers": { "X-Rate": { "type": "integer" } } }
+        }
+      }
+    },
+    "/upload": {
+      "post": {
+        "operationId": "upload",
+        "consumes": ["multipart/form-data"],
+        "parameters": [
+          { "name": "file", "in": "formData", "type": "file", "required": true },
+          { "name": "note", "in": "formData", "type": "string" }
+        ],
+        "responses": { "201": { "description": "Uploaded" } }
+      }
+    }
+  },
+  "definitions": {
+    "Order": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "integer" },
+        "items": { "type": "array", "items": { "$ref": "#/definitions/Item" } }
+      }
+    },
+    "Item": { "type": "object", "properties": { "sku": { "type": "string" } } }
+  }
+}

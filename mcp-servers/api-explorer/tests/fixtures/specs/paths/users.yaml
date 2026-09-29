@@ -1,0 +1,12 @@
+get:
+  operationId: listUsers
+  summary: List users
+  responses:
+    '200':
+      description: Users
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../schemas/common.yaml#/User'

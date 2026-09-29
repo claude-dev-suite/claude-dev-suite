@@ -1,0 +1,7 @@
+server:
+  port: 9090
+  servlet:
+    context-path: /svc
+springdoc:
+  api-docs:
+    path: /api-spec
