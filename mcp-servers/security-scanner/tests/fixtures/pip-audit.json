@@ -1,0 +1,72 @@
+{
+ "dependencies": [
+  {
+   "name": "django",
+   "version": "3.2",
+   "vulns": [
+    {
+     "id": "PYSEC-2021-8",
+     "fix_versions": [
+      "2.2.22",
+      "3.1.10",
+      "3.2.2"
+     ],
+     "aliases": [
+      "BIT-django-2021-32052",
+      "GHSA-qm57-vhq3-3fwf",
+      "CVE-2021-32052"
+     ],
+     "description": "In Django 2.2 before 2.2.22, 3.1 before 3.1.10, and 3.2 before 3.2.2 (with Python 3.9.5+), URLValida"
+    },
+    {
+     "id": "PYSEC-2021-98",
+     "fix_versions": [
+      "2.2.24",
+      "3.1.12",
+      "3.2.4"
+     ],
+     "aliases": [
+      "CVE-2021-33203",
+      "GHSA-68w8-qjq3-2gfm",
+      "BIT-django-2021-33203"
+     ],
+     "description": "Django before 2.2.24, 3.x before 3.1.12, and 3.2.x before 3.2.4 has a potential directory traversal "
+    }
+   ]
+  },
+  {
+   "name": "requests",
+   "version": "2.19.0",
+   "vulns": [
+    {
+     "id": "PYSEC-2018-28",
+     "fix_versions": [
+      "2.20.0"
+     ],
+     "aliases": [
+      "GHSA-x84v-xcm2-53pg",
+      "CVE-2018-18074"
+     ],
+     "description": "The Requests package before 2.20.0 for Python sends an HTTP Authorization header to an http URI upon"
+    },
+    {
+     "id": "PYSEC-2018-28",
+     "fix_versions": [
+      "2.20.0"
+     ],
+     "aliases": [
+      "GHSA-x84v-xcm2-53pg",
+      "CVE-2018-18074"
+     ],
+     "description": "The Requests package through 2.19.1 before 2018-09-14 for Python sends an HTTP Authorization header "
+    }
+   ]
+  },
+  {
+   "name": "asgiref",
+   "version": "3.12.1",
+   "vulns": []
+  }
+ ],
+ "fixes": []
+}
