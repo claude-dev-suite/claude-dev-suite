@@ -185,7 +185,7 @@ describe("cleanup_unused dry run", () => {
 });
 
 describe("cleanup_unused real run", () => {
-  it("runs per-type prunes with the same semantics as the preview — never system prune -a --volumes", async () => {
+  it("runs only per-type prunes — never system prune -a --volumes — with no preview round trips", async () => {
     const fake = fakeDocker(routes());
     const res = body(await handleCleanupUnused({ target: "all", dryRun: false }));
     const prunes = fake.find(/prune/).map((c) => c.joined);
@@ -195,6 +195,7 @@ describe("cleanup_unused real run", () => {
       "image prune --force",
       "builder prune --force",
     ]);
+    expect(fake.calls).toHaveLength(prunes.length);
     expect(res.results.images.reclaimedSpace).toBe("1.2GB");
     expect(res.results.images.deleted).toEqual(["obj1", "obj2"]);
   });
@@ -214,7 +215,8 @@ describe("cleanup_unused real run", () => {
     const fake = fakeDocker(routes());
     const res = await handleCleanupUnused({ target: "volumes", dryRun: false });
     expect(res.isError).toBe(true);
-    expect(fake.find(/prune/)).toHaveLength(0);
+    // Refused before any docker call, so it holds even with the daemon down.
+    expect(fake.calls).toHaveLength(0);
   });
 
   it("no longer advertises a force flag that silently did nothing", () => {

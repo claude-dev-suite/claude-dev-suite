@@ -268,8 +268,13 @@ export function parsePruneOutput(stdout: string): { deleted: string[]; reclaimed
 }
 
 export async function runCleanup(input: CleanupInput) {
-  const plan = await planCleanup(input);
+  const { targets, skipped } = selectTargets(input);
+  // Refuse before touching the daemon: the opt-in is about intent, not state.
+  if (!input.dryRun && targets.includes("volumes") && !input.includeVolumes) {
+    throw new DockerError("INVALID_ARGUMENT", "Deleting volumes destroys data: set includeVolumes: true to confirm (run with dryRun first).");
+  }
   if (input.dryRun) {
+    const plan = await planCleanup(input);
     return {
       dryRun: true,
       target: input.target,
@@ -279,10 +284,10 @@ export async function runCleanup(input: CleanupInput) {
       howToApply: "Re-run with dryRun: false to delete exactly these (objects created meanwhile follow the same rules).",
     };
   }
-
-  if (plan.targets.includes("volumes") && !input.includeVolumes) {
-    throw new DockerError("INVALID_ARGUMENT", "Deleting volumes destroys data: set includeVolumes: true to confirm (run with dryRun first).");
+  if (input.until && targets.includes("volumes")) {
+    throw new DockerError("INVALID_ARGUMENT", "'until' is not supported by volume prune; drop 'until' or exclude volumes");
   }
+  const plan = { targets, skipped };
 
   const api = plan.targets.includes("volumes") ? await serverApiVersion(input.context) : undefined;
   const results: Record<string, unknown> = {};
