@@ -34,6 +34,18 @@ const TOOLS: Array<{ name: ToolName; description: string }> = [
     description: 'Scan a container image or filesystem with Trivy for vulnerabilities, secrets and misconfigurations',
   },
   {
+    name: 'scan_iac',
+    description: 'Scan IaC (Dockerfile, Kubernetes, Helm, Terraform, CloudFormation) for misconfigurations with Trivy',
+  },
+  {
+    name: 'scan_licenses',
+    description: 'Inventory dependency licenses and flag violations of an allow/deny policy (osv-scanner or trivy)',
+  },
+  {
+    name: 'generate_sbom',
+    description: 'Generate a CycloneDX or SPDX SBOM for a directory or container image (trivy, syft or osv-scanner)',
+  },
+  {
     name: 'check_tools',
     description: 'Report installed security tools, their versions, which scans they enable, and per-OS install hints',
   },

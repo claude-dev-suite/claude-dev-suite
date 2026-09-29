@@ -11,9 +11,10 @@ import { validateScanPath } from '../utils/paths.js';
 import { scanDependencies } from './dependencies.js';
 import { scanSecrets } from './secrets.js';
 import { scanCode } from './code.js';
-import { scanContainer } from './container.js';
+import { scanContainer, scanIac } from './container.js';
+import { scanLicenses } from './licenses.js';
 
-export const ALL_SCAN_TYPES: ScanType[] = ['dependencies', 'secrets', 'code', 'container'];
+export const ALL_SCAN_TYPES: ScanType[] = ['dependencies', 'secrets', 'code', 'iac', 'licenses', 'container'];
 
 export interface ScanAllInput {
   path: string;
@@ -26,6 +27,8 @@ export interface ScanAllInput {
   scanHistory?: boolean;
   rules?: string[];
   excludePaths?: string[];
+  licenseAllow?: string[];
+  licenseDeny?: string[];
 }
 
 export interface SubScan {
@@ -49,11 +52,13 @@ export async function scanAll(input: ScanAllInput): Promise<ScanAllResult> {
   const common = { severityThreshold: input.severityThreshold, maxResults: input.maxResults, timeoutSeconds: input.timeoutSeconds };
   const scans: Partial<Record<ScanType, SubScan>> = {};
 
-  const runners: Partial<Record<ScanType, () => Promise<ScanResult | SubScan>>> = {
+  const runners: Record<ScanType, () => Promise<ScanResult | SubScan>> = {
     dependencies: () => scanDependencies({ path: root, excludePaths: input.excludePaths, ...common }),
     secrets: () =>
       scanSecrets({ path: root, scanHistory: input.scanHistory, baseRef: input.baseRef, excludePaths: input.excludePaths, ...common }),
     code: () => scanCode({ path: root, rules: input.rules, baseRef: input.baseRef, excludePaths: input.excludePaths, ...common }),
+    iac: () => scanIac({ path: root, excludePaths: input.excludePaths, ...common }),
+    licenses: () => scanLicenses({ path: root, allow: input.licenseAllow, deny: input.licenseDeny, includeInventory: false, ...common }),
     container: async () =>
       input.containerTarget
         ? scanContainer({ target: input.containerTarget, type: 'image', ...common })
@@ -64,7 +69,7 @@ export async function scanAll(input: ScanAllInput): Promise<ScanAllResult> {
   for (const type of ALL_SCAN_TYPES) {
     if (!include.has(type)) continue;
     try {
-      const out = await runners[type]!();
+      const out = await runners[type]();
       if (!('scanType' in out)) {
         scans[type] = out;
         continue;

@@ -5,10 +5,12 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { cvss3BaseScore, severityFromScore } from '../src/utils/cvss.js';
 import { redactDeep, redactText } from '../src/utils/redact.js';
+import { toSarif } from '../src/utils/sarif.js';
 import { defaultRunner, parseCmdShim, runTool } from '../src/utils/exec.js';
 import { makeExcludeMatcher, safeGlobToRegex } from '../src/utils/paths.js';
 import { parseJsonStream } from '../src/utils/report-file.js';
 import { buildResult, normalizeSeverity } from '../src/utils/normalizer.js';
+import { evaluateLicense } from '../src/scanners/licenses.js';
 import { schemas, jsonSchemaFor, type ToolName } from '../src/tools.js';
 import type { SecurityFinding } from '../src/types.js';
 
@@ -61,6 +63,24 @@ describe('redaction', () => {
   it('leaves advisory text alone', () => {
     const s = 'CVE-2021-35042: potential SQL injection via QuerySet.order_by()';
     expect(redactText(s)).toBe(s);
+  });
+});
+
+describe('sarif', () => {
+  it('emits one run per engine with security-severity and relative locations', () => {
+    const findings: SecurityFinding[] = [
+      { id: 'CVE-1', severity: 'CRITICAL', category: 'vulnerability', source: 'trivy', title: 'bad', description: 'd', location: { file: 'web/package-lock.json', package: 'lodash', version: '1.0.0' }, fix: { fixedVersions: ['1.0.1'] } },
+      { id: 'rule.x', severity: 'MEDIUM', category: 'code-smell', source: 'semgrep', title: 't', description: 'd', location: { file: 'src/a.py', line: 3 } },
+    ];
+    const r = buildResult({ scanType: 'code', engines: [{ engine: 'trivy', status: 'ok' }, { engine: 'semgrep', status: 'ok' }], findings, startedAt: 0 });
+    const sarif = toSarif([r]) as { version: string; runs: Array<{ tool: { driver: { name: string; rules: Array<{ properties: Record<string, string> }> } }; results: Array<Record<string, any>> }> };
+    expect(sarif.version).toBe('2.1.0');
+    const trivy = sarif.runs.find((x) => x.tool.driver.name === 'trivy')!;
+    expect(trivy.tool.driver.rules[0].properties['security-severity']).toBe('9.5');
+    expect(trivy.results[0].level).toBe('error');
+    expect(trivy.results[0].message.text).toMatch(/Fixed in: 1\.0\.1/);
+    const semgrep = sarif.runs.find((x) => x.tool.driver.name === 'semgrep')!;
+    expect(semgrep.results[0].locations[0].physicalLocation).toEqual({ artifactLocation: { uri: 'src/a.py' }, region: { startLine: 3 } });
   });
 });
 
@@ -126,6 +146,19 @@ describe('parseJsonStream', () => {
     const r = parseJsonStream(text);
     expect(r.values).toEqual([{ a: '}{' }, { b: [1, { c: 2 }] }]);
     expect(r.skipped).toBe(2);
+  });
+});
+
+describe('license policy', () => {
+  it('evaluates SPDX expressions against allow/deny lists', () => {
+    expect(evaluateLicense('MIT', ['MIT'], [])).toBe('allowed');
+    expect(evaluateLicense('GPL-3.0-only', [], ['GPL-3.0-only'])).toBe('denied');
+    expect(evaluateLicense('MIT OR GPL-3.0-only', [], ['GPL-3.0-only'])).toBe('allowed');
+    expect(evaluateLicense('MIT AND GPL-3.0-only', [], ['gpl-3.0-only'])).toBe('denied');
+    expect(evaluateLicense('(MIT OR Apache-2.0) AND BSD-3-Clause', ['MIT', 'BSD-3-Clause'], [])).toBe('allowed');
+    expect(evaluateLicense('MPL-2.0', ['MIT'], [])).toBe('not-allowed');
+    expect(evaluateLicense('GPL-2.0-only WITH Classpath-exception-2.0', [], ['GPL-2.0-only'])).toBe('denied');
+    expect(evaluateLicense('non-standard', ['MIT'], [])).toBe('unknown');
   });
 });
 

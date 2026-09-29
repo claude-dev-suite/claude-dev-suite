@@ -1,13 +1,16 @@
 {
   "name": "security-scanner",
-  "description": "Security scanning with an explicit status per scan: SCA across ecosystems and monorepos (trivy/osv-scanner, npm/pnpm/yarn/pip-audit/cargo-audit/govulncheck fallback), secrets in the working tree and history (gitleaks/trufflehog), SAST (semgrep), container scanning (trivy), diff-only mode",
-  "shortDescription": "Security scanning (SCA, secrets, SAST, containers)",
+  "description": "Security scanning with an explicit status per scan: SCA across ecosystems and monorepos (trivy/osv-scanner, npm/pnpm/yarn/pip-audit/cargo-audit/govulncheck fallback), secrets in the working tree and history (gitleaks/trufflehog), SAST (semgrep), IaC and container scanning (trivy), license policy, SBOM (CycloneDX/SPDX), SARIF output and diff-only mode",
+  "shortDescription": "Security scanning (SCA, secrets, SAST, IaC, licenses, SBOM)",
   "category": "security",
   "tools": [
     "scan_dependencies",
     "scan_secrets",
     "scan_code",
     "scan_container",
+    "scan_iac",
+    "scan_licenses",
+    "generate_sbom",
     "check_tools",
     "scan_all"
   ],
@@ -19,6 +22,8 @@
   "detectedWhen": [
     "docker",
     "kubernetes",
+    "helm",
+    "terraform",
     "nodejs",
     "python",
     "go",

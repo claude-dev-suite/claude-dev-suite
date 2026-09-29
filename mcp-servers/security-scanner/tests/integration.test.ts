@@ -10,6 +10,7 @@ import { copyFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { defaultResolver } from '../src/utils/exec.js';
+import { scanIac } from '../src/scanners/container.js';
 import { scanSecrets } from '../src/scanners/secrets.js';
 
 const dist = join(__dirname, '..', 'dist', 'index.js');
@@ -54,11 +55,25 @@ describe.skipIf(!existsSync(dist))('bundled dist/index.js over stdio', () => {
     child.kill();
     expect(init.result.serverInfo.name).toBe('security-scanner');
     expect(list.result.tools.map((t: { name: string }) => t.name).sort()).toEqual(
-      ['check_tools', 'scan_all', 'scan_code', 'scan_container', 'scan_dependencies', 'scan_secrets'].sort()
+      ['check_tools', 'generate_sbom', 'scan_all', 'scan_code', 'scan_container', 'scan_dependencies', 'scan_iac', 'scan_licenses', 'scan_secrets'].sort()
     );
     expect(bad.result.isError).toBe(true);
     expect(bad.result.content[0].text).toMatch(/absolute/);
   }, 20000);
+});
+
+describe.skipIf(!has('trivy'))('real trivy', () => {
+  it('finds a Dockerfile misconfiguration', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'secscan-iac-'));
+    try {
+      writeFileSync(join(dir, 'Dockerfile'), 'FROM ubuntu:latest\nRUN apt-get update\n');
+      const r = await scanIac({ path: dir, timeoutSeconds: 300 });
+      expect(r.status).toBe('ok');
+      expect(r.findings.some((f) => f.location.file === 'Dockerfile')).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 320000);
 });
 
 describe.skipIf(!has('gitleaks'))('real gitleaks', () => {

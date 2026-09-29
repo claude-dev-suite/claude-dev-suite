@@ -13,8 +13,10 @@ import { argAfter, fakeExec, resetExec } from './helpers/fake-exec.js';
 import { scanDependencies } from '../src/scanners/dependencies.js';
 import { scanSecrets } from '../src/scanners/secrets.js';
 import { scanCode } from '../src/scanners/code.js';
-import { scanContainer } from '../src/scanners/container.js';
+import { scanContainer, scanIac } from '../src/scanners/container.js';
+import { scanLicenses } from '../src/scanners/licenses.js';
 import { scanAll } from '../src/scanners/all.js';
+import { generateSbom } from '../src/scanners/sbom.js';
 
 const trivyFixture = readFileSync(join(__dirname, 'fixtures', 'trivy-fs.json'), 'utf8');
 const npmFixture = readFileSync(join(__dirname, 'fixtures', 'npm-audit-v2.json'), 'utf8');
@@ -279,7 +281,7 @@ describe('scan_code', () => {
   });
 });
 
-describe('scan_container', () => {
+describe('scan_container / scan_iac', () => {
   it('filesystem scans enable the misconfig scanner and keep secrets and licenses (regression)', async () => {
     const calls = fakeExec({
       trivy: (args) => {
@@ -313,16 +315,60 @@ describe('scan_container', () => {
     expect(r.error).toMatch(/unable to find/);
   });
 
+  it('scan_iac reports misconfigurations per IaC type', async () => {
+    const calls = fakeExec({
+      trivy: (args) => {
+        writeFileSync(argAfter(args, '--output')!, trivyFixture);
+        return {};
+      },
+    });
+    const r = await scanIac({ path: root, maxResults: 1000 });
+    expect(calls[0].args[0]).toBe('config');
+    expect(r.findings.every((f) => f.category === 'misconfiguration')).toBe(true);
+    expect(r.extra?.iacTypes).toEqual(expect.arrayContaining(['dockerfile', 'kubernetes', 'terraform']));
+  });
+});
+
+describe('scan_licenses', () => {
+  const osvWithLicenses = (dir: string) =>
+    JSON.stringify({
+      results: [
+        {
+          source: { path: join(dir, 'package-lock.json'), type: 'lockfile' },
+          packages: [
+            { package: { name: 'a', version: '1.0.0', ecosystem: 'npm' }, licenses: ['MIT'] },
+            { package: { name: 'b', version: '1.0.0', ecosystem: 'npm' }, licenses: ['GPL-3.0-only'] },
+            { package: { name: 'c', version: '1.0.0', ecosystem: 'npm' }, licenses: ['MIT OR GPL-3.0-only'] },
+            { package: { name: 'd', version: '1.0.0', ecosystem: 'npm' }, licenses: ['UNKNOWN'] },
+            { package: { name: 'e', version: '1.0.0', ecosystem: 'npm' }, licenses: ['MPL-2.0'] },
+          ],
+        },
+      ],
+    });
+
+  it('evaluates allow/deny policy with SPDX expressions', async () => {
+    fakeExec({
+      'osv-scanner': (args) => {
+        writeFileSync(argAfter(args, '--output-file')!, osvWithLicenses(root));
+        return {};
+      },
+    });
+    const r = await scanLicenses({ path: root, allow: ['MIT', 'Apache-2.0'], deny: ['GPL-3.0-only'] });
+    const verdicts = Object.fromEntries(r.findings.map((f) => [f.location.package, f.metadata?.verdict]));
+    expect(verdicts).toEqual({ b: 'denied', d: 'unknown', e: 'not-allowed' });
+    expect(r.extra?.packagesChecked).toBe(5);
+  });
 });
 
 describe('scan_all', () => {
   it('reports each sub-scan with a status and reason; missing container target is skipped, not dropped (regression)', async () => {
     w('package-lock.json', '{"lockfileVersion":3,"packages":{}}');
     fakeExec({ npm: () => ({ stdout: JSON.stringify({ auditReportVersion: 2, vulnerabilities: {} }) }) });
-    const r = await scanAll({ path: root, include: ['dependencies', 'code', 'container', 'secrets'] });
+    const r = await scanAll({ path: root, include: ['dependencies', 'code', 'iac', 'container', 'secrets'] });
     expect(r.scans.dependencies?.status).toBe('partial'); // native only: broad engine missing is a warning
     expect(r.scans.code).toMatchObject({ status: 'skipped' });
     expect(r.scans.code?.reason).toMatch(/not installed/);
+    expect(r.scans.iac?.status).toBe('skipped');
     expect(r.scans.container).toMatchObject({ status: 'skipped', reason: expect.stringMatching(/containerTarget/) });
     expect(r.scans.secrets).toMatchObject({ status: 'partial', reason: expect.stringMatching(/built-in patterns/) });
     expect(r.status).toBe('partial');
@@ -338,3 +384,25 @@ describe('scan_all', () => {
   });
 });
 
+describe('generate_sbom', () => {
+  it('refuses to overwrite an existing outputFile unless overwrite is set', async () => {
+    w('out.json', 'keep me');
+    fakeExec({
+      trivy: (args) => {
+        writeFileSync(argAfter(args, '--output')!, JSON.stringify({ bomFormat: 'CycloneDX', components: [{ name: 'a', version: '1' }] }));
+        return {};
+      },
+    });
+    await expect(generateSbom({ path: root, outputFile: join(root, 'out.json') })).rejects.toThrow(/already exists/);
+    expect(readFileSync(join(root, 'out.json'), 'utf8')).toBe('keep me');
+    const r = await generateSbom({ path: root, outputFile: join(root, 'out.json'), overwrite: true });
+    expect(r).toMatchObject({ status: 'ok', engine: 'trivy', componentCount: 1 });
+    expect(JSON.parse(readFileSync(join(root, 'out.json'), 'utf8')).bomFormat).toBe('CycloneDX');
+  });
+
+  it('reports unavailable when no SBOM engine is installed', async () => {
+    fakeExec({});
+    const r = await generateSbom({ path: root });
+    expect(r.status).toBe('unavailable');
+  });
+});
