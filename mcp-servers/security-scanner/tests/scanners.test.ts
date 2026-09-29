@@ -17,6 +17,7 @@ import { scanContainer, scanIac } from '../src/scanners/container.js';
 import { scanLicenses } from '../src/scanners/licenses.js';
 import { scanAll } from '../src/scanners/all.js';
 import { generateSbom } from '../src/scanners/sbom.js';
+import { callTool } from '../src/tools.js';
 
 const trivyFixture = readFileSync(join(__dirname, 'fixtures', 'trivy-fs.json'), 'utf8');
 const npmFixture = readFileSync(join(__dirname, 'fixtures', 'npm-audit-v2.json'), 'utf8');
@@ -404,5 +405,20 @@ describe('generate_sbom', () => {
     fakeExec({});
     const r = await generateSbom({ path: root });
     expect(r.status).toBe('unavailable');
+  });
+});
+
+describe('tool responses', () => {
+  it('marks a failed or unavailable scan as isError at the MCP level', async () => {
+    fakeExec({});
+    const r = await callTool('scan_code', { path: root });
+    expect(r.isError).toBe(true);
+    expect(JSON.parse(r.content[0].text).status).toBe('unavailable');
+  });
+
+  it('rejects a relative path before running anything', async () => {
+    const calls = fakeExec({ semgrep: () => ({ stdout: '{"results":[]}' }) });
+    await expect(callTool('scan_code', { path: 'relative/dir' })).rejects.toThrow(/absolute/);
+    expect(calls).toHaveLength(0);
   });
 });

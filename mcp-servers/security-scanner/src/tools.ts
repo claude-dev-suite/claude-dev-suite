@@ -12,6 +12,7 @@ import { scanLicenses } from './scanners/licenses.js';
 import { generateSbom } from './scanners/sbom.js';
 import { ALL_SCAN_TYPES, scanAll } from './scanners/all.js';
 import { renderScan, renderScanAll } from './output.js';
+import type { ScanResult } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Input schemas (validation and the advertised JSON Schema come from one source)
@@ -129,31 +130,36 @@ export function jsonSchemaFor(name: ToolName): { type: 'object'; [k: string]: un
   return js as { type: 'object'; [k: string]: unknown };
 }
 
+/** A scan that could not produce a trustworthy result is an error at the protocol level too. */
+function scanResponse(r: ScanResult, opts: Parameters<typeof renderScan>[1]) {
+  return { content: renderScan(r, opts), isError: r.status === 'failed' || r.status === 'unavailable' };
+}
+
 export async function callTool(name: string, args: unknown) {
   switch (name) {
     case 'scan_dependencies': {
       const i = schemas.scan_dependencies.parse(args ?? {});
-      return { content: renderScan(await scanDependencies(i), i) };
+      return scanResponse(await scanDependencies(i), i);
     }
     case 'scan_secrets': {
       const i = schemas.scan_secrets.parse(args ?? {});
-      return { content: renderScan(await scanSecrets(i), i) };
+      return scanResponse(await scanSecrets(i), i);
     }
     case 'scan_code': {
       const i = schemas.scan_code.parse(args ?? {});
-      return { content: renderScan(await scanCode(i), i) };
+      return scanResponse(await scanCode(i), i);
     }
     case 'scan_container': {
       const i = schemas.scan_container.parse(args ?? {});
-      return { content: renderScan(await scanContainer(i), i) };
+      return scanResponse(await scanContainer(i), i);
     }
     case 'scan_iac': {
       const i = schemas.scan_iac.parse(args ?? {});
-      return { content: renderScan(await scanIac(i), i) };
+      return scanResponse(await scanIac(i), i);
     }
     case 'scan_licenses': {
       const i = schemas.scan_licenses.parse(args ?? {});
-      return { content: renderScan(await scanLicenses(i), i) };
+      return scanResponse(await scanLicenses(i), i);
     }
     case 'generate_sbom': {
       const i = schemas.generate_sbom.parse(args ?? {});
@@ -166,7 +172,7 @@ export async function callTool(name: string, args: unknown) {
     case 'scan_all': {
       const i = schemas.scan_all.parse(args ?? {});
       const r = await scanAll({ ...i, include: i.include as Parameters<typeof scanAll>[0]['include'] });
-      return { content: renderScanAll(r, i) };
+      return { content: renderScanAll(r, i), isError: r.status === 'failed' };
     }
     default:
       throw new Error(`Unknown tool: ${name}`);
