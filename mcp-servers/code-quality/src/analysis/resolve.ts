@@ -302,7 +302,7 @@ export class Resolver {
         }
         if (mid === null) continue;
         for (const t of targets) {
-          const r = this.jsFile(path.resolve(ts.pathsBase, t.replace('*', mid)));
+          const r = this.jsFile(path.resolve(ts.pathsBase, t.replace('*', () => mid)));
           if (r) return r;
         }
       }

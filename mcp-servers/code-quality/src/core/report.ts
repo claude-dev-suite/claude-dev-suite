@@ -27,7 +27,7 @@ export function bound<T>(items: T[], limit: number): Bounded<T> {
 }
 
 export function mdTable(headers: string[], rows: Array<Array<string | number>>): string {
-  const esc = (v: string | number) => String(v).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  const esc = (v: string | number) => String(v).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
   return [
     `| ${headers.join(' | ')} |`,
     `|${headers.map(() => '---').join('|')}|`,

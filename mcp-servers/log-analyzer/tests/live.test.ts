@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'child_process';
 import { buildLiveCommand, fetchLive, type ExecFn } from '../src/sources/live.js';
 import { call } from './helpers.js';
+import { scan } from '../src/pipeline/index.js';
 
 const fakeExec = (stdout: string, stderr = '', code = 0): ExecFn & { calls: Array<{ cmd: string; args: string[] }> } => {
   const calls: Array<{ cmd: string; args: string[] }> = [];
@@ -54,6 +55,20 @@ describe('command construction', () => {
 });
 
 describe('fetching', () => {
+  it('keeps a stderr line the detected payload format does not recognise', async () => {
+    // Two lines are enough for "ERROR: first" to be detected as Python logging;
+    // "second" on stderr then matched nothing and was dropped as unparsed.
+    // Found by the real-docker test below on a CI runner that has docker.
+    const exec = fakeExec('2026-09-29T16:37:50.100000000Z ERROR: first\n', '2026-09-29T16:37:50.100200000Z second\n');
+    const entries: any[] = [];
+    await scan({ source: { type: 'docker', container: 'x' } } as any, {} as any, (e: any) => { entries.push(e); return true; }, { exec });
+    expect(entries.map((e) => [e.message, e.stream, e.level])).toEqual([
+      ['first', 'stdout', 'ERROR'],
+      ['second', 'stderr', 'ERROR'],
+    ]);
+    expect(entries[1].timestamp).toBeInstanceOf(Date);
+  });
+
   it('merges docker stdout and stderr back into time order', async () => {
     const exec = fakeExec(
       '2024-12-13T10:30:45.000000000Z first\n2024-12-13T10:30:47.000000000Z third\n',

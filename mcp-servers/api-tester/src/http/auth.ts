@@ -5,7 +5,6 @@
  * expires_in, refreshes with refresh_token when the server issued one).
  */
 
-import { createHash } from 'crypto';
 import { z } from 'zod';
 import { send, setHeader, type TlsOptions } from './client.js';
 import type { Redactor } from '../util/redact.js';
@@ -43,11 +42,9 @@ const tokenCache = new Map<string, CachedToken>();
 const EXPIRY_SKEW_MS = 30_000;
 
 function cacheKey(a: AuthSpec): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify([a.grant, a.tokenUrl, a.clientId, a.clientSecret, a.username, a.password, a.scope, a.audience, a.extraParams])
-    )
-    .digest('hex');
+  // An in-memory map key, never persisted or logged: the spec (secret included)
+  // is already in this process's memory, so hashing it protected nothing.
+  return JSON.stringify([a.grant, a.tokenUrl, a.clientId, a.clientSecret, a.username, a.password, a.scope, a.audience, a.extraParams]);
 }
 
 export function clearTokenCache(): number {

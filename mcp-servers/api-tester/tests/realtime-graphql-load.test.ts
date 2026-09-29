@@ -186,7 +186,7 @@ describe('graphql_request', () => {
     expect(t.enumValues).toEqual(['ADMIN', 'USER']);
     const sdl = parseResult(await handleGraphql({ url: `${http.url}/graphql`, action: 'sdl', environment: 'none' }));
     expect(sdl.sdl).toContain('type Query {\n  user(id: ID!): User\n  users: [User!]!\n}');
-    expect(sdl.sdl).toContain('"""A user"""\ntype User');
+    expect(sdl.sdl).toContain('"A user"\ntype User');
     expect(sdl.sdl).toContain('input NewUser {\n  name: String!\n}');
   });
 });

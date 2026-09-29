@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { entriesOf } from './helpers.js';
 import { SPRING_BOOT, PYTHON, NODE, GO_PANIC, DOTNET } from './fixtures.js';
-import { extractException } from '../src/core/exceptions.js';
+import { extractException, parseHeader } from '../src/core/exceptions.js';
 
 describe('Java', () => {
   it('keeps the header, frames, Caused by chain and "... N more" in one entry', async () => {
@@ -169,5 +169,23 @@ describe('Ruby / Rails', () => {
     expect(exc.exception?.type).toBe('NoMethodError');
     expect(exc.exception?.stackTrace).toHaveLength(2);
     expect(exc.level).toBe('FATAL');
+  });
+});
+
+describe('exception header parsing cost', () => {
+  it('stays linear on a long run of $-joined identifiers (CodeQL js/redos)', () => {
+    // `$` used to be both an identifier character and a separator, so this
+    // input backtracked exponentially.
+    const hostile = 'a$'.repeat(20000) + '!';
+    const started = Date.now();
+    parseHeader(hostile, false);
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
+  it('still reads a nested Java class as one type', () => {
+    expect(parseHeader('com.example.Outer$InnerException: boom', true)).toEqual({
+      type: 'com.example.Outer$InnerException',
+      message: 'boom',
+    });
   });
 });

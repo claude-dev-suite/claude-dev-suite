@@ -70,7 +70,7 @@ beforeAll(async () => {
           res.end();
           return;
         }
-        const p = Object.fromEntries([...h.matchAll(/(\w+)="?([^",]+)"?/g)].map((m) => [m[1], m[2]]));
+        const p = Object.fromEntries([...h.matchAll(/(\w+)=(?:"([^"]*)"|([^,\s]*))/g)].map((m) => [m[1], m[2] ?? m[3]]));
         const H = (s: string) => createHash('md5').update(s).digest('hex');
         const expected = H(`${H('alice:test:wonder')}:n0nce:${p.nc}:${p.cnonce}:auth:${H(`GET:${p.uri}`)}`);
         return json(res, p.response === expected ? 200 : 403, { ok: p.response === expected });

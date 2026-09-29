@@ -126,7 +126,9 @@ export function schemaToSdl(schema: IntrospectionSchema): string {
   }
   for (const t of schema.types) {
     if (isBuiltin(t.name)) continue;
-    const desc = t.description ? `"""${t.description.replace(/"""/g, '\\"""')}"""\n` : '';
+    // A plain string literal: GraphQL's escapes are JSON's, so this handles
+    // backslashes and quotes that a hand-escaped block string got wrong.
+    const desc = t.description ? `${JSON.stringify(t.description)}\n` : '';
     switch (t.kind) {
       case 'OBJECT':
       case 'INTERFACE': {

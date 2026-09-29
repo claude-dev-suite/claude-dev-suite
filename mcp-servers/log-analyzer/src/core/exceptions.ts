@@ -51,7 +51,7 @@ const RUBY_FULL_HEADER = /^\s*(\S+\.rb:\d+:in\s.+?):\s(.*)\s\(([A-Z]\w*(?:::[A-Z
  * suffix, or a dotted qualified name, optionally followed by ": message".
  */
 const HEADER =
-  /^\s*(?:Exception in thread "[^"]*"\s+|Unhandled exception\.\s+|Uncaught\s+)?([A-Za-z_$][\w$]*(?:[.$][A-Za-z_$][\w$`]*)*(?:\s*\[[\w-]+\])?)(?::\s?(.*))?$/;
+  /^\s*(?:Exception in thread "[^"]*"\s+|Unhandled exception\.\s+|Uncaught\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$`]*)*(?:\s*\[[\w-]+\])?)(?::\s?(.*))?$/;
 const TYPE_SUFFIX = /(?:Exception|Error|Throwable|Fault|Failure|Panic|Interrupt|Exit|Warning)(?:`\d+)?$/;
 
 interface Header { type: string; message: string }

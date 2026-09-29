@@ -128,7 +128,7 @@ async function runTrufflehog(
       if (mode === 'filesystem') {
         // trufflehog's filesystem source walks .git/objects and dependency trees unless told not to.
         const excl = join(dir, 'exclude.txt');
-        writeFileSync(excl, [...DEFAULT_SKIP_DIRS].map((d) => `(^|[\\\\/])${d.replace(/\./g, '\\.')}([\\\\/]|$)`).join('\n') + '\n');
+        writeFileSync(excl, [...DEFAULT_SKIP_DIRS].map((d) => `(^|[\\\\/])${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([\\\\/]|$)`).join('\n') + '\n');
         args.push('--exclude-paths', excl);
       }
       if (mode === 'git' && base) args.push('--since-commit', base);

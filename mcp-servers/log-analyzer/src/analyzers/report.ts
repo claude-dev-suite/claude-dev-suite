@@ -119,7 +119,7 @@ export async function exportReport(input: SourceInput, o: ExportReportOptions, d
 
 /** Escape a value for a Markdown table cell. */
 function md(text: string): string {
-  return String(text).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  return String(text).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 
 /**

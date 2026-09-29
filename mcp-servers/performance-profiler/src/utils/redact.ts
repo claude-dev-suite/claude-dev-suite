@@ -32,7 +32,12 @@ export function redactPath(path: string): string {
   if (!path.includes('?')) return path;
   const base = 'http://redact.invalid';
   const out = redactUrl(base + (path.startsWith('/') ? path : `/${path}`));
-  return out.startsWith(base) ? out.slice(base.length) : path;
+  try {
+    const u = new URL(out);
+    return u.origin === base ? u.pathname + u.search + u.hash : path;
+  } catch {
+    return path;
+  }
 }
 
 /** Redact common secret patterns in free text (process output, error messages). */

@@ -112,6 +112,21 @@ export class Assembler {
       return out;
     }
 
+    // A line from another stream (stderr vs stdout of one container) cannot
+    // continue the open entry. If the payload parser does not recognise it, it
+    // is still its own record: a container's stderr is rarely in the format its
+    // stdout was detected as, and dropping it as "unparsed" loses exactly the
+    // error output someone reads container logs for.
+    if (line.stream && (!this.pending || this.pending.stream !== line.stream)) {
+      const done = this.complete();
+      if (done) out.push(done);
+      const lv = levelNearStart(text);
+      const level = lv ? lv.level : line.stream === 'stderr' ? 'ERROR' : 'INFO';
+      const own: LogEntry = { timestamp: null, level, message: text.trim(), raw: text, lineNumber: line.lineNumber };
+      this.pending = { entry: own, cont: [], envelopeTime: line.timestamp, stream: line.stream, labels: line.labels };
+      return out;
+    }
+
     if (this.pending && (stackish || this.parser.multiline || /^\s/.test(text))) {
       this.appendCont(normalized);
       return out;
