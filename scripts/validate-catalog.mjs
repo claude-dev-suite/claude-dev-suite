@@ -231,15 +231,24 @@ for (const ws of workspaces) {
         if (entry.isDirectory()) walk(full);
         else if (entry.name.endsWith('.ts')) {
           const src = fs.readFileSync(full, 'utf-8');
-          for (const m of src.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)) readEnv.add(m[1]);
+          // Match the whole identifier: `process.env.Path` (Windows) used to read as `P`.
+          for (const m of src.matchAll(/process\.env\.([A-Za-z_][A-Za-z0-9_]*)/g)) readEnv.add(m[1]);
           for (const m of src.matchAll(/process\.env\[["']([A-Z][A-Z0-9_]*)["']\]/g)) readEnv.add(m[1]);
         }
       }
     };
     walk(srcDir);
     // NODE_ENV and friends are ambient, not dev-suite configuration.
-    const AMBIENT = new Set(['NODE_ENV', 'HOME', 'USERPROFILE', 'PATH', 'TMPDIR', 'TEMP', 'DEBUG', 'CI']);
-    const undeclaredEnv = [...readEnv].filter((v) => !declaredEnv.has(v) && !AMBIENT.has(v)).sort();
+    // Windows system variables are ambient too: a server locating an executable
+    // or a browser reads them, and the wizard must never prompt for them.
+    const AMBIENT = new Set([
+      'NODE_ENV', 'HOME', 'USERPROFILE', 'PATH', 'TMPDIR', 'TEMP', 'TMP', 'DEBUG', 'CI',
+      'PATHEXT', 'PROGRAMFILES', 'LOCALAPPDATA', 'APPDATA', 'SYSTEMROOT', 'COMSPEC',
+    ]);
+    // Windows env names are case-insensitive: `process.env.Path` is PATH.
+    const undeclaredEnv = [...readEnv]
+      .filter((v) => !declaredEnv.has(v) && !AMBIENT.has(v.toUpperCase()))
+      .sort();
     if (undeclaredEnv.length) {
       warn(`${label}/metadata.json: envVars[] does not declare ${undeclaredEnv.join(', ')} (read in src/)`);
     }
