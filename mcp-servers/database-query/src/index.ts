@@ -2,21 +2,42 @@
 /**
  * Database Query MCP Server
  *
- * Provides PostgreSQL database introspection and query capabilities.
+ * PostgreSQL, MySQL/MariaDB and SQLite: read-only querying, introspection,
+ * plans, performance/health diagnostics, schema diff + migrations, backups.
+ * Connections come from DATABASE_URL / DATABASE_URLS and are read-only unless
+ * the operator marks them writable. MongoDB is out of scope.
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
+import { closeAll } from "./drivers/index.js";
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import { handlers, closePool } from "./handlers/index.js";
+  BackupRestoreSchema,
+  CompareSchemaSchema,
+  ExplainQuerySchema,
+  FindSlowQueriesSchema,
+  GenerateMigrationSchema,
+  HealthCheckSchema,
+  IndexRecommendationsSchema,
+  ListConnectionsSchema,
+  ListObjectsSchema,
+  ListSchemasSchema,
+  ListTablesSchema,
+  PreviewTableSchema,
+  QuerySchema,
+  SchemaIntrospectionSchema,
+  SearchObjectsSchema,
+  TableInfoSchema,
+  WriteSchema,
+} from "./handlers/index.js";
+import { callTool } from "./handlers/dispatch.js";
 
 const server = new Server(
   {
     name: "database-query-server",
-    version: "2.2.0",
+    version: "2.3.0",
   },
   {
     capabilities: {
@@ -25,255 +46,79 @@ const server = new Server(
   }
 );
 
-// List available tools
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: "execute_query",
-      description:
-        "Execute a SELECT query (only SELECT is allowed). Returns at most 1000 rows; use limit/offset to page.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          sql: {
-            type: "string",
-            description: "SQL SELECT query to execute",
-          },
-          params: {
-            type: "array",
-            description: "Query parameters for prepared statement",
-          },
-          limit: {
-            type: "number",
-            description: "Max rows to return (default: 1000, max: 10000)",
-            default: 1000,
-          },
-          offset: {
-            type: "number",
-            description: "Row offset for pagination (default: 0)",
-            default: 0,
-          },
-        },
-        required: ["sql"],
-      },
-    },
-    {
-      name: "list_tables",
-      description: "List all tables in the database with their row counts",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "describe_table",
-      description: "Get detailed schema information for a specific table",
-      inputSchema: {
-        type: "object",
-        properties: {
-          table: {
-            type: "string",
-            description: "Table name to describe",
-          },
-        },
-        required: ["table"],
-      },
-    },
-    {
-      name: "get_schema",
-      description: "Get the database schema (tables, columns). Use compact=true for minimal output.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          table: {
-            type: "string",
-            description: "Optional: specific table name",
-          },
-          compact: {
-            type: "boolean",
-            description: "Return compact output (only table and column names, no types/defaults)",
-            default: false,
-          },
-        },
-      },
-    },
-    {
-      name: "explain_query",
-      description: "Run EXPLAIN ANALYZE on a query to understand performance and get index suggestions",
-      inputSchema: {
-        type: "object",
-        properties: {
-          sql: {
-            type: "string",
-            description: "SQL SELECT query to analyze",
-          },
-          params: {
-            type: "array",
-            description: "Query parameters for prepared statement",
-          },
-          verbose: {
-            type: "boolean",
-            description: "Include verbose output with more details",
-            default: false,
-          },
-          format: {
-            type: "string",
-            enum: ["text", "json"],
-            description: "Output format",
-            default: "json",
-          },
-        },
-        required: ["sql"],
-      },
-    },
-    {
-      name: "compare_schemas",
-      description: "Compare database schema with another database or a reference schema. Shows differences in tables, columns, indexes.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          targetDatabaseUrl: {
-            type: "string",
-            description: "Connection string for the target database to compare against",
-          },
-          tables: {
-            type: "array",
-            items: { type: "string" },
-            description: "Optional: specific tables to compare (all if omitted)",
-          },
-        },
-        required: ["targetDatabaseUrl"],
-      },
-    },
-    {
-      name: "find_slow_queries",
-      description: "Find potentially slow queries by analyzing table statistics and missing indexes",
-      inputSchema: {
-        type: "object",
-        properties: {
-          table: {
-            type: "string",
-            description: "Optional: analyze specific table",
-          },
-        },
-      },
-    },
-    {
-      name: "generate_migration",
-      description: "Generate SQL migration script from schema differences between two databases or from a schema comparison",
-      inputSchema: {
-        type: "object",
-        properties: {
-          targetDatabaseUrl: {
-            type: "string",
-            description: "Connection string for the target database (the desired state)",
-          },
-          migrationName: {
-            type: "string",
-            description: "Name for the migration file",
-          },
-          tables: {
-            type: "array",
-            items: { type: "string" },
-            description: "Optional: specific tables to include in migration",
-          },
-          includeDrops: {
-            type: "boolean",
-            description: "Include DROP statements for removed columns/tables (default: false)",
-            default: false,
-          },
-        },
-        required: ["targetDatabaseUrl"],
-      },
-    },
-    {
-      name: "backup_restore",
-      description: "Backup or restore database using pg_dump/pg_restore. Supports custom format for efficient storage.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          operation: {
-            type: "string",
-            enum: ["backup", "restore", "list"],
-            description: "Operation to perform: backup, restore, or list available backups",
-          },
-          backupPath: {
-            type: "string",
-            description: "Path for backup file (for backup/restore operations)",
-          },
-          format: {
-            type: "string",
-            enum: ["custom", "plain", "directory"],
-            description: "Backup format: custom (compressed), plain (SQL), directory",
-            default: "custom",
-          },
-          tables: {
-            type: "array",
-            items: { type: "string" },
-            description: "Optional: specific tables to backup/restore",
-          },
-          schemaOnly: {
-            type: "boolean",
-            description: "Backup schema only, no data (default: false)",
-            default: false,
-          },
-          dataOnly: {
-            type: "boolean",
-            description: "Backup data only, no schema (default: false)",
-            default: false,
-          },
-        },
-        required: ["operation"],
-      },
-    },
-  ],
-}));
+function schema(s: z.ZodType): Record<string, unknown> {
+  const json = z.toJSONSchema(s, { io: "input", unrepresentable: "any" }) as Record<string, unknown>;
+  delete json.$schema;
+  return json;
+}
 
-// Handle tool calls using handlers registry
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+/** Tool list. Engine support per tool is reported by list_connections (toolEngines). */
+const TOOLS = [
+  {
+    name: "execute_query",
+    description: "Run one read-only SQL statement (engine-enforced read-only txn, timeout, row cap + paging). PG, MySQL, SQLite",
+    inputSchema: schema(QuerySchema),
+  },
+  {
+    name: "list_tables",
+    description: "List tables, views and materialized views in a schema with row estimates, sizes and comments",
+    inputSchema: schema(ListTablesSchema),
+  },
+  {
+    name: "describe_table",
+    description: "Full table definition: columns, PK, FKs (composite), unique/check constraints, indexes, triggers",
+    inputSchema: schema(TableInfoSchema),
+  },
+  {
+    name: "get_schema",
+    description: "Schema overview of all tables (or one): columns, keys, indexes, enums. compact=true for names only",
+    inputSchema: schema(SchemaIntrospectionSchema),
+  },
+  {
+    name: "explain_query",
+    description: "Show a query plan with a summary (full scans, misestimates). analyze=true executes it in a rolled-back txn",
+    inputSchema: schema(ExplainQuerySchema),
+  },
+  {
+    name: "find_slow_queries",
+    description: "Top queries by time from pg_stat_statements (Postgres) or performance_schema (MySQL), plus scan stats",
+    inputSchema: schema(FindSlowQueriesSchema),
+  },
+  {
+    name: "compare_schemas",
+    description: "Diff two schemas: tables, columns, types, nullability, defaults, keys, constraints, indexes, enums",
+    inputSchema: schema(CompareSchemaSchema),
+  },
+  {
+    name: "generate_migration",
+    description: "Generate up/down migration SQL from a schema diff (Postgres first-class; MySQL/SQLite best effort)",
+    inputSchema: schema(GenerateMigrationSchema),
+  },
+  {
+    name: "backup_restore",
+    description: "Backup, list or restore (confirm required) via pg_dump/pg_restore, mysqldump or SQLite VACUUM INTO",
+    inputSchema: schema(BackupRestoreSchema),
+  },
+];
 
-  const handler = handlers[name];
-  if (!handler) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({ error: `Unknown tool: ${name}` }),
-        },
-      ],
-      isError: true,
-    };
-  }
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
-  try {
-    return await handler(args);
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            error: error instanceof Error ? error.message : "Unknown error",
-          }),
-        },
-      ],
-      isError: true,
-    };
-  }
-});
+server.setRequestHandler(CallToolRequestSchema, async (request) => callTool(request.params.name, request.params.arguments));
 
-// Cleanup on exit
-process.on("SIGINT", async () => {
-  await closePool();
+async function shutdown() {
+  await closeAll();
   process.exit(0);
-});
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
-// Start the server
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("Database Query MCP Server running on stdio");
 }
 
-main().catch(console.error);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
