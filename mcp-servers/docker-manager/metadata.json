@@ -1,7 +1,7 @@
 {
   "name": "docker-manager",
-  "description": "Docker container management, compose operations, image management, and resource stats",
-  "shortDescription": "Docker management",
+  "description": "Docker and Docker Compose over the docker CLI: containers (run, exec, logs, inspect with env redaction, cp, stats, health), images (build, pull, push, tag, save/load, registry login), compose projects targeted by directory/files/name/profiles, networks, volumes, system info/events/contexts, and prune with an exact dry-run preview. Timeouts and output caps on every command.",
+  "shortDescription": "Docker & Compose management",
   "category": "infrastructure",
   "tools": [
     "docker_ps",
@@ -13,7 +13,50 @@
     "docker_volumes",
     "cleanup_unused"
   ],
-  "envVars": [],
+  "envVars": [
+    {
+      "name": "DOCKER_HOST",
+      "description": "Daemon endpoint (e.g. ssh://user@host, tcp://host:2376). Passed through to the docker CLI; unset uses the current context.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "DOCKER_CONTEXT",
+      "description": "Docker context to use by default. Passed through to the docker CLI; tools also take a per-call 'context'.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "DOCKER_CLI",
+      "description": "CLI binary to invoke (default: docker). 'podman' works for most tools.",
+      "default": "docker",
+      "required": false
+    },
+    {
+      "name": "DOCKER_MCP_ALLOWED_ROOTS",
+      "description": "Host directories (path-delimiter separated) that cp, build context, compose dir/files, env files and bind mounts must stay inside. Default: the server's working directory.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "DOCKER_MCP_TIMEOUT_MS",
+      "description": "Timeout for short commands (list, inspect, start, stop, exec) in ms.",
+      "default": "60000",
+      "required": false
+    },
+    {
+      "name": "DOCKER_MCP_LONG_TIMEOUT_MS",
+      "description": "Timeout for long commands (build, pull, push, compose up/build/pull, run) in ms.",
+      "default": "1800000",
+      "required": false
+    },
+    {
+      "name": "DOCKER_MCP_MAX_OUTPUT_BYTES",
+      "description": "Per-stream output cap for a single command; larger output is cut and marked truncated.",
+      "default": "262144",
+      "required": false
+    }
+  ],
   "recommendedFor": [
     "devops-expert",
     "smoke-test-expert"
