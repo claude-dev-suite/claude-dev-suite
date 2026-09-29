@@ -19,17 +19,23 @@ import {
   CleanupUnusedSchema,
   ComposeActionSchema,
   ContainerActionSchema,
+  DockerBuildSchema,
+  DockerCpSchema,
+  DockerExecSchema,
   DockerPsSchema,
+  DockerRegistrySchema,
+  DockerRunSchema,
   DockerStatsSchema,
   ImageActionSchema,
   NetworksSchema,
+  SystemSchema,
   VolumesSchema,
 } from "./handlers/types.js";
 
 const server = new Server(
   {
     name: "docker-manager-server",
-    version: "2.2.0",
+    version: "2.3.0",
   },
   {
     capabilities: {
@@ -57,6 +63,21 @@ const TOOLS = [
     schema: ContainerActionSchema,
   },
   {
+    name: "docker_run",
+    description: "Run or create a container: ports, env, volumes, network, restart, limits, labels, command",
+    schema: DockerRunSchema,
+  },
+  {
+    name: "docker_exec",
+    description: "Run a command in a running container (non-interactive; user, workdir, env, timeout, output cap)",
+    schema: DockerExecSchema,
+  },
+  {
+    name: "docker_cp",
+    description: "Copy files between a container and the host (host path confined to allowed roots)",
+    schema: DockerCpSchema,
+  },
+  {
     name: "docker_compose",
     description: "Docker Compose on a chosen project (dir, files, name, profiles): up, down, ps, logs, exec, run, config…",
     schema: ComposeActionSchema,
@@ -65,6 +86,16 @@ const TOOLS = [
     name: "docker_images",
     description: "Images: list, pull, remove, inspect, history, tag, push, search, save, load",
     schema: ImageActionSchema,
+  },
+  {
+    name: "docker_build",
+    description: "Build an image (context, Dockerfile, tags, build args, target, platform, no-cache); returns image ID",
+    schema: DockerBuildSchema,
+  },
+  {
+    name: "docker_registry",
+    description: "Registry login (password via stdin, never echoed) and logout",
+    schema: DockerRegistrySchema,
   },
   {
     name: "docker_stats",
@@ -80,6 +111,11 @@ const TOOLS = [
     name: "docker_volumes",
     description: "Volumes: list, inspect, create, remove, prune (exact preview, dry run by default)",
     schema: VolumesSchema,
+  },
+  {
+    name: "docker_system",
+    description: "Daemon status, disk usage (df), info, version, bounded event window, contexts",
+    schema: SystemSchema,
   },
   {
     name: "cleanup_unused",

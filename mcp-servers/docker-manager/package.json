@@ -1,6 +1,6 @@
 {
   "name": "@dev-suite/docker-manager-server",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "MCP server for Docker container and compose management",
   "type": "module",
   "main": "dist/index.js",

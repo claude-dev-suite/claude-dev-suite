@@ -6,11 +6,17 @@
   "tools": [
     "docker_ps",
     "docker_container",
+    "docker_run",
+    "docker_exec",
+    "docker_cp",
     "docker_compose",
     "docker_images",
+    "docker_build",
+    "docker_registry",
     "docker_stats",
     "docker_networks",
     "docker_volumes",
+    "docker_system",
     "cleanup_unused"
   ],
   "envVars": [
