@@ -59,7 +59,9 @@ describe('parseSqliteUrl', () => {
     expect(parseSqliteUrl('sqlite::memory:').memory).toBe(true);
     expect(isAbsolute(parseSqliteUrl('sqlite:./dev.db').file)).toBe(true);
     expect(isAbsolute(parseSqliteUrl('file:dev.db').file)).toBe(true);
-    expect(parseSqliteUrl('sqlite:///C:/data/app.db').file).toBe('C:/data/app.db');
+    if (process.platform === 'win32') {
+      expect(parseSqliteUrl('sqlite:///C:/data/app.db').file).toBe('C:/data/app.db');
+    }
     expect(parseSqliteUrl('sqlite:///srv/app.db?mode=ro').file.replace(/\\/g, '/')).toMatch(/\/srv\/app\.db$/);
   });
 });

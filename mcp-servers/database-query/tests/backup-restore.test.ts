@@ -81,7 +81,9 @@ describe('backup (postgres)', () => {
 });
 
 describe('path confinement (old defect: list skipped validation; no DB_BACKUP_DIR meant no confinement)', () => {
-  it.each([['../escape.sql'], ['/etc/passwd'], ['C:\\Windows\\win.ini']])('rejects %s', async (p) => {
+  // A drive path only escapes on Windows; elsewhere it is an odd file name inside the directory.
+  const outside = process.platform === 'win32' ? [['C:\\Windows\\win.ini']] : [];
+  it.each([['../escape.sql'], ['/etc/passwd'], ...outside])('rejects %s', async (p) => {
     pgEnv();
     const r = await callTool('backup_restore', { operation: 'backup', backupPath: p });
     expect(parse(r).error).toMatch(/inside the backup directory/);

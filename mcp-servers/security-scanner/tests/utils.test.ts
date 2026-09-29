@@ -85,7 +85,8 @@ describe('sarif', () => {
 });
 
 describe('exec', () => {
-  it('finds the JS entry of npm and corepack cmd shims', () => {
+  // .cmd shims exist only on Windows, and their backslash paths only resolve there.
+  it.runIf(process.platform === 'win32')('finds the JS entry of npm and corepack cmd shims', () => {
     const dir = mkdtempSync(join(tmpdir(), 'shim-'));
     try {
       const npmCli = join(dir, 'node_modules', 'npm', 'bin');
