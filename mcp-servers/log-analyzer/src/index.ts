@@ -260,6 +260,101 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["action"],
       },
     },
+    {
+      name: "query_logs",
+      description: "Filter, group, count over time, top-k and percentiles on any field (LogQL-lite or JSON query).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ...SOURCE,
+          ...TIME,
+          query: {
+            type: "string",
+            description: 'e.g. level>=ERROR and path=~"^/api" | count by (path) | top 10; percentiles(durationMs) by (path)',
+          },
+          where: {
+            type: "array",
+            description: "AND conditions: {field, op, value}; ops = != =~ !~ > >= < <= contains !contains exists in",
+            items: {
+              type: "object",
+              properties: { field: { type: "string" }, op: { type: "string" }, value: {} },
+              required: ["field", "op"],
+            },
+          },
+          text: { type: "array", items: { type: "string" }, description: "Raw line must contain each (case-insensitive)" },
+          groupBy: { type: "array", items: { type: "string" }, description: "Fields to group by" },
+          aggregate: {
+            type: "object",
+            description: "count, sum, avg, min, max, percentiles or count_distinct over field",
+            properties: {
+              op: { type: "string", enum: ["count", "sum", "avg", "min", "max", "percentiles", "count_distinct"] },
+              field: { type: "string" },
+              percentiles: { type: "array", items: { type: "number" } },
+            },
+            required: ["op"],
+          },
+          bucket: { type: "string", description: "Count-over-time bucket, e.g. 1m, 5m, 1h" },
+          topK: { type: "number", description: "Keep the K largest groups" },
+          limit: { type: "number", description: "Entries mode: max entries (default 50, max 500)" },
+          newest: { type: "boolean", description: "Entries mode: return the newest instead of the oldest" },
+        },
+      },
+    },
+    {
+      name: "mine_templates",
+      description: "Cluster log messages into templates (Drain) with counts, levels and first/last seen.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ...SOURCE,
+          ...TIME,
+          levels: { ...LEVELS, description: "Only these levels" },
+          filter: { type: "string", description: "Regex matched against message or raw line" },
+          similarity: { type: "number", description: "Drain similarity threshold 0.1-1 (default 0.4)" },
+          depth: { type: "number", description: "Drain tree depth 3-8 (default 4)" },
+          limit: { type: "number", description: "Templates to return (default 50, max 500)" },
+          minCount: { type: "number", description: "Hide templates seen fewer times" },
+        },
+      },
+    },
+    {
+      name: "access_log_stats",
+      description: "HTTP access analytics: status classes, error rate over time, p50/p95/p99 per endpoint, top IPs/UAs.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ...SOURCE,
+          ...TIME,
+          bucket: { type: "string", description: "Error-rate bucket (default 5m)" },
+          top: { type: "number", description: "Rows per top list (default 10)" },
+          normalizePaths: { type: "boolean", description: "Collapse ids in paths, /users/{id} (default true)" },
+          minRequests: { type: "number", description: "Ignore endpoints with fewer requests" },
+        },
+      },
+    },
+    {
+      name: "trace_timeline",
+      description: "Timeline of one trace or request id across files/services, with the span tree when logged.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ...SOURCE,
+          ...TIME,
+          id: { type: "string", description: "Trace id, request id or other correlation value" },
+          field: { type: "string", description: "Field to match (default traceId, then requestId)" },
+          limit: { type: "number", description: "Timeline entries to return (default 200)" },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "detect_format",
+      description: "Detect each source's log format and envelope with confidence and sample parsed entries.",
+      inputSchema: {
+        type: "object",
+        properties: { ...SOURCE },
+      },
+    },
   ],
 }));
 

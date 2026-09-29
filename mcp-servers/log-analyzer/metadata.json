@@ -1,6 +1,6 @@
 {
   "name": "log-analyzer",
-  "description": "Streaming log analysis for files, directories, globs, gzip rotations and live docker/compose/kubectl/journald sources: auto-detected formats (Java, Node, Python, Go, .NET, Rails, nginx/Apache, syslog, logfmt, JSON, docker/CRI, Heroku, CloudWatch, OpenTelemetry), multiline exceptions, error fingerprints with baselines, and rotation-safe watching with alert rules",
+  "description": "Streaming log analysis for files, directories, globs, gzip rotations and live docker/compose/kubectl/journald sources: auto-detected formats (Java, Node, Python, Go, .NET, Rails, nginx/Apache, syslog, logfmt, JSON, docker/CRI, Heroku, CloudWatch, OpenTelemetry), multiline exceptions, LogQL-lite queries, error fingerprints with baselines, Drain templates, trace timelines, access-log latency percentiles, and rotation-safe watching with alert rules",
   "shortDescription": "Log analysis and querying",
   "category": "monitoring",
   "tools": [
@@ -13,7 +13,12 @@
     "search_logs",
     "compare_logs",
     "export_report",
-    "watch_logs"
+    "watch_logs",
+    "query_logs",
+    "mine_templates",
+    "access_log_stats",
+    "trace_timeline",
+    "detect_format"
   ],
   "envVars": [
     {

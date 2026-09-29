@@ -11,15 +11,18 @@ import { LOG_FORMATS, LOG_LEVELS } from '../types.js';
 import { parseTimeBound } from '../core/timestamp.js';
 import { assertReadable, redactDeep, safeRegex, validateLogPath } from '../utils.js';
 import type { PipelineDeps } from '../pipeline/index.js';
-import { parseLogs, tailLogs, MAX_PAGE } from '../analyzers/parse.js';
+import { parseLogs, tailLogs, detectFormats, MAX_PAGE } from '../analyzers/parse.js';
 import { findErrors } from '../analyzers/errors.js';
 import { analyzePatterns } from '../analyzers/patterns.js';
 import { aggregateStats } from '../analyzers/stats.js';
-import { correlateEvents } from '../analyzers/correlate.js';
+import { correlateEvents, traceTimeline } from '../analyzers/correlate.js';
 import { searchLogs } from '../analyzers/search.js';
 import { compareLogs } from '../analyzers/compare.js';
 import { exportReport } from '../analyzers/report.js';
 import { watchLogs, getWatcher, stopWatching, listActiveWatchers } from '../analyzers/watch.js';
+import { queryLogs, parseQuery, type QuerySpec } from '../analyzers/query.js';
+import { mineTemplates } from '../analyzers/templates.js';
+import { accessLogStats } from '../analyzers/access.js';
 import { MAX_TAIL, MAX_TIMEOUT_S } from '../sources/live.js';
 
 export interface HandlerResult {
@@ -365,4 +368,47 @@ export const handlers: Record<string, Handler> = {
     }
   },
 
+  query_logs: async (args, deps) => {
+    const a = QueryLogsSchema.parse(args);
+    let spec: QuerySpec = a.query ? parseQuery(a.query) : {};
+    // JSON fields extend (and override) the parsed string.
+    spec = {
+      ...spec,
+      where: [...(spec.where ?? []), ...(a.where ?? [])],
+      text: [...(spec.text ?? []), ...(a.text ?? [])],
+      ...(a.groupBy ? { groupBy: a.groupBy } : {}),
+      ...(a.aggregate ? { aggregate: a.aggregate } : {}),
+      ...(a.bucket ? { bucket: a.bucket } : {}),
+      ...(a.topK ? { topK: a.topK } : {}),
+      ...(a.limit ? { limit: a.limit } : {}),
+      ...(a.newest ? { newest: a.newest } : {}),
+    };
+    if (spec.bucket && !spec.aggregate) spec.aggregate = { op: 'count' };
+    return jsonResponse(await queryLogs(toSourceInput(a), spec, timeFilter(a), deps));
+  },
+
+  mine_templates: async (args, deps) => {
+    const a = MineTemplatesSchema.parse(args);
+    return jsonResponse(await mineTemplates(toSourceInput(a), {
+      ...timeFilter(a), levels: a.levels, filter: regexOpt(a.filter),
+      similarity: a.similarity, depth: a.depth, limit: a.limit, minCount: a.minCount,
+    }, deps));
+  },
+
+  access_log_stats: async (args, deps) => {
+    const a = AccessStatsSchema.parse(args);
+    return jsonResponse(await accessLogStats(toSourceInput(a), {
+      ...timeFilter(a), bucket: a.bucket, top: a.top, normalizePaths: a.normalizePaths, minRequests: a.minRequests,
+    }, deps));
+  },
+
+  trace_timeline: async (args, deps) => {
+    const a = TraceTimelineSchema.parse(args);
+    return jsonResponse(await traceTimeline(toSourceInput(a), { ...timeFilter(a), id: a.id, field: a.field, limit: a.limit }, deps));
+  },
+
+  detect_format: async (args, deps) => {
+    const a = DetectFormatSchema.parse(args);
+    return jsonResponse(await detectFormats(toSourceInput(a), deps));
+  },
 };
