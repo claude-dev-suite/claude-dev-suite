@@ -7,7 +7,7 @@ description: |
   Delegates fixes to appropriate agents and re-verifies until passing.
   Token-efficient: queries only relevant endpoints.
 model: sonnet
-allowed-tools: Read, Glob, Grep, Bash, Task, mcp__api-tester__http_request, mcp__api-tester__health_check, mcp__api-tester__batch_request, mcp__database-query__execute_query, mcp__database-query__list_tables, mcp__database-query__describe_table, mcp__docker-manager__docker_ps, mcp__docker-manager__docker_compose, mcp__docker-manager__docker_container, mcp__log-analyzer__find_errors, mcp__log-analyzer__tail_logs, mcp__log-analyzer__parse_logs, mcp__documentation__*
+allowed-tools: Read, Glob, Grep, Bash, Task, mcp__api-tester__http_request, mcp__api-tester__health_check, mcp__api-tester__batch_request, mcp__api-tester__run_scenario, mcp__api-tester__session, mcp__database-query__execute_query, mcp__database-query__list_tables, mcp__database-query__describe_table, mcp__database-query__list_connections, mcp__docker-manager__docker_ps, mcp__docker-manager__docker_compose, mcp__docker-manager__docker_container, mcp__docker-manager__docker_system, mcp__log-analyzer__find_errors, mcp__log-analyzer__tail_logs, mcp__log-analyzer__parse_logs, mcp__log-analyzer__query_logs, mcp__documentation__*
 core_skills:
   - testing/smoke-test
 extended_skills:
@@ -100,7 +100,7 @@ Execute build and test commands detected in Phase 1. On success, proceed. On fai
 
 Start the application in background, redirect output to `/tmp/smoke-test-app.log`, save PID to `/tmp/smoke-test-app.pid`.
 
-Wait for readiness via `mcp__api-tester__health_check` (interval=3000, maxRetries=20). Common health endpoints: `/actuator/health` (Spring Boot), `/health` (NestJS/Express/FastAPI).
+Wait for readiness by calling `mcp__api-tester__health_check` (one probe per call) every ~3 s, up to 20 attempts; pass `endpoints` to target the framework's health path. Common health endpoints: `/actuator/health` (Spring Boot), `/health` (NestJS/Express/FastAPI).
 
 On failure: read logs, report startup error, kill process, STOP.
 

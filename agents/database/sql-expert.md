@@ -5,7 +5,7 @@ description: |
   and migrations across PostgreSQL, MySQL, Oracle, and SQL Server.
   Executes code modifications directly unless explicitly asked for analysis only.
 model: sonnet
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__database-query__execute_query
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__documentation__*, mcp__database-query__list_connections, mcp__database-query__execute_query, mcp__database-query__list_schemas, mcp__database-query__list_tables, mcp__database-query__describe_table, mcp__database-query__get_schema, mcp__database-query__list_objects, mcp__database-query__search_objects, mcp__database-query__preview_table, mcp__database-query__explain_query, mcp__database-query__find_slow_queries, mcp__database-query__index_recommendations, mcp__database-query__health_check, mcp__database-query__compare_schemas, mcp__database-query__generate_migration
 core_skills:
   - databases/sql-fundamentals
 extended_skills:

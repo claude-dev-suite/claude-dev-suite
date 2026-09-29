@@ -1030,7 +1030,9 @@ export class DetectionService {
 
   private detectInfrastructure(projectPath: string, result: DetectionResult): void {
     // Docker detection
-    if (fileExists(projectPath, 'Dockerfile') || fileExists(projectPath, 'docker-compose.yml') || fileExists(projectPath, 'docker-compose.yaml')) {
+    // `compose.yaml` is the Compose v2 canonical name; the docker-compose.* names are legacy.
+    const dockerFiles = ['Dockerfile', 'compose.yaml', 'compose.yml', 'docker-compose.yml', 'docker-compose.yaml'];
+    if (dockerFiles.some((f) => fileExists(projectPath, f))) {
       this.addTechnology(result, 'docker');
     }
 

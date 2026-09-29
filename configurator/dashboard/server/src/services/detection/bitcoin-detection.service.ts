@@ -226,7 +226,7 @@ export class BitcoinDetectionService {
     }
 
     // Docker compose
-    const composeFiles = ['docker-compose.yml', 'docker-compose.yaml'];
+    const composeFiles = ['compose.yaml', 'compose.yml', 'docker-compose.yml', 'docker-compose.yaml'];
     for (const composeFile of composeFiles) {
       if (fileExists(checkPath, composeFile)) {
         for (const rule of COMPOSE_IMAGE_RULES) {

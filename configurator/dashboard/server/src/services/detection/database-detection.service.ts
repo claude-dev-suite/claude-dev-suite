@@ -46,6 +46,8 @@ export class DatabaseDetectionService {
    */
   detectFromDocker(dirsToCheck: string[], result: DetectionResult): void {
     const composeFiles = [
+      'compose.yaml',
+      'compose.yml',
       'docker-compose.yml',
       'docker-compose.yaml',
       'docker-compose.dev.yml',
