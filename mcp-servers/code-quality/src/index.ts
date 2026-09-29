@@ -2,284 +2,115 @@
 // SPDX-License-Identifier: MIT
 /**
  * Code Quality MCP Server
- * Provides code analysis tools: complexity, duplication, style, anti-patterns, dead code, dependencies, metrics
+ *
+ * Structural analysis on tree-sitter syntax trees (JS/TS/TSX, Python, Go,
+ * Java, Rust, C#): complexity, metrics, smells, clones, import graph with
+ * boundary rules, dead code; plus the project's own linters.
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  type Tool,
-} from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
+import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { z } from 'zod';
 
 import {
-  analyzeComplexity,
-  formatComplexityReport,
-  findDuplicates,
-  formatDuplicationReport,
-  checkStyle,
-  formatStyleReport,
-  detectAntiPatterns,
-  formatAntiPatternReport,
-  findDeadCode,
-  formatDeadCodeReport,
-  analyzeDependencies,
-  formatDependencyReport,
-  calculateMetrics,
-  formatMetricsReport,
-} from './tools/index.js';
+  AnalyzeComplexitySchema,
+  AnalyzeImportGraphSchema,
+  CheckStyleSchema,
+  CodeMetricsSchema,
+  DetectAntiPatternsSchema,
+  FindDeadCodeSchema,
+  FindDuplicatesSchema,
+  jsonSchema,
+} from './schemas.js';
+import type { ToolResult } from './core/report.js';
+import { dispatch } from './dispatch.js';
+import { analyzeComplexity } from './tools/complexity.js';
+import { findDuplicates } from './tools/duplicates.js';
+import { runLintTool } from './tools/lint.js';
+import { detectAntiPatterns } from './tools/antipatterns.js';
+import { findDeadCode } from './tools/deadcode.js';
+import { analyzeImportGraph } from './tools/import-graph.js';
+import { codeMetrics } from './tools/metrics.js';
 
-// ── Runtime Zod schemas (mirroring JSON Schema declared in TOOLS below) ────────
+interface ToolSpec {
+  tool: Tool;
+  schema: z.ZodType;
+  run(args: any): Promise<ToolResult>;
+}
 
-const AnalyzeComplexitySchema = z.object({
-  path: z.string().min(1),
-  threshold: z.number().optional(),
-  includeAll: z.boolean().optional(),
-});
-
-const FindDuplicatesSchema = z.object({
-  path: z.string().min(1),
-  minLines: z.number().optional(),
-  minTokens: z.number().optional(),
-});
-
-const CheckStyleSchema = z.object({
-  path: z.string().min(1),
-  fix: z.boolean().optional(),
-  rules: z.array(z.string()).optional(),
-});
-
-const AntiPatternTypeSchema = z.enum([
-  'god-class', 'long-method', 'deep-nesting', 'excessive-parameters',
-  'magic-numbers', 'empty-catch', 'duplicate-code', 'feature-envy',
-  'data-clump', 'primitive-obsession',
-]);
-
-const DetectAntiPatternsSchema = z.object({
-  path: z.string().min(1),
-  patterns: z.array(AntiPatternTypeSchema).optional(),
-  thresholds: z.object({
-    maxCyclomaticComplexity: z.number().optional(),
-    maxCognitiveComplexity: z.number().optional(),
-    maxFunctionLines: z.number().optional(),
-    maxClassLines: z.number().optional(),
-    maxNestingDepth: z.number().optional(),
-    maxParameters: z.number().optional(),
-    maxFileLines: z.number().optional(),
-  }).optional(),
-});
-
-const FindDeadCodeSchema = z.object({
-  path: z.string().min(1),
-  includeTests: z.boolean().optional(),
-  confidence: z.enum(['high', 'medium', 'low']).optional(),
-});
-
-const AnalyzeImportGraphSchema = z.object({
-  path: z.string().min(1),
-  maxDepth: z.number().optional(),
-  excludeNodeModules: z.boolean().optional(),
-});
-
-const CodeMetricsSchema = z.object({
-  path: z.string().min(1),
-  sortBy: z.enum(['loc', 'complexity', 'functions']).optional(),
-  limit: z.number().optional(),
-});
-
-// Tool definitions
-const TOOLS: Tool[] = [
+const SPECS: ToolSpec[] = [
   {
-    name: 'analyze_complexity',
-    description: 'Analyze cyclomatic and cognitive complexity of functions. Finds functions that are too complex and should be refactored.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: {
-          type: 'string',
-          description: 'Path to file or directory to analyze'
-        },
-        threshold: {
-          type: 'number',
-          description: 'Complexity threshold to flag (default: 10)',
-          default: 10
-        },
-        includeAll: {
-          type: 'boolean',
-          description: 'Include all files in report, not just complex ones',
-          default: false
-        }
-      },
-      required: ['path']
-    }
+    tool: {
+      name: 'analyze_complexity',
+      description: 'Per-function cyclomatic, cognitive (Sonar), nesting, Halstead and maintainability index from tree-sitter.',
+      inputSchema: jsonSchema(AnalyzeComplexitySchema) as Tool['inputSchema'],
+    },
+    schema: AnalyzeComplexitySchema,
+    run: (a) => analyzeComplexity(a),
   },
   {
-    name: 'find_duplicates',
-    description: 'Detect code duplication across files. Finds repeated code blocks that should be refactored into shared functions.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: {
-          type: 'string',
-          description: 'Path to file or directory to analyze'
-        },
-        minLines: {
-          type: 'number',
-          description: 'Minimum lines for duplicate detection (default: 6)',
-          default: 6
-        },
-        minTokens: {
-          type: 'number',
-          description: 'Minimum tokens for duplicate detection (default: 50)',
-          default: 50
-        }
-      },
-      required: ['path']
-    }
+    tool: {
+      name: 'find_duplicates',
+      description: 'Cross-file token clone detection, incl. renamed identifiers; every match re-verified; duplication %.',
+      inputSchema: jsonSchema(FindDuplicatesSchema) as Tool['inputSchema'],
+    },
+    schema: FindDuplicatesSchema,
+    run: (a) => findDuplicates(a),
   },
   {
-    name: 'check_style',
-    // audit-justification: must enumerate supported linters across 5 languages so Claude routes correctly
-    description: 'Run unified linting using ESLint/Biome (JS/TS), Ruff/Pylint (Python), Checkstyle (Java), golangci-lint (Go), or Clippy (Rust). Falls back to basic checks if no linter is installed.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: {
-          type: 'string',
-          description: 'Path to file or directory to check'
-        },
-        fix: {
-          type: 'boolean',
-          description: 'Attempt to auto-fix issues (if supported)',
-          default: false
-        },
-        rules: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Only report specific rules (e.g., ["no-console", "max-line-length"])'
-        }
-      },
-      required: ['path']
-    }
+    tool: {
+      name: 'check_style',
+      description: "Run the project's linters/formatters (ESLint, Biome, Prettier, Ruff, golangci-lint, Clippy…) once per project.",
+      inputSchema: jsonSchema(CheckStyleSchema) as Tool['inputSchema'],
+    },
+    schema: CheckStyleSchema,
+    run: (a) => runLintTool(a, ['lint', 'format'], 'Style check', a.format ?? 'markdown'),
   },
   {
-    name: 'detect_antipatterns',
-    description: 'Detect anti-patterns: god-class, long-method, deep-nesting, excessive-parameters, magic-numbers, empty-catch, and more.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: {
-          type: 'string',
-          description: 'Path to file or directory to analyze'
-        },
-        patterns: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: ['god-class', 'long-method', 'deep-nesting', 'excessive-parameters', 'magic-numbers', 'empty-catch', 'duplicate-code', 'feature-envy', 'data-clump', 'primitive-obsession']
-          },
-          description: 'Only detect specific patterns'
-        },
-        thresholds: {
-          type: 'object',
-          properties: {
-            maxCyclomaticComplexity: { type: 'number' },
-            maxCognitiveComplexity: { type: 'number' },
-            maxFunctionLines: { type: 'number' },
-            maxClassLines: { type: 'number' },
-            maxNestingDepth: { type: 'number' },
-            maxParameters: { type: 'number' },
-            maxFileLines: { type: 'number' }
-          },
-          description: 'Custom thresholds for detection'
-        }
-      },
-      required: ['path']
-    }
+    tool: {
+      name: 'detect_antipatterns',
+      description: 'Code smells: god class, long/complex method, deep nesting, many params, data clumps, empty catch, duplicates…',
+      inputSchema: jsonSchema(DetectAntiPatternsSchema) as Tool['inputSchema'],
+    },
+    schema: DetectAntiPatternsSchema,
+    run: (a) => detectAntiPatterns(a, a.format ?? 'markdown'),
   },
   {
-    name: 'find_dead_code',
-    description: 'Find unused exports, functions, variables, and imports. Identifies code that can be safely removed.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: {
-          type: 'string',
-          description: 'Path to file or directory to analyze'
-        },
-        includeTests: {
-          type: 'boolean',
-          description: 'Include test files in analysis',
-          default: false
-        },
-        confidence: {
-          type: 'string',
-          enum: ['high', 'medium', 'low'],
-          description: 'Minimum confidence level for results (default: medium)',
-          default: 'medium'
-        }
-      },
-      required: ['path']
-    }
+    tool: {
+      name: 'find_dead_code',
+      description: 'Unused files, exports and dependencies (JS/TS), unused imports/definitions (Python), never-called private functions.',
+      inputSchema: jsonSchema(FindDeadCodeSchema) as Tool['inputSchema'],
+    },
+    schema: FindDeadCodeSchema,
+    run: (a) => findDeadCode(a),
   },
   {
-    name: 'analyze_import_graph',
-    description: 'Analyze import graph and detect circular dependencies. Shows which files are most imported and most dependent.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: {
-          type: 'string',
-          description: 'Path to directory to analyze'
-        },
-        maxDepth: {
-          type: 'number',
-          description: 'Maximum depth to traverse (default: 10)',
-          default: 10
-        },
-        excludeNodeModules: {
-          type: 'boolean',
-          description: 'Exclude node_modules from analysis (default: true)',
-          default: true
-        }
-      },
-      required: ['path']
-    }
+    tool: {
+      name: 'analyze_import_graph',
+      description: 'Resolved import graph (tsconfig paths, workspaces, Python/Go/Java/Rust): cycles, orphans, fan-in/out, boundary rules.',
+      inputSchema: jsonSchema(AnalyzeImportGraphSchema) as Tool['inputSchema'],
+    },
+    schema: AnalyzeImportGraphSchema,
+    run: (a) => analyzeImportGraph(a),
   },
   {
-    name: 'code_metrics',
-    description: 'Calculate code metrics (LOC, SLOC, comments ratio, function/class counts) for codebase size overview.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: {
-          type: 'string',
-          description: 'Path to file or directory to analyze'
-        },
-        sortBy: {
-          type: 'string',
-          enum: ['loc', 'complexity', 'functions'],
-          description: 'Sort files by metric (default: loc)',
-          default: 'loc'
-        },
-        limit: {
-          type: 'number',
-          description: 'Limit number of files in report (default: 20)',
-          default: 20
-        }
-      },
-      required: ['path']
-    }
-  }
+    tool: {
+      name: 'code_metrics',
+      description: 'Code/comment/blank lines, functions, classes, imports/exports, complexity and maintainability per file and language.',
+      inputSchema: jsonSchema(CodeMetricsSchema) as Tool['inputSchema'],
+    },
+    schema: CodeMetricsSchema,
+    run: (a) => codeMetrics(a),
+  },
 ];
 
-// Create MCP server
+const TOOLS: Tool[] = SPECS.map((s) => s.tool);
+
 const server = new Server(
   {
     name: 'code-quality',
-    version: '1.0.0',
+    version: '1.1.0',
   },
   {
     capabilities: {
@@ -288,112 +119,13 @@ const server = new Server(
   }
 );
 
-// Handle list tools
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: TOOLS };
-});
-
-// Handle tool calls
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
-  // Helper: return a clean MCP error without crashing the server
-  function validationError(toolName: string, issues: z.ZodIssue[]): { content: { type: 'text'; text: string }[]; isError: boolean } {
-    const detail = issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ');
-    return {
-      content: [{ type: 'text', text: `Invalid arguments for ${toolName}: ${detail}` }],
-      isError: true,
-    };
-  }
-
-  try {
-    switch (name) {
-      case 'analyze_complexity': {
-        const parsed = AnalyzeComplexitySchema.safeParse(args);
-        if (!parsed.success) return validationError(name, parsed.error.issues);
-        const result = await analyzeComplexity(parsed.data);
-        const report = formatComplexityReport(result);
-        return {
-          content: [{ type: 'text', text: report }]
-        };
-      }
-
-      case 'find_duplicates': {
-        const parsed = FindDuplicatesSchema.safeParse(args);
-        if (!parsed.success) return validationError(name, parsed.error.issues);
-        const result = await findDuplicates(parsed.data);
-        const report = formatDuplicationReport(result);
-        return {
-          content: [{ type: 'text', text: report }]
-        };
-      }
-
-      case 'check_style': {
-        const parsed = CheckStyleSchema.safeParse(args);
-        if (!parsed.success) return validationError(name, parsed.error.issues);
-        const result = await checkStyle(parsed.data);
-        const report = formatStyleReport(result);
-        return {
-          content: [{ type: 'text', text: report }]
-        };
-      }
-
-      case 'detect_antipatterns': {
-        const parsed = DetectAntiPatternsSchema.safeParse(args);
-        if (!parsed.success) return validationError(name, parsed.error.issues);
-        const result = await detectAntiPatterns(parsed.data);
-        const report = formatAntiPatternReport(result);
-        return {
-          content: [{ type: 'text', text: report }]
-        };
-      }
-
-      case 'find_dead_code': {
-        const parsed = FindDeadCodeSchema.safeParse(args);
-        if (!parsed.success) return validationError(name, parsed.error.issues);
-        const result = await findDeadCode(parsed.data);
-        const report = formatDeadCodeReport(result);
-        return {
-          content: [{ type: 'text', text: report }]
-        };
-      }
-
-      case 'analyze_import_graph': {
-        const parsed = AnalyzeImportGraphSchema.safeParse(args);
-        if (!parsed.success) return validationError(name, parsed.error.issues);
-        const result = await analyzeDependencies(parsed.data);
-        const report = formatDependencyReport(result);
-        return {
-          content: [{ type: 'text', text: report }]
-        };
-      }
-
-      case 'code_metrics': {
-        const parsed = CodeMetricsSchema.safeParse(args);
-        if (!parsed.success) return validationError(name, parsed.error.issues);
-        const result = await calculateMetrics(parsed.data);
-        const report = formatMetricsReport(result);
-        return {
-          content: [{ type: 'text', text: report }]
-        };
-      }
-
-      default:
-        return {
-          content: [{ type: 'text', text: `Unknown tool: ${name}` }],
-          isError: true
-        };
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      content: [{ type: 'text', text: `Error: ${message}` }],
-      isError: true
-    };
-  }
+  const spec = SPECS.find((s) => s.tool.name === request.params.name);
+  if (!spec) return { content: [{ type: 'text', text: `Unknown tool: ${request.params.name}` }], isError: true };
+  return dispatch(spec.tool.name, spec.schema, spec.run, request.params.arguments);
 });
 
-// Start server
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);

@@ -1,7 +1,7 @@
 {
   "name": "code-quality",
-  "version": "1.0.0",
-  "description": "Code quality analysis - complexity, duplication, style, anti-patterns, dead code, dependencies",
+  "version": "1.1.0",
+  "description": "Code quality analysis on tree-sitter syntax trees (JS/TS/TSX, Python, Go, Java, Rust, C#): cyclomatic/cognitive complexity, Halstead and maintainability, code smells, token clone detection, resolved import graph with cycles and architecture boundary rules, dead code (unused files/exports/dependencies), the project's own linters (ESLint, Biome, Prettier, Ruff, Pylint, golangci-lint, Clippy, Checkstyle, PMD, dotnet format) with SARIF output, and diff-only analysis against a git ref",
   "category": "analysis",
   "tools": [
     "analyze_complexity",
@@ -12,11 +12,28 @@
     "analyze_import_graph",
     "code_metrics"
   ],
-  "shortDescription": "Code quality analysis",
-  "envVars": [],
+  "shortDescription": "Complexity, smells, clones, dead code, import graph, project linters",
+  "envVars": [
+    {
+      "name": "CHECKSTYLE_JAR",
+      "description": "Optional path to a Checkstyle all-in-one jar, run with java -jar when no checkstyle executable is on PATH",
+      "default": "",
+      "required": false
+    }
+  ],
   "recommendedFor": [
     "code-reviewer",
     "architect"
   ],
-  "detectedWhen": []
+  "detectedWhen": [
+    "javascript",
+    "typescript",
+    "nodejs",
+    "python",
+    "go",
+    "java",
+    "rust",
+    "csharp",
+    "dotnet"
+  ]
 }

@@ -1,197 +1,82 @@
 // SPDX-License-Identifier: MIT
 /**
- * Tool: detect_antipatterns
- * Detects anti-patterns: god-class, long-method, deep-nesting, etc.
+ * detect_antipatterns — code smells from syntax trees, with real thresholds.
  */
 
-import { promises as fs } from 'fs';
-import { glob } from 'glob';
-import * as path from 'path';
-import type {
-  AntiPattern,
-  AntiPatternType,
-  AntiPatternResult,
-  DetectAntiPatternsInput,
-  Thresholds,
-  DEFAULT_THRESHOLDS
-} from '../types.js';
-import { getAnalyzerForFile, isFileSupported } from '../analyzers/index.js';
-import { runRules } from '../rules/antipatterns.js';
+import { pathToFileURL } from 'url';
+import { isChanged, type ScopeOptions } from '../core/files.js';
+import { countBySeverity, toSarif, type Diagnostic } from '../core/diagnostics.js';
+import { bound, mdTable, notesSection, truncatedLine, type ToolResult } from '../core/report.js';
+import { runParse } from '../analysis/pipeline.js';
+import { Interner } from '../parsing/analyze.js';
+import { detectClones } from '../analysis/clones.js';
+import { DEFAULT_SMELL_THRESHOLDS, SMELL_TYPES, detectSmells, type SmellThresholds, type SmellType } from '../analysis/smells.js';
 
-export interface AntiPatternReport {
-  patterns: AntiPattern[];
-  summary: AntiPatternResult['summary'];
-  byFile: Map<string, AntiPattern[]>;
-  bySeverity: {
-    error: AntiPattern[];
-    warning: AntiPattern[];
-    info: AntiPattern[];
-  };
+export interface AntiPatternsInput extends ScopeOptions {
+  patterns?: SmellType[];
+  thresholds?: Partial<SmellThresholds> & { minDuplicateLines?: number; minDuplicateTokens?: number };
+  limit?: number;
 }
 
-/**
- * Detect anti-patterns in a path (file or directory)
- */
-export async function detectAntiPatterns(input: DetectAntiPatternsInput): Promise<AntiPatternReport> {
-  const { path: targetPath, patterns: enabledPatterns, thresholds: customThresholds } = input;
+export async function collectSmells(input: AntiPatternsInput): Promise<{ diagnostics: Diagnostic[]; root: string; notes: string[]; files: number }> {
+  const enabledSet = new Set<SmellType>(input.patterns?.length ? input.patterns : SMELL_TYPES);
+  const thresholds: SmellThresholds = { ...DEFAULT_SMELL_THRESHOLDS };
+  for (const [k, v] of Object.entries(input.thresholds ?? {})) {
+    if (typeof v === 'number' && k in thresholds) (thresholds as unknown as Record<string, number>)[k] = v;
+  }
+  const wantDup = enabledSet.has('duplicate-code');
+  const run = await runParse(input, { tokens: wantDup ? new Interner() : undefined, onlyChanged: !wantDup && !enabledSet.has('data-clump') });
+  const changedRel = new Set(run.parsed.filter((p) => isChanged(run.scope, p.file.abs)).map((p) => p.file.rel));
+  const reportable = (rel: string) => changedRel.has(rel);
 
-  const thresholds: Thresholds = {
-    maxCyclomaticComplexity: 10,
-    maxCognitiveComplexity: 15,
-    maxFunctionLines: 50,
-    maxClassLines: 300,
-    maxNestingDepth: 4,
-    maxParameters: 5,
-    minDuplicateLines: 6,
-    maxFileLines: 500,
-    ...customThresholds
-  };
+  const diagnostics = detectSmells(run.parsed, thresholds, (t) => enabledSet.has(t), reportable);
 
-  const stats = await fs.stat(targetPath);
-  const files: string[] = [];
-
-  if (stats.isDirectory()) {
-    const filePatterns = ['**/*.ts', '**/*.js', '**/*.tsx', '**/*.jsx', '**/*.py', '**/*.java', '**/*.go', '**/*.rs'];
-    for (const pattern of filePatterns) {
-      const matches = await glob(pattern, {
-        cwd: targetPath,
-        ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**', '**/target/**', '**/vendor/**'],
-        absolute: true
+  if (wantDup) {
+    const clones = detectClones(
+      run.parsed.filter((p) => !p.file.isTest).map((p) => ({ rel: p.file.rel, content: p.file.content, loc: p.analysis.loc, tokens: p.analysis.tokens! })),
+      { minTokens: input.thresholds?.minDuplicateTokens ?? 50, minLines: input.thresholds?.minDuplicateLines ?? 6, mode: 'renamed' }
+    );
+    for (const g of clones.groups) {
+      const [first, ...rest] = g.locations;
+      const at = g.locations.find((l) => reportable(l.file));
+      if (!at) continue;
+      const others = g.locations.filter((l) => l !== at).map((l) => `${l.file}:${l.startLine}-${l.endLine}`);
+      diagnostics.push({
+        tool: 'code-quality', file: at.file, line: at.startLine, endLine: at.endLine, severity: g.lines > 30 ? 'warning' : 'info',
+        rule: 'duplicate-code', symbol: `${first.file}:${rest.length}`,
+        message: `${g.lines} duplicated lines (${g.tokens} tokens), also at ${others.slice(0, 4).join(', ')}`,
+        suggestion: 'Extract the shared logic into one function/module',
+        details: { locations: g.locations },
       });
-      files.push(...matches);
-    }
-  } else if (isFileSupported(targetPath)) {
-    files.push(path.resolve(targetPath));
-  }
-
-  const allPatterns: AntiPattern[] = [];
-  const byFile: Map<string, AntiPattern[]> = new Map();
-
-  for (const filePath of files) {
-    const analyzer = getAnalyzerForFile(filePath);
-    if (!analyzer) continue;
-
-    try {
-      const content = await fs.readFile(filePath, 'utf-8');
-
-      // Get patterns from language-specific analyzer
-      let filePatterns = analyzer.detectAntiPatterns(content, filePath);
-
-      // Also run generic rules
-      const rulePatterns = runRules(content, filePath, thresholds, enabledPatterns);
-      filePatterns = [...filePatterns, ...rulePatterns];
-
-      // Filter by enabled patterns if specified
-      if (enabledPatterns && enabledPatterns.length > 0) {
-        filePatterns = filePatterns.filter(p => enabledPatterns.includes(p.type));
-      }
-
-      if (filePatterns.length > 0) {
-        byFile.set(filePath, filePatterns);
-        allPatterns.push(...filePatterns);
-      }
-    } catch (error) {
-      // Skip files that can't be analyzed
     }
   }
-
-  // Build summary
-  const summary: AntiPatternResult['summary'] = {
-    'god-class': 0,
-    'long-method': 0,
-    'deep-nesting': 0,
-    'excessive-parameters': 0,
-    'magic-numbers': 0,
-    'empty-catch': 0,
-    'duplicate-code': 0,
-    'feature-envy': 0,
-    'data-clump': 0,
-    'primitive-obsession': 0
-  };
-
-  for (const pattern of allPatterns) {
-    summary[pattern.type]++;
-  }
-
-  // Group by severity
-  const bySeverity = {
-    error: allPatterns.filter(p => p.severity === 'error'),
-    warning: allPatterns.filter(p => p.severity === 'warning'),
-    info: allPatterns.filter(p => p.severity === 'info')
-  };
-
-  // Sort patterns by severity then by file
-  allPatterns.sort((a, b) => {
-    const severityOrder = { error: 0, warning: 1, info: 2 };
-    if (severityOrder[a.severity] !== severityOrder[b.severity]) {
-      return severityOrder[a.severity] - severityOrder[b.severity];
-    }
-    return a.file.localeCompare(b.file);
-  });
-
-  return {
-    patterns: allPatterns,
-    summary,
-    byFile,
-    bySeverity
-  };
+  const order = { error: 0, warning: 1, info: 2 };
+  diagnostics.sort((a, b) => order[a.severity] - order[b.severity] || a.file.localeCompare(b.file) || a.line - b.line);
+  return { diagnostics, root: run.scope.root, notes: run.notes, files: run.parsed.length };
 }
 
-/**
- * Format anti-pattern report as text
- */
-export function formatAntiPatternReport(report: AntiPatternReport): string {
-  const lines: string[] = [];
+export async function detectAntiPatterns(input: AntiPatternsInput, format: 'markdown' | 'json' | 'sarif'): Promise<ToolResult> {
+  const limit = input.limit ?? 100;
+  const { diagnostics, root, notes, files } = await collectSmells(input);
+  const summary: Record<string, number> = {};
+  for (const d of diagnostics) summary[d.rule] = (summary[d.rule] ?? 0) + 1;
+  const b = bound(diagnostics, limit);
+  const bySeverity = countBySeverity(diagnostics);
+  const data = { root, summary: { files, total: diagnostics.length, bySeverity, byPattern: summary }, findings: b.items, truncated: b.truncated, notes };
 
-  lines.push('# Anti-Pattern Detection Report\n');
-
-  lines.push('## Summary');
-  lines.push('');
-  lines.push('| Pattern | Count |');
-  lines.push('|---------|-------|');
-
-  for (const [type, count] of Object.entries(report.summary)) {
-    if (count > 0) {
-      lines.push(`| ${type} | ${count} |`);
-    }
+  const md: string[] = ['# Anti-pattern report', '', `Root: \`${root}\``, ''];
+  md.push(`- Files: ${files} · findings: **${diagnostics.length}** (errors ${bySeverity.error}, warnings ${bySeverity.warning}, info ${bySeverity.info})`, '');
+  if (diagnostics.length) {
+    md.push(mdTable(['Pattern', 'Count'], Object.entries(summary).sort((a, b) => b[1] - a[1])), '');
+    md.push(mdTable(['Severity', 'Location', 'Pattern', 'Finding'], b.items.map((d) => [d.severity, `${d.file}:${d.line}`, d.rule, d.message])));
+    md.push(truncatedLine(b, 'findings'));
+  } else {
+    md.push('No anti-patterns found at these thresholds.');
   }
-  lines.push('');
-
-  lines.push('## By Severity');
-  lines.push(`- 🔴 Errors: ${report.bySeverity.error.length}`);
-  lines.push(`- 🟡 Warnings: ${report.bySeverity.warning.length}`);
-  lines.push(`- 🔵 Info: ${report.bySeverity.info.length}`);
-  lines.push('');
-
-  if (report.bySeverity.error.length > 0) {
-    lines.push('## Errors (Require Immediate Attention)\n');
-    for (const pattern of report.bySeverity.error) {
-      lines.push(`### ${path.basename(pattern.file)}:${pattern.line} - ${pattern.type}`);
-      lines.push(`**${pattern.message}**`);
-      lines.push(`💡 ${pattern.suggestion}`);
-      lines.push('');
-    }
-  }
-
-  if (report.bySeverity.warning.length > 0) {
-    lines.push('## Warnings (Should Be Addressed)\n');
-    for (const pattern of report.bySeverity.warning) {
-      lines.push(`- **${path.basename(pattern.file)}:${pattern.line}** [${pattern.type}]`);
-      lines.push(`  ${pattern.message}`);
-      lines.push(`  💡 ${pattern.suggestion}`);
-      lines.push('');
-    }
-  }
-
-  if (report.bySeverity.info.length > 0 && report.bySeverity.info.length <= 20) {
-    lines.push('## Info (Consider Reviewing)\n');
-    for (const pattern of report.bySeverity.info) {
-      lines.push(`- ${path.basename(pattern.file)}:${pattern.line} [${pattern.type}]: ${pattern.message}`);
-    }
-    lines.push('');
-  } else if (report.bySeverity.info.length > 20) {
-    lines.push(`## Info: ${report.bySeverity.info.length} items (hidden for brevity)\n`);
-  }
-
-  return lines.join('\n');
+  md.push(notesSection(notes));
+  return {
+    data,
+    markdown: md.join('\n'),
+    sarif: format === 'sarif' ? toSarif(b.items, pathToFileURL(root).href, {}, { truncated: b.truncated, total: b.total }) : undefined,
+  };
 }
