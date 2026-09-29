@@ -1,7 +1,7 @@
 {
   "name": "@dev-suite/performance-profiler-server",
-  "version": "2.3.0",
-  "description": "MCP server for performance profiling Node.js, Java, and Python applications",
+  "version": "2.4.0",
+  "description": "MCP server for CPU/memory profiling, benchmarking, load testing and Web Vitals (Node.js, Python, Java, Go, .NET)",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -15,6 +15,10 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.6.5",
+    "ws": "^8.21.3",
     "@dev-suite/shared": "*"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13"
   }
 }

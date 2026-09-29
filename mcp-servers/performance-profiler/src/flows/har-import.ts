@@ -6,6 +6,9 @@
 
 import { readFile } from 'fs/promises';
 import { createFlow, addRequestToFlow, saveFlow, type Flow, type FlowRequest } from './storage.js';
+import { redactPath } from '../utils/redact.js';
+
+const MAX_LISTED_REQUESTS = 200;
 
 /**
  * HAR file structure (simplified)
@@ -63,6 +66,7 @@ export interface ImportHarResult {
     path: string;
     status: number;
   }>;
+  requestsTruncated?: boolean;
 }
 
 // Common static asset extensions to filter
@@ -220,7 +224,7 @@ export async function importHar(input: ImportHarInput): Promise<ImportHarResult>
 
     importedRequests.push({
       method: request.method,
-      path,
+      path: redactPath(path),
       status: response.status,
     });
   }
@@ -235,7 +239,8 @@ export async function importHar(input: ImportHarInput): Promise<ImportHarResult>
     importedRequests: importedRequests.length,
     skippedRequests: skippedCount,
     baseUrl,
-    requests: importedRequests,
+    requests: importedRequests.slice(0, MAX_LISTED_REQUESTS),
+    ...(importedRequests.length > MAX_LISTED_REQUESTS ? { requestsTruncated: true } : {}),
   };
 }
 

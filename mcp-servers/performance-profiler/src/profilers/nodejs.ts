@@ -1,739 +1,229 @@
 // SPDX-License-Identifier: MIT
 /**
- * Node.js Performance Profiler
- * Uses V8 CPU profiling, heap snapshots, and perf_hooks
+ * Node.js profiling: CPU (V8 sampling profiler via an in-process agent) and
+ * memory (target-process heap samples, two heap snapshots and a sampling heap
+ * profile), all measured inside the *target*.
  */
 
-import { readFile, readdir, writeFile, unlink } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
-import type {
-  ProfileScriptResult,
-  ProfileFunctionResult,
-  BenchmarkResult,
-  MemoryAnalysisResult,
-  StartupResult,
-  BottlenecksResult,
-  FunctionProfile,
-  Bottleneck,
-  Recommendation,
-  MemorySnapshot,
-  StartupMeasurement,
-} from '../types.js';
-import {
-  runCommand,
-  spawnProcess,
-  validateScriptPath,
-  createTempDir,
-  cleanupTempDir,
-} from '../utils/process.js';
-import { calculateStats, round, formatBytes } from '../utils/statistics.js';
+import { createRunDir } from '../utils/artifacts.js';
+import { buildRunSpec, cleanupTempDir, createTempDir, spawnProcess, validateScriptPath } from '../utils/process.js';
+import { mean, round } from '../utils/statistics.js';
+import { dropSamplesWithFrame, fromV8CpuProfile, type V8CpuProfile } from '../profile/model.js';
+import { buildCpuReport, writeCpuArtifacts } from '../profile/report.js';
+import { recordRun } from '../results/store.js';
+import { assessLeak } from '../memory/leak.js';
+import { diffSnapshots, parseSnapshotFile, summarizeHeapProfile } from '../memory/heap-snapshot.js';
+import { AGENT_RESULT_FILE, writeNodeAgent, type NodeAgentResult } from './node-agent.js';
+import { benchmark, profileFunction as profileFunctionImpl } from '../bench/benchmark.js';
+import { checkDuration, failureDetail, targetInfo, type CpuProfileOptions } from './common.js';
+import type { MemoryAnalysisResult, ProfileScriptResult } from '../types.js';
 
-/**
- * Profile a Node.js script using --cpu-prof
- */
-export async function profileScript(
-  scriptPath: string,
-  args: string[] = [],
-  duration: number = 10
-): Promise<ProfileScriptResult> {
+async function readAgentResult(dir: string): Promise<NodeAgentResult | null> {
+  try {
+    return JSON.parse(await readFile(join(dir, AGENT_RESULT_FILE), 'utf-8')) as NodeAgentResult;
+  } catch {
+    return null;
+  }
+}
+
+/** Metrics recorded for regression comparison of a CPU profile. */
+export function cpuMetrics(report: ReturnType<typeof buildCpuReport>): Record<string, number> {
+  const m: Record<string, number> = { cpu_total_ms: report.summary.totalTime };
+  for (const f of report.topFunctions.slice(0, 10)) m[`fn_self_pct:${f.name}`] = f.selfPercent;
+  return m;
+}
+
+export async function profileScript(scriptPath: string, args: string[], opts: CpuProfileOptions): Promise<ProfileScriptResult> {
   validateScriptPath(scriptPath);
-
-  const tempDir = await createTempDir('nodejs-profile');
-
+  checkDuration(opts.durationS);
+  const { runId, dir } = await createRunDir('node-cpu');
+  const agentDir = await createTempDir('pp-node-agent');
   try {
-    // Run with CPU profiling enabled
-    const cpuProfArgs = [
-      '--cpu-prof',
-      `--cpu-prof-dir=${tempDir}`,
-      '--cpu-prof-interval=100', // 100μs sampling
-      scriptPath,
-      ...args,
-    ];
-
-    // Use timeout to limit profiling duration
-    await spawnProcess('node', cpuProfArgs, {
-      timeout: duration * 1000,
+    const agent = await writeNodeAgent(agentDir, {
+      outDir: dir,
+      durationMs: opts.durationS * 1000,
+      cpu: { intervalUs: opts.samplingIntervalUs ?? 500 },
     });
-
-    // Find the generated .cpuprofile file
-    const files = await readdir(tempDir);
-    const profileFile = files.find((f) => f.endsWith('.cpuprofile'));
-
-    if (!profileFile) {
-      throw new Error('CPU profile file not generated');
+    const spec = await buildRunSpec('nodejs', scriptPath, args, ['--require', agent]);
+    const res = await spawnProcess(spec.cmd, spec.args, {
+      cwd: spec.cwd,
+      timeout: opts.durationS * 1000 + 30_000,
+      signal: opts.signal,
+    });
+    const agentResult = await readAgentResult(dir);
+    if (!agentResult?.cpuProfile) {
+      throw new Error(`Node target produced no CPU profile (${failureDetail(res)})${agentResult?.error ? `; agent: ${agentResult.error}` : ''}`);
     }
-
-    // Parse the profile
-    const profilePath = join(tempDir, profileFile);
-    const profileData = JSON.parse(await readFile(profilePath, 'utf-8'));
-
-    // Analyze the profile
-    const topFunctions = analyzeV8Profile(profileData);
-
-    const totalTime = topFunctions.reduce((sum, f) => sum + f.selfTime, 0);
-
+    const raw = JSON.parse(await readFile(join(dir, agentResult.cpuProfile), 'utf-8')) as V8CpuProfile;
+    const profile = dropSamplesWithFrame(fromV8CpuProfile(raw, `node ${scriptPath}`), (f) => !!f.file?.endsWith('pp-agent.cjs'));
+    if (profile.stacks.length === 0) {
+      throw new Error(`CPU profile contains no samples (target ran ${agentResult.elapsedMs} ms); run a longer workload.`);
+    }
+    const report = buildCpuReport(profile, opts.limit);
+    const artifacts = { cpuprofile: join(dir, agentResult.cpuProfile), ...(await writeCpuArtifacts(profile, dir)) };
+    await recordRun(dir, { runId, kind: 'cpu_profile', subject: scriptPath, metrics: cpuMetrics(report) });
     return {
+      runId,
       runtime: 'nodejs',
+      profiler: 'v8-sampling',
       scriptPath,
-      duration,
-      topFunctions: topFunctions.slice(0, 10),
-      summary: {
-        totalTime: round(totalTime, 2),
-        totalFunctions: topFunctions.length,
-        samplesCollected: profileData.samples?.length || 0,
-      },
-    };
-  } finally {
-    await cleanupTempDir(tempDir);
-  }
-}
-
-/**
- * Analyze V8 CPU profile data
- */
-function analyzeV8Profile(profileData: {
-  nodes: Array<{
-    id: number;
-    callFrame: {
-      functionName: string;
-      scriptId: string;
-      url: string;
-      lineNumber: number;
-      columnNumber: number;
-    };
-    hitCount: number;
-    children?: number[];
-  }>;
-  samples?: number[];
-  timeDeltas?: number[];
-}): FunctionProfile[] {
-  const { nodes, samples = [], timeDeltas = [] } = profileData;
-
-  // Build node map
-  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-
-  // Count samples per node
-  const sampleCounts = new Map<number, number>();
-  samples.forEach((nodeId) => {
-    sampleCounts.set(nodeId, (sampleCounts.get(nodeId) || 0) + 1);
-  });
-
-  // Calculate total time
-  const totalDelta = timeDeltas.reduce((sum, d) => sum + d, 0);
-  const avgDelta = totalDelta / timeDeltas.length || 1;
-
-  // Build function profiles
-  const functions: FunctionProfile[] = [];
-
-  for (const [nodeId, count] of sampleCounts) {
-    const node = nodeMap.get(nodeId);
-    if (!node) continue;
-
-    const { callFrame } = node;
-
-    // Skip internal functions
-    if (
-      callFrame.functionName === '(root)' ||
-      callFrame.functionName === '(program)' ||
-      callFrame.functionName === '(idle)' ||
-      callFrame.functionName === '(garbage collector)'
-    ) {
-      continue;
-    }
-
-    const selfTime = count * avgDelta / 1000; // Convert to ms
-
-    functions.push({
-      name: callFrame.functionName || '(anonymous)',
-      file: callFrame.url || '(native)',
-      line: callFrame.lineNumber + 1, // 0-indexed to 1-indexed
-      selfTime: round(selfTime, 2),
-      totalTime: round(selfTime, 2), // Simplified - would need call tree for accurate total
-      calls: count,
-      percentage: 0, // Calculate after sorting
-    });
-  }
-
-  // Sort by self time and calculate percentages
-  functions.sort((a, b) => b.selfTime - a.selfTime);
-  const totalSelfTime = functions.reduce((sum, f) => sum + f.selfTime, 0);
-
-  for (const fn of functions) {
-    fn.percentage = round((fn.selfTime / totalSelfTime) * 100, 2);
-  }
-
-  return functions;
-}
-
-/**
- * Profile a specific function by running it multiple times
- */
-/** Maximum number of arguments allowed for profileFunction */
-const MAX_PROFILE_ARGS = 100;
-/** Maximum total serialized size of all arguments (bytes) */
-const MAX_PROFILE_ARGS_BYTES = 64 * 1024; // 64 KB
-
-export async function profileFunction(
-  modulePath: string,
-  functionName: string,
-  args: unknown[] = [],
-  iterations: number = 100
-): Promise<ProfileFunctionResult> {
-  validateScriptPath(modulePath);
-
-  // Validate functionName is a valid JS identifier (prevent code injection)
-  if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(functionName)) {
-    throw new Error(`Invalid function name: ${functionName}. Must be a valid JavaScript identifier.`);
-  }
-
-  // Enforce args size limits to prevent resource exhaustion
-  if (args.length > MAX_PROFILE_ARGS) {
-    throw new Error(`Too many arguments: ${args.length} (max ${MAX_PROFILE_ARGS})`);
-  }
-  const serializedArgs = JSON.stringify(args);
-  if (Buffer.byteLength(serializedArgs, 'utf-8') > MAX_PROFILE_ARGS_BYTES) {
-    throw new Error(
-      `Serialized arguments exceed size limit (max ${MAX_PROFILE_ARGS_BYTES} bytes)`
-    );
-  }
-
-  // Create a temporary script that imports and runs the function
-  const tempDir = await createTempDir('nodejs-func-profile');
-  const wrapperPath = join(tempDir, 'wrapper.mjs');
-  const configPath = join(tempDir, 'config.json');
-
-  // Pass configuration via a JSON file instead of string interpolation
-  await writeFile(configPath, JSON.stringify({
-    modulePath: modulePath.replace(/\\/g, '/'),
-    functionName,
-    args,
-    iterations,
-  }));
-
-  const wrapperCode = `
-import { performance } from 'perf_hooks';
-import { createRequire } from 'module';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import v8 from 'v8';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const config = JSON.parse(readFileSync(join(__dirname, 'config.json'), 'utf-8'));
-
-const require = createRequire(import.meta.url);
-const targetModule = await import(config.modulePath);
-const fn = targetModule[config.functionName] || targetModule.default?.[config.functionName];
-
-if (typeof fn !== 'function') {
-  console.error(JSON.stringify({ error: 'Function not found: ' + config.functionName }));
-  process.exit(1);
-}
-
-const args = config.args;
-const iterations = config.iterations;
-const timings = [];
-
-// Warmup
-for (let i = 0; i < Math.min(10, iterations); i++) {
-  await fn(...args);
-}
-
-// Force GC before measurement if available
-if (global.gc) global.gc();
-
-const heapBefore = v8.getHeapStatistics().used_heap_size;
-
-// Measure
-for (let i = 0; i < iterations; i++) {
-  const start = performance.now();
-  await fn(...args);
-  timings.push(performance.now() - start);
-}
-
-const heapAfter = v8.getHeapStatistics().used_heap_size;
-
-console.log(JSON.stringify({
-  timings,
-  heapBefore,
-  heapAfter
-}));
-`;
-
-  try {
-    await writeFile(wrapperPath, wrapperCode);
-
-    const result = await runCommand({ cmd: 'node', args: ['--expose-gc', wrapperPath] }, {
-      timeout: 120000, // 2 minutes max
-    });
-
-    if (result.exitCode !== 0) {
-      throw new Error(`Function profiling failed: ${result.stderr}`);
-    }
-
-    const data = JSON.parse(result.stdout);
-
-    if (data.error) {
-      throw new Error(data.error);
-    }
-
-    const stats = calculateStats(data.timings);
-
-    return {
-      functionName,
-      iterations,
-      timing: {
-        mean: stats.mean,
-        median: stats.median,
-        min: stats.min,
-        max: stats.max,
-        stdDev: stats.stdDev,
-      },
-      memory: {
-        heapUsedBefore: data.heapBefore,
-        heapUsedAfter: data.heapAfter,
-        delta: data.heapAfter - data.heapBefore,
-      },
-    };
-  } finally {
-    await cleanupTempDir(tempDir);
-  }
-}
-
-/**
- * Benchmark a Node.js script file.
- *
- * Security note: executing raw, attacker-controlled code strings is
- * fundamentally unsafe regardless of any pattern-based blocklist (easily
- * bypassed via Unicode escapes, string concatenation, prototype chains, etc.).
- * The API now accepts a `scriptPath` pointing to an existing file on disk
- * and runs it directly via `node`.
- *
- * Raw-code execution is available only when the environment variable
- * PERF_PROFILER_ALLOW_RAW_CODE=1 is explicitly set by the server operator.
- * This opt-in must never be enabled in production or multi-tenant deployments.
- */
-export async function benchmarkCode(
-  codeOrPath: string,
-  iterations: number = 1000,
-  warmup: number = 100,
-  /** When true, treat codeOrPath as a script path (default, safe). */
-  isScriptPath: boolean = true
-): Promise<BenchmarkResult> {
-  if (isScriptPath) {
-    // --- Safe path: benchmark an existing script file ---
-    validateScriptPath(codeOrPath);
-
-    const configPath = join(await createTempDir('nodejs-bench-cfg'), 'config.json');
-    await writeFile(configPath, JSON.stringify({ iterations, warmup }));
-
-    // The target script is responsible for exporting timing logic.
-    // We simply execute it and measure wall-clock time.
-    const startTime = Date.now();
-    const result = await runCommand({ cmd: 'node', args: [codeOrPath] }, {
-      timeout: 300000,
-    });
-    const elapsed = Date.now() - startTime;
-
-    if (result.exitCode !== 0) {
-      throw new Error(`Benchmark script failed: ${result.stderr.slice(0, 500)}`);
-    }
-
-    // If the script emits {"timings":[...]} JSON on stdout, parse it;
-    // otherwise report total elapsed time as a single measurement.
-    try {
-      const data = JSON.parse(result.stdout);
-      if (Array.isArray(data.timings)) {
-        const stats = calculateStats(data.timings);
-        return { iterations, warmupIterations: warmup, timing: stats };
-      }
-    } catch {
-      // Script does not emit structured timings — use elapsed time.
-    }
-    return {
-      iterations: 1,
-      warmupIterations: 0,
-      timing: calculateStats([elapsed]),
-    };
-  }
-
-  // --- Opt-in raw-code path (disabled by default) ---
-  const allowRaw = process.env['PERF_PROFILER_ALLOW_RAW_CODE'] === '1';
-  if (!allowRaw) {
-    throw new Error(
-      'Raw code execution is disabled. ' +
-      'Pass a scriptPath instead, or set PERF_PROFILER_ALLOW_RAW_CODE=1 ' +
-      'to opt-in (unsafe — only for trusted, single-user environments).'
-    );
-  }
-
-  // Warn loudly that this mode is insecure.
-  console.error(
-    '[SECURITY WARNING] PERF_PROFILER_ALLOW_RAW_CODE is enabled. ' +
-    'Raw code execution is unsafe in any multi-user or production environment.'
-  );
-
-  const tempDir = await createTempDir('nodejs-benchmark');
-  const benchmarkPath = join(tempDir, 'benchmark.mjs');
-  const benchmarkConfigPath = join(tempDir, 'bench-config.json');
-
-  await writeFile(benchmarkConfigPath, JSON.stringify({ iterations, warmup }));
-
-  // The raw code is written into a wrapper script.  The raw-code path still
-  // exists for backward compatibility when explicitly opted-in.
-  const benchmarkScript = `
-import { performance } from 'perf_hooks';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const config = JSON.parse(readFileSync(join(__dirname, 'bench-config.json'), 'utf-8'));
-
-const iterations = config.warmup + config.iterations;
-const warmupIterations = config.warmup;
-const timings = [];
-
-const benchmarkFn = async () => {
-  ${codeOrPath}
-};
-
-for (let i = 0; i < warmupIterations; i++) {
-  await benchmarkFn();
-}
-
-for (let i = 0; i < config.iterations; i++) {
-  const start = performance.now();
-  await benchmarkFn();
-  timings.push(performance.now() - start);
-}
-
-console.log(JSON.stringify({ timings }));
-`;
-
-  try {
-    await writeFile(benchmarkPath, benchmarkScript);
-
-    const result = await runCommand({ cmd: 'node', args: [benchmarkPath] }, {
-      timeout: 300000,
-    });
-
-    if (result.exitCode !== 0) {
-      throw new Error(`Benchmark failed: ${result.stderr.slice(0, 500)}`);
-    }
-
-    const data = JSON.parse(result.stdout);
-    const stats = calculateStats(data.timings);
-
-    return {
-      iterations,
-      warmupIterations: warmup,
-      timing: stats,
-    };
-  } finally {
-    await cleanupTempDir(tempDir);
-  }
-}
-
-/**
- * Analyze memory usage of a Node.js script
- */
-export async function analyzeMemory(
-  scriptPath: string,
-  snapshotInterval: number = 1000,
-  duration: number = 10
-): Promise<MemoryAnalysisResult> {
-  validateScriptPath(scriptPath);
-
-  const tempDir = await createTempDir('nodejs-memory');
-  const wrapperPath = join(tempDir, 'memory-wrapper.mjs');
-  const memConfigPath = join(tempDir, 'config.json');
-
-  // Pass configuration via JSON file instead of string interpolation
-  await writeFile(memConfigPath, JSON.stringify({
-    scriptPath: scriptPath.replace(/\\/g, '/'),
-    snapshotInterval,
-    durationMs: duration * 1000,
-  }));
-
-  const wrapperCode = `
-import v8 from 'v8';
-import { fork } from 'child_process';
-import { performance } from 'perf_hooks';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const config = JSON.parse(readFileSync(join(__dirname, 'config.json'), 'utf-8'));
-
-const snapshots = [];
-const startTime = performance.now();
-
-// Start the target script
-const child = fork(config.scriptPath, [], {
-  stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-  execArgv: ['--expose-gc']
-});
-
-// Collect memory snapshots
-const intervalId = setInterval(() => {
-  const heapStats = v8.getHeapStatistics();
-  snapshots.push({
-    timestamp: performance.now() - startTime,
-    heapUsed: heapStats.used_heap_size,
-    heapTotal: heapStats.total_heap_size,
-    external: heapStats.external_memory,
-  });
-}, config.snapshotInterval);
-
-// Stop after duration
-setTimeout(() => {
-  clearInterval(intervalId);
-  child.kill();
-  console.log(JSON.stringify({ snapshots }));
-  process.exit(0);
-}, config.durationMs);
-
-child.on('exit', () => {
-  clearInterval(intervalId);
-  console.log(JSON.stringify({ snapshots }));
-  process.exit(0);
-});
-`;
-
-  try {
-    await writeFile(wrapperPath, wrapperCode);
-
-    const result = await runCommand({ cmd: 'node', args: [wrapperPath] }, {
-      timeout: (duration + 5) * 1000,
-    });
-
-    const data = JSON.parse(result.stdout || '{"snapshots":[]}');
-    const snapshots: MemorySnapshot[] = data.snapshots;
-
-    if (snapshots.length === 0) {
-      throw new Error('No memory snapshots collected');
-    }
-
-    // Analyze snapshots
-    const heapValues = snapshots.map((s) => s.heapUsed);
-    const initialHeap = heapValues[0];
-    const finalHeap = heapValues[heapValues.length - 1];
-    const peakHeap = Math.max(...heapValues);
-    const avgHeap = heapValues.reduce((sum, v) => sum + v, 0) / heapValues.length;
-    const heapGrowth = finalHeap - initialHeap;
-
-    // Detect potential memory leaks
-    const growthRate = heapGrowth / (duration * 1000); // bytes per ms
-    const detected = growthRate > 1000; // More than 1KB/ms growth is suspicious
-
-    return {
-      runtime: 'nodejs',
-      snapshots,
-      summary: {
-        initialHeap,
-        finalHeap,
-        peakHeap,
-        avgHeap: round(avgHeap, 0),
-        heapGrowth,
-      },
-      potentialLeaks: {
-        detected,
-        reason: detected
-          ? `Heap grew by ${formatBytes(heapGrowth)} over ${duration}s (${formatBytes(growthRate * 1000)}/s)`
+      duration: opts.durationS,
+      ...report,
+      artifacts,
+      target: targetInfo(res, agentResult.reason === 'duration' ? 'duration' : 'exit'),
+      notes:
+        agentResult.reason === 'duration'
+          ? [`Target was still running after ${opts.durationS}s and was stopped; the profile covers that window.`]
           : undefined,
-        growthRate: detected ? round(growthRate * 1000, 2) : undefined,
-      },
     };
   } finally {
-    await cleanupTempDir(tempDir);
+    await cleanupTempDir(agentDir);
   }
 }
 
-/**
- * Measure startup time of a Node.js script
- */
-export async function measureStartup(
-  scriptPath: string,
-  runs: number = 5
-): Promise<StartupResult> {
+export interface MemoryOptions {
+  durationS: number;
+  intervalMs: number;
+  forceGc: boolean;
+  snapshots: boolean;
+  limit: number;
+  args?: string[];
+  signal?: AbortSignal;
+}
+
+export async function analyzeMemory(scriptPath: string, opts: MemoryOptions): Promise<MemoryAnalysisResult> {
   validateScriptPath(scriptPath);
-
-  const measurements: StartupMeasurement[] = [];
-
-  for (let i = 0; i < runs; i++) {
-    const start = Date.now();
-
-    // Run script and measure until it exits or times out
-    const result = await spawnProcess('node', [scriptPath], {
-      timeout: 30000, // 30s max for startup
+  checkDuration(opts.durationS);
+  const { runId, dir } = await createRunDir('node-memory');
+  const agentDir = await createTempDir('pp-node-agent');
+  const warmupMs = Math.min(Math.max(opts.intervalMs * 2, opts.durationS * 1000 * 0.2), 10_000);
+  try {
+    const agent = await writeNodeAgent(agentDir, {
+      outDir: dir,
+      durationMs: opts.durationS * 1000,
+      memory: { intervalMs: opts.intervalMs, forceGc: opts.forceGc, snapshots: opts.snapshots, warmupMs, samplingHeap: true },
     });
-
-    const totalTime = result.duration;
-
-    measurements.push({
-      run: i + 1,
-      totalTime,
+    const flags = ['--require', agent, ...(opts.forceGc ? ['--expose-gc'] : [])];
+    const spec = await buildRunSpec('nodejs', scriptPath, opts.args ?? [], flags);
+    const res = await spawnProcess(spec.cmd, spec.args, {
+      cwd: spec.cwd,
+      timeout: opts.durationS * 1000 + 120_000,
+      signal: opts.signal,
     });
+    const ar = await readAgentResult(dir);
+    if (!ar?.samples || ar.samples.length === 0) {
+      throw new Error(`Node target produced no memory samples (${failureDetail(res)})${ar?.error ? `; agent: ${ar.error}` : ''}`);
+    }
+    return await buildNodeMemoryResult({
+      runId, dir, subject: scriptPath, samples: ar.samples.map((s) => ({ ...s, t: s.t })),
+      warmupMs, forcedGc: opts.forceGc && ar.gcExposed === true,
+      snapshot1: ar.snapshot1 ? join(dir, ar.snapshot1) : undefined,
+      snapshot2: ar.snapshot2 ? join(dir, ar.snapshot2) : undefined,
+      heapProfile: ar.heapProfile ? join(dir, ar.heapProfile) : undefined,
+      limit: opts.limit,
+      measured: `target process (pid ${ar.pid}, measured in-process)`,
+      notes: [
+        ...(ar.reason === 'duration' ? [`Target was stopped after ${opts.durationS}s.`] : []),
+        ...(ar.error ? [`Agent warning: ${ar.error.split('\n')[0]}`] : []),
+        ...(opts.snapshots && !ar.snapshot1 ? [`Target exited before the ${Math.round(warmupMs)} ms warm-up, so no snapshot comparison.`] : []),
+      ],
+    });
+  } finally {
+    await cleanupTempDir(agentDir);
   }
-
-  const times = measurements.map((m) => m.totalTime);
-  const stats = calculateStats(times);
-
-  return {
-    runtime: 'nodejs',
-    runs: measurements,
-    summary: {
-      avgStartup: stats.mean,
-      minStartup: stats.min,
-      maxStartup: stats.max,
-      stdDev: stats.stdDev,
-      coldStart: measurements[0]?.totalTime || 0,
-      warmStart:
-        measurements.length > 1
-          ? round(
-              measurements.slice(1).reduce((sum, m) => sum + m.totalTime, 0) /
-                (measurements.length - 1),
-              2
-            )
-          : measurements[0]?.totalTime || 0,
-    },
-  };
 }
 
-/**
- * Find performance bottlenecks in a Node.js script
- */
-export async function findBottlenecks(
-  scriptPath: string,
-  threshold: number = 5
-): Promise<BottlenecksResult> {
-  // Profile the script first
-  const profileResult = await profileScript(scriptPath, [], 10);
-
-  // Filter functions above threshold
-  const hotspots: Bottleneck[] = profileResult.topFunctions
-    .filter((f) => f.percentage >= threshold)
-    .map((f) => ({
-      function: f.name,
-      file: f.file,
-      line: f.line,
-      selfTime: f.selfTime,
-      percentage: f.percentage,
-      category: categorizeBottleneck(f.name, f.file),
-    }));
-
-  // Generate recommendations
-  const recommendations = generateRecommendations(hotspots);
-
-  return {
-    runtime: 'nodejs',
-    hotspots,
-    recommendations,
-    summary: {
-      totalBottlenecks: hotspots.length,
-      topCategory: hotspots[0]?.category || 'none',
-      estimatedImpact:
-        hotspots.length > 0
-          ? `${round(hotspots.reduce((sum, h) => sum + h.percentage, 0), 1)}% of execution time`
-          : 'No significant bottlenecks found',
-    },
-  };
-}
-
-/**
- * Categorize a bottleneck based on function name and file
- */
-function categorizeBottleneck(
-  functionName: string,
-  file: string
-): 'cpu' | 'memory' | 'io' | 'gc' {
-  const lowerName = functionName.toLowerCase();
-  const lowerFile = file.toLowerCase();
-
-  if (
-    lowerName.includes('gc') ||
-    lowerName.includes('garbage') ||
-    lowerName.includes('scavenge')
-  ) {
-    return 'gc';
+/** Shared by the script mode and the inspector-attach mode. */
+export async function buildNodeMemoryResult(input: {
+  runId: string;
+  dir: string;
+  subject: string;
+  samples: Array<{ t: number; heapUsed: number; heapTotal: number; rss?: number; external?: number }>;
+  warmupMs: number;
+  forcedGc: boolean;
+  snapshot1?: string;
+  snapshot2?: string;
+  heapProfile?: string;
+  limit: number;
+  measured: string;
+  notes: string[];
+}): Promise<MemoryAnalysisResult> {
+  const { samples } = input;
+  const notes = [...input.notes];
+  const artifacts: Record<string, string> = {};
+  let diff: ReturnType<typeof diffSnapshots> | undefined;
+  if (input.snapshot1 && input.snapshot2) {
+    artifacts.snapshotBefore = input.snapshot1;
+    artifacts.snapshotAfter = input.snapshot2;
+    try {
+      diff = diffSnapshots(await parseSnapshotFile(input.snapshot1), await parseSnapshotFile(input.snapshot2), input.limit);
+    } catch (e) {
+      notes.push(`Snapshot comparison skipped: ${e instanceof Error ? e.message : e}`);
+    }
+  } else if (input.snapshot2) {
+    artifacts.snapshot = input.snapshot2;
   }
-
-  if (
-    lowerName.includes('read') ||
-    lowerName.includes('write') ||
-    lowerName.includes('fetch') ||
-    lowerName.includes('request') ||
-    lowerFile.includes('fs') ||
-    lowerFile.includes('net') ||
-    lowerFile.includes('http')
-  ) {
-    return 'io';
-  }
-
-  if (
-    lowerName.includes('alloc') ||
-    lowerName.includes('buffer') ||
-    lowerName.includes('array')
-  ) {
-    return 'memory';
-  }
-
-  return 'cpu';
-}
-
-/**
- * Generate optimization recommendations based on bottlenecks
- */
-function generateRecommendations(hotspots: Bottleneck[]): Recommendation[] {
-  const recommendations: Recommendation[] = [];
-
-  for (const hotspot of hotspots) {
-    switch (hotspot.category) {
-      case 'gc':
-        recommendations.push({
-          issue: `High GC time in ${hotspot.function} (${hotspot.percentage}%)`,
-          suggestion:
-            'Consider reducing object allocations, using object pools, or increasing heap size with --max-old-space-size',
-          priority: hotspot.percentage > 20 ? 'high' : 'medium',
-          relatedFunction: hotspot.function,
-        });
-        break;
-
-      case 'io':
-        recommendations.push({
-          issue: `I/O bottleneck in ${hotspot.function} (${hotspot.percentage}%)`,
-          suggestion:
-            'Consider using streaming, caching, connection pooling, or batching I/O operations',
-          priority: hotspot.percentage > 30 ? 'high' : 'medium',
-          relatedFunction: hotspot.function,
-        });
-        break;
-
-      case 'memory':
-        recommendations.push({
-          issue: `Memory-intensive operation in ${hotspot.function} (${hotspot.percentage}%)`,
-          suggestion:
-            'Consider using typed arrays, reducing allocations, or processing data in chunks',
-          priority: hotspot.percentage > 25 ? 'high' : 'medium',
-          relatedFunction: hotspot.function,
-        });
-        break;
-
-      case 'cpu':
-        if (hotspot.percentage > 10) {
-          recommendations.push({
-            issue: `CPU-intensive operation in ${hotspot.function} (${hotspot.percentage}%)`,
-            suggestion:
-              'Consider algorithm optimization, caching results, or offloading to worker threads',
-            priority: hotspot.percentage > 30 ? 'high' : 'medium',
-            relatedFunction: hotspot.function,
-          });
-        }
-        break;
+  let allocationSites: ReturnType<typeof summarizeHeapProfile> | undefined;
+  if (input.heapProfile) {
+    artifacts.heapProfile = input.heapProfile;
+    try {
+      allocationSites = summarizeHeapProfile(JSON.parse(await readFile(input.heapProfile, 'utf-8')), Math.min(input.limit, 30));
+    } catch (e) {
+      notes.push(`Sampling heap profile unreadable: ${e instanceof Error ? e.message : e}`);
     }
   }
+  const heap = samples.map((s) => s.heapUsed);
+  const leak = assessLeak(
+    samples.map((s) => ({ t: s.t, used: s.heapUsed })),
+    { warmupMs: input.warmupMs, forcedGc: input.forcedGc, confirmBytes: diff?.netSizeDelta }
+  );
+  const maxSnapshots = 200;
+  const step = Math.ceil(samples.length / maxSnapshots);
+  const series = samples
+    .filter((_, i) => i % step === 0 || i === samples.length - 1)
+    .map((s) => ({ timestamp: Math.round(s.t), heapUsed: s.heapUsed, heapTotal: s.heapTotal, rss: s.rss, external: s.external }));
+  const result: MemoryAnalysisResult = {
+    runId: input.runId,
+    runtime: 'nodejs',
+    target: input.subject,
+    snapshots: series,
+    snapshotsTruncated: step > 1,
+    summary: {
+      initialHeap: heap[0],
+      finalHeap: heap[heap.length - 1],
+      peakHeap: Math.max(...heap),
+      avgHeap: round(mean(heap), 0),
+      heapGrowth: heap[heap.length - 1] - heap[0],
+      measuredProcess: input.measured,
+      forcedGcBeforeSamples: input.forcedGc,
+    },
+    potentialLeaks: { ...leak, detected: leak.verdict === 'likely-leak' },
+    ...(diff ? { diff } : {}),
+    ...(allocationSites ? { allocationSites: { kind: 'live sampled allocations by site', ...allocationSites } } : {}),
+    artifacts,
+    ...(notes.length ? { notes } : {}),
+  };
+  await recordRun(input.dir, {
+    runId: input.runId,
+    kind: 'memory',
+    subject: input.subject,
+    metrics: { heap_final: result.summary.finalHeap, heap_peak: result.summary.peakHeap, heap_growth_rate: leak.growthRate },
+  });
+  return result;
+}
 
-  return recommendations;
+// ---------------------------------------------------------------------------
+// Back-compat entry points (the benchmark implementation lives in bench/)
+// ---------------------------------------------------------------------------
+
+/** @deprecated use bench/benchmark.ts `benchmark('nodejs', …)` */
+export function benchmarkCode(codeOrPath: string, iterations = 1000, warmup = 100, isScriptPath = true) {
+  return benchmark('nodejs', isScriptPath ? { scriptPath: codeOrPath } : { code: codeOrPath }, { iterations, warmup });
+}
+
+/** @deprecated use bench/benchmark.ts `profileFunction('nodejs', …)` */
+export function profileFunction(modulePath: string, functionName: string, args: unknown[] = [], iterations = 100) {
+  return profileFunctionImpl('nodejs', modulePath, functionName, args, iterations);
 }

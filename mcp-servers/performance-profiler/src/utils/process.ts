@@ -1,187 +1,395 @@
 // SPDX-License-Identifier: MIT
 /**
- * Process execution utilities for running external commands
+ * Process execution utilities.
+ *
+ * Invariants (all enforced here, so no caller can get them wrong):
+ *  - `shell: false` always. User-supplied arguments never pass through
+ *    cmd.exe or /bin/sh. The old `spawnProcess` used `shell: true` on win32,
+ *    which both allowed injection through script arguments and made the
+ *    timeout kill the shell instead of the target.
+ *  - Timeouts kill the whole process tree (`taskkill /T /F` on Windows, the
+ *    process group on POSIX), not just the direct child.
+ *  - Captured output is capped; the result says when it was truncated.
  */
 
 import { execFile, spawn } from 'child_process';
-import { promisify } from 'util';
-import { existsSync, realpathSync } from 'fs';
-import { extname, isAbsolute } from 'path';
+import { closeSync, existsSync, openSync, readdirSync, realpathSync, statSync } from 'fs';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { basename, delimiter, dirname, extname, isAbsolute, join } from 'path';
+import { pythonOverride } from './env.js';
 import type { ProcessResult, Runtime } from '../types.js';
 
-const execFileAsync = promisify(execFile);
+const IS_WIN = process.platform === 'win32';
 
-/**
- * Execute a command and return stdout, stderr, and exit code.
- *
- * Preferred form: { cmd, args } — uses execFile (no shell), safe for any input.
- *
- * Legacy string form: the command string is split on whitespace and run via
- * execFile (no shell).  Only safe when no user-controlled data appears in the
- * command string.  Commands that require shell pipelines (|, >, 2>/dev/null)
- * must pass shell:true in options and take responsibility for input sanitisation.
- *
- * Security: never pass user-supplied strings through the legacy string path
- * without shell:false (the default).
- */
-export async function runCommand(
-  command: string | { cmd: string; args: string[] },
-  options: {
-    timeout?: number;
-    cwd?: string;
-    env?: Record<string, string>;
-    /** Allow shell pipelines (|, >, etc.).  Only set for trusted internal commands. */
-    shell?: boolean;
-  } = {}
-): Promise<ProcessResult> {
-  const startTime = Date.now();
+/** Default per-stream capture cap. */
+export const DEFAULT_MAX_OUTPUT = 1024 * 1024;
 
-  // Shell pipeline path: trusted internal commands that need shell features
-  if (options.shell === true && typeof command === 'string') {
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
-    try {
-      const { stdout, stderr } = await execAsync(command, {
-        maxBuffer: 50 * 1024 * 1024,
-        timeout: options.timeout || 60000,
-        cwd: options.cwd,
-        env: { ...process.env, ...options.env },
-      });
-      return { stdout, stderr, exitCode: 0, duration: Date.now() - startTime };
-    } catch (error: unknown) {
-      const duration = Date.now() - startTime;
-      if (error && typeof error === 'object') {
-        const e = error as { stdout?: string; stderr?: string; code?: number; message?: string };
-        return {
-          stdout: e.stdout || '',
-          stderr: e.stderr || e.message || 'Command failed',
-          exitCode: e.code || 1,
-          duration,
-        };
-      }
-      return { stdout: '', stderr: String(error), exitCode: 1, duration };
-    }
-  }
+export interface SpawnOptions {
+  /** Hard wall-clock limit in ms; the process tree is killed when it elapses. */
+  timeout?: number;
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  /** Per-stream capture cap in bytes (default 1 MiB). */
+  maxOutputBytes?: number;
+  /**
+   * Polled every `pollMs`; when it resolves true the process tree is killed and
+   * the result is marked `stoppedByCondition` (not an error).
+   */
+  stopWhen?: () => boolean | Promise<boolean>;
+  pollMs?: number;
+  /** Called with each complete stdout/stderr line (for readiness detection). */
+  onLine?: (line: string, stream: 'stdout' | 'stderr') => void;
+  /** Called once the child has a PID. */
+  onSpawn?: (pid: number) => void;
+  /** Aborting kills the tree. */
+  signal?: AbortSignal;
+  /** Write this string to stdin and close it. */
+  input?: string;
+  /** Stream stdout to this file instead of capturing it (for very large tool output). */
+  stdoutFile?: string;
+}
 
-  // Resolve cmd + args for execFile (no shell)
-  let cmd: string;
-  let args: string[];
-  if (typeof command === 'object' && 'cmd' in command) {
-    cmd = command.cmd;
-    args = command.args;
-  } else {
-    // Legacy string path: split on whitespace.  Only safe for trusted
-    // internal commands where no user data reaches the argument list.
-    const parts = (command as string).split(/\s+/);
-    cmd = parts[0];
-    args = parts.slice(1);
-  }
+export interface SpawnResult extends ProcessResult {
+  timedOut: boolean;
+  stoppedByCondition: boolean;
+  aborted: boolean;
+  truncated: boolean;
+  /** Set when the executable could not be started at all (e.g. ENOENT). */
+  spawnError?: string;
+  pid?: number;
+}
 
-  try {
-    const { stdout, stderr } = await execFileAsync(cmd, args, {
-      maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large profiles
-      timeout: options.timeout || 60000, // 60s default
-      cwd: options.cwd,
-      env: { ...process.env, ...options.env },
+/** Kill a process and all its descendants. Never throws. */
+export async function killTree(pid: number): Promise<void> {
+  if (!pid) return;
+  if (IS_WIN) {
+    await new Promise<void>((resolve) => {
+      execFile('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true }, () => resolve());
     });
-
-    return {
-      stdout,
-      stderr,
-      exitCode: 0,
-      duration: Date.now() - startTime,
-    };
-  } catch (error: unknown) {
-    const duration = Date.now() - startTime;
-    if (error && typeof error === 'object') {
-      const execError = error as {
-        stdout?: string;
-        stderr?: string;
-        code?: number;
-        message?: string;
-      };
-      return {
-        stdout: execError.stdout || '',
-        stderr: execError.stderr || execError.message || 'Command failed',
-        exitCode: execError.code || 1,
-        duration,
-      };
+    return;
+  }
+  try {
+    process.kill(-pid, 'SIGKILL');
+  } catch {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // already gone
     }
-    return {
-      stdout: '',
-      stderr: String(error),
-      exitCode: 1,
-      duration,
-    };
+  }
+}
+
+/** Is a PID alive? Works on every platform (signal 0 only checks existence). */
+export function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+class CappedBuffer {
+  private chunks: string[] = [];
+  private size = 0;
+  truncated = false;
+  private partial = '';
+  constructor(private readonly cap: number, private readonly onLine?: (l: string) => void) {}
+  push(data: Buffer | string): void {
+    const text = data.toString();
+    if (this.onLine) {
+      const combined = this.partial + text;
+      const lines = combined.split(/\r?\n/);
+      this.partial = lines.pop() ?? '';
+      // Guard against a pathological line with no newline growing unbounded.
+      if (this.partial.length > 64 * 1024) this.partial = this.partial.slice(-64 * 1024);
+      for (const l of lines) this.onLine(l);
+    }
+    if (this.size >= this.cap) {
+      this.truncated = true;
+      return;
+    }
+    const room = this.cap - this.size;
+    if (text.length > room) {
+      this.chunks.push(text.slice(0, room));
+      this.size = this.cap;
+      this.truncated = true;
+    } else {
+      this.chunks.push(text);
+      this.size += text.length;
+    }
+  }
+  flushLine(): void {
+    if (this.onLine && this.partial) this.onLine(this.partial);
+    this.partial = '';
+  }
+  toString(): string {
+    return this.chunks.join('');
   }
 }
 
 /**
- * Spawn a process and capture output with timeout
+ * Spawn a process (no shell), capture capped output, enforce a timeout by
+ * killing the process tree. Never rejects: failures are reported in the result.
  */
-export async function spawnProcess(
-  command: string,
-  args: string[],
-  options: {
-    timeout?: number;
-    cwd?: string;
-    env?: Record<string, string>;
-  } = {}
-): Promise<ProcessResult> {
+export function spawnProcess(command: string, args: string[], options: SpawnOptions = {}): Promise<SpawnResult> {
   return new Promise((resolve) => {
     const startTime = Date.now();
-    let stdout = '';
-    let stderr = '';
-    let killed = false;
+    const cap = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT;
+    const out = new CappedBuffer(cap, options.onLine ? (l) => options.onLine!(l, 'stdout') : undefined);
+    const err = new CappedBuffer(cap, options.onLine ? (l) => options.onLine!(l, 'stderr') : undefined);
+    let timedOut = false;
+    let stoppedByCondition = false;
+    let aborted = false;
+    let settled = false;
+    let pollTimer: NodeJS.Timeout | undefined;
+    let timeoutTimer: NodeJS.Timeout | undefined;
 
-    const proc = spawn(command, args, {
-      cwd: options.cwd,
-      env: { ...process.env, ...options.env },
-      shell: process.platform === 'win32',
-    });
-
-    const timeout = setTimeout(() => {
-      killed = true;
-      proc.kill('SIGTERM');
-    }, options.timeout || 60000);
-
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on('close', (code) => {
-      clearTimeout(timeout);
-      resolve({
-        stdout,
-        stderr: killed ? stderr + '\nProcess killed due to timeout' : stderr,
-        exitCode: code ?? 1,
-        duration: Date.now() - startTime,
+    let proc: ReturnType<typeof spawn>;
+    let outFd: number | undefined;
+    try {
+      if (options.stdoutFile) outFd = openSync(options.stdoutFile, 'w');
+      proc = spawn(command, args, {
+        cwd: options.cwd,
+        env: { ...process.env, ...options.env } as NodeJS.ProcessEnv,
+        shell: false,
+        windowsHide: true,
+        // A new process group on POSIX so the whole tree can be signalled.
+        detached: !IS_WIN,
+        stdio: ['pipe', outFd ?? 'pipe', 'pipe'],
       });
-    });
-
-    proc.on('error', (err) => {
-      clearTimeout(timeout);
+    } catch (e) {
+      if (outFd !== undefined) closeSync(outFd);
       resolve({
-        stdout,
-        stderr: err.message,
-        exitCode: 1,
-        duration: Date.now() - startTime,
+        stdout: '', stderr: '', exitCode: -1, duration: 0, timedOut: false, stoppedByCondition: false,
+        aborted: false, truncated: false, spawnError: e instanceof Error ? e.message : String(e),
       });
-    });
+      return;
+    }
+
+    const finish = (exitCode: number, spawnError?: string) => {
+      if (settled) return;
+      settled = true;
+      if (outFd !== undefined) {
+        try {
+          closeSync(outFd);
+        } catch {
+          // already closed
+        }
+      }
+      if (pollTimer) clearInterval(pollTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      options.signal?.removeEventListener('abort', onAbort);
+      out.flushLine();
+      err.flushLine();
+      resolve({
+        stdout: out.toString(),
+        stderr: err.toString(),
+        exitCode,
+        duration: Date.now() - startTime,
+        timedOut,
+        stoppedByCondition,
+        aborted,
+        truncated: out.truncated || err.truncated,
+        spawnError,
+        pid: proc.pid,
+      });
+    };
+
+    const stop = () => {
+      if (proc.pid) void killTree(proc.pid);
+    };
+    const onAbort = () => {
+      aborted = true;
+      stop();
+    };
+
+    if (options.signal) {
+      if (options.signal.aborted) onAbort();
+      else options.signal.addEventListener('abort', onAbort, { once: true });
+    }
+
+    if (proc.pid && options.onSpawn) options.onSpawn(proc.pid);
+
+    proc.stdout?.on('data', (d) => out.push(d));
+    proc.stderr?.on('data', (d) => err.push(d));
+    proc.stdin?.on('error', () => {});
+    if (options.input !== undefined) proc.stdin?.end(options.input);
+    else proc.stdin?.end();
+
+    timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      stop();
+    }, options.timeout ?? 60_000);
+
+    if (options.stopWhen) {
+      let busy = false;
+      pollTimer = setInterval(async () => {
+        if (busy || settled) return;
+        busy = true;
+        try {
+          if (await options.stopWhen!()) {
+            stoppedByCondition = true;
+            if (pollTimer) clearInterval(pollTimer);
+            stop();
+          }
+        } catch {
+          // a failing predicate never stops the process
+        } finally {
+          busy = false;
+        }
+      }, options.pollMs ?? 250);
+    }
+
+    proc.on('error', (e) => finish(-1, e.message));
+    proc.on('close', (code, signal) => finish(code ?? (signal ? 128 : 1)));
   });
 }
 
 /**
- * Detect runtime from file extension
+ * Run a short command to completion. Accepts `{cmd, args}` (preferred) or a
+ * plain string that is split on whitespace — never a shell string: there is no
+ * shell path any more, so `|`, `>` and `2>/dev/null` are passed literally.
  */
-export function detectRuntime(filePath: string): Runtime {
-  const ext = extname(filePath).toLowerCase();
+export async function runCommand(
+  command: string | { cmd: string; args: string[] },
+  options: SpawnOptions = {}
+): Promise<SpawnResult> {
+  let cmd: string;
+  let args: string[];
+  if (typeof command === 'string') {
+    const parts = command.trim().split(/\s+/);
+    cmd = parts[0];
+    args = parts.slice(1);
+  } else {
+    cmd = command.cmd;
+    args = command.args;
+  }
+  const result = await spawnProcess(cmd, args, { maxOutputBytes: 50 * 1024 * 1024, ...options });
+  if (result.spawnError && !result.stderr) result.stderr = result.spawnError;
+  return result;
+}
 
+// ---------------------------------------------------------------------------
+// Executable discovery
+// ---------------------------------------------------------------------------
+
+/** Locate an executable on PATH (honours PATHEXT on Windows). */
+export function findOnPath(name: string): string | null {
+  if (isAbsolute(name)) return existsSync(name) ? name : null;
+  const dirs = (process.env.PATH ?? process.env.Path ?? '').split(delimiter).filter(Boolean);
+  const exts = IS_WIN
+    ? ['', ...(process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';').map((e) => e.toLowerCase())]
+    : [''];
+  for (const dir of dirs) {
+    for (const ext of exts) {
+      const candidate = join(dir, name + ext);
+      try {
+        if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+      } catch {
+        // unreadable entry
+      }
+    }
+  }
+  return null;
+}
+
+/** True when `cmd` exists on PATH and `cmd args` exits 0. Cached per process. */
+const availabilityCache = new Map<string, Promise<boolean>>();
+export function commandAvailable(cmd: string, args: string[] = ['--version']): Promise<boolean> {
+  const key = `${cmd}\0${args.join('\0')}`;
+  let p = availabilityCache.get(key);
+  if (!p) {
+    p = runCommand({ cmd, args }, { timeout: 15_000 }).then((r) => r.exitCode === 0 && !r.spawnError);
+    availabilityCache.set(key, p);
+  }
+  return p;
+}
+
+/** For tests. */
+export function clearAvailabilityCache(): void {
+  availabilityCache.clear();
+  pythonCache = undefined;
+}
+
+export interface Interpreter {
+  cmd: string;
+  prefixArgs: string[];
+  version: string;
+}
+
+let pythonCache: Promise<Interpreter | null> | undefined;
+
+/**
+ * Resolve a Python 3 interpreter. `python3` is not a given on Windows (the
+ * Store alias exits non-zero), so try the platform's usual names in order,
+ * honouring PERF_PROFILER_PYTHON first.
+ */
+export function resolvePython(): Promise<Interpreter | null> {
+  if (pythonCache) return pythonCache;
+  pythonCache = (async () => {
+    const override = pythonOverride();
+    const candidates: Array<{ cmd: string; prefixArgs: string[] }> = override
+      ? [{ cmd: override, prefixArgs: [] }]
+      : IS_WIN
+        ? [
+            { cmd: 'python', prefixArgs: [] },
+            { cmd: 'py', prefixArgs: ['-3'] },
+            { cmd: 'python3', prefixArgs: [] },
+          ]
+        : [
+            { cmd: 'python3', prefixArgs: [] },
+            { cmd: 'python', prefixArgs: [] },
+          ];
+    for (const c of candidates) {
+      const r = await runCommand({ cmd: c.cmd, args: [...c.prefixArgs, '--version'] }, { timeout: 15_000 });
+      const text = `${r.stdout} ${r.stderr}`;
+      const m = text.match(/Python (3\.\d+(?:\.\d+)?)/);
+      if (r.exitCode === 0 && m) return { ...c, version: m[1] };
+    }
+    return null;
+  })();
+  return pythonCache;
+}
+
+export async function requirePython(): Promise<Interpreter> {
+  const py = await resolvePython();
+  if (!py) {
+    throw new Error(
+      'No Python 3 interpreter found (tried ' +
+        (IS_WIN ? 'python, py -3, python3' : 'python3, python') +
+        '). Install Python 3 or set PERF_PROFILER_PYTHON to the interpreter path.'
+    );
+  }
+  return py;
+}
+
+// ---------------------------------------------------------------------------
+// Runtime detection and command construction
+// ---------------------------------------------------------------------------
+
+/** Detect runtime from a file extension or a directory's marker files. */
+export function detectRuntime(filePath: string): Runtime {
+  let isDir = false;
+  try {
+    isDir = statSync(filePath).isDirectory();
+  } catch {
+    // not on disk: fall back to the extension
+  }
+  if (isDir) {
+    if (existsSync(join(filePath, 'go.mod'))) return 'go';
+    if (existsSync(join(filePath, 'package.json'))) return 'nodejs';
+    try {
+      const entries = readdirSync(filePath);
+      if (entries.some((e) => e.endsWith('.go'))) return 'go';
+      if (entries.some((e) => /\.(cs|fs)proj$/.test(e))) return 'dotnet';
+    } catch {
+      // ignore
+    }
+    throw new Error(`Cannot detect the runtime of directory ${filePath}; pass "runtime" explicitly.`);
+  }
+  const ext = extname(filePath).toLowerCase();
   switch (ext) {
     case '.js':
     case '.mjs':
@@ -197,98 +405,124 @@ export function detectRuntime(filePath: string): Runtime {
     case '.py':
     case '.pyw':
       return 'python';
+    case '.go':
+      return 'go';
+    case '.dll':
+    case '.csproj':
+    case '.fsproj':
+      return 'dotnet';
     default:
-      // Try to detect from shebang or default to nodejs
-      return 'nodejs';
+      throw new Error(`Cannot detect the runtime of ${basename(filePath)} from its extension; pass "runtime" explicitly.`);
   }
 }
 
-/**
- * Check if a runtime is available on the system
- */
+/** Probe that a runtime's launcher exists. */
 export async function checkRuntimeAvailable(runtime: Runtime): Promise<boolean> {
-  // Use structured argv to avoid shell invocation
-  const commands: Record<Runtime, { cmd: string; args: string[] }> = {
-    nodejs: { cmd: 'node', args: ['--version'] },
-    java:   { cmd: 'java', args: ['-version'] },
-    python: { cmd: 'python3', args: ['--version'] },
-  };
-
-  const result = await runCommand(commands[runtime], { timeout: 5000 });
-  return result.exitCode === 0;
-}
-
-/**
- * Get the command to run a script for a given runtime
- */
-export function getRunCommand(runtime: Runtime, scriptPath: string, args: string[] = []): {
-  command: string;
-  args: string[];
-} {
-  const argsStr = args.length > 0 ? args : [];
-
   switch (runtime) {
     case 'nodejs':
-      if (scriptPath.endsWith('.ts')) {
-        return { command: 'npx', args: ['tsx', scriptPath, ...argsStr] };
-      }
-      return { command: 'node', args: [scriptPath, ...argsStr] };
-
+      return true; // we are running on Node
     case 'java':
-      if (scriptPath.endsWith('.jar')) {
-        return { command: 'java', args: ['-jar', scriptPath, ...argsStr] };
-      }
-      if (scriptPath.endsWith('.java')) {
-        // Java 11+ can run .java files directly
-        return { command: 'java', args: [scriptPath, ...argsStr] };
-      }
-      // Assume class file
-      return { command: 'java', args: [scriptPath.replace('.class', ''), ...argsStr] };
-
+      return commandAvailable('java', ['-version']);
     case 'python':
-      return { command: 'python3', args: [scriptPath, ...argsStr] };
-
+      return (await resolvePython()) !== null;
+    case 'go':
+      return commandAvailable('go', ['version']);
+    case 'dotnet':
+      return commandAvailable('dotnet', ['--version']);
     default:
-      return { command: 'node', args: [scriptPath, ...argsStr] };
+      return false;
   }
 }
 
+/** Walk up from `start` looking for node_modules/<pkg>/package.json. */
+export function findPackageUp(start: string, pkg: string): string | null {
+  let dir = start;
+  for (;;) {
+    const candidate = join(dir, 'node_modules', pkg, 'package.json');
+    if (existsSync(candidate)) return dirname(candidate);
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+/** Node flags needed to execute a TypeScript entry point, or [] for JS. */
+export function nodeTsFlags(scriptPath: string): string[] {
+  if (!/\.(ts|mts|cts)$/i.test(scriptPath)) return [];
+  if (findPackageUp(dirname(scriptPath), 'tsx')) return ['--import', 'tsx'];
+  const [major, minor] = process.versions.node.split('.').map(Number);
+  if (major > 22 || (major === 22 && minor >= 6)) return ['--experimental-strip-types'];
+  throw new Error(
+    'Running a .ts entry needs `tsx` installed in the project (npm i -D tsx) or Node >= 22.6 for --experimental-strip-types.'
+  );
+}
+
+export interface RunSpec {
+  cmd: string;
+  args: string[];
+  cwd: string;
+}
+
 /**
- * Validate that a script file path is safe and the file exists.
- *
- * Hardened checks:
- *  - Must be an absolute path (no relative traversal)
- *  - Must not contain null bytes (guard against CVE-style tricks)
- *  - File must exist and be accessible (realpathSync succeeds)
- *
- * Note on symlink confinement: this function does NOT enforce confinement
- * to a particular allowed root directory.  The tool is designed for
- * single-user local profiling where the operator controls what files are
- * passed.  realpathSync is called only to verify accessibility; no
- * symlink-escape rejection is performed (a hollow check was previously
- * present and has been removed to avoid false security claims).
+ * Build the argv that runs `scriptPath` for `runtime`, with extra runtime
+ * flags inserted before the script (e.g. `--require agent.cjs`, `-XX:...`).
+ */
+export async function buildRunSpec(
+  runtime: Runtime,
+  scriptPath: string,
+  args: string[] = [],
+  runtimeFlags: string[] = []
+): Promise<RunSpec> {
+  const cwd = dirname(scriptPath);
+  switch (runtime) {
+    case 'nodejs':
+      return { cmd: process.execPath, args: [...runtimeFlags, ...nodeTsFlags(scriptPath), scriptPath, ...args], cwd };
+    case 'python': {
+      const py = await requirePython();
+      return { cmd: py.cmd, args: [...py.prefixArgs, ...runtimeFlags, scriptPath, ...args], cwd };
+    }
+    case 'java': {
+      if (scriptPath.endsWith('.jar')) return { cmd: 'java', args: [...runtimeFlags, '-jar', scriptPath, ...args], cwd };
+      if (scriptPath.endsWith('.class')) {
+        return { cmd: 'java', args: [...runtimeFlags, '-cp', cwd, basename(scriptPath, '.class'), ...args], cwd };
+      }
+      return { cmd: 'java', args: [...runtimeFlags, scriptPath, ...args], cwd };
+    }
+    case 'dotnet': {
+      if (scriptPath.endsWith('.dll')) return { cmd: 'dotnet', args: [scriptPath, ...args], cwd };
+      return { cmd: 'dotnet', args: ['run', '-c', 'Release', '--project', scriptPath, '--', ...args], cwd };
+    }
+    case 'go': {
+      const dir = statSync(scriptPath).isDirectory() ? scriptPath : dirname(scriptPath);
+      return { cmd: 'go', args: ['run', '.', ...args], cwd: dir };
+    }
+    default:
+      throw new Error(`Unsupported runtime: ${runtime}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Path validation and temp dirs
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate that a script path is absolute, has no NUL byte, and exists.
+ * No root confinement: this is a single-user local profiling tool and the
+ * operator chooses what to run.
  */
 export function validateScriptPath(scriptPath: string): void {
   if (!scriptPath || typeof scriptPath !== 'string') {
     throw new Error('Script path must be a non-empty string');
   }
-
-  // Reject null bytes
   if (scriptPath.includes('\0')) {
     throw new Error('Script path must not contain null bytes');
   }
-
-  // Require absolute path
   if (!isAbsolute(scriptPath)) {
     throw new Error(`Script path must be absolute, got: "${scriptPath}"`);
   }
-
-  // File must exist
   if (!existsSync(scriptPath)) {
     throw new Error(`Script not found: ${scriptPath}`);
   }
-
-  // Verify the file is accessible (resolves without error)
   try {
     realpathSync(scriptPath);
   } catch {
@@ -296,24 +530,19 @@ export function validateScriptPath(scriptPath: string): void {
   }
 }
 
-/**
- * Create a temporary directory for profiling output
- */
 export async function createTempDir(prefix: string): Promise<string> {
-  const { mkdtemp } = await import('fs/promises');
-  const { tmpdir } = await import('os');
-  const { join } = await import('path');
   return mkdtemp(join(tmpdir(), `${prefix}-`));
 }
 
-/**
- * Clean up temporary directory
- */
 export async function cleanupTempDir(dirPath: string): Promise<void> {
-  const { rm } = await import('fs/promises');
   try {
     await rm(dirPath, { recursive: true, force: true });
   } catch {
-    // Ignore cleanup errors
+    // best effort
   }
+}
+
+/** Last `n` chars of a (possibly long) output, for error messages. */
+export function tail(text: string, n = 2000): string {
+  return text.length > n ? '…' + text.slice(-n) : text;
 }
