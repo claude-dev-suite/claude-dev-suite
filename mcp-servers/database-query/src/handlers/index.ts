@@ -1,57 +1,46 @@
 // SPDX-License-Identifier: MIT
 /**
- * Database Query handlers registry
+ * Handler registry: tool name -> handler.
  */
 
-// Type exports
-export type { Handler, HandlerResult } from "./types.js";
-export { jsonResponse, errorResponse, formatBytes } from "./types.js";
-
-// Schema exports
-export {
-  QuerySchema,
-  SchemaIntrospectionSchema,
-  TableInfoSchema,
-  ExplainQuerySchema,
-  CompareSchemaSchema,
-  FindSlowQueriesSchema,
-  GenerateMigrationSchema,
-  BackupRestoreSchema,
-} from "./types.js";
-
-// DB utilities
-export { getPool, closePool, getConnectionString, parseConnectionEnv } from "./db.js";
-
-// Handler imports
 import type { Handler } from "./types.js";
 import { handleExecuteQuery } from "./execute-query.js";
-import { handleListTables, handleDescribeTable, handleGetSchema } from "./schema.js";
+import { handleExecuteWrite } from "./execute-write.js";
+import {
+  handleDescribeTable,
+  handleGetSchema,
+  handleListConnections,
+  handleListObjects,
+  handleListSchemas,
+  handleListTables,
+  handlePreviewTable,
+  handleSearchObjects,
+} from "./schema.js";
 import { handleExplainQuery } from "./explain-query.js";
-import { handleCompareSchemas } from "./compare-schemas.js";
-import { handleFindSlowQueries } from "./find-slow-queries.js";
-import { handleGenerateMigration } from "./generate-migration.js";
+import { handleFindSlowQueries, handleHealthCheck, handleIndexRecommendations } from "./performance.js";
+import { handleCompareSchemas, handleGenerateMigration } from "./compare-schemas.js";
 import { handleBackupRestore } from "./backup-restore.js";
 
-// Handler exports
-export { handleExecuteQuery } from "./execute-query.js";
-export { handleListTables, handleDescribeTable, handleGetSchema } from "./schema.js";
-export { handleExplainQuery } from "./explain-query.js";
-export { handleCompareSchemas } from "./compare-schemas.js";
-export { handleFindSlowQueries } from "./find-slow-queries.js";
-export { handleGenerateMigration } from "./generate-migration.js";
-export { handleBackupRestore } from "./backup-restore.js";
+export type { Handler, HandlerResult } from "./types.js";
+export { jsonResponse, errorResponse, formatBytes } from "./types.js";
+export * from "./types.js";
 
-/**
- * Handler registry - maps tool names to their handlers
- */
 export const handlers: Record<string, Handler> = {
+  list_connections: handleListConnections,
   execute_query: handleExecuteQuery,
+  execute_write: handleExecuteWrite,
+  list_schemas: handleListSchemas,
   list_tables: handleListTables,
   describe_table: handleDescribeTable,
   get_schema: handleGetSchema,
+  list_objects: handleListObjects,
+  search_objects: handleSearchObjects,
+  preview_table: handlePreviewTable,
   explain_query: handleExplainQuery,
-  compare_schemas: handleCompareSchemas,
   find_slow_queries: handleFindSlowQueries,
+  index_recommendations: handleIndexRecommendations,
+  health_check: handleHealthCheck,
+  compare_schemas: handleCompareSchemas,
   generate_migration: handleGenerateMigration,
   backup_restore: handleBackupRestore,
 };

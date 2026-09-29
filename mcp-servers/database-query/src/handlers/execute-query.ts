@@ -1,85 +1,128 @@
 // SPDX-License-Identifier: MIT
 /**
- * Handler for execute_query tool
+ * execute_query — one read-only statement, row-capped.
+ *
+ * Read-only is enforced by the engine (see drivers/*), not by looking at the
+ * SQL: `WITH … SELECT`, `VALUES`, `TABLE`, `SHOW`, `PRAGMA`, leading comments
+ * all work, and a write fails with the engine's own read-only error.
+ *
+ * Row cap: when the statement has no top-level LIMIT/OFFSET/FETCH a
+ * `LIMIT n+1 OFFSET o` is appended on a new line (after stripping the trailing
+ * `;` — the old code appended after it); otherwise the statement is wrapped in
+ * a subquery. Appending is preferred over always wrapping because MySQL
+ * rejects duplicate column names in a derived table and MariaDB discards an
+ * ORDER BY inside one. One extra row tells whether more exist, so no COUNT(*)
+ * re-execution is needed unless `includeTotalCount` asks for it.
  */
 
-import { QuerySchema, jsonResponse, errorResponse, type Handler, type HandlerResult } from "./types.js";
-import { getPool } from "./db.js";
-import pg from "pg";
+import { maxRowsCap } from "../config.js";
+import { getDriver } from "../drivers/index.js";
+import { analyzeStatement, isTransactionControl } from "../sql-lexer.js";
+import { serializeRows } from "../serialize.js";
+import { QuerySchema, jsonResponse, errorResponse, type Handler } from "./types.js";
 
-export const handleExecuteQuery: Handler = async (args): Promise<HandlerResult> => {
-  const { sql, params, limit, offset } = QuerySchema.parse(args);
+export const DEFAULT_QUERY_LIMIT = 1000;
 
-  // Fast-fail prefix check — this is NOT the security boundary (see below) but
-  // provides an early, user-friendly rejection for obvious non-SELECT statements.
-  const normalizedSql = sql.trim().toLowerCase();
-  if (!normalizedSql.startsWith("select")) {
-    return errorResponse("Only SELECT queries are allowed for safety. Use parameterized queries: SELECT * FROM users WHERE id = $1");
+export interface PlannedQuery {
+  sql: string;
+  strategy: "appended-limit" | "wrapped" | "as-is";
+  fetch: number;
+  jsOffset: number;
+}
+
+/** Decide how to cap a statement. Pure — exported for tests. */
+export function planQuery(sql: string, engine: "postgres" | "mysql" | "sqlite", limit: number, offset: number): PlannedQuery & { info: ReturnType<typeof analyzeStatement> } {
+  const info = analyzeStatement(sql, engine);
+  const fetch = limit + 1;
+  if (info.rowReturning && !info.hasTopLevelLimit) {
+    return {
+      info,
+      sql: `${info.text}\nLIMIT ${fetch}${offset > 0 ? ` OFFSET ${offset}` : ""}`,
+      strategy: "appended-limit",
+      fetch,
+      jsOffset: 0,
+    };
   }
-
-  const db = getPool();
-
-  // Apply server-side pagination for efficiency
-  const hasLimit = /\bLIMIT\b/i.test(sql);
-  const hasOffset = /\bOFFSET\b/i.test(sql);
-
-  let finalSql = sql;
-  if (!hasLimit) {
-    finalSql = `${finalSql} LIMIT ${limit}`;
+  if (info.rowReturning) {
+    return {
+      info,
+      sql: `SELECT * FROM (\n${info.text}\n) AS _dsq_capped LIMIT ${fetch}${offset > 0 ? ` OFFSET ${offset}` : ""}`,
+      strategy: "wrapped",
+      fetch,
+      jsOffset: 0,
+    };
   }
-  if (!hasOffset && offset > 0) {
-    finalSql = `${finalSql} OFFSET ${offset}`;
-  }
+  // SHOW / PRAGMA / EXPLAIN / DESCRIBE …: cannot be wrapped; cap client-side.
+  return { info, sql: info.text, strategy: "as-is", fetch: offset + fetch, jsOffset: offset };
+}
 
-  // ── Security boundary: read-only transaction ────────────────────────────────
-  // The prefix check above can be bypassed (e.g. via CTEs that write, or
-  // functions like pg_read_file).  Wrapping the query in a READ ONLY
-  // transaction forces the database engine to reject any write operation,
-  // providing defence-in-depth regardless of the SQL text.
-  const client = await db.connect();
-  let result: pg.QueryResult;
-  let totalCount: number | null = null;
+export function readOnlyHint(message: string): string {
+  if (/read-only transaction|READ ONLY transaction|readonly database|query_only|read only/i.test(message)) {
+    return `${message} — execute_query is read-only; use execute_write on a connection marked writable.`;
+  }
+  return message;
+}
+
+export const handleExecuteQuery: Handler = async (args) => {
+  const { sql, params, limit, offset, includeTotalCount, maxCellChars, connection } = QuerySchema.parse(args);
+  const driver = getDriver(connection);
+  const cap = maxRowsCap();
+  const lim = Math.min(limit ?? DEFAULT_QUERY_LIMIT, cap);
+  const plan = planQuery(sql, driver.engine, lim, offset);
+
+  if (!plan.info.text) return errorResponse("No SQL statement found (only comments/whitespace?)");
+  if (isTransactionControl(plan.info.text, driver.engine)) {
+    return errorResponse("Transaction control statements are not allowed: execute_query manages its own read-only transaction");
+  }
+  if (plan.info.multiple) {
+    return errorResponse(
+      "execute_query runs exactly one statement; split the script into separate calls (or use execute_write for writes)"
+    );
+  }
 
   try {
-    await client.query("BEGIN");
-    await client.query("SET TRANSACTION READ ONLY");
-
-    result = await client.query(finalSql, params || []);
-
-    // Get total count if pagination is being used (still inside the same
-    // read-only transaction so no additional privilege is granted).
-    if (!hasLimit) {
-      try {
-        const countSql = `SELECT COUNT(*) as total FROM (${sql}) as count_query`;
-        const countResult = await client.query(countSql, params || []);
-        totalCount = parseInt(countResult.rows[0]?.total || '0', 10);
-      } catch {
-        // Count query failed — skip total count, do not abort the transaction
+    const { result, totalCount, countError } = await driver.withSession("read", async (s) => {
+      const result = await s.query(plan.sql, params ?? [], { maxRows: plan.fetch });
+      let totalCount: number | undefined;
+      let countError: string | undefined;
+      if (includeTotalCount) {
+        if (!plan.info.rowReturning) countError = "totalCount is only available for SELECT-like statements";
+        else {
+          try {
+            const c = await s.query(`SELECT COUNT(*) AS total FROM (\n${plan.info.text}\n) AS _dsq_count`, params ?? []);
+            totalCount = Number(c.rows[0]?.total ?? 0);
+          } catch (e) {
+            countError = (e as Error).message;
+          }
+        }
       }
-    }
+      return { result, totalCount, countError };
+    });
 
-    await client.query("COMMIT");
-  } catch (err) {
-    try { await client.query("ROLLBACK"); } catch { /* ignore rollback errors */ }
-    throw err;
-  } finally {
-    client.release();
+    let rows = result.rows;
+    if (plan.jsOffset) rows = rows.slice(plan.jsOffset);
+    const hasMore = rows.length > lim || result.truncated;
+    if (rows.length > lim) rows = rows.slice(0, lim);
+    const serialized = serializeRows(rows, maxCellChars);
+
+    return jsonResponse({
+      connection: driver.config.name,
+      engine: driver.engine,
+      columns: result.columns,
+      rows: serialized.rows,
+      rowCount: serialized.rows.length,
+      limit: lim,
+      offset,
+      hasMore,
+      truncated: hasMore,
+      ...(hasMore ? { nextOffset: offset + serialized.rows.length } : {}),
+      ...(totalCount !== undefined ? { totalCount } : {}),
+      ...(countError ? { totalCountError: countError } : {}),
+      ...(serialized.truncatedCells ? { truncatedCells: serialized.truncatedCells, maxCellChars } : {}),
+      ...(limit !== undefined && limit > cap ? { note: `limit capped at DB_MAX_ROWS=${cap}` } : {}),
+      capStrategy: plan.strategy,
+    });
+  } catch (e) {
+    throw new Error(readOnlyHint((e as Error).message));
   }
-
-  return jsonResponse({
-    rows: result.rows,
-    rowCount: result.rowCount,
-    ...(totalCount !== null && { totalCount }),
-    ...(totalCount !== null && totalCount > (limit || 1000) && {
-      pagination: {
-        limit: limit || 1000,
-        offset: offset || 0,
-        hasMore: (offset || 0) + (result.rowCount || 0) < totalCount,
-      },
-    }),
-    fields: result.fields.map((f) => ({
-      name: f.name,
-      dataTypeID: f.dataTypeID,
-    })),
-  });
 };

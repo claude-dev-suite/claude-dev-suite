@@ -1,287 +1,153 @@
 // SPDX-License-Identifier: MIT
 /**
- * Handler for compare_schemas tool
+ * compare_schemas / generate_migration.
+ *
+ * Source = `connection` (the database to change). Target = the desired state:
+ * a named connection (`targetConnection`, trusted, operator-configured) or an
+ * ad-hoc `targetDatabaseUrl` (untrusted tool argument — SSRF-guarded and
+ * read-only, see drivers/index.ts). Both sides are read in read-only
+ * sessions. Engines must match.
  */
 
-import pg from "pg";
-import { lookup, resolve } from "dns/promises";
-import { isIPv4, isIPv6 } from "net";
-import { CompareSchemaSchema, jsonResponse, type Handler, type HandlerResult } from "./types.js";
-import { getPool } from "./db.js";
+import { ENGINE_LABEL, redactUrl } from "../config.js";
+import { getDriver, openAdhoc } from "../drivers/index.js";
+import type { Driver } from "../drivers/types.js";
+import { describeDiff, diffSnapshots, isEmptyDiff } from "../diff.js";
+import { introspectorFor, resolveSchema } from "../introspect/index.js";
+import type { SchemaSnapshot } from "../introspect/types.js";
+import { buildMigration } from "../migration.js";
+import { CompareSchemaSchema, GenerateMigrationSchema, jsonResponse, type Handler } from "./types.js";
 
-const { Pool } = pg;
-
-// ---------------------------------------------------------------------------
-// SSRF / credential-leak guard
-// ---------------------------------------------------------------------------
-
-function getBlockedIpv4Range(ip: string): string | null {
-  const parts = ip.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((p) => isNaN(p))) return null;
-  const [a, b] = parts;
-  if (a === 127) return "loopback (127.x.x.x)";
-  if (a === 0) return "unspecified";
-  if (a === 10) return "private (10.x.x.x)";
-  if (a === 172 && b >= 16 && b <= 31) return "private (172.16-31.x.x)";
-  if (a === 192 && b === 168) return "private (192.168.x.x)";
-  if (a === 169 && b === 254) return "link-local/cloud-metadata (169.254.x.x)";
-  return null;
+interface Sides {
+  source: Driver;
+  target: Driver;
+  targetLabel: string;
+  cleanup: () => Promise<void>;
 }
 
-/**
- * Check whether an IPv6 address string falls within a blocked range.
- * Blocked: ::1 (loopback), ::ffff:0:0/96 (IPv4-mapped), fc00::/7 (ULA), fe80::/10 (link-local).
- * Returns the range name if blocked, null if allowed.
- */
-function getBlockedIpv6Range(addr: string): string | null {
-  // Strip brackets if present
-  const stripped = addr.replace(/^\[|\]$/g, "").toLowerCase();
-
-  // ::1 loopback
-  if (stripped === "::1" || stripped === "0:0:0:0:0:0:0:1") {
-    return "IPv6 loopback (::1)";
+async function openSides(args: {
+  connection?: string;
+  targetConnection?: string;
+  targetDatabaseUrl?: string;
+}): Promise<Sides> {
+  const source = getDriver(args.connection);
+  if (args.targetConnection && args.targetDatabaseUrl) throw new Error("Pass targetConnection OR targetDatabaseUrl, not both");
+  if (args.targetConnection) {
+    const target = getDriver(args.targetConnection);
+    return { source, target, targetLabel: `connection "${target.config.name}"`, cleanup: async () => {} };
   }
-
-  // Expand to check high bits
-  const halves = stripped.split("::");
-  if (halves.length > 2) return null;
-
-  const left = halves[0] ? halves[0].split(":") : [];
-  const right = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
-  const missing = 8 - left.length - right.length;
-  if (missing < 0) return null;
-
-  const groups = [
-    ...left,
-    ...Array(missing).fill("0"),
-    ...right,
-  ].map((g) => parseInt(g, 16));
-
-  if (groups.length !== 8 || groups.some((g) => isNaN(g))) return null;
-
-  // IPv4-mapped ::ffff:a.b.c.d — check embedded IPv4
-  if (groups[0] === 0 && groups[1] === 0 && groups[2] === 0 &&
-      groups[3] === 0 && groups[4] === 0 && groups[5] === 0xffff) {
-    const embedded = [
-      (groups[6] >>> 8) & 0xff, groups[6] & 0xff,
-      (groups[7] >>> 8) & 0xff, groups[7] & 0xff,
-    ].join(".");
-    const ipv4Blocked = getBlockedIpv4Range(embedded);
-    if (ipv4Blocked) return `IPv4-mapped IPv6 embedding ${ipv4Blocked}`;
-    return null;
+  if (args.targetDatabaseUrl) {
+    const target = await openAdhoc(args.targetDatabaseUrl);
+    return { source, target, targetLabel: redactUrl(args.targetDatabaseUrl), cleanup: () => target.close() };
   }
-
-  // fc00::/7 — ULA
-  if ((groups[0] & 0xfe00) === 0xfc00) return "IPv6 Unique Local Address (fc00::/7)";
-
-  // fe80::/10 — link-local
-  if ((groups[0] & 0xffc0) === 0xfe80) return "IPv6 link-local (fe80::/10)";
-
-  return null;
+  // same connection, different schema is a valid comparison
+  return { source, target: source, targetLabel: `connection "${source.config.name}"`, cleanup: async () => {} };
 }
 
-/**
- * Validate a PostgreSQL connection URL:
- *  - Must be a well-formed postgresql:// (or postgres://) URL
- *  - Host must not be a private/loopback/metadata IPv4, IPv6, or resolving to one
- *  - DNS failure is fail-closed: throw rather than allowing the request
- * Throws with a sanitised message (no password in error text).
- */
-async function validateDatabaseUrl(rawUrl: string): Promise<void> {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    throw new Error("targetDatabaseUrl is not a valid URL");
-  }
-
-  if (parsed.protocol !== "postgresql:" && parsed.protocol !== "postgres:") {
+async function snapshots(
+  sides: Sides,
+  schema: string | undefined,
+  targetSchema: string | undefined,
+  tables: string[] | undefined
+): Promise<{ src: SchemaSnapshot; tgt: SchemaSnapshot }> {
+  const { source, target } = sides;
+  if (source.engine !== target.engine) {
     throw new Error(
-      `targetDatabaseUrl must use the postgresql:// scheme (got "${parsed.protocol}")`
+      `Cannot compare ${ENGINE_LABEL[source.engine]} with ${ENGINE_LABEL[target.engine]} — schema diff needs the same engine on both sides`
     );
   }
-
-  // Strip brackets from IPv6 literal in hostname
-  const rawHostname = parsed.hostname;
-  const hostname = rawHostname.toLowerCase().replace(/^\[|\]$/g, "");
-
-  // Allow localhost for dev workflows
-  if (hostname === "localhost") return;
-
-  // --- IPv6 literal ---
-  if (isIPv6(hostname) || hostname.includes(":")) {
-    const blocked = getBlockedIpv6Range(hostname);
-    if (blocked) {
-      throw new Error(`SSRF protection: targetDatabaseUrl host is in a blocked range: ${blocked}`);
-    }
-    return;
+  const intro = introspectorFor(source.engine);
+  const src = await source.withSession("read", async (s) => intro.snapshot(s, await resolveSchema(s, schema), tables));
+  const tgt = await target.withSession("read", async (s) =>
+    intro.snapshot(s, await resolveSchema(s, targetSchema ?? (target === source ? undefined : schema)), tables)
+  );
+  if (target === source && src.schema === tgt.schema) {
+    throw new Error("Source and target are the same schema on the same connection; pass targetConnection, targetDatabaseUrl or targetSchema");
   }
-
-  // --- IPv4 literal ---
-  if (isIPv4(hostname)) {
-    const blocked = getBlockedIpv4Range(hostname);
-    if (blocked) {
-      throw new Error(`SSRF protection: targetDatabaseUrl host is in a blocked range: ${blocked}`);
-    }
-    return;
-  }
-
-  // --- Hostname: DNS resolution (fail-closed) ---
-  let addresses: string[];
-  try {
-    const results = await resolve(hostname).catch(async () => {
-      const r = await lookup(hostname, { all: true });
-      return r.map((a) => a.address);
-    });
-    addresses = results as string[];
-  } catch {
-    // DNS resolution failure — fail closed: do not allow unknown hosts
-    throw new Error(
-      `SSRF protection: targetDatabaseUrl hostname "${hostname}" could not be resolved`
-    );
-  }
-
-  for (const addr of addresses) {
-    if (isIPv6(addr) || addr.includes(":")) {
-      const blocked = getBlockedIpv6Range(addr);
-      if (blocked) {
-        throw new Error(
-          `SSRF protection: targetDatabaseUrl host resolves to a blocked range: ${blocked}`
-        );
-      }
-    } else if (isIPv4(addr)) {
-      const blocked = getBlockedIpv4Range(addr);
-      if (blocked) {
-        throw new Error(
-          `SSRF protection: targetDatabaseUrl host resolves to a blocked range: ${blocked}`
-        );
-      }
-    }
-  }
+  return { src, tgt };
 }
 
-type ColumnInfo = { data_type: string; is_nullable: string; column_default: string | null };
-
-export const handleCompareSchemas: Handler = async (args): Promise<HandlerResult> => {
-  const { targetDatabaseUrl, tables: specificTables } = CompareSchemaSchema.parse(args);
-
-  // SSRF + scheme validation
-  await validateDatabaseUrl(targetDatabaseUrl);
-
-  const sourceDb = getPool();
-  const targetPool = new Pool({ connectionString: targetDatabaseUrl });
-
+export const handleCompareSchemas: Handler = async (args) => {
+  const a = CompareSchemaSchema.parse(args);
+  const sides = await openSides(a);
   try {
-    // Get source schema
-    const sourceSchema = await sourceDb.query(`
-      SELECT
-        t.table_name,
-        c.column_name,
-        c.data_type,
-        c.is_nullable,
-        c.column_default,
-        c.character_maximum_length
-      FROM information_schema.tables t
-      JOIN information_schema.columns c ON t.table_name = c.table_name
-      WHERE t.table_schema = 'public'
-      ORDER BY t.table_name, c.ordinal_position
-    `);
-
-    // Get target schema
-    const targetSchema = await targetPool.query(`
-      SELECT
-        t.table_name,
-        c.column_name,
-        c.data_type,
-        c.is_nullable,
-        c.column_default,
-        c.character_maximum_length
-      FROM information_schema.tables t
-      JOIN information_schema.columns c ON t.table_name = c.table_name
-      WHERE t.table_schema = 'public'
-      ORDER BY t.table_name, c.ordinal_position
-    `);
-
-    // Build schema maps
-    const sourceMap: Record<string, Record<string, ColumnInfo>> = {};
-    const targetMap: Record<string, Record<string, ColumnInfo>> = {};
-
-    for (const row of sourceSchema.rows) {
-      if (specificTables && !specificTables.includes(row.table_name)) continue;
-      if (!sourceMap[row.table_name]) sourceMap[row.table_name] = {};
-      sourceMap[row.table_name][row.column_name] = {
-        data_type: row.data_type,
-        is_nullable: row.is_nullable,
-        column_default: row.column_default,
-      };
-    }
-
-    for (const row of targetSchema.rows) {
-      if (specificTables && !specificTables.includes(row.table_name)) continue;
-      if (!targetMap[row.table_name]) targetMap[row.table_name] = {};
-      targetMap[row.table_name][row.column_name] = {
-        data_type: row.data_type,
-        is_nullable: row.is_nullable,
-        column_default: row.column_default,
-      };
-    }
-
-    // Compare schemas
-    const differences: {
-      missingInTarget: { table: string; column?: string }[];
-      missingInSource: { table: string; column?: string }[];
-      typeMismatches: { table: string; column: string; source: string; target: string }[];
-    } = {
-      missingInTarget: [],
-      missingInSource: [],
-      typeMismatches: [],
-    };
-
-    // Tables/columns in source but not target
-    for (const [table, columns] of Object.entries(sourceMap)) {
-      if (!targetMap[table]) {
-        differences.missingInTarget.push({ table });
-      } else {
-        for (const [column, info] of Object.entries(columns)) {
-          if (!targetMap[table][column]) {
-            differences.missingInTarget.push({ table, column });
-          } else if (targetMap[table][column].data_type !== info.data_type) {
-            differences.typeMismatches.push({
-              table,
-              column,
-              source: info.data_type,
-              target: targetMap[table][column].data_type,
-            });
-          }
-        }
-      }
-    }
-
-    // Tables/columns in target but not source
-    for (const [table, columns] of Object.entries(targetMap)) {
-      if (!sourceMap[table]) {
-        differences.missingInSource.push({ table });
-      } else {
-        for (const column of Object.keys(columns)) {
-          if (!sourceMap[table][column]) {
-            differences.missingInSource.push({ table, column });
-          }
-        }
-      }
-    }
-
-    const hasDifferences =
-      differences.missingInTarget.length > 0 ||
-      differences.missingInSource.length > 0 ||
-      differences.typeMismatches.length > 0;
-
+    const { src, tgt } = await snapshots(sides, a.schema, a.targetSchema, a.tables);
+    const diff = diffSnapshots(src, tgt);
+    const described = describeDiff(diff);
+    const missingInTarget = [
+      ...described.tablesOnlyInSource.map((table) => ({ table })),
+      ...diff.tablesChanged.flatMap((c) => c.columnsRemoved.map((col) => ({ table: c.table, column: col.name }))),
+    ];
+    const missingInSource = [
+      ...described.tablesOnlyInTarget.map((table) => ({ table })),
+      ...diff.tablesChanged.flatMap((c) => c.columnsAdded.map((col) => ({ table: c.table, column: col.name }))),
+    ];
+    const typeMismatches = diff.tablesChanged.flatMap((c) =>
+      c.columnsChanged.filter((x) => x.changes.includes("type")).map((x) => ({ table: c.table, column: x.name, source: x.source.type, target: x.target.type }))
+    );
     return jsonResponse({
-      identical: !hasDifferences,
-      sourceTables: Object.keys(sourceMap).length,
-      targetTables: Object.keys(targetMap).length,
-      differences,
+      engine: sides.source.engine,
+      source: { connection: sides.source.config.name, schema: src.schema, tables: src.tables.length },
+      target: { ref: sides.targetLabel, schema: tgt.schema, tables: tgt.tables.length },
+      identical: isEmptyDiff(diff),
+      compared: ["tables", "views", "columns (type, nullability, default, identity/generated)", "primary keys", "foreign keys", "unique constraints", "check constraints", "indexes", ...(sides.source.engine === "postgres" ? ["enums", "sequences"] : [])],
+      differences: { missingInTarget, missingInSource, typeMismatches, ...described },
+      ...(src.unavailable.length || tgt.unavailable.length ? { unavailable: [...src.unavailable, ...tgt.unavailable] } : {}),
     });
   } finally {
-    await targetPool.end();
+    await sides.cleanup();
+  }
+};
+
+export const handleGenerateMigration: Handler = async (args) => {
+  const a = GenerateMigrationSchema.parse(args);
+  const sides = await openSides(a);
+  try {
+    const { src, tgt } = await snapshots(sides, a.schema, a.targetSchema, a.tables);
+    const engine = sides.source.engine;
+    const { upDiff, up, down } = buildMigration(engine, src, tgt, { includeDrops: a.includeDrops });
+    const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+    const name = (a.migrationName || "schema_migration").replace(/[^A-Za-z0-9_-]+/g, "_");
+    const header = [
+      `-- Migration: ${name}`,
+      `-- Engine: ${ENGINE_LABEL[engine]}${engine === "postgres" ? "" : " (best effort — review before applying)"}`,
+      `-- Source (changed): connection "${sides.source.config.name}", schema ${src.schema}`,
+      `-- Target (desired): ${sides.targetLabel}, schema ${tgt.schema}`,
+      `-- includeDrops: ${a.includeDrops}`,
+      "",
+    ];
+    const upSql = up.statements.length ? up.statements.join("\n") : "-- no changes";
+    const downSql = down.statements.length ? down.statements.join("\n") : "-- no changes";
+    const migration = [
+      ...header,
+      "-- ==================== UP ====================",
+      "",
+      upSql,
+      "",
+      "-- =================== DOWN ===================",
+      ...(a.includeDrops ? [] : ["-- (includeDrops=false: DROP statements are omitted here too, so DOWN does not remove what UP created)"]),
+      "",
+      downSql,
+    ].join("\n");
+    const count = (xs: string[]) => xs.filter((x) => x && !x.startsWith("--")).length;
+    return jsonResponse({
+      filename: `${stamp}_${name}.sql`,
+      engine,
+      identical: isEmptyDiff(upDiff),
+      migration,
+      up: upSql,
+      down: downSql,
+      summary: {
+        upStatements: count(up.statements),
+        downStatements: count(down.statements),
+        tablesCreated: upDiff.tablesAdded.length,
+        tablesChanged: upDiff.tablesChanged.length,
+        tablesDropped: a.includeDrops ? upDiff.tablesRemoved.length : 0,
+      },
+      warnings: [...new Set(up.warnings)],
+      next: "Review, then apply with execute_write (dry run first) on a writable connection.",
+    });
+  } finally {
+    await sides.cleanup();
   }
 };
