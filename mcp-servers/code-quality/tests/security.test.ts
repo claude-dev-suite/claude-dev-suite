@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   AnalyzeComplexitySchema, AnalyzeImportGraphSchema, CheckStyleSchema, CodeMetricsSchema, DetectAntiPatternsSchema,
-  FindDeadCodeSchema, FindDuplicatesSchema, jsonSchema,
+  FindDeadCodeSchema, FindDuplicatesSchema, QualityGateSchema, jsonSchema,
 } from '../src/schemas.js';
 import { dispatch } from '../src/dispatch.js';
 import { validateGitRef } from '../src/core/git.js';
@@ -32,6 +32,7 @@ describe('schemas', () => {
     expect(AnalyzeComplexitySchema.safeParse({ path: '/src', bogus: 1 }).success).toBe(false);
     expect(DetectAntiPatternsSchema.safeParse({ path: '/src', patterns: ['sql-injection'] }).success).toBe(false);
     expect(CheckStyleSchema.safeParse({ path: '/src', linters: ['rm'] }).success).toBe(false);
+    expect(QualityGateSchema.safeParse({ path: '/src', action: 'delete' }).success).toBe(false);
   });
 
   it('advertise JSON Schema derived from the same definitions', () => {

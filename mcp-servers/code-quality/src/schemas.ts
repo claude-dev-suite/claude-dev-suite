@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import { SMELL_TYPES } from './analysis/smells.js';
+import { GATE_CHECKS } from './tools/quality-gate.js';
 import { ALL_LINTERS } from './linters/defs.js';
 
 const scope = {
@@ -54,6 +55,8 @@ export const CheckStyleSchema = z
     format: formatSarif,
   })
   .strict();
+
+export const CheckTypesSchema = CheckStyleSchema.omit({ fix: true });
 
 export const DetectAntiPatternsSchema = z
   .object({
@@ -136,6 +139,39 @@ export const CodeMetricsSchema = z
   .object({
     ...scope,
     sortBy: z.enum(['loc', 'sloc', 'complexity', 'functions', 'maintainability']).optional(),
+    format,
+  })
+  .strict();
+
+export const AnalyzeCoverageSchema = z
+  .object({
+    ...scope,
+    coverageFiles: z.array(z.string().min(1).max(4096)).max(50).optional().describe('LCOV/Cobertura/JaCoCo files (default: auto-discover)'),
+    crapThreshold: z.number().min(1).optional().describe('Flag functions with CRAP above this (default 30)'),
+    minCoverage: z.number().min(0).max(100).optional().describe('Coverage % below which complex functions are risky (default 80)'),
+    format,
+  })
+  .strict();
+
+export const QualityGateSchema = z
+  .object({
+    ...scope,
+    action: z.enum(['check', 'save']).optional().describe('check (default) or save a baseline'),
+    baselineFile: z.string().min(1).max(1024).optional().describe('Inside the repo; default .code-quality-baseline.json'),
+    confirm: z.boolean().optional().describe('save: actually write (otherwise dry run)'),
+    overwrite: z.boolean().optional().describe('save: replace an existing baseline'),
+    checks: z.array(z.enum(GATE_CHECKS)).optional().describe('Default: antipatterns, duplicates'),
+    thresholds: z
+      .object({
+        maxNewIssues: z.number().int().min(0).optional(),
+        maxNewErrors: z.number().int().min(0).optional(),
+        maxTotalErrors: z.number().int().min(0).optional(),
+        maxDuplicationPercent: z.number().min(0).max(100).optional(),
+        minCoverage: z.number().min(0).max(100).optional(),
+        minPatchCoverage: z.number().min(0).max(100).optional(),
+      })
+      .strict()
+      .optional(),
     format,
   })
   .strict();

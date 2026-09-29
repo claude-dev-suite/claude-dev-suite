@@ -33,8 +33,9 @@ function rpc(server: string, cwd: string, messages: object[], waitFor: number): 
         replies.push(JSON.parse(line));
         if (replies.filter((r) => r.id !== undefined).length >= waitFor) {
           clearTimeout(timer);
+          // Resolve only once the process is gone: Windows keeps its cwd locked.
+          child.once('exit', () => resolve(replies));
           child.kill();
-          resolve(replies);
         }
       }
     });
@@ -67,7 +68,7 @@ describe.runIf(existsSync(dist))('bundled dist/index.js', () => {
       const data = JSON.parse(byId[3].result.content[0].text);
       expect(data.functions[0]).toMatchObject({ name: 'f', cyclomatic: 2, cognitive: 1 });
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }
   }, 90_000);
 });

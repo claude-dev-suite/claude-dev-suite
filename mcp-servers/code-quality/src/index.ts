@@ -5,7 +5,8 @@
  *
  * Structural analysis on tree-sitter syntax trees (JS/TS/TSX, Python, Go,
  * Java, Rust, C#): complexity, metrics, smells, clones, import graph with
- * boundary rules, dead code; plus the project's own linters.
+ * boundary rules, dead code; plus the project's own linters/type-checkers,
+ * coverage ingestion and a baseline quality gate.
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -15,12 +16,15 @@ import type { z } from 'zod';
 
 import {
   AnalyzeComplexitySchema,
+  AnalyzeCoverageSchema,
   AnalyzeImportGraphSchema,
   CheckStyleSchema,
+  CheckTypesSchema,
   CodeMetricsSchema,
   DetectAntiPatternsSchema,
   FindDeadCodeSchema,
   FindDuplicatesSchema,
+  QualityGateSchema,
   jsonSchema,
 } from './schemas.js';
 import type { ToolResult } from './core/report.js';
@@ -32,6 +36,8 @@ import { detectAntiPatterns } from './tools/antipatterns.js';
 import { findDeadCode } from './tools/deadcode.js';
 import { analyzeImportGraph } from './tools/import-graph.js';
 import { codeMetrics } from './tools/metrics.js';
+import { analyzeCoverage } from './tools/coverage.js';
+import { qualityGate } from './tools/quality-gate.js';
 
 interface ToolSpec {
   tool: Tool;
@@ -69,6 +75,15 @@ const SPECS: ToolSpec[] = [
   },
   {
     tool: {
+      name: 'check_types',
+      description: "Run the project's type-checkers (tsc, mypy, pyright) with its own config; normalized diagnostics or SARIF.",
+      inputSchema: jsonSchema(CheckTypesSchema) as Tool['inputSchema'],
+    },
+    schema: CheckTypesSchema,
+    run: (a) => runLintTool(a, ['types'], 'Type check', a.format ?? 'markdown'),
+  },
+  {
+    tool: {
       name: 'detect_antipatterns',
       description: 'Code smells: god class, long/complex method, deep nesting, many params, data clumps, empty catch, duplicates…',
       inputSchema: jsonSchema(DetectAntiPatternsSchema) as Tool['inputSchema'],
@@ -102,6 +117,24 @@ const SPECS: ToolSpec[] = [
     },
     schema: CodeMetricsSchema,
     run: (a) => codeMetrics(a),
+  },
+  {
+    tool: {
+      name: 'analyze_coverage',
+      description: 'Read LCOV/Cobertura/JaCoCo coverage: per-file and patch coverage, risky untested functions ranked by CRAP.',
+      inputSchema: jsonSchema(AnalyzeCoverageSchema) as Tool['inputSchema'],
+    },
+    schema: AnalyzeCoverageSchema,
+    run: (a) => analyzeCoverage(a),
+  },
+  {
+    tool: {
+      name: 'quality_gate',
+      description: 'Save a findings baseline (dry run unless confirm) or check new issues against it and thresholds: pass/fail.',
+      inputSchema: jsonSchema(QualityGateSchema) as Tool['inputSchema'],
+    },
+    schema: QualityGateSchema,
+    run: (a) => qualityGate(a),
   },
 ];
 

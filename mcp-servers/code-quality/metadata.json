@@ -1,18 +1,21 @@
 {
   "name": "code-quality",
   "version": "1.1.0",
-  "description": "Code quality analysis on tree-sitter syntax trees (JS/TS/TSX, Python, Go, Java, Rust, C#): cyclomatic/cognitive complexity, Halstead and maintainability, code smells, token clone detection, resolved import graph with cycles and architecture boundary rules, dead code (unused files/exports/dependencies), the project's own linters (ESLint, Biome, Prettier, Ruff, Pylint, golangci-lint, Clippy, Checkstyle, PMD, dotnet format) with SARIF output, and diff-only analysis against a git ref",
+  "description": "Code quality analysis on tree-sitter syntax trees (JS/TS/TSX, Python, Go, Java, Rust, C#): cyclomatic/cognitive complexity, Halstead and maintainability, code smells, token clone detection, resolved import graph with cycles and architecture boundary rules, dead code (unused files/exports/dependencies), the project's own linters and type-checkers (ESLint, Biome, Prettier, tsc, Ruff, Pylint, mypy, pyright, golangci-lint, Clippy, Checkstyle, PMD, dotnet format) with SARIF output, coverage ingestion (LCOV/Cobertura/JaCoCo) with CRAP risk ranking, diff-only analysis against a git ref, and a baseline quality gate",
   "category": "analysis",
   "tools": [
     "analyze_complexity",
     "find_duplicates",
     "check_style",
+    "check_types",
     "detect_antipatterns",
     "find_dead_code",
     "analyze_import_graph",
-    "code_metrics"
+    "code_metrics",
+    "analyze_coverage",
+    "quality_gate"
   ],
-  "shortDescription": "Complexity, smells, clones, dead code, import graph, project linters",
+  "shortDescription": "Complexity, smells, clones, dead code, import graph, linters, coverage, quality gate",
   "envVars": [
     {
       "name": "CHECKSTYLE_JAR",
