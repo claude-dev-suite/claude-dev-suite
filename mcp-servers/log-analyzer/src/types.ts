@@ -6,28 +6,45 @@
 
 export type LogLevel = 'TRACE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL';
 
-export type LogFormat =
-  | 'spring-boot'      // Spring Boot default format
-  | 'log4j'            // Log4j/Log4j2
-  | 'logback'          // Logback
-  | 'winston'          // Winston JSON
-  | 'pino'             // Pino JSON
-  | 'morgan'           // Morgan access logs
-  | 'python'           // Python logging
-  | 'json'             // Generic JSON lines
-  | 'clf'              // Common Log Format (Apache/Nginx)
-  | 'nginx'            // Nginx access/error logs
-  | 'apache'           // Apache access/error logs
-  | 'kubernetes'       // Kubernetes JSON logs
-  | 'syslog'           // RFC 5424 Syslog
-  | 'auto';            // Auto-detect
+export const LOG_LEVELS: LogLevel[] = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'];
+
+/**
+ * Every format name accepted by the `format` parameter. `auto` detects from the
+ * head of each source; `custom` requires `customPattern`.
+ */
+export const LOG_FORMATS = [
+  'auto',
+  // Java
+  'spring-boot', 'log4j', 'logback',
+  // Node.js
+  'winston', 'pino', 'morgan',
+  // Python
+  'python',
+  // Go
+  'zap', 'zerolog', 'logrus',
+  // .NET
+  'serilog', 'dotnet',
+  // Ruby
+  'rails',
+  // Generic
+  'json', 'logfmt', 'plain', 'custom',
+  // Web servers / access logs
+  'clf', 'nginx', 'apache',
+  // Platforms / envelopes
+  'kubernetes', 'docker', 'cri', 'heroku', 'cloudwatch', 'otel',
+  // System
+  'syslog', 'journald',
+] as const;
+
+export type LogFormat = (typeof LOG_FORMATS)[number];
 
 // ============================================
 // Log Entry Types
 // ============================================
 
 export interface LogEntry {
-  timestamp: Date;
+  /** null when the line carried no parseable timestamp — never a made-up "now". */
+  timestamp: Date | null;
   level: LogLevel;
   message: string;
   logger?: string;
@@ -38,6 +55,7 @@ export interface LogEntry {
   requestId?: string;
   traceId?: string;
   spanId?: string;
+  parentSpanId?: string;
   userId?: string;
   sessionId?: string;
   stackTrace?: string[];
@@ -45,100 +63,98 @@ export interface LogEntry {
   metadata?: Record<string, unknown>;
   raw: string;
   lineNumber: number;
+  /** File path or live-source label the entry came from. */
+  source?: string;
+  /** stdout / stderr when the envelope says so. */
+  stream?: string;
 }
 
 export interface ExceptionInfo {
   type: string;
   message: string;
   stackTrace: string[];
+  /** Frames elided by the runtime ("... 12 more"). */
+  omittedFrames?: number;
+  language?: 'java' | 'python' | 'node' | 'go' | 'dotnet' | 'ruby' | 'unknown';
   causedBy?: ExceptionInfo;
+  /** How `causedBy` relates: Java "Caused by", Python "direct cause" vs "during handling". */
+  causeRelation?: 'cause' | 'context' | 'inner';
+}
+
+export interface TimeRange {
+  start: Date | null;
+  end: Date | null;
 }
 
 // ============================================
-// Parse Logs Types
+// Tool inputs shared across analyzers
 // ============================================
 
-export interface ParseLogsInput {
-  filePath: string;
+/** A live source fetched through an external CLI. */
+export interface LiveSource {
+  type: 'docker' | 'compose' | 'kubectl' | 'journald';
+  container?: string;
+  projectDir?: string;
+  composeFile?: string;
+  services?: string[];
+  namespace?: string;
+  context?: string;
+  pod?: string;
+  deployment?: string;
+  selector?: string;
+  allContainers?: boolean;
+  previous?: boolean;
+  unit?: string;
+  since?: string;
+  tail?: number;
+  timeoutSeconds?: number;
+}
+
+export interface SourceInput {
+  /** Files, directories or glob patterns (absolute). */
+  paths?: string[];
+  source?: LiveSource | LiveSource[];
   format?: LogFormat;
-  startTime?: string;  // ISO date
-  endTime?: string;    // ISO date
+  customPattern?: string;
+}
+
+export interface EntryFilter {
+  startTime?: Date;
+  endTime?: Date;
   levels?: LogLevel[];
-  limit?: number;
-  offset?: number;
-  filter?: string;     // Regex pattern
-}
-
-export interface ParseLogsResult {
-  filePath: string;
-  format: LogFormat;
-  totalLines: number;
-  parsedEntries: number;
-  failedLines: number;
-  entries: LogEntry[];
-  timeRange: {
-    start: Date | null;
-    end: Date | null;
-  };
-  levelCounts: Record<LogLevel, number>;
+  filter?: RegExp;
 }
 
 // ============================================
-// Find Errors Types
+// Analyzer result types
 // ============================================
-
-export interface FindErrorsInput {
-  filePath: string;
-  format?: LogFormat;
-  includeWarnings?: boolean;
-  limit?: number;
-  groupByException?: boolean;
-  startTime?: string;
-  endTime?: string;
-}
 
 export interface ErrorGroup {
+  fingerprint: string;
   exceptionType: string;
   message: string;
+  normalizedMessage: string;
   count: number;
-  firstOccurrence: Date;
-  lastOccurrence: Date;
+  firstOccurrence: Date | null;
+  lastOccurrence: Date | null;
   stackTrace: string[];
-  examples: LogEntry[];
-}
-
-export interface FindErrorsResult {
-  filePath: string;
-  totalErrors: number;
-  totalWarnings: number;
-  errorGroups: ErrorGroup[];
-  recentErrors: LogEntry[];
-  errorTimeline: {
-    hour: string;
-    count: number;
-  }[];
-}
-
-// ============================================
-// Analyze Patterns Types
-// ============================================
-
-export interface AnalyzePatternsInput {
-  filePath: string;
-  format?: LogFormat;
-  minOccurrences?: number;
-  timeWindow?: number;  // minutes
+  causedBy?: string[];
+  sources: string[];
+  status?: 'new' | 'known';
+  examples: unknown[];
 }
 
 export interface Pattern {
   pattern: string;
+  description: string;
   category: PatternCategory;
   count: number;
   severity: 'info' | 'warning' | 'critical';
-  firstOccurrence: Date;
-  lastOccurrence: Date;
+  firstOccurrence: Date | null;
+  lastOccurrence: Date | null;
   examples: string[];
   suggestion?: string;
+  peakWindow?: { start: string; count: number };
 }
 
 export type PatternCategory =
@@ -153,31 +169,8 @@ export type PatternCategory =
   | 'permission'
   | 'not-found'
   | 'configuration'
+  | 'crash'
   | 'other';
-
-export interface AnalyzePatternsResult {
-  filePath: string;
-  patterns: Pattern[];
-  summary: {
-    totalPatterns: number;
-    criticalPatterns: number;
-    warningPatterns: number;
-    topCategory: PatternCategory;
-  };
-  recommendations: string[];
-}
-
-// ============================================
-// Aggregate Stats Types
-// ============================================
-
-export interface AggregateStatsInput {
-  filePath: string;
-  format?: LogFormat;
-  groupBy?: 'hour' | 'minute' | 'day';
-  startTime?: string;
-  endTime?: string;
-}
 
 export interface LogStats {
   totalEntries: number;
@@ -194,192 +187,17 @@ export interface LogStats {
     count: number;
     errorCount: number;
   }[];
-  errorRate: number;  // errors per 1000 entries
+  errorRate: number; // errors per 1000 entries
   avgEntriesPerMinute: number;
   peakHour: string;
   quietestHour: string;
-}
-
-export interface AggregateStatsResult {
-  filePath: string;
-  timeRange: {
-    start: Date | null;
-    end: Date | null;
-    durationMinutes: number;
-  };
-  stats: LogStats;
-}
-
-// ============================================
-// Correlate Events Types
-// ============================================
-
-export interface CorrelateEventsInput {
-  filePaths: string[];
-  correlationField: 'requestId' | 'traceId' | 'sessionId' | 'userId' | 'custom';
-  customField?: string;
-  targetValue?: string;  // Specific value to correlate
-  startTime?: string;
-  endTime?: string;
-}
-
-export interface CorrelatedEvent {
-  file: string;
-  entry: LogEntry;
-}
-
-export interface CorrelationChain {
-  correlationValue: string;
-  events: CorrelatedEvent[];
-  timespan: number;  // ms
-  hasError: boolean;
-  summary: string;
-}
-
-export interface CorrelateEventsResult {
-  correlationField: string;
-  totalChains: number;
-  chains: CorrelationChain[];
-  chainsWithErrors: number;
-  avgEventsPerChain: number;
-}
-
-// ============================================
-// Tail Logs Types
-// ============================================
-
-export interface TailLogsInput {
-  filePath: string;
-  format?: LogFormat;
-  lines?: number;       // Last N lines
-  follow?: boolean;     // Continuous monitoring
-  filter?: string;      // Regex pattern
-  levels?: LogLevel[];
-}
-
-export interface TailLogsResult {
-  filePath: string;
-  entries: LogEntry[];
-  watching: boolean;
-}
-
-// ============================================
-// Search Logs Types
-// ============================================
-
-export interface SearchLogsInput {
-  filePaths: string[];
-  query: string;          // Search query (regex or text)
-  caseSensitive?: boolean;
-  useRegex?: boolean;
-  context?: number;       // Lines of context around match
-  limit?: number;
-  format?: LogFormat;
-}
-
-export interface SearchMatch {
-  file: string;
-  lineNumber: number;
-  line: string;
-  matchStart: number;
-  matchEnd: number;
-  contextBefore: string[];
-  contextAfter: string[];
-  entry?: LogEntry;
-}
-
-export interface SearchLogsResult {
-  query: string;
-  totalMatches: number;
-  filesSearched: number;
-  filesWithMatches: number;
-  matches: SearchMatch[];
-  searchTime: number;  // ms
-}
-
-// ============================================
-// Compare Logs Types
-// ============================================
-
-export interface CompareLogsInput {
-  baselineFile: string;
-  comparisonFile: string;
-  format?: LogFormat;
-  compareBy?: 'level' | 'pattern' | 'time';
-}
-
-export interface LogComparison {
-  metric: string;
-  baseline: number;
-  comparison: number;
-  change: number;        // percentage
-  significance: 'none' | 'minor' | 'major' | 'critical';
-}
-
-export interface CompareLogsResult {
-  baselineFile: string;
-  comparisonFile: string;
-  baselineTimeRange: { start: Date | null; end: Date | null };
-  comparisonTimeRange: { start: Date | null; end: Date | null };
-  comparisons: LogComparison[];
-  newPatterns: string[];
-  resolvedPatterns: string[];
-  summary: string;
-}
-
-// ============================================
-// Export Report Types
-// ============================================
-
-export interface ExportReportInput {
-  filePath: string;
-  format?: LogFormat;
-  outputFormat: 'html' | 'json' | 'markdown';
-  outputPath?: string;
-  includeCharts?: boolean;
-  title?: string;
-}
-
-export interface ExportReportResult {
-  outputPath: string;
-  format: string;
-  size: number;
-  sections: string[];
-}
-
-// ============================================
-// Watch Logs Types
-// ============================================
-
-export interface WatchLogsInput {
-  filePath: string;
-  format?: LogFormat;
-  filter?: string;           // Regex pattern to filter
-  levels?: LogLevel[];       // Filter by levels
-  alertPatterns?: string[];  // Patterns that trigger alerts
-  alertLevels?: LogLevel[];  // Levels that trigger alerts (default: ERROR, FATAL)
-  pollInterval?: number;     // Polling interval in ms (default: 1000)
-  maxEntries?: number;       // Max entries to keep in memory (default: 1000)
+  entriesWithoutTimestamp: number;
 }
 
 export interface WatchAlert {
   timestamp: Date;
   type: 'pattern' | 'level' | 'threshold';
+  rule: string;
   message: string;
   entry: LogEntry;
-  pattern?: string;
-}
-
-export interface WatchLogsResult {
-  filePath: string;
-  status: 'watching' | 'stopped' | 'error';
-  entriesProcessed: number;
-  alertsTriggered: number;
-  recentEntries: LogEntry[];
-  recentAlerts: WatchAlert[];
-  stats: {
-    byLevel: Record<LogLevel, number>;
-    errorsPerMinute: number;
-    lastEntry?: Date;
-  };
 }

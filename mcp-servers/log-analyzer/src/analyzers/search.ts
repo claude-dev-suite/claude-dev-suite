@@ -1,241 +1,110 @@
 // SPDX-License-Identifier: MIT
 /**
- * Log Search Analyzer
- * Search for text or patterns across multiple log files
+ * search_logs: grep-like search over files, directories, globs, gzip and live
+ * sources, streaming with a bounded context window (the old version loaded
+ * every file fully into memory to provide context).
  */
 
-import { readFile } from 'fs/promises';
-import { createReadStream } from 'fs';
-import { createInterface } from 'readline';
-import { parseLogFile, parseLogLine } from '../parsers/index.js';
+import type { SourceInput } from '../types.js';
+import { openSources, detectHandle, type PipelineDeps } from '../pipeline/index.js';
+import { createParser } from '../parsers/index.js';
 import { safeRegex } from '../utils.js';
-import type {
-  SearchLogsInput,
-  SearchLogsResult,
-  SearchMatch,
-  LogFormat,
-  LogEntry,
-} from '../types.js';
 
-/**
- * Search logs for a query across multiple files
- */
-export async function searchLogs(input: SearchLogsInput): Promise<SearchLogsResult> {
-  const startTime = Date.now();
-  const {
-    filePaths,
-    query,
-    caseSensitive = false,
-    useRegex = false,
-    context = 0,
-    limit = 100,
-    format = 'auto',
-  } = input;
+export interface SearchMatch {
+  file: string;
+  lineNumber: number;
+  line: string;
+  matchStart: number;
+  matchEnd: number;
+  contextBefore: string[];
+  contextAfter: string[];
+  level?: string;
+  timestamp?: string | null;
+}
 
+const MAX_LINE_OUT = 2000;
+const clip = (s: string) => (s.length > MAX_LINE_OUT ? s.slice(0, MAX_LINE_OUT) + ' …' : s);
+
+export async function searchLogs(
+  input: SourceInput,
+  o: { query: string; caseSensitive?: boolean; useRegex?: boolean; context?: number; limit?: number; invert?: boolean },
+  deps: PipelineDeps = {},
+): Promise<Record<string, unknown>> {
+  const t0 = Date.now();
+  const flags = o.caseSensitive ? '' : 'i';
+  const pattern = o.useRegex ? safeRegex(o.query, flags) : new RegExp(o.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+  const ctx = Math.min(Math.max(0, o.context ?? 0), 20);
+  const limit = Math.min(o.limit ?? 100, 1000);
+
+  const opened = await openSources(input, deps);
   const matches: SearchMatch[] = [];
-  let filesSearched = 0;
+  let totalMatches = 0;
   const filesWithMatches = new Set<string>();
+  const perSource: Array<{ source: string; lines: number; matches: number }> = [];
 
-  // Build search pattern
-  let searchPattern: RegExp;
-  if (useRegex) {
-    // safeRegex validates against ReDoS and syntax errors
-    searchPattern = safeRegex(query, caseSensitive ? 'g' : 'gi');
-  } else {
-    // Escape regex special characters for literal search
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    searchPattern = new RegExp(escaped, caseSensitive ? 'g' : 'gi');
-  }
-
-  // Process each file
-  for (const filePath of filePaths) {
-    if (matches.length >= limit) break;
-
+  for (const handle of opened.handles) {
+    const detection = await detectHandle(handle, { format: input.format, customPattern: input.customPattern });
+    let parser: ReturnType<typeof createParser> | null = null;
     try {
-      filesSearched++;
-      const fileMatches = await searchFile(filePath, searchPattern, context, limit - matches.length, format);
+      if (!detection.envelope) parser = createParser(detection.format, { customPattern: input.customPattern, plainMode: detection.plainMode });
+    } catch { parser = null; }
 
-      if (fileMatches.length > 0) {
-        filesWithMatches.add(filePath);
-        matches.push(...fileMatches);
+    const before: string[] = [];
+    const waitingAfter: SearchMatch[] = [];
+    let lines = 0;
+    let found = 0;
+    for await (const raw of handle.lines()) {
+      lines++;
+      for (let i = waitingAfter.length - 1; i >= 0; i--) {
+        const m = waitingAfter[i];
+        m.contextAfter.push(clip(raw.text));
+        if (m.contextAfter.length >= ctx) waitingAfter.splice(i, 1);
       }
-    } catch (error) {
-      // Skip files that can't be read
-      console.error(`Error searching file ${filePath}:`, error);
+      const m = pattern.exec(raw.text);
+      const hit = o.invert ? !m : !!m;
+      if (hit) {
+        totalMatches++;
+        found++;
+        filesWithMatches.add(handle.label);
+        if (matches.length < limit) {
+          const entry = parser?.parseLine(raw.text, raw.lineNumber) ?? null;
+          const match: SearchMatch = {
+            file: handle.label,
+            lineNumber: raw.lineNumber,
+            line: clip(raw.text),
+            matchStart: m ? m.index : 0,
+            matchEnd: m ? m.index + m[0].length : 0,
+            contextBefore: [...before],
+            contextAfter: [],
+            ...(entry ? { level: entry.level, timestamp: entry.timestamp?.toISOString() ?? null } : {}),
+          };
+          matches.push(match);
+          if (ctx > 0) waitingAfter.push(match);
+        }
+      }
+      if (ctx > 0) {
+        before.push(clip(raw.text));
+        if (before.length > ctx) before.shift();
+      }
+      // Stop reading once the page is full and all context is filled — unless
+      // an exact total is needed, which requires reading on (bounded by the source).
+      if (matches.length >= limit && waitingAfter.length === 0 && totalMatches > limit * 20) break;
     }
+    perSource.push({ source: handle.label, lines, matches: found });
   }
 
   return {
-    query,
-    totalMatches: matches.length,
-    filesSearched,
+    query: o.query,
+    totalMatches,
+    ...(totalMatches > limit * 20 ? { totalIsLowerBound: true } : {}),
+    returned: matches.length,
+    ...(totalMatches > matches.length ? { truncated: true } : {}),
+    filesSearched: opened.handles.length,
     filesWithMatches: filesWithMatches.size,
-    matches: matches.slice(0, limit),
-    searchTime: Date.now() - startTime,
+    matches,
+    sources: perSource,
+    ...(opened.skipped.length ? { skipped: opened.skipped } : {}),
+    ...(opened.filesTruncated ? { filesTruncated: true } : {}),
+    searchTimeMs: Date.now() - t0,
   };
-}
-
-/**
- * Search a single file for matches
- */
-async function searchFile(
-  filePath: string,
-  pattern: RegExp,
-  contextLines: number,
-  maxMatches: number,
-  format: LogFormat
-): Promise<SearchMatch[]> {
-  const matches: SearchMatch[] = [];
-  const lines: string[] = [];
-  const fileStream = createReadStream(filePath, { encoding: 'utf-8' });
-  const rl = createInterface({
-    input: fileStream,
-    crlfDelay: Infinity,
-  });
-
-  // Read all lines first for context support
-  for await (const line of rl) {
-    lines.push(line);
-  }
-
-  // Search through lines
-  for (let i = 0; i < lines.length && matches.length < maxMatches; i++) {
-    const line = lines[i];
-    const lineNumber = i + 1;
-
-    // Reset pattern lastIndex for global regex
-    pattern.lastIndex = 0;
-    const match = pattern.exec(line);
-
-    if (match) {
-      // Get context lines
-      const contextBefore: string[] = [];
-      const contextAfter: string[] = [];
-
-      if (contextLines > 0) {
-        for (let j = Math.max(0, i - contextLines); j < i; j++) {
-          contextBefore.push(lines[j]);
-        }
-        for (let j = i + 1; j <= Math.min(lines.length - 1, i + contextLines); j++) {
-          contextAfter.push(lines[j]);
-        }
-      }
-
-      // Try to parse as log entry
-      let entry: LogEntry | undefined;
-      try {
-        entry = parseLogLine(line, format, lineNumber) ?? undefined;
-      } catch {
-        // Not a parseable log entry
-      }
-
-      matches.push({
-        file: filePath,
-        lineNumber,
-        line,
-        matchStart: match.index,
-        matchEnd: match.index + match[0].length,
-        contextBefore,
-        contextAfter,
-        entry,
-      });
-    }
-  }
-
-  return matches;
-}
-
-/**
- * Search with streaming for large files
- */
-export async function searchLogsStream(
-  filePath: string,
-  pattern: RegExp,
-  callback: (match: SearchMatch) => void,
-  maxMatches = 1000
-): Promise<number> {
-  const fileStream = createReadStream(filePath, { encoding: 'utf-8' });
-  const rl = createInterface({
-    input: fileStream,
-    crlfDelay: Infinity,
-  });
-
-  let lineNumber = 0;
-  let matchCount = 0;
-
-  for await (const line of rl) {
-    lineNumber++;
-
-    if (matchCount >= maxMatches) break;
-
-    pattern.lastIndex = 0;
-    const match = pattern.exec(line);
-
-    if (match) {
-      matchCount++;
-      callback({
-        file: filePath,
-        lineNumber,
-        line,
-        matchStart: match.index,
-        matchEnd: match.index + match[0].length,
-        contextBefore: [],
-        contextAfter: [],
-      });
-    }
-  }
-
-  return matchCount;
-}
-
-/**
- * Highlight matches in a line for display
- */
-export function highlightMatches(line: string, pattern: RegExp): string {
-  return line.replace(pattern, (match) => `**${match}**`);
-}
-
-/**
- * Build summary of search results
- */
-export function summarizeSearchResults(result: SearchLogsResult): string {
-  const lines = [
-    `Search Results for: "${result.query}"`,
-    `─`.repeat(50),
-    `Files searched: ${result.filesSearched}`,
-    `Files with matches: ${result.filesWithMatches}`,
-    `Total matches: ${result.totalMatches}`,
-    `Search time: ${result.searchTime}ms`,
-    '',
-  ];
-
-  if (result.matches.length > 0) {
-    lines.push('Matches:');
-    lines.push('');
-
-    // Group matches by file
-    const byFile = new Map<string, SearchMatch[]>();
-    for (const match of result.matches) {
-      if (!byFile.has(match.file)) {
-        byFile.set(match.file, []);
-      }
-      byFile.get(match.file)!.push(match);
-    }
-
-    for (const [file, fileMatches] of byFile) {
-      lines.push(`📁 ${file} (${fileMatches.length} matches)`);
-      for (const match of fileMatches.slice(0, 5)) {
-        const truncatedLine = match.line.length > 80
-          ? match.line.substring(0, 77) + '...'
-          : match.line;
-        lines.push(`  L${match.lineNumber}: ${truncatedLine}`);
-      }
-      if (fileMatches.length > 5) {
-        lines.push(`  ... and ${fileMatches.length - 5} more matches`);
-      }
-      lines.push('');
-    }
-  }
-
-  return lines.join('\n');
 }
