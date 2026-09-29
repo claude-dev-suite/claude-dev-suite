@@ -70,6 +70,10 @@ function entriesFor(targets: readonly TargetId[], configsWithSecrets: readonly s
     // Rewritten by a hook on every turn that touches an API file. Pure working
     // state, and noisy in `git status` if left out.
     '.claude/.ds-api-touched',
+    // performance-profiler writes every profile, flame graph and heap snapshot
+    // here — megabytes per run. Its `baselines/` sibling stays tracked: saved
+    // baselines are what a later run is compared against, so a team shares them.
+    '.perf-profiler/runs/',
   ];
 
   // Only files proven to carry a secret. The old rule ignored every MCP config
