@@ -12,8 +12,11 @@ import {
   buildUrl,
   type HttpResult,
 } from '../utils/http-client.js';
-import { attachProfiler, type AttachProfilerResult } from '../live/attach.js';
+import { attachProfiler, type AttachResult } from '../live/attach.js';
 import { round } from '../utils/statistics.js';
+import { redactPath, redactRecord, redactText, redactUrl } from '../utils/redact.js';
+
+type AttachProfilerResult = AttachResult;
 
 export interface ReplayFlowInput {
   flowName: string;
@@ -49,6 +52,7 @@ export interface ReplayFlowResult {
   requests: RequestReplayResult[];
   capturedVariables: Record<string, string>;
   profiling?: AttachProfilerResult;
+  profilingError?: string;
 }
 
 /**
@@ -88,10 +92,14 @@ export async function replayFlow(input: ReplayFlowInput): Promise<ReplayFlowResu
     );
 
     profilingPromise = attachProfiler({
+      runtime: 'java',
       pid: profilingPid,
       port: profilingPort,
       duration: estimatedDuration,
+      limit: 20,
     });
+    // Surface failures in the result instead of an unhandled rejection.
+    profilingPromise.catch(() => undefined);
   }
 
   const results: RequestReplayResult[] = [];
@@ -138,25 +146,34 @@ export async function replayFlow(input: ReplayFlowInput): Promise<ReplayFlowResu
 
   // Wait for profiling to complete
   let profilingResult: AttachProfilerResult | undefined;
+  let profilingError: string | undefined;
   if (profilingPromise) {
     try {
       profilingResult = await profilingPromise;
-      console.error(`JFR profiling completed`);
     } catch (error) {
-      console.error(`JFR profiling error: ${error}`);
+      profilingError = error instanceof Error ? error.message : String(error);
     }
+  } else if (withProfiling) {
+    profilingError = 'withProfiling needs profilingPort or profilingPid; profiling was skipped.';
   }
 
   return {
     flowName,
-    baseUrl,
+    baseUrl: redactUrl(baseUrl),
     totalRequests: flow.requests.length,
     successfulRequests,
     failedRequests,
     totalTimeMs,
-    requests: results,
-    capturedVariables: variables,
+    requests: results.map((r) => ({
+      ...r,
+      path: redactPath(r.path),
+      fullUrl: redactUrl(r.fullUrl),
+      ...(r.error ? { error: redactText(r.error) } : {}),
+      ...(r.capturedVariables ? { capturedVariables: redactRecord(r.capturedVariables) } : {}),
+    })),
+    capturedVariables: redactRecord(variables) ?? {},
     profiling: profilingResult,
+    ...(profilingError ? { profilingError } : {}),
   };
 }
 
