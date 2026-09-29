@@ -21,7 +21,15 @@ import {
   handleReplayFlow,
   handleStressTestFlow,
 } from './http.js';
-import { handleGetJob, handleListJobs, handleStopJob } from './results.js';
+import {
+  handleAuditWebVitals,
+  handleCompareResults,
+  handleGetJob,
+  handleListBaselines,
+  handleListJobs,
+  handleSaveBaseline,
+  handleStopJob,
+} from './results.js';
 
 export type { Handler, HandlerResult } from './types.js';
 export { jsonResponse, errorResponse } from './types.js';
@@ -47,4 +55,10 @@ export const handlers: Record<string, Handler> = {
   get_job: handleGetJob,
   stop_job: handleStopJob,
   list_jobs: handleListJobs,
+  // Baselines / regression
+  save_baseline: handleSaveBaseline,
+  list_baselines: handleListBaselines,
+  compare_results: handleCompareResults,
+  // Frontend
+  audit_web_vitals: handleAuditWebVitals,
 };

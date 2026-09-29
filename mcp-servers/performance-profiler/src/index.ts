@@ -289,6 +289,54 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: 'List background jobs of this server session with their status.',
       inputSchema: { type: 'object', properties: {}, required: [] },
     },
+    // ----- Baselines -----
+    {
+      name: 'save_baseline',
+      description: 'Save a recorded run (runId from any measuring tool) as a named baseline for later regression checks.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Baseline name (letters, digits, . _ -)' },
+          runId: { type: 'string', description: 'runId returned by a profiling/benchmark/load tool' },
+          overwrite: { type: 'boolean', description: 'Replace an existing baseline of that name (default false: preview only)' },
+        },
+        required: ['name', 'runId'],
+      },
+    },
+    {
+      name: 'list_baselines',
+      description: 'List saved baselines with their kind, subject and headline metrics.',
+      inputSchema: { type: 'object', properties: {}, required: [] },
+    },
+    {
+      name: 'compare_results',
+      description: 'Compare a run against a baseline or another run: per-metric change, significance, regression verdict.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          baseline: { type: 'string', description: 'Baseline name or runId' },
+          current: { type: 'string', description: 'runId of the new run' },
+          tolerancePct: { type: 'number', description: 'Change below this percent is "unchanged" (default 5)' },
+        },
+        required: ['baseline', 'current'],
+      },
+    },
+    // ----- Frontend -----
+    {
+      name: 'audit_web_vitals',
+      description: 'Measure a page with Lighthouse (or headless Chrome): LCP, CLS, TBT, FCP, TTI, score, top opportunities.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Page URL (private addresses need PERF_PROFILER_ALLOW_PRIVATE_URLS=true)' },
+          formFactor: { type: 'string', enum: ['mobile', 'desktop'], description: 'Emulation profile (default mobile)' },
+          runs: { type: 'number', description: 'Runs to take the median of (1-5, default 1)' },
+          engine: { type: 'string', enum: ['auto', 'lighthouse', 'chrome'], description: 'auto: Lighthouse if installed, else Chrome' },
+          background,
+        },
+        required: ['url'],
+      },
+    },
   ],
 }));
 

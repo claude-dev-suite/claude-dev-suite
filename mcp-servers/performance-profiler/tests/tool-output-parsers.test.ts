@@ -8,6 +8,7 @@ import { diffHistograms, parseClassHistogram, parseHeapInfo } from '../src/profi
 import { parseGoBench } from '../src/profilers/go.js';
 import { parseCountersJson } from '../src/profilers/dotnet.js';
 import { parseJps, parseNetstatListening, parseSsListening } from '../src/live/process-finder.js';
+import { parseLighthouseResult } from '../src/web/vitals.js';
 import { diffSnapshots, parseSnapshotJson, summarizeHeapProfile } from '../src/memory/heap-snapshot.js';
 
 describe('jcmd GC.heap_info', () => {
@@ -98,6 +99,32 @@ describe('dotnet-counters json', () => {
       { t: 0, used: 10.5 * 1048576 },
       { t: 1000, used: 12 * 1048576 },
     ]);
+  });
+});
+
+describe('Lighthouse result', () => {
+  it('extracts metrics, score and top opportunities', () => {
+    const lhr = {
+      lighthouseVersion: '12.2.0',
+      finalDisplayedUrl: 'http://localhost:3000/',
+      categories: { performance: { score: 0.73 } },
+      audits: {
+        'largest-contentful-paint': { id: 'largest-contentful-paint', title: 'LCP', score: 0.5, numericValue: 3120.44 },
+        'cumulative-layout-shift': { id: 'cumulative-layout-shift', title: 'CLS', score: 0.9, numericValue: 0.123456 },
+        'total-blocking-time': { id: 'total-blocking-time', title: 'TBT', score: 0.6, numericValue: 410 },
+        'first-contentful-paint': { id: 'first-contentful-paint', title: 'FCP', score: 0.8, numericValue: 1500 },
+        interactive: { id: 'interactive', title: 'TTI', score: 0.7, numericValue: 5200 },
+        'render-blocking-resources': { id: 'render-blocking-resources', title: 'Eliminate render-blocking resources', score: 0.3, details: { type: 'opportunity', overallSavingsMs: 900 } },
+        'unused-javascript': { id: 'unused-javascript', title: 'Reduce unused JavaScript', score: 0.4, details: { type: 'opportunity', overallSavingsMs: 1500, overallSavingsBytes: 200000 } },
+        'uses-http2': { id: 'uses-http2', title: 'HTTP/2', score: 1, details: { type: 'opportunity', overallSavingsMs: 0 } },
+      },
+    };
+    const r = parseLighthouseResult(lhr);
+    expect(r.metrics).toMatchObject({ performanceScore: 73, lcpMs: 3120.4, cls: 0.1235, tbtMs: 410, fcpMs: 1500, ttiMs: 5200 });
+    expect(r.opportunities.map((o) => o.id)).toEqual(['unused-javascript', 'render-blocking-resources']);
+  });
+  it('surfaces Lighthouse runtime errors instead of empty metrics', () => {
+    expect(() => parseLighthouseResult({ runtimeError: { code: 'NO_FCP', message: 'no paint' }, audits: {} })).toThrow(/NO_FCP/);
   });
 });
 

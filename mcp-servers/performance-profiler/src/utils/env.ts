@@ -69,3 +69,13 @@ export function pythonOverride(): string | undefined {
   const v = process.env.PERF_PROFILER_PYTHON;
   return v && v.trim() ? v.trim() : undefined;
 }
+
+export function lighthouseOverride(): string | undefined {
+  const v = process.env.PERF_PROFILER_LIGHTHOUSE;
+  return v && v.trim() ? v.trim() : undefined;
+}
+
+export function chromeOverride(): string | undefined {
+  const v = process.env.PERF_PROFILER_CHROME;
+  return v && v.trim() ? v.trim() : undefined;
+}

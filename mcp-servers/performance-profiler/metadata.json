@@ -1,6 +1,6 @@
 {
   "name": "performance-profiler",
-  "description": "CPU profiling with flame graphs and kept artifacts (Node.js V8, Python cProfile/py-spy, Java JFR, Go pprof, .NET dotnet-trace), live attach to running processes, target-process memory and leak analysis (heap snapshot, tracemalloc and class-histogram diffs), microbenchmarks with confidence intervals and A/B significance, startup time-to-ready, and HTTP load testing (open/closed model, thresholds, background jobs) with HAR flow replay",
+  "description": "CPU profiling with flame graphs and kept artifacts (Node.js V8, Python cProfile/py-spy, Java JFR, Go pprof, .NET dotnet-trace), live attach to running processes, target-process memory and leak analysis (heap snapshot, tracemalloc and class-histogram diffs), microbenchmarks with confidence intervals and A/B significance, startup time-to-ready, HTTP load testing (open/closed model, thresholds, background jobs) with HAR flow replay, baselines with regression comparison, and Lighthouse / Core Web Vitals audits",
   "shortDescription": "CPU/memory profiling, benchmarks, load tests",
   "category": "performance",
   "tools": [
@@ -19,7 +19,11 @@
     "stress_test_flow",
     "get_job",
     "stop_job",
-    "list_jobs"
+    "list_jobs",
+    "save_baseline",
+    "list_baselines",
+    "compare_results",
+    "audit_web_vitals"
   ],
   "envVars": [
     {
@@ -73,6 +77,18 @@
     {
       "name": "PERF_PROFILER_PYTHON",
       "description": "Path to the Python 3 interpreter to use (default: python3/python, or python/py -3 on Windows).",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_LIGHTHOUSE",
+      "description": "Path to the Lighthouse CLI (cli/index.js or executable) when it is not installed in the project or globally.",
+      "default": "",
+      "required": false
+    },
+    {
+      "name": "PERF_PROFILER_CHROME",
+      "description": "Path to a Chrome/Chromium/Edge executable for Web Vitals audits when it is not in a standard location.",
       "default": "",
       "required": false
     }
