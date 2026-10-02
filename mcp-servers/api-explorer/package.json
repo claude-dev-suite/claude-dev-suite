@@ -15,7 +15,7 @@
   "dependencies": {
     "@dev-suite/shared": "*",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "graphql": "^16.14.2",
+    "graphql": "^17.0.2",
     "protobufjs": "^8.8.0",
     "yaml": "^2.9.1",
     "zod": "^4.6.5"
