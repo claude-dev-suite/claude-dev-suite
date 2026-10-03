@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-10-03
+
+A new kind of model went on sale on 2026-09-15: TypeSafe's Jev reads text but
+answers with a typed decision and its probabilities, never with prose. It is
+pitched as the replacement for every LLM that is really being used as a
+classifier. This release adds an agent that finds those call sites in a
+codebase. It decides which of them would gain anything from a confidence
+score, and it treats the vendor's numbers as claims to check, not facts. The
+knowledge base gains the material that makes those checks possible: the full
+integration surface, and a calibration procedure with code that was run before
+it was written down.
+
 ### Added
 
 - **`decision-model-expert`, and three skills for typed decision models.**
@@ -33,21 +45,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   these topics. Every code block on those pages was quoted from a cited source,
   executed offline against mocks, or type-checked. Each page was then checked
   by a separate adversarial verifier.
-
-### Fixed
-
-- **Jev skill details that the knowledge-base verification disproved.**
-  - Passing a custom `http_client` silently drops the per-attempt timeout to
-    httpx2's 5 s unless `timeout=` is also passed (measured on
-    typesafe-sdk 0.7.2).
-  - `RetryPolicy.timeout` never interrupts an attempt already in flight.
-  - In JS, an `AbortSignal` rejects with `APIUserAbortError`, not
-    `APITimeoutError`.
-  - The Vercel AI SDK throws `RetryError`, not `APICallError`, once retries are
-    exhausted.
-  - Gemini 3.x no longer returns logprobs.
-  - scikit-learn 1.9 rejects `cv="prefit"`.
-  - An unsourced "ECE cut ~74%" figure was removed.
 
 ## [1.18.0] - 2026-09-29
 
