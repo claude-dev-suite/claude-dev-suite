@@ -36,6 +36,16 @@ Deeper material:
 | `quick-ref/framework-integrations.md` | Pydantic AI, LangChain, Vercel AI SDK, OpenRouter, LiteLLM, DSPy, others |
 | `quick-ref/question-design.md` | writing questions and state, the documented patterns and failure modes |
 
+> **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology:
+> `typesafe-jev` and one of these topics:
+> - `api-reference`: every field, error body and limit, plus where the docs and the OpenAPI spec disagree.
+> - `python-sdk` and `javascript-sdk`: the full SDK surface, mock-transport tests and concurrency patterns.
+> - `pydantic-ai`, `langchain`, `vercel-ai-sdk`, `dspy`: one page per integration.
+> - `recipes-extraction` and `recipes-routing`: the official cookbooks, ported and runnable.
+> - `evidence`: every independent study, with its methodology and caveats.
+>
+> Every code block there was quoted from a cited source, executed offline against mocks, or type-checked.
+
 ## Mental model
 
 One request = one `state` (what is judged) + a map of named `questions` (what
@@ -180,8 +190,11 @@ going up.
 
 Both SDKs retry 408, 429 and 5xx twice by default with jittered exponential
 backoff (0.5 s → 5 s) and honour `retry-after`. Python's `RetryPolicy.timeout`
-(30 s) is a **total** budget; JS has a per-attempt timeout (10 s) and no total
-budget — put an `AbortSignal` on latency-critical paths.
+(30 s) stops *new* attempts once spent but never interrupts one in flight, so
+the worst case is that budget plus one per-attempt `timeout` (10 s) — set both
+on latency-critical paths. JS has a per-attempt timeout (10 s) and no total
+budget; an `AbortSignal` caps the whole call but rejects with
+`APIUserAbortError`, not `APITimeoutError`.
 
 ## Rules that prevent most bugs
 
@@ -203,10 +216,14 @@ budget — put an `AbortSignal` on latency-critical paths.
 
 ## Official resources
 
-- Docs: https://docs.typesafe.ai — full dump at `/llms-full.txt` (can lag the
-  live pages; append `.md` to any page path for its current markdown)
+- Docs: https://docs.typesafe.ai — append `.md` to any page path for its
+  current markdown. The full dump at `/llms-full.txt` **lags**: on 2026-10-03 it
+  still served the 40 req/s limit and the 2026-09-17 limitations page. Never
+  quote an operational fact from it without checking the page itself
 - OpenAPI: https://api.typesafe.ai/openapi.json · console: https://console.typesafe.ai
 - Limitations: https://docs.typesafe.ai/model-jaggedness/jev-1.13
 - Official agent skill: `claude plugin marketplace add typesafe-ai/skills`
-- `typesafe-ai/system-one-adapter-python`: a drop-in `TypeSafeClient` backed by
-  ordinary LLM APIs — useful for comparing like-for-like through the same code
+- `typesafe-ai/system-one-adapter-python`: a drop-in replacement for
+  `system_one` backed by ordinary LLM APIs (not for the whole client: different
+  constructor, no `models.list`) — useful for comparing like-for-like through
+  the same calling code

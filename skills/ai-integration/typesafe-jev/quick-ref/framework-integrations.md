@@ -4,6 +4,8 @@
 > Status verified 2026-10-03. Most of these shipped in the two weeks after the
 > 2026-09-15 launch and several are marked experimental — check the version in
 > front of you before copying an API name.
+>
+> **Deep Knowledge**: `mcp__documentation__fetch_docs` with technology `typesafe-jev`, topic `pydantic-ai`, `langchain`, `vercel-ai-sdk`, `dspy`.
 
 ## Which one to use
 
@@ -216,9 +218,12 @@ absence of `provider_details`, or catch the exceptions yourself.
 - Logfire records a `decide {model}` span with `pydantic_ai.decision.*` attributes.
 - **Doc history:** 2.45–2.49 carried the line *"The order of a Literal's options
   or an Enum's members is part of what Jev sees, and reordering them can move
-  the answer."* It was removed in 2.50.0 (2026-09-24) during a docs restructure.
+  the answer."* It was removed by PR #8731 (merged 2026-09-24), first absent
+  from release 2.50.0 (2026-09-25), during a docs restructure.
   The behaviour was not fixed: TypeSafe's own limitations page has documented
-  it since 2026-10-02. Options are still sent in declaration order.
+  it since 2026-10-02. Options are still sent in declaration order. Pydantic
+  AI's own TypeSafe page still lists the older limitations (with "structural
+  invariants", without "option order") — check TypeSafe's live page instead.
 
 ---
 
@@ -267,7 +272,9 @@ print(response.scores["severity"].score)
 - Experimental middleware (`langchain-typesafe[experimental]`, import from
   `langchain_typesafe.experimental.middleware`):
   `ModelRouterMiddleware` + `ModelChoice` (pick the model for a run) and
-  `AutoModeMiddleware(tools=[...])` (refuse a tool call judged risky; customise
+  `AutoModeMiddleware(tools=[...])` (refuse a tool call judged risky; in Python
+  0.0.1a3 its default risk criteria are **not sent** — pass them explicitly;
+  customise
   with `criteria=NoulCriteria(true=..., false=...)`). It **refuses**, it does
   not ask for approval — pair it with human-in-the-loop middleware, and keep
   secrets out of tool arguments since they are sent to TypeSafe.
@@ -327,7 +334,9 @@ console.log(result.answers.requestsRefund.probability);
 - Confidence lives at `result.providerMetadata.typesafe.confidence[questionId]`.
 - Values are rounded to two decimals; `result.rounding` reports it, so
   probabilities may not sum to exactly 1.
-- Core retries 429/529 (`maxRetries`, default 2).
+- Core retries 408, 409, 429 and ≥ 500, including 529 (`maxRetries`, default 2).
+  Once retries are exhausted it throws **`RetryError`** (`lastError` inside),
+  not `APICallError` — check both, or persistent 429/5xx failures slip past.
 - Vercel AI Gateway: model `typesafe-ai/jev` (AI SDK ≥ 7.0.105), or point the
   TypeSafe SDK at `https://ai-gateway.vercel.sh/typesafe`.
 

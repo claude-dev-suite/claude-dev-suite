@@ -3,6 +3,8 @@
 > See [TypeSafe Jev SKILL](../SKILL.md) for the request model, limits and pricing.
 > Verified against `@typesafe-ai/sdk` **0.6.0** (2026-09-15), the API reference at
 > https://docs.typesafe.ai/api and https://api.typesafe.ai/openapi.json (spec version 0.2.0).
+>
+> **Deep Knowledge**: `mcp__documentation__fetch_docs` with technology `typesafe-jev`, topic `javascript-sdk`, `api-reference`.
 
 ## JavaScript / TypeScript SDK
 
@@ -56,15 +58,21 @@ type level. Answer types are inferred from the question map.
 
 Per-request options (second argument): `headers`, `retry`, `signal`, `timeout`.
 Because `timeout` is per attempt, three attempts can take ~30 s plus backoff —
-pass an `AbortSignal.timeout(ms)` when a caller is waiting.
+pass an `AbortSignal.timeout(ms)` as `signal` when a caller is waiting. It
+cancels the attempt *and* pending retry waits, and rejects with
+**`APIUserAbortError`**, not `APITimeoutError` — branch on both.
 
 `systemOne` returns an `APIPromise` with `.withResponse()` (data + raw
 `Response`), `.asResponse()` and `.map()`.
 
-Errors: `TypeSafeError` base; `BadRequestError`, `AuthenticationError`,
-`PermissionDeniedError`, `NotFoundError`, `UnprocessableEntityError`,
-`RateLimitError`, `InternalServerError`, `APIConnectionError`,
-`APITimeoutError`, `APIUserAbortError`.
+Errors: `TypeSafeError` base; `APIError`; `BadRequestError`,
+`AuthenticationError`, `PermissionDeniedError`, `NotFoundError`,
+`UnprocessableEntityError`, `RateLimitError`, `InternalServerError`,
+`APIConnectionError`, `APITimeoutError`, `APIUserAbortError`.
+
+Config and question validation **throws synchronously** — `systemOne` is not an
+`async` function. `await client.systemOne(...)` inside `try/catch` catches it;
+`client.systemOne(...).catch(...)` does not, because no promise exists yet.
 
 **Never ship the key to a browser.** Proxy through your server; the flag exists
 so that doing otherwise is a deliberate act.
@@ -148,4 +156,5 @@ you point at a nested `state` value (`` `ticket.messages[0].text` ``):
 | Score maximum / Choice maximum | 10 / 255 | not encoded in the spec |
 
 Validate these limits yourself before sending, so a malformed question fails
-in your code with a clear message instead of as a 422 at runtime.
+in your code with a clear message instead of at runtime — the server's status
+for an over-limit question is undocumented (400 or 422; Pydantic AI reports 400).

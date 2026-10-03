@@ -106,8 +106,9 @@ already runs evals usually has one and does not know it.
 **Then calibrate.** One temperature per Choice/Score question, or a Platt fit
 per Noul, on the calibration half of that corpus, reported against the ECE
 noise floor on the other half. A single fit routinely removes most of the
-miscalibration — on Jev, independent reviews measured cuts of roughly 60–75% —
-and that often matters more than the choice of model. Recommend the fit before
+miscalibration — on Jev, refitting a Platt intercept on 50 labels cut held-out
+ECE by 62% in-domain — and that often matters more than the choice of model.
+Fit per domain: the slope did not transfer. Recommend the fit before
 recommending the model, and never on fewer than ~30 labels per question: below
 that it has been observed to make things worse. The procedure and tested code
 are in `decision-model-calibration`.

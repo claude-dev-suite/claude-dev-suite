@@ -43,6 +43,11 @@ back as separate things**, so code can act on one and route on the other.
 | Python/JS SDK, HTTP API, limits, pricing, framework integrations | `ai-integration/typesafe-jev` |
 | Building the labelled corpus, ECE, temperature/Platt fits, option-order debiasing, conformal sets, thresholds | `ai-integration/decision-model-calibration` |
 
+> **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology:
+> `typesafe-jev`, topic `evidence`, for the full ledger of independent studies:
+> their methodology, sample sizes, authors' own caveats and later corrections,
+> and the history of the vendor's limitations page.
+
 ## The three primitives
 
 | | asks | returns | limits (jev-1.13) |
@@ -112,7 +117,8 @@ result = client.system_one(
 ```
 
 Gate on confidence with bars set by the **cost of being wrong**, per action —
-the vendor's own example uses a 0.6 floor and 0.85 for a money-moving action:
+the vendor's confidence-routing pattern uses a 0.6 floor and 0.85 for a
+money-moving action (with three options, confidence > 0.85 means p_max > 0.90):
 
 ```python
 action = result.choices["department"]
@@ -126,8 +132,9 @@ else:
     ask_first()
 ```
 
-Those numbers are starting points the vendor labels as such ("Start with
-conservative thresholds, test with your own data") — never production values.
+Those numbers are starting points, never production values. The Confidence
+page's own example uses 0.5 and 0.9 and says: "Start with conservative
+thresholds, test with your own data".
 
 ## What the evidence says, as of 2026-10-03
 
@@ -165,18 +172,21 @@ shape; it can absolutely decide wrong.**
   them — "read the sign, not the magnitude". Its worst case (44.7% correct at
   mean probability 0.74) was a question **unanswerable from the text by design**:
   the finding is that Jev did not lower its confidence when it could not know.
-- Fitting is cheap and effective: a single temperature cut ECE ~74% in one
-  review; a Platt intercept on 50 labels cut it 62% in another — while **fewer
-  than ~30 labels could make it worse**.
+- Fitting is cheap and effective in-domain: refitting a Platt intercept on 50
+  labels cut held-out ECE by 62% (SamuelSacco/jev-exploration), while **fewer
+  than ~30 labels could leave it four times worse**. The fitted slope did *not*
+  transfer cleanly to new domains (0 of 3), so fit per domain.
 
 **Option order and option names move the answer.** Since 2026-10-02 the vendor
 documents it: *"the order of a Choice's options can affect the answer, and
 `jev-1.13` leans toward the option that comes first."* Measured effects:
 - a reference card's position moved mean probability on the right answer from
-  0.50 (first) to 0.89 (last) (Archer Hume, 10,000 calls);
-- adding an irrelevant fifth option shrank the log-odds between two others from
-  +0.49 to +0.08 — options **interact**, so probabilities are not fixed
-  per-option scores (Hume declines to name the mechanism);
+  about 0.5 when first (0.50 / 0.56 across the two orders) to about 0.88 when
+  last (0.89 / 0.87) (Archer Hume, 10,000 calls);
+- adding an irrelevant fifth option shrank the log-odds between two others
+  (+0.49 → +0.08 in the first run; +0.38 → +0.11 in a ten-block replication,
+  mean change −0.28 [−0.36, −0.19]) — options **interact**, so probabilities
+  are not fixed per-option scores (Hume declines to name the mechanism);
 - renaming labels is worse than reordering them: arXiv 2609.26758 reports AUC
   0.81 → 0.58 on the hosted model with 24× the test-retest flip rate.
 
@@ -211,7 +221,7 @@ one. Confidence from Claude means sampling frequency, verbalized confidence, or
 a panel of readers voting, each costing more than one call.
 
 Where logprobs exist (OpenAI `top_logprobs` 0–20 but only with reasoning effort
-`none` on GPT-6; Gemini `responseLogprobs` + `logprobs` 0–20; vLLM; llama.cpp
+`none` on GPT-6; Gemini `responseLogprobs` + `logprobs` 0–20 but reportedly not on 3.x models; vLLM; llama.cpp
 `n_probs`), constrain the label to a **single token** in an enum so that one
 token's distribution *is* the class posterior, then calibrate on your labels.
 Know which distribution you are reading: vLLM's default `logprobs_mode` is

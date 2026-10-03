@@ -24,6 +24,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     temperature/Platt fits, option-order debiasing, conformal sets and which
     providers expose logprobs at all. Its code was run on simulated data with
     known over-confidence before it was written down.
+- **Knowledge-base coverage for Jev and calibration, served by the
+  `documentation` MCP server.** The technology `typesafe-jev` has ten topics:
+  the API reference, both SDKs, Pydantic AI, LangChain, Vercel AI SDK, DSPy,
+  two sets of ported cookbooks, and an evidence ledger. The technology
+  `decision-calibration` has five: calibration, order bias, conformal sets,
+  provider logprobs, and a runnable eval harness. All three skills now point to
+  these topics. Every code block on those pages was quoted from a cited source,
+  executed offline against mocks, or type-checked. Each page was then checked
+  by a separate adversarial verifier.
+
+### Fixed
+
+- **Jev skill details that the knowledge-base verification disproved.**
+  - Passing a custom `http_client` silently drops the per-attempt timeout to
+    httpx2's 5 s unless `timeout=` is also passed (measured on
+    typesafe-sdk 0.7.2).
+  - `RetryPolicy.timeout` never interrupts an attempt already in flight.
+  - In JS, an `AbortSignal` rejects with `APIUserAbortError`, not
+    `APITimeoutError`.
+  - The Vercel AI SDK throws `RetryError`, not `APICallError`, once retries are
+    exhausted.
+  - Gemini 3.x no longer returns logprobs.
+  - scikit-learn 1.9 rejects `cv="prefit"`.
+  - An unsourced "ECE cut ~74%" figure was removed.
 
 ## [1.18.0] - 2026-09-29
 

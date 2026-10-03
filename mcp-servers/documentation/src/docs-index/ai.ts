@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
  * AI integration documentation
- * Includes: RAG patterns, Vector databases, Claude API, MCP SDK
+ * Includes: RAG patterns, Vector databases, Claude API, MCP SDK,
+ * TypeSafe Jev (typed decision models), classifier calibration
  */
 
 import type { DocsRecord } from "./types.js";
@@ -11,6 +12,8 @@ export const AI_TECHNOLOGIES = [
   "vector-databases",
   "anthropic",
   "mcp-sdk",
+  "typesafe-jev",
+  "decision-calibration",
 ] as const;
 
 export const aiDocs: DocsRecord = {
@@ -111,6 +114,74 @@ export const aiDocs: DocsRecord = {
     prompts: {
       local: "mcp-sdk/prompts.md",
       url: "https://modelcontextprotocol.io/docs/concepts/prompts",
+    },
+  },
+
+  // TypeSafe's Jev decision model. `evidence` has no upstream page: it is a
+  // ledger of independent evaluations collected from many sources.
+  "typesafe-jev": {
+    "api-reference": {
+      local: "typesafe-jev/api-reference.md",
+      url: "https://docs.typesafe.ai/api",
+    },
+    "python-sdk": {
+      local: "typesafe-jev/python-sdk.md",
+      url: "https://docs.typesafe.ai/sdk/python",
+    },
+    "javascript-sdk": {
+      local: "typesafe-jev/javascript-sdk.md",
+      url: "https://docs.typesafe.ai/sdk/javascript",
+    },
+    "pydantic-ai": {
+      local: "typesafe-jev/pydantic-ai.md",
+      url: "https://pydantic.dev/docs/ai/models/decision/",
+    },
+    langchain: {
+      local: "typesafe-jev/langchain.md",
+      url: "https://docs.langchain.com/oss/python/integrations/providers/typesafe",
+    },
+    "vercel-ai-sdk": {
+      local: "typesafe-jev/vercel-ai-sdk.md",
+      url: "https://ai-sdk.dev/providers/ai-sdk-providers/typesafe-ai",
+    },
+    dspy: {
+      local: "typesafe-jev/dspy.md",
+      url: "https://dspy.ai/current/tutorials/jev_decisions/",
+    },
+    "recipes-extraction": {
+      local: "typesafe-jev/recipes-extraction.md",
+      url: "https://docs.typesafe.ai/cookbooks",
+    },
+    "recipes-routing": {
+      local: "typesafe-jev/recipes-routing.md",
+      url: "https://docs.typesafe.ai/cookbooks",
+    },
+    evidence: {
+      local: "typesafe-jev/evidence.md",
+    },
+  },
+
+  // Calibrating a classifier's probabilities. `provider-logprobs` compares
+  // vendors and `eval-harness` is our own procedure, so neither has a single
+  // upstream page.
+  "decision-calibration": {
+    calibration: {
+      local: "decision-calibration/calibration.md",
+      url: "https://scikit-learn.org/stable/modules/calibration.html",
+    },
+    "order-bias": {
+      local: "decision-calibration/order-bias.md",
+      url: "https://arxiv.org/abs/2309.03882",
+    },
+    conformal: {
+      local: "decision-calibration/conformal.md",
+      url: "https://arxiv.org/abs/2107.07511",
+    },
+    "provider-logprobs": {
+      local: "decision-calibration/provider-logprobs.md",
+    },
+    "eval-harness": {
+      local: "decision-calibration/eval-harness.md",
     },
   },
 };
