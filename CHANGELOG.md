@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`decision-model-expert`, and three skills for typed decision models.**
+  TypeSafe's Jev launched on 2026-09-15 as a replacement for any LLM used as a
+  classifier: it returns a typed answer plus probabilities instead of prose.
+  The agent finds the call sites where a model is asked a closed question. It
+  then judges each one on whether anything downstream needs a confidence at
+  all.
+  - `typed-decision-models` (core) covers when the class fits and what the
+    independent evidence says.
+  - `typesafe-jev` covers the HTTP API, both SDKs and every framework
+    integration, with code checked against the live docs on 2026-10-03.
+  - `decision-model-calibration` covers corpus, ECE against its noise floor,
+    temperature/Platt fits, option-order debiasing, conformal sets and which
+    providers expose logprobs at all. Its code was run on simulated data with
+    known over-confidence before it was written down.
+
 ## [1.18.0] - 2026-09-29
 
 The eight domain MCP servers — database-query, docker-manager, api-tester,
