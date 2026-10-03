@@ -22,6 +22,14 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash
 
 # Calibrating decision models
 
+> **Deep Knowledge**: Use `mcp__documentation__fetch_docs` with technology:
+> `decision-calibration` and one of these topics:
+> - `calibration`: ECE variants, debiased estimators, isotonic and vector scaling, bootstrap CIs, contextual calibration.
+> - `order-bias`: position and label bias, flip-rate measurement, PriDe.
+> - `conformal`: LAC, APS and RAPS, plus class-conditional coverage.
+> - `provider-logprobs`: request examples for each provider.
+> - `eval-harness`: a complete runnable harness that compares Jev with an LLM on your own corpus and writes the decision report.
+
 A probability is useful only if "0.9" means right about nine times in ten **on
 your data**. No vendor can promise that for you: calibration depends on your
 inputs, your language and your label set, and it shifts with every model
@@ -40,8 +48,8 @@ you compare them.
   cases, which are the ones thresholds exist for.
 - **Size.** About 50 labels per question can fit a one-parameter correction;
   **fewer than ~30 can make calibration worse** (observed on Jev). Isotonic
-  regression needs ~1,000 (scikit-learn: "not recommended when calibration
-  samples < ~1000"). Thresholds for rare, expensive classes need enough
+  regression needs on the order of 1,000 (scikit-learn warns against it when
+  the number of calibration samples is "too low (≪1000)"). Thresholds for rare, expensive classes need enough
   examples *of that class*.
 - **Split** into a calibration half and a test half; never report a metric on
   the data a correction was fitted on.
@@ -88,8 +96,10 @@ def brier(probs, labels):
 
 Report, per question:
 - **accuracy with a confidence interval**. n = 77 gives roughly ±10 points;
-- **ECE next to its noise floor**. At n = 60 a perfectly calibrated model already
-  scores ≈ 0.045, so a bare ECE is uninterpretable;
+- **ECE next to its noise floor**. The floor depends on n *and* on how spread
+  the confidences are: at n = 60 a perfectly calibrated model scores a median
+  ≈ 0.06 when confidences cluster near 1, but ≈ 0.13 when they spread over
+  0.4–1 (simulated with `ece_noise_floor`). A bare ECE is uninterpretable;
 - **Brier score**, which punishes both miscalibration and poor discrimination;
 - **direction**: is the error over-confident (most binned accuracy below binned
   confidence) or compressed toward the middle?
@@ -167,8 +177,8 @@ reports for Jev and which a pure shift cannot fix.
 ### Your own scikit-learn classifier
 
 scikit-learn ≥ 1.8 has `method="temperature"` alongside `"sigmoid"` and
-`"isotonic"`. `cv="prefit"` was deprecated in 1.6; wrap an already-fitted model
-in `FrozenEstimator`:
+`"isotonic"`. `cv="prefit"` was deprecated in 1.6 and 1.9.1 rejects it with
+`InvalidParameterError`; wrap an already-fitted model in `FrozenEstimator`:
 
 ```python
 from sklearn.calibration import CalibratedClassifierCV
@@ -181,8 +191,8 @@ calibrated = CalibratedClassifierCV(FrozenEstimator(clf), method="temperature").
 
 - **Classic result:** temperature scaling alone fixes most of the
   miscalibration of modern networks (Guo et al., ICML 2017).
-- **On Jev:** a single temperature cut ECE by ~74% in one review; a Platt
-  intercept fitted on 50 labels cut it by 62% in another.
+- **On Jev:** refitting a Platt intercept on 50 labels cut held-out ECE by
+  62% in-domain; the slope did not transfer to new domains.
 - **This skill's simulation:** ECE went 0.145 → 0.035 on held-out data.
 
 Fit **one correction per question**. Never share one across Noul, Choice and
@@ -319,7 +329,7 @@ def prediction_set(probabilities, qhat):
 | **TypeSafe Jev** | yes, native | `probabilities` / `noul`, rounded to 0.01 |
 | **Anthropic (Claude)** | **no** | Messages API has no logprobs; OpenAI-compat `logprobs`/`top_logprobs` are "Ignored", response field "Always empty". Structured outputs give a typed enum, not a distribution |
 | **OpenAI** | yes, restricted | `logprobs` + `top_logprobs` 0–20. On GPT-6, with reasoning effort other than `none` these must be removed — no logprobs from a reasoning model that is reasoning |
-| **Google Gemini** | yes | `responseLogprobs: true`, `logprobs` 0–20; `text/x.enum` response type for enums. Check per-model support |
+| **Google Gemini** | documented, **not on 3.x** | `responseLogprobs: true`, `logprobs` 0–20; `text/x.enum` for enums. A Google staff member stated on the developer forum (2026-08-05) that "logprobs are no longer returned for 3.X models"; Vertex users report 2.5 losing them too. Test the exact model |
 | **vLLM** | yes | `logprobs` (cap `max_logprobs`, default 20); structured `choice` output. Default `logprobs_mode` is `raw_logprobs` — **before** logit processors, so a constraint is not reflected |
 | **llama.cpp server** | yes | `n_probs`; `post_sampling_probs` for after the sampling chain; `grammar` / `json_schema` constraints |
 

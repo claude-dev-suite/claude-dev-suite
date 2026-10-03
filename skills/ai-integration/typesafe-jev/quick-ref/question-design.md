@@ -3,6 +3,8 @@
 > See [TypeSafe Jev SKILL](../SKILL.md) for the API. Guidance drawn from
 > docs.typesafe.ai (primitives, concepts, patterns, jev-1.13 jaggedness —
 > reviewed 2026-10-02) and verified 2026-10-03.
+>
+> **Deep Knowledge**: `mcp__documentation__fetch_docs` with technology `typesafe-jev`, topic `recipes-extraction`, `recipes-routing`.
 
 ## Pick the primitive
 
@@ -117,10 +119,15 @@ elif category.choice == "billing":
 live in code and change under review:
 
 ```python
-py   = result.answers["python_depth"].score / 4
-arch = result.answers["system_design"].score / 4
-lead = result.answers["team_leadership"].score / 4
-ic_score = 0.45 * py + 0.45 * arch + 0.10 * lead
+py      = response.answers["python_depth"].score / 4
+lead    = response.answers["team_leadership"].score / 4
+arch    = response.answers["system_design"].score / 4
+general = response.answers["generalist"].score / 4
+
+# Senior IC
+ic_score = (0.40 * py) + (0.10 * lead) + (0.40 * arch) + (0.10 * general)
+# Engineering Manager
+em_score = (0.15 * py) + (0.40 * lead) + (0.20 * arch) + (0.25 * general)
 ```
 
 Fit the weights on labelled data (a logistic regression on the normalised
@@ -140,7 +147,7 @@ Choice with a "not stated" option) and assemble and compare them in code.
 ```python
 from typesafe_sdk import Noul, TypeSafeClient
 
-client = TypeSafeClient(model="jev-1.13")
+client = TypeSafeClient(model="jev-1.13.0")  # docs example uses "jev-1.13"; only jev-1.13.0 is a listed id
 YES = 0.5  # up to you on what you want the threshold to be, depends on your usecase.
 
 items = ["typesafe", "apple", "california", "banana", "likes", "calibration", "orange", "vertex"]

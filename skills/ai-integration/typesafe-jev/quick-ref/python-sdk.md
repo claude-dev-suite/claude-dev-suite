@@ -3,6 +3,8 @@
 > See [TypeSafe Jev SKILL](../SKILL.md) for the request model, limits and pricing.
 > Verified against `typesafe-sdk` **0.7.2** (2026-09-26). Source:
 > https://docs.typesafe.ai/sdk/python/usage and the API reference under `/sdk/python/api/`.
+>
+> **Deep Knowledge**: `mcp__documentation__fetch_docs` with technology `typesafe-jev`, topic `python-sdk`.
 
 ## Install
 
@@ -141,9 +143,11 @@ client = TypeSafeClient(retry=RetryPolicy(max_retries=3, backoff_max=0.2, timeou
 `RetryPolicy` defaults: `max_retries=2`, `backoff_initial=0.5`, `backoff_max=5.0`,
 `backoff_jitter=0.25`, `http_statuses={408, 429, *range(500, 600)}`,
 `respect_retry_after=True`, `api_connection_error=True`, `api_timeout_error=True`,
-`exceptions=set()`, `predicate=None`, `timeout=30.0` — the **total** retry
-budget per call. On a latency-critical path set `timeout` to what the caller
-can actually wait.
+`exceptions=set()`, `predicate=None`, `timeout=30.0` — the retry budget per
+call. It is tenacity's `stop_before_delay`: it stops *starting* attempts once
+spent and never interrupts one in flight, so wall clock can reach the budget
+plus one per-attempt timeout. On a latency-critical path set both: the client's
+`timeout=` (per attempt) and `RetryPolicy(timeout=...)` (budget).
 
 ## Exceptions
 
@@ -162,6 +166,9 @@ TypeSafeError
     └── TypeSafeAPITimeoutError   (also TimeoutError)   .timeout
 ```
 
+A malformed or missing key raises at **construction** (`TypeSafeClient(...)`),
+outside this `try`; a key the server rejects is a 401 `TypeSafeAPIError`.
+
 **Gotcha:** connection and timeout errors are *not* `TypeSafeAPIError`. The
 docs' example catches only `TypeSafeAPIError`, which lets a timeout escape.
 Catch `TypeSafeError` where you need a fallback for every failure:
@@ -174,7 +181,7 @@ try:
 except TypeSafeAPIError as error:      # the API answered with an error
     log.warning("typesafe %s %s", error.status, error.request_id)
     result = None
-except TypeSafeError:                  # never answered: connection, timeout, bad key
+except TypeSafeError:                  # never answered: connection error or timeout
     result = None
 if result is None:
     route_to_fallback()
@@ -187,8 +194,13 @@ import httpx2
 
 from typesafe_sdk import AsyncTypeSafeClient
 
-client = AsyncTypeSafeClient(http_client=httpx2.AsyncClient(http2=True))
+client = AsyncTypeSafeClient(http_client=httpx2.AsyncClient(http2=True), timeout=10.0)
 ```
+
+The official snippet omits `timeout=`. Without it, a custom `http_client` makes
+every attempt run under **httpx2's 5 s default** instead of the SDK's 10 s
+(measured on 0.7.2: the transport receives `{'read': 5.0, ...}`). Pass
+`timeout=` whenever you pass `http_client=`.
 
 ## Logging
 
@@ -208,7 +220,9 @@ production writes your state to the logs.
 client.system_one(state, questions, extra_body={"beam_width": 4})   # illustrative field
 ```
 
-`extra_body` sends fields the SDK does not model yet; `extra_headers` likewise.
+`extra_body` sends fields the SDK does not model yet; `extra_headers` adds
+headers, but cannot override `Authorization`, `Accept`, `User-Agent`,
+`X-TypeSafe-*` or (on POST) `Content-Type`.
 
 ## Gateways
 
@@ -242,5 +256,5 @@ Pass `transport=` (an `httpx2` mock transport) or `http_client=` to the
 constructor and return canned JSON in the shape of the API reference. The
 answer objects are frozen pydantic models, so fixtures can be built directly.
 To compare Jev with an LLM through identical calling code, use
-`typesafe-ai/system-one-adapter-python` ("Drop-in TypeSafeClient replacement
-backed by LLM APIs").
+`typesafe-ai/system-one-adapter-python`, a drop-in replacement for the
+`system_one` call (not the whole client) backed by LLM APIs.

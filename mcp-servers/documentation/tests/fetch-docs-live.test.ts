@@ -57,8 +57,14 @@ describe("fetch_docs live fallback for KB-only topics", () => {
       // any page describes.
       "code-review/default-analysis-by-language",
       "dcs-platforms/overview",
+      // Cross-source by construction: an evaluation harness of our own, a
+      // comparison of vendors' logprob support, and a ledger of independent
+      // studies of one model. No single upstream page holds any of them.
+      "decision-calibration/eval-harness",
+      "decision-calibration/provider-logprobs",
       "nodejs/runtime-failure-modes",
       "sql-fundamentals/engine-differences",
+      "typesafe-jev/evidence",
     ]);
   });
 });
