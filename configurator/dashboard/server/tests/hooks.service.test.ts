@@ -708,6 +708,34 @@ describe('HooksService', () => {
         expect(fs.existsSync(path.join(tempDir, '.claude', 'hooks', 'integration-validate.mjs'))).toBe(true);
       });
 
+      it('takes the scripts from DEV_SUITE_DIR when the caller passes no root', () => {
+        // The packaged app and a command-line install both say where the
+        // catalog lives through DEV_SUITE_DIR. The fallback used to climb six
+        // levels from the compiled service instead, which only lands on the
+        // repo in a source checkout.
+        const fakeRoot = createTempDir('hooks-root-');
+        const previous = process.env.DEV_SUITE_DIR;
+        try {
+          const hooksSrc = path.join(fakeRoot, 'templates', 'hooks');
+          fs.mkdirSync(hooksSrc, { recursive: true });
+          for (const script of ['mark-api-change.mjs', 'integration-validate.mjs']) {
+            fs.writeFileSync(path.join(hooksSrc, script), `// from DEV_SUITE_DIR: ${script}\n`);
+          }
+          process.env.DEV_SUITE_DIR = fakeRoot;
+          createMockProject(tempDir, { packageJson: { name: 'test-project' } });
+
+          const result = hooksService.configureIntegrationValidatorHook(tempDir, stack);
+          expect(result.configured).toBe(true);
+          expect(
+            fs.readFileSync(path.join(tempDir, '.claude', 'hooks', 'integration-validate.mjs'), 'utf-8')
+          ).toBe('// from DEV_SUITE_DIR: integration-validate.mjs\n');
+        } finally {
+          if (previous === undefined) delete process.env.DEV_SUITE_DIR;
+          else process.env.DEV_SUITE_DIR = previous;
+          cleanupTempDir(fakeRoot);
+        }
+      });
+
       it('passes the level to the Stop script', () => {
         createMockProject(tempDir, { packageJson: { name: 'test-project' } });
         configure(tempDir, 'block');

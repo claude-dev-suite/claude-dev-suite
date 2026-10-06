@@ -8,6 +8,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`dev-suite init`, the wizard without a window** — published as
+  `npx @claude-dev-suite/cli init`. It detects the stack, selects what the
+  wizard pre-selects (recommended agents, MCP servers and rules; the assistants
+  the project already uses), prints the plan, asks, and installs through the
+  same `InstallationService`. `--dry-run` and `--json` for previews and CI,
+  `--targets`/`--agents`/`--mcp`/`--rules` to change the selection; an id not
+  in the catalog is an error rather than a silent omission. Required MCP
+  variables nothing could prefill are listed, not prompted for. The package
+  (`cli/`) is one self-contained bundle plus a copy of the catalog with the
+  MCP servers prebuilt; CI builds it and installs from it on every run.
+- **A library entry for the dashboard server** (`@dev-suite/dashboard-server/lib`).
+  The package's only entry started the HTTP and WebSocket servers as a side
+  effect of being imported, so nothing outside the dashboard could reuse the
+  detection and installation services. The new entry re-exports them and
+  starts nothing. It is the groundwork for a command-line install.
+- **Headless logging** (`DEV_SUITE_HEADLESS=1`). Every logger used to write
+  to stdout, rotate files under the user's home and register process-wide
+  exception handlers the moment a service module loaded — unusable from a
+  command whose stdout is its output. In headless mode all levels go to
+  stderr, the default level is `warn`, and nothing is written to disk.
+
 ### Changed
 
 - **The desktop installers are the first thing the README offers.** Every
@@ -24,6 +47,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Detection reads npm, yarn and pnpm workspace packages.** The directory
+  scan stopped one level down, so in an `apps/*` + `packages/*` workspace it
+  read only the `apps` and `packages` folders, which hold no manifest, and
+  every framework inside went undetected. On a real Electron + React monorepo
+  the recommendations were the language agents alone. Workspace globs from
+  `package.json` (array or `{ packages }`) and `pnpm-workspace.yaml` are now
+  expanded, bounded, and never followed out of the project.
+- **Electron survives a renderer framework.** `"electron"` was only recorded
+  when no frontend framework had been found, and React is detected first —
+  so a React renderer hid Electron and the project never got
+  `electron-expert`. It is now added as an additional technology.
+- **The integration-validator hook scripts are found through `DEV_SUITE_DIR`.**
+  `copyHookScript` climbed six directories from the compiled service to find
+  `templates/hooks/`, which only lands on the repo in a source checkout; the
+  Claude Code adapter never passed the root it already had. In the packaged
+  app the server runs from `resources/app.asar.unpacked/server/`, where six
+  levels up is the install directory, not `resources/` — so the copy should
+  fail with "Source script not found" and leave the hook uninstalled (inferred
+  from the layout, not reproduced on an installed build). The adapter now
+  passes the install's dev-suite root, and the fallback is `getDevSuiteDir()`.
 - The README's asset table named files the build has never produced
   (`Dev-Suite-Dashboard-x.y.z-x64.dmg`, `…-x64.AppImage`, `…-x64.deb`); it now
   lists the real names.

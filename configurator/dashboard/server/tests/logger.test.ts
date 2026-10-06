@@ -4,7 +4,7 @@
  * Tests for the comprehensive logging service.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   serverLogger,
   wsLogger,
@@ -202,6 +202,58 @@ describe('Logger', () => {
       expect(typeof log.info).toBe('function');
       expect(typeof log.debug).toBe('function');
       expect(typeof log.http).toBe('function');
+    });
+  });
+  describe('Headless mode (DEV_SUITE_HEADLESS=1)', () => {
+    // A CLI that imports the services owns stdout: a log line there would be
+    // mixed into its --json output. It also must not leave rotating files in
+    // the user's home or take over process-wide exception handling.
+    let previous: string | undefined;
+    let previousLevel: string | undefined;
+
+    beforeEach(() => {
+      previous = process.env.DEV_SUITE_HEADLESS;
+      previousLevel = process.env.LOG_LEVEL;
+      process.env.DEV_SUITE_HEADLESS = '1';
+      delete process.env.LOG_LEVEL;
+    });
+
+    afterEach(() => {
+      if (previous === undefined) delete process.env.DEV_SUITE_HEADLESS;
+      else process.env.DEV_SUITE_HEADLESS = previous;
+      if (previousLevel === undefined) delete process.env.LOG_LEVEL;
+      else process.env.LOG_LEVEL = previousLevel;
+    });
+
+    it('writes only to a console transport that sends every level to stderr', () => {
+      const logger = getLogger('Headless');
+      expect(logger.transports).toHaveLength(1);
+      const consoleTransport = logger.transports[0] as unknown as { name: string; stderrLevels: Record<string, boolean> };
+      expect(consoleTransport.name).toBe('console');
+      for (const level of ['error', 'warn', 'info', 'http', 'debug']) {
+        expect(consoleTransport.stderrLevels[level]).toBe(true);
+      }
+    });
+
+    it('defaults to warn and still honours LOG_LEVEL', () => {
+      expect(getLogger('Headless').level).toBe('warn');
+      process.env.LOG_LEVEL = 'debug';
+      expect(getLogger('Headless').level).toBe('debug');
+    });
+
+    it('registers no exception or rejection handlers', () => {
+      const logger = getLogger('Headless') as unknown as {
+        exceptions: { handlers: Map<unknown, unknown> };
+        rejections: { handlers: Map<unknown, unknown> };
+      };
+      expect(logger.exceptions.handlers.size).toBe(0);
+      expect(logger.rejections.handlers.size).toBe(0);
+    });
+
+    it('keeps the dev-suite extensions', () => {
+      const logger = getLogger('Headless');
+      expect(typeof logger.time).toBe('function');
+      expect(logger.createChildLogger({ correlationId: 'x' }).defaultMeta).toHaveProperty('correlationId', 'x');
     });
   });
 });

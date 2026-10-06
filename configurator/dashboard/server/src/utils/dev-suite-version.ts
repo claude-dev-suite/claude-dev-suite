@@ -31,6 +31,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * so the same relative path works compiled or via tsx.
  */
 function readVersion(): string {
+  // A bundled consumer (the command-line installer) has no server
+  // package.json two levels above its file, so it states the version it ships.
+  const override = process.env.DEV_SUITE_VERSION;
+  if (override && /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(override)) return override;
+
   try {
     const pkgPath = path.resolve(__dirname, '..', '..', 'package.json');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as { version?: string };
