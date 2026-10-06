@@ -301,8 +301,96 @@ export class DetectionService {
       });
     }
 
+    // Workspace packages. The scan above stops one level down, so in an npm,
+    // yarn or pnpm workspace laid out as apps/* and packages/* it saw only the
+    // `apps` and `packages` folders themselves — which hold no manifest — and
+    // every framework inside them went undetected.
+    for (const workspaceDir of this.listWorkspaceDirs(projectPath)) {
+      if (!dirsToCheck.includes(workspaceDir)) dirsToCheck.push(workspaceDir);
+    }
+
     logger.debug('Directories to check', { count: dirsToCheck.length, directories: dirsToCheck });
     return dirsToCheck;
+  }
+
+  /**
+   * Resolve the workspace globs declared in package.json (`workspaces`, as an
+   * array or as `{ packages }`) and pnpm-workspace.yaml to directories.
+   *
+   * Only the shapes workspaces use in practice are expanded: a literal path,
+   * `dir/*` and `dir/**` (treated as one level). Negations are ignored.
+   * Bounded, because a manifest is project input and detection must stay cheap.
+   */
+  private listWorkspaceDirs(projectPath: string): string[] {
+    const MAX_WORKSPACE_DIRS = 64;
+    const patterns: string[] = [];
+
+    try {
+      const pkgPath = path.join(projectPath, 'package.json');
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as {
+          workspaces?: unknown;
+        };
+        const ws = Array.isArray(pkg.workspaces)
+          ? pkg.workspaces
+          : (pkg.workspaces as { packages?: unknown } | undefined)?.packages;
+        if (Array.isArray(ws)) {
+          for (const p of ws) if (typeof p === 'string') patterns.push(p);
+        }
+      }
+    } catch (error: unknown) {
+      logger.warn('Failed to read workspaces from package.json', { error, context: { projectPath } });
+    }
+
+    try {
+      const pnpmPath = path.join(projectPath, 'pnpm-workspace.yaml');
+      if (fs.existsSync(pnpmPath)) {
+        for (const line of fs.readFileSync(pnpmPath, 'utf-8').split(/\r?\n/)) {
+          const m = line.match(/^\s*-\s*['"]?([^'"#\s]+)['"]?\s*(?:#.*)?$/);
+          if (m?.[1]) patterns.push(m[1]);
+        }
+      }
+    } catch (error: unknown) {
+      logger.warn('Failed to read pnpm-workspace.yaml', { error, context: { projectPath } });
+    }
+
+    const root = path.resolve(projectPath);
+    const dirs: string[] = [];
+    const add = (dir: string) => {
+      const resolved = path.resolve(dir);
+      // A workspace entry is project input: never follow it out of the project.
+      if (resolved !== root && !resolved.startsWith(root + path.sep)) return;
+      if (dirs.length >= MAX_WORKSPACE_DIRS || dirs.includes(resolved)) return;
+      try {
+        if (fs.statSync(resolved).isDirectory()) dirs.push(resolved);
+      } catch {
+        // Declared but absent — nothing to detect.
+      }
+    };
+
+    for (const raw of patterns) {
+      if (raw.startsWith('!')) continue;
+      const pattern = raw.replace(/^\.\//, '').replace(/\/+$/, '');
+      const star = pattern.match(/^(.*?)\/\*{1,2}$/);
+      if (!star) {
+        if (!pattern.includes('*')) add(path.join(projectPath, pattern));
+        continue;
+      }
+      const base = path.join(projectPath, star[1] ?? '');
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(base, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        if (entry.isDirectory() && !entry.name.startsWith('.') && !EXCLUDED_DIRS.includes(entry.name)) {
+          add(path.join(base, entry.name));
+        }
+      }
+    }
+
+    return dirs;
   }
 
   private detectFromPackageJson(content: string, result: DetectionResult, isSubdir: boolean): void {
@@ -473,9 +561,16 @@ export class DetectionService {
     }
 
     // Electron
-    if (content.includes('"electron"') && !result.frontend?.framework) {
-      result.frontend = { ...result.frontend, framework: 'electron', runtime: 'nodejs' };
-      result.confidence += 15;
+    if (content.includes('"electron"')) {
+      if (!result.frontend?.framework) {
+        result.frontend = { ...result.frontend, framework: 'electron', runtime: 'nodejs' };
+        result.confidence += 15;
+      } else if (result.frontend.framework !== 'electron') {
+        // An Electron app almost always has a renderer framework too, and
+        // React is detected first — so `"electron"` was simply dropped and the
+        // project never got electron-expert.
+        this.addTechnology(result, 'electron');
+      }
     }
 
     // Tauri (from npm - frontend side)

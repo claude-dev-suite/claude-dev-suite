@@ -81,3 +81,26 @@ jobs:
       - name: Test (MCP servers)
         run: npm run test
         working-directory: mcp-servers
+
+      # The npm package for `npx @claude-dev-suite/cli`. Building it checks the
+      # bundle is self-contained and every MCP server has a dist/; the smoke run
+      # exercises the packaged layout (catalog beside dist/), which the server
+      # tests — run from the checkout — cannot reach.
+      - name: Build command-line package
+        run: npm ci && npm run build && npm run catalog
+        working-directory: cli
+
+      - name: Smoke-test command-line package
+        working-directory: cli
+        shell: bash
+        run: |
+          set -euo pipefail
+          proj=$(mktemp -d)
+          printf '{"name":"smoke","dependencies":{"react":"^19.0.0"}}' > "$proj/package.json"
+          node dist/cli.js --version
+          node dist/cli.js init "$proj" --dry-run --json > plan.json
+          node -e "const p=require('./plan.json').plan; if(!p.agents.includes('react-expert')) { console.error(p); process.exit(1) }"
+          node dist/cli.js init "$proj" --yes --json > result.json
+          test -f "$proj/AGENTS.md"
+          test -f "$proj/.dev-suite-manifest.json"
+          test -f "$proj/.mcp-servers/documentation/dist/index.js"

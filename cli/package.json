@@ -1,0 +1,44 @@
+{
+  "name": "@claude-dev-suite/cli",
+  "version": "1.19.0",
+  "description": "Detect a project's stack and install the matching agents, skills, MCP servers and rules for Claude Code, Copilot, Cursor, Gemini CLI, Codex, Cline and Kimi Code.",
+  "type": "module",
+  "bin": {
+    "dev-suite": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "catalog",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "catalog": "node scripts/copy-catalog.mjs",
+    "prepack": "npm run build && npm run catalog"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "keywords": [
+    "claude-code",
+    "copilot",
+    "cursor",
+    "gemini-cli",
+    "codex",
+    "cline",
+    "agents-md",
+    "mcp",
+    "agent-skills"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/claude-dev-suite/claude-dev-suite.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/claude-dev-suite/claude-dev-suite#readme",
+  "bugs": "https://github.com/claude-dev-suite/claude-dev-suite/issues",
+  "license": "MIT"
+}

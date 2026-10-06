@@ -7,8 +7,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'node:url';
 import { resolveProjectPath, PathValidationError } from '../../utils/utilities.js';
+import { getDevSuiteDir } from '../../utils/dev-suite-dir.js';
 import { targetPaths } from '../targets/target-paths.js';
 
 /** Hook scripts live beside the target's other config, under <configDir>/hooks/. */
@@ -584,9 +584,11 @@ export class ClaudeHooksService {
     scriptFile: string,
     devSuiteRoot?: string
   ): { success: boolean; relCommand?: string; error?: string } {
-    const root =
-      devSuiteRoot ??
-      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..');
+    // getDevSuiteDir() honours DEV_SUITE_DIR, which is how both the packaged
+    // app and a command-line install say where the catalog lives. Climbing
+    // from this file only works in a source checkout: in the packaged app the
+    // compiled service sits inside app.asar, six levels from anything useful.
+    const root = devSuiteRoot ?? getDevSuiteDir();
     const srcScript = path.join(root, 'templates', 'hooks', scriptFile);
 
     if (!fs.existsSync(srcScript)) {

@@ -27,6 +27,8 @@ dev-suite/
 │                                           #   check-docs-sync, check-type-sync, gen-* doc generators;
 │                                           #   community automation: collect-traffic,
 │                                           #   replenish-good-first-issues, triage-contributor-prs
+├── cli/                                    # npm package @claude-dev-suite/cli: bundles
+│                                           #   server/src/cli/dev-suite.ts + a catalog copy
 └── init-project.sh|ps1                     # Entry point (builds if needed, launches dashboard)
 ```
 
@@ -329,6 +331,12 @@ cd configurator/dashboard && npm run dev
 # Launch dashboard for a project
 ./init-project.sh /path/to/project
 
+# Headless install, the wizard's recommended set (from a built server)
+cd configurator/dashboard/server && node dist/cli/dev-suite.js init /path/to/project --dry-run
+
+# Build the npm package (needs built server deps and MCP servers)
+cd cli && npm ci && npm run build && npm run catalog
+
 # Verify agent files exist
 ls agents/*/*.md
 
@@ -338,7 +346,7 @@ ls mcp-servers/*/dist/index.js
 
 ## Versioning (Semantic Versioning)
 
-Version format: `MAJOR.MINOR.PATCH` — applied to `configurator/dashboard/package.json` and `configurator/dashboard/server/package.json`.
+Version format: `MAJOR.MINOR.PATCH` — applied to `configurator/dashboard/package.json`, `configurator/dashboard/server/package.json` and `cli/package.json` (the npm package states the version it writes into manifests, so it must not drift).
 
 | Bump | When | Example trigger |
 |------|------|-----------------|
@@ -354,7 +362,7 @@ Version format: `MAJOR.MINOR.PATCH` — applied to `configurator/dashboard/packa
 
 **Release checklist** (run in order, never skip steps):
 1. Decide bump type (PATCH / MINOR / MAJOR) based on the table above
-2. Update `configurator/dashboard/package.json` and `configurator/dashboard/server/package.json` to the new version
+2. Update `configurator/dashboard/package.json`, `configurator/dashboard/server/package.json` and `cli/package.json` to the new version
 3. Move `## [Unreleased]` content in `CHANGELOG.md` to `## [x.y.z] - YYYY-MM-DD`, leave a blank `## [Unreleased]` above it
 4. *(Optional smoke test on Windows)* `cd configurator/dashboard && npm run electron:build` — verifies the local NSIS build is not broken before tagging. macOS/Linux artifacts are produced only by CI; no local cross-build.
 5. Commit: `release(vX.Y.Z): <one-line summary>`
