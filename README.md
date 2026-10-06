@@ -12,14 +12,23 @@
 
 <sub>Pointed at a monorepo it has never seen. No questionnaire — it reads the manifests.</sub>
 
-**Just the skills**, into whichever assistants you already have — no clone, no build:
+**The full toolkit, as a desktop app** — agents, MCP servers, path-scoped rules and the configurator that picks
+what your stack actually needs. Download, open it, point it at a repo:
+
+| Windows | macOS — Apple Silicon | macOS — Intel | Linux |
+|---------|-----------------------|---------------|-------|
+| [**Download .exe**](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-windows-x64-setup.exe) | [**Download .dmg**](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-macos-arm64.dmg) | [**Download .dmg**](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-macos-x64.dmg) | [**AppImage**](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-linux-x86_64.AppImage) · [**.deb**](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-linux-amd64.deb) |
+
+<sub>Needs [Node.js](https://nodejs.org/) 20+ on your `PATH` — the MCP servers run on it. The installers are
+not code-signed yet, so the first launch shows an OS warning: [what to click](#desktop-app-downloads).</sub>
+
+**Just the skills**, into whichever assistants you already have — no install at all:
 
 ```bash
 npx skills add claude-dev-suite/claude-dev-suite
 ```
 
-**The full toolkit** — agents, MCP servers, path-scoped rules and the configurator that picks what your stack
-actually needs:
+**From source**, if you want to hack on it:
 
 ```bash
 git clone https://github.com/claude-dev-suite/claude-dev-suite.git
@@ -472,19 +481,22 @@ Pre-built installers for every tagged release are published on the [GitHub Relea
 > **Important prerequisite — install Node.js first.**
 > The desktop app launches its own dashboard but does **not** ship a system-wide Node.js runtime. Claude Code starts MCP servers via the `.mcp.json` it reads on each project, and those server processes require `node` to be available on the user's `PATH`. Without Node.js v20+ installed system-wide, MCP servers will fail silently. The app shows a warning dialog on first launch if Node is missing — install it from [nodejs.org](https://nodejs.org/) and restart the app.
 
-| Platform | Architecture | Asset | Notes |
-|----------|--------------|-------|-------|
-| Windows  | x64          | `Dev-Suite-Dashboard-Setup-x.y.z.exe` | NSIS installer |
-| macOS    | Apple Silicon | `Dev-Suite-Dashboard-x.y.z-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS    | Intel         | `Dev-Suite-Dashboard-x.y.z-x64.dmg`  | 2019 and earlier |
-| Linux    | x64          | `dev-suite-dashboard-x.y.z-x64.AppImage` | Portable, all distros (incl. Fedora / RHEL) |
-| Linux    | x64          | `dev-suite-dashboard-x.y.z-x64.deb` | Debian / Ubuntu / Mint |
+Each release carries the installers twice: under a versioned name, which the in-app updater uses, and under a
+fixed name that always resolves to the latest release — the links below.
+
+| Platform | Architecture | Latest (fixed link) | Versioned asset | Notes |
+|----------|--------------|---------------------|-----------------|-------|
+| Windows  | x64           | [`dev-suite-windows-x64-setup.exe`](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-windows-x64-setup.exe) | `Dev-Suite.Dashboard.Setup.x.y.z.exe` | NSIS installer |
+| macOS    | Apple Silicon | [`dev-suite-macos-arm64.dmg`](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-macos-arm64.dmg) | `Dev-Suite.Dashboard-x.y.z-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS    | Intel         | [`dev-suite-macos-x64.dmg`](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-macos-x64.dmg) | `Dev-Suite.Dashboard-x.y.z.dmg` | 2019 and earlier |
+| Linux    | x64           | [`dev-suite-linux-x86_64.AppImage`](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-linux-x86_64.AppImage) | `dev-suite-dashboard-x.y.z-x86_64.AppImage` | Portable, all distros (incl. Fedora / RHEL) |
+| Linux    | x64           | [`dev-suite-linux-amd64.deb`](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-linux-amd64.deb) | `dev-suite-dashboard-x.y.z-amd64.deb` | Debian / Ubuntu / Mint |
 
 > Installers are currently **unsigned**. The OS will show a warning on first launch — see the per-platform instructions below.
 
 #### Windows
 
-1. Download `Dev-Suite-Dashboard-Setup-x.y.z.exe`.
+1. Download [`dev-suite-windows-x64-setup.exe`](https://github.com/claude-dev-suite/claude-dev-suite/releases/latest/download/dev-suite-windows-x64-setup.exe).
 2. Double-click to run. SmartScreen will show **"Windows protected your PC"** because the binary isn't signed yet.
 3. Click **More info** → **Run anyway**.
 4. The installer will set up the app and add a Start menu shortcut.
@@ -504,19 +516,19 @@ Pre-built installers for every tagged release are published on the [GitHub Relea
 #### Linux — AppImage (portable, all distros)
 
 ```bash
-chmod +x dev-suite-dashboard-*.AppImage
-./dev-suite-dashboard-*.AppImage
+chmod +x dev-suite-*.AppImage
+./dev-suite-*.AppImage
 ```
 
 If the AppImage refuses to run on a system without FUSE 2 (Ubuntu 22.04+, Fedora 38+), install it with `sudo apt install libfuse2` or extract and run instead:
 ```bash
-./dev-suite-dashboard-*.AppImage --appimage-extract-and-run
+./dev-suite-*.AppImage --appimage-extract-and-run
 ```
 
 #### Linux — Debian / Ubuntu / Mint (`.deb`)
 
 ```bash
-sudo dpkg -i dev-suite-dashboard-*-x64.deb
+sudo dpkg -i dev-suite-*.deb
 sudo apt-get install -f   # only if dpkg reports missing dependencies
 ```
 

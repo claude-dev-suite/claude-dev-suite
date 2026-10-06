@@ -8,6 +8,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **The desktop installers are the first thing the README offers.** Every
+  release has shipped installers for Windows, macOS and Linux, but the README
+  put `npx skills add` and `git clone` above them and kept the download table
+  halfway down the page — and the last three releases were downloaded between
+  zero and twelve times per installer. The download buttons now sit above the
+  clone instructions.
+- **Each release also carries version-free copies of its installers**
+  (`dev-suite-windows-x64-setup.exe`, `dev-suite-macos-arm64.dmg`, …), so a
+  `releases/latest/download/` link never goes stale. The updater keeps reading
+  the versioned assets, which means the download count on the fixed names is
+  the count of people who clicked.
+
+### Fixed
+
+- The README's asset table named files the build has never produced
+  (`Dev-Suite-Dashboard-x.y.z-x64.dmg`, `…-x64.AppImage`, `…-x64.deb`); it now
+  lists the real names.
+
 ## [1.19.0] - 2026-10-03
 
 A new kind of model went on sale on 2026-09-15: TypeSafe's Jev reads text but
