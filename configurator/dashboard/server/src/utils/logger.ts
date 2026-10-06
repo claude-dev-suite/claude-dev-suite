@@ -262,7 +262,34 @@ function makeTimer(target: winston.Logger) {
   };
 }
 
+/**
+ * Headless mode, for a command-line process that imports the services instead
+ * of running the dashboard: stdout belongs to the command's own output, and a
+ * one-shot install has no business rotating files in the user's home or
+ * installing process-wide exception handlers. Read when a logger is created —
+ * the pre-configured loggers below are created at import time, so a CLI must
+ * set it before importing anything that logs.
+ */
+function isHeadless(): boolean {
+  return process.env.DEV_SUITE_HEADLESS === '1';
+}
+
 function createLogger(defaultContext: LogContext = {}): Logger {
+  if (isHeadless()) {
+    const headlessLogger = winston.createLogger({
+      levels: LOG_LEVELS,
+      level: process.env.LOG_LEVEL || 'warn',
+      defaultMeta: defaultContext,
+      transports: [
+        new winston.transports.Console({
+          format: consoleFormat,
+          stderrLevels: Object.keys(LOG_LEVELS),
+        }),
+      ],
+    });
+    return extendLogger(headlessLogger);
+  }
+
   const baseLogger = winston.createLogger({
     levels: LOG_LEVELS,
     level: process.env.LOG_LEVEL || 'info',
@@ -289,6 +316,11 @@ function createLogger(defaultContext: LogContext = {}): Logger {
 
   // Only log errors to error file
   (baseLogger.transports[2] as DailyRotateFile).level = 'error';
+
+  return extendLogger(baseLogger);
+}
+
+function extendLogger(baseLogger: winston.Logger): Logger {
 
   // Add custom methods
   const logger = baseLogger as Logger;

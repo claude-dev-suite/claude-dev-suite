@@ -8,6 +8,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **A library entry for the dashboard server** (`@dev-suite/dashboard-server/lib`).
+  The package's only entry started the HTTP and WebSocket servers as a side
+  effect of being imported, so nothing outside the dashboard could reuse the
+  detection and installation services. The new entry re-exports them and
+  starts nothing. It is the groundwork for a command-line install.
+- **Headless logging** (`DEV_SUITE_HEADLESS=1`). Every logger used to write
+  to stdout, rotate files under the user's home and register process-wide
+  exception handlers the moment a service module loaded — unusable from a
+  command whose stdout is its output. In headless mode all levels go to
+  stderr, the default level is `warn`, and nothing is written to disk.
+
+### Fixed
+
+- **The integration-validator hook scripts are found through `DEV_SUITE_DIR`.**
+  `copyHookScript` climbed six directories from the compiled service to find
+  `templates/hooks/`, which only lands on the repo in a source checkout; the
+  Claude Code adapter never passed the root it already had. In the packaged
+  app the server runs from `resources/app.asar.unpacked/server/`, where six
+  levels up is the install directory, not `resources/` — so the copy should
+  fail with "Source script not found" and leave the hook uninstalled (inferred
+  from the layout, not reproduced on an installed build). The adapter now
+  passes the install's dev-suite root, and the fallback is `getDevSuiteDir()`.
+
 ## [1.19.0] - 2026-10-03
 
 A new kind of model went on sale on 2026-09-15: TypeSafe's Jev reads text but
