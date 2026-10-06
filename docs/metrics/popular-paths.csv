@@ -49,3 +49,13 @@ snapshot_date,path,count,uniques
 2026-09-28,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/axum/SKILL.md",14,9
 2026-09-28,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/go-testing/SKILL.md",14,7
 2026-09-28,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/googletest/SKILL.md",11,5
+2026-10-05,"/claude-dev-suite/claude-dev-suite",111,82
+2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/state-management/redux-toolkit/quick-ref/rtk-query.md",29,1
+2026-10-05,"/claude-dev-suite/claude-dev-suite/tree/main/skills",24,22
+2026-10-05,"/claude-dev-suite/claude-dev-suite/tree/main",21,16
+2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/axum/SKILL.md",12,9
+2026-10-05,"/claude-dev-suite/claude-dev-suite/tree/main/skills/animation/framer-motion",11,4
+2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/spring-modulith/SKILL.md",8,5
+2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/go-testing/SKILL.md",8,4
+2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/fiber/SKILL.md",7,7
+2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/documentation/jsdoc/SKILL.md",6,5

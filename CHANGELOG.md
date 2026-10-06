@@ -31,6 +31,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   command whose stdout is its output. In headless mode all levels go to
   stderr, the default level is `warn`, and nothing is written to disk.
 
+### Changed
+
+- **The desktop installers are the first thing the README offers.** Every
+  release has shipped installers for Windows, macOS and Linux, but the README
+  put `npx skills add` and `git clone` above them and kept the download table
+  halfway down the page — and the last three releases were downloaded between
+  zero and twelve times per installer. The download buttons now sit above the
+  clone instructions.
+- **Each release also carries version-free copies of its installers**
+  (`dev-suite-windows-x64-setup.exe`, `dev-suite-macos-arm64.dmg`, …), so a
+  `releases/latest/download/` link never goes stale. The updater keeps reading
+  the versioned assets, which means the download count on the fixed names is
+  the count of people who clicked.
+
 ### Fixed
 
 - **Detection reads npm, yarn and pnpm workspace packages.** The directory
@@ -53,6 +67,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   fail with "Source script not found" and leave the hook uninstalled (inferred
   from the layout, not reproduced on an installed build). The adapter now
   passes the install's dev-suite root, and the fallback is `getDevSuiteDir()`.
+- The README's asset table named files the build has never produced
+  (`Dev-Suite-Dashboard-x.y.z-x64.dmg`, `…-x64.AppImage`, `…-x64.deb`); it now
+  lists the real names.
 
 ## [1.19.0] - 2026-10-03
 
