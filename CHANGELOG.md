@@ -23,6 +23,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Detection reads npm, yarn and pnpm workspace packages.** The directory
+  scan stopped one level down, so in an `apps/*` + `packages/*` workspace it
+  read only the `apps` and `packages` folders, which hold no manifest, and
+  every framework inside went undetected. On a real Electron + React monorepo
+  the recommendations were the language agents alone. Workspace globs from
+  `package.json` (array or `{ packages }`) and `pnpm-workspace.yaml` are now
+  expanded, bounded, and never followed out of the project.
+- **Electron survives a renderer framework.** `"electron"` was only recorded
+  when no frontend framework had been found, and React is detected first —
+  so a React renderer hid Electron and the project never got
+  `electron-expert`. It is now added as an additional technology.
 - **The integration-validator hook scripts are found through `DEV_SUITE_DIR`.**
   `copyHookScript` climbed six directories from the compiled service to find
   `templates/hooks/`, which only lands on the repo in a source checkout; the
