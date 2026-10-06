@@ -540,6 +540,12 @@ No native `.rpm` is published yet — use the AppImage above. It runs on all RPM
 
 The desktop app checks GitHub Releases at startup and every 4 hours. When a new version is published, you'll get an in-app notification and an **Install on quit** option. Auto-updates work the same on all three platforms.
 
+#### Code signing policy
+
+Signing of the Windows installer through the [SignPath Foundation](https://signpath.org/) open-source program
+is being applied for; until it is approved the installers stay unsigned. Which binaries are signed, who
+approves each signing request, and what the app sends over the network: [docs/CODE-SIGNING-POLICY.md](docs/CODE-SIGNING-POLICY.md).
+
 ---
 
 ## Installation Modes
