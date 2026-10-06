@@ -316,8 +316,8 @@ Sources: <https://code.claude.com/docs/en/plugins>,
 
 This is a **distribution** format, not a consumption format: it is how a third party
 ships agents, skills, commands, hooks and MCP config to Claude Code users. It is listed
-here so nobody has to re-derive it. Investigated 2026-09-19; **dev-suite does not
-implement it**, for the reasons in the last block.
+here so nobody has to re-derive it. Investigated 2026-09-19. dev-suite ships one
+**thin** plugin (since 2026-10-06), for the reasons in the last block.
 
 - **Marketplace manifest**: `.claude-plugin/marketplace.json` at the repository root.
   Required: `name` (kebab-case), `owner` (object with a required `name`), `plugins[]`.
@@ -365,8 +365,8 @@ implement it**, for the reasons in the last block.
   accepts submissions via in-app forms but **must be added manually** by each user, and
   the `/plugin` Discover tab only lists marketplaces already added. CONFIRMED
 
-**Why dev-suite does not ship one.** Three documented constraints remove every useful
-payload, independently of whether the channel is worth having:
+**Why the plugin is thin.** Three documented constraints remove every *bundled*
+payload:
 
 1. The launcher and the configurator live at the repository root. A plugin under
    `plugins/` cannot reference them, and a symlink copies content into the cache without
@@ -377,9 +377,17 @@ payload, independently of whether the channel is worth having:
    source files use `allowed-tools`/`core_skills`, which `toInstalledAgentContent`
    transforms at the install boundary.
 
-What remains self-contained is the skills — which are already distributed by
-`npx skills add claude-dev-suite/claude-dev-suite`, a channel that works today, needs no
-manifest, and reaches all seven target assistants rather than one.
+None of them applies to a plugin that carries no payload and **fetches the installer
+instead**. `plugins/dev-suite/` holds a single user-invoked skill, `/dev-suite:init`,
+that runs `npx -y @claude-dev-suite/cli@latest init` — dry run, the user's approval, then
+the install — so the plugin reaches nothing outside its own directory, needs no build,
+and writes agents into `.claude/agents/` the normal way rather than shipping them. The
+marketplace manifest is `.claude-plugin/marketplace.json` at the repo root, so users add
+it with `/plugin marketplace add claude-dev-suite/claude-dev-suite`.
+
+It is friction removal for someone already in Claude Code, not an acquisition channel:
+the Discover tab only lists marketplaces a user has added. The skills alone stay on
+`npx skills add claude-dev-suite/claude-dev-suite`, which reaches all seven assistants.
 
 ### 3.2 GitHub Copilot
 

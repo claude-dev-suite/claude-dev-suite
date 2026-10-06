@@ -1,0 +1,12 @@
+{
+  "name": "dev-suite",
+  "description": "Detect the project's stack and install the matching agents, skills, MCP servers and rules — the Dev-Suite installer, run from inside Claude Code.",
+  "author": {
+    "name": "claude-dev-suite",
+    "url": "https://github.com/claude-dev-suite"
+  },
+  "homepage": "https://github.com/claude-dev-suite/claude-dev-suite",
+  "repository": "https://github.com/claude-dev-suite/claude-dev-suite",
+  "license": "MIT",
+  "keywords": ["agents", "skills", "mcp", "agents-md", "setup"]
+}

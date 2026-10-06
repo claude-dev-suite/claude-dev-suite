@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **A Claude Code plugin marketplace with one thin plugin.** `/plugin marketplace add
+  claude-dev-suite/claude-dev-suite`, then `/plugin install dev-suite@dev-suite`, gives
+  `/dev-suite:init`: it runs `npx @claude-dev-suite/cli init` as a dry run, shows the
+  plan, and installs only on an explicit yes. The plugin carries no agents, skills or
+  MCP servers of its own — the format reference had ruled a plugin out because none of
+  those can ship in one usefully, and a plugin that fetches the installer sidesteps all
+  three constraints. Its skill is marked `metadata.internal`, so
+  `npx skills add claude-dev-suite/claude-dev-suite` does not install it as a bare
+  `init` next to Claude Code's built-in `/init`.
+
 ## [1.19.0] - 2026-10-03
 
 A new kind of model went on sale on 2026-09-15: TypeSafe's Jev reads text but
