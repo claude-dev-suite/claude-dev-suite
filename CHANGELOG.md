@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`dev-suite init`, the wizard without a window** — published as
+  `npx @claude-dev-suite/cli init`. It detects the stack, selects what the
+  wizard pre-selects (recommended agents, MCP servers and rules; the assistants
+  the project already uses), prints the plan, asks, and installs through the
+  same `InstallationService`. `--dry-run` and `--json` for previews and CI,
+  `--targets`/`--agents`/`--mcp`/`--rules` to change the selection; an id not
+  in the catalog is an error rather than a silent omission. Required MCP
+  variables nothing could prefill are listed, not prompted for. The package
+  (`cli/`) is one self-contained bundle plus a copy of the catalog with the
+  MCP servers prebuilt; CI builds it and installs from it on every run.
 - **A library entry for the dashboard server** (`@dev-suite/dashboard-server/lib`).
   The package's only entry started the HTTP and WebSocket servers as a side
   effect of being imported, so nothing outside the dashboard could reuse the

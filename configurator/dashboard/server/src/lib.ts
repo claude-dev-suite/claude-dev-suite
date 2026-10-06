@@ -31,6 +31,7 @@ export { DEV_SUITE_VERSION } from './utils/dev-suite-version.js';
 export type {
   Agent,
   DetectionResult,
+  EnvVarConfig,
   InstallConfig,
   InstallManifest,
   McpServer,
