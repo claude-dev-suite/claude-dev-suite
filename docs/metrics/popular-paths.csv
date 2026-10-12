@@ -59,3 +59,13 @@ snapshot_date,path,count,uniques
 2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/go-testing/SKILL.md",8,4
 2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/fiber/SKILL.md",7,7
 2026-10-05,"/claude-dev-suite/claude-dev-suite/blob/main/skills/documentation/jsdoc/SKILL.md",6,5
+2026-10-12,"/claude-dev-suite/claude-dev-suite",94,70
+2026-10-12,"/claude-dev-suite/claude-dev-suite/blob/main/skills/state-management/redux-toolkit/quick-ref/rtk-query.md",58,2
+2026-10-12,"/claude-dev-suite/claude-dev-suite/tree/main",30,14
+2026-10-12,"/claude-dev-suite/claude-dev-suite/tree/main/skills",22,20
+2026-10-12,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/axum/SKILL.md",10,10
+2026-10-12,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/fiber/SKILL.md",7,7
+2026-10-12,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/express/SKILL.md",7,1
+2026-10-12,"/claude-dev-suite/claude-dev-suite/tree/main/agents",6,5
+2026-10-12,"/claude-dev-suite/claude-dev-suite/blob/main/skills/bitcoin/infrastructure/node-distros/SKILL.md",5,4
+2026-10-12,"/claude-dev-suite/claude-dev-suite/blob/main/skills/documentation/jsdoc/SKILL.md",5,4
