@@ -69,3 +69,13 @@ snapshot_date,path,count,uniques
 2026-10-12,"/claude-dev-suite/claude-dev-suite/tree/main/agents",6,5
 2026-10-12,"/claude-dev-suite/claude-dev-suite/blob/main/skills/bitcoin/infrastructure/node-distros/SKILL.md",5,4
 2026-10-12,"/claude-dev-suite/claude-dev-suite/blob/main/skills/documentation/jsdoc/SKILL.md",5,4
+2026-10-19,"/claude-dev-suite/claude-dev-suite",80,51
+2026-10-19,"/claude-dev-suite/claude-dev-suite/blob/main/skills/state-management/redux-toolkit/quick-ref/rtk-query.md",49,2
+2026-10-19,"/claude-dev-suite/claude-dev-suite/tree/main",29,13
+2026-10-19,"/claude-dev-suite/claude-dev-suite/tree/main/skills",21,16
+2026-10-19,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/spring-modulith/SKILL.md",9,4
+2026-10-19,"/claude-dev-suite/claude-dev-suite/blob/main/skills/gamedev/2d-art/character-design/SKILL.md",7,6
+2026-10-19,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/express/SKILL.md",7,1
+2026-10-19,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/spring-modulith/advanced.md",6,3
+2026-10-19,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/axum/SKILL.md",5,5
+2026-10-19,"/claude-dev-suite/claude-dev-suite/tree/main/skills/gamedev",5,4
