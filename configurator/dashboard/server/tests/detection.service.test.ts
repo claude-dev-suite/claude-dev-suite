@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { DetectionService } from '../src/services/detection.service.js';
+import * as path from 'path';
 import { createTempDir, cleanupTempDir, createMockProject } from './test-utils.js';
 
 describe('DetectionService', () => {
@@ -161,6 +162,88 @@ describe('DetectionService', () => {
       const result = await detectionService.detectProject(tempDir);
 
       expect(result.isMonorepo).toBe(true);
+    });
+
+    describe('workspace packages', () => {
+      // The directory scan stops one level down, so `apps/desktop` was never
+      // read in an apps/* + packages/* workspace — the shape of most JS
+      // monorepos. Regression from a real project whose Electron + React
+      // desktop app was invisible to detection.
+      const desktopPkg = {
+        name: '@x/desktop',
+        dependencies: { react: '^18.3.0', 'react-dom': '^18.3.0' },
+        devDependencies: { electron: '^33.0.0', vite: '^5.4.0' },
+      };
+
+      it('reads packages matched by npm workspaces globs', async () => {
+        createMockProject(tempDir, {
+          packageJson: { name: 'root', private: true, workspaces: ['packages/*', 'apps/*'] },
+          files: {
+            'apps/desktop/package.json': JSON.stringify(desktopPkg),
+            'packages/server/package.json': JSON.stringify({ name: '@x/server', dependencies: { express: '^5.0.0' } }),
+          },
+        });
+
+        const result = await detectionService.detectProject(tempDir);
+
+        expect(result.frontend?.framework).toBe('react');
+        expect(result.backend?.framework).toBe('express');
+        expect(result.isMonorepo).toBe(true);
+      });
+
+      it('accepts the { packages } form and pnpm-workspace.yaml', async () => {
+        createMockProject(tempDir, {
+          packageJson: { name: 'root', workspaces: { packages: ['apps/*'] } },
+          files: { 'apps/desktop/package.json': JSON.stringify(desktopPkg) },
+        });
+        expect((await detectionService.detectProject(tempDir)).frontend?.framework).toBe('react');
+
+        const pnpmDir = createTempDir('detection-pnpm-');
+        try {
+          createMockProject(pnpmDir, {
+            packageJson: { name: 'root' },
+            files: {
+              'pnpm-workspace.yaml': "packages:\n  - 'tools/*'   # comment\n  - \"!tools/legacy\"\n",
+              'tools/desktop/package.json': JSON.stringify(desktopPkg),
+            },
+          });
+          expect((await detectionService.detectProject(pnpmDir)).frontend?.framework).toBe('react');
+        } finally {
+          cleanupTempDir(pnpmDir);
+        }
+      });
+
+      it('never follows a workspace entry out of the project', async () => {
+        const outside = createTempDir('detection-outside-');
+        try {
+          createMockProject(outside, { packageJson: { name: 'outside', dependencies: { vue: '^3.0.0' } } });
+          const rel = path.relative(tempDir, outside).split(path.sep).join('/');
+          createMockProject(tempDir, { packageJson: { name: 'root', workspaces: [rel] } });
+
+          const result = await detectionService.detectProject(tempDir);
+          expect(result.frontend?.framework).not.toBe('vue');
+        } finally {
+          cleanupTempDir(outside);
+        }
+      });
+    });
+
+    it('keeps Electron when a renderer framework was detected first', async () => {
+      createMockProject(tempDir, {
+        packageJson: {
+          name: 'desktop',
+          dependencies: { react: '^18.3.0' },
+          devDependencies: { electron: '^33.0.0' },
+        },
+      });
+
+      const result = await detectionService.detectProject(tempDir);
+
+      expect(result.frontend?.framework).toBe('react');
+      expect(result.additionalTechnologies).toContain('electron');
+      const recs = detectionService.getRecommendations(result);
+      expect(recs.agents).toContain('react-expert');
+      expect(recs.agents).toContain('electron-expert');
     });
 
     it('should detect a native Android project (Kotlin + Room) and not flag it as Java backend', async () => {

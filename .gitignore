@@ -231,3 +231,7 @@ configurator/dashboard/demo/.frames/
 # contributor. Kept in the working tree so it is at hand, out of git so it is
 # never published with a clone.
 doc_no_git/
+
+# Command-line package (cli/): bundle and catalog copy are build outputs
+cli/dist/
+cli/catalog/

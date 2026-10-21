@@ -16,6 +16,8 @@
 #   Windows : *Setup*.exe, *.exe.blockmap, latest.yml
 #   macOS   : *-arm64.dmg, *-x64.dmg (+ blockmaps), latest-mac.yml
 #   Linux   : *.AppImage, *.deb, latest-linux.yml
+# plus a version-free copy of each installer (dev-suite-<os>-<arch>…) that the
+# README links to via releases/latest/download/.
 #
 # Builds are unsigned (Apple Developer ID / Windows code-signing cert not configured).
 # macOS users must right-click → Open or run `xattr -d com.apple.quarantine` on first launch.
@@ -252,6 +254,34 @@ jobs:
 
           for f in "${FILES[@]}"; do
             echo "Uploading: $f"
+            gh release upload "$VERSION" "$f" --clobber
+          done
+
+          # Version-free copies of each installer, so the README can link to
+          # releases/latest/download/<name> and the link never goes stale.
+          # electron-updater reads the latest*.yml files, which name the
+          # versioned assets, so these copies are only ever fetched by a person
+          # clicking a download button — their download_count is the human count.
+          ALIASES=$(mktemp -d)
+          case "${{ matrix.platform }}" in
+            win)
+              for f in dist-electron/*Setup*.exe; do cp "$f" "$ALIASES/dev-suite-windows-x64-setup.exe"; done
+              ;;
+            mac)
+              for f in dist-electron/*.dmg; do
+                case "$f" in
+                  *-arm64.dmg) cp "$f" "$ALIASES/dev-suite-macos-arm64.dmg" ;;
+                  *) cp "$f" "$ALIASES/dev-suite-macos-x64.dmg" ;;
+                esac
+              done
+              ;;
+            linux)
+              for f in dist-electron/*.AppImage; do cp "$f" "$ALIASES/dev-suite-linux-x86_64.AppImage"; done
+              for f in dist-electron/*.deb; do cp "$f" "$ALIASES/dev-suite-linux-amd64.deb"; done
+              ;;
+          esac
+          for f in "$ALIASES"/*; do
+            echo "Uploading alias: $(basename "$f")"
             gh release upload "$VERSION" "$f" --clobber
           done
         env:

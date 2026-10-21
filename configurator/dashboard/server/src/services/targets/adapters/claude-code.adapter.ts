@@ -85,7 +85,7 @@ export class ClaudeCodeAdapter implements TargetAdapter {
     });
 
     const validatorHookConfigured = this.configureValidatorHook(
-      projectPath, paths, manifest, extendedManifest, detectedStack
+      projectPath, paths, manifest, extendedManifest, detectedStack, plan.devSuiteDir
     );
 
     const installedAgents = plan.agentCatalog.filter(a => manifest.agents.includes(a.id));
@@ -138,7 +138,8 @@ export class ClaudeCodeAdapter implements TargetAdapter {
     paths: TargetPaths,
     manifest: InstallManifest,
     extendedManifest: ExtendedManifest,
-    detectedStack: TargetWriteContext['plan']['detectedStack']
+    detectedStack: TargetWriteContext['plan']['detectedStack'],
+    devSuiteDir: string
   ): boolean {
     if (!detectedStack) return false;
 
@@ -154,7 +155,9 @@ export class ClaudeCodeAdapter implements TargetAdapter {
       return false;
     }
 
-    const hookResult = this.hooksService.configureIntegrationValidatorHook(projectPath, detectedStack);
+    const hookResult = this.hooksService.configureIntegrationValidatorHook(projectPath, detectedStack, {
+      devSuiteRoot: devSuiteDir,
+    });
     if (!hookResult.configured) return false;
 
     manifest.files.push({ path: paths.relSettingsFile, type: 'config', source: 'generated' });
