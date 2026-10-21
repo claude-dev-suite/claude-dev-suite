@@ -158,7 +158,9 @@ describe('Java (JFR)', async () => {
   const it_ = hasJfr ? it : it.skip;
 
   it_('parses JFR samples (recording.events / --stack-depth) with self vs total, stopping a never-ending JVM', async () => {
-    const r = await java.profileScript(f('Hot.java'), [], { durationS: 4, limit: 10 });
+    // 8s, not 4: on a loaded CI runner the source launcher compiling Hot.java can eat most of a
+    // 4s window, and the dump then held no execution samples (intermittent, seen on #276/#283).
+    const r = await java.profileScript(f('Hot.java'), [], { durationS: 8, limit: 10 });
     expect(r.target?.stoppedBy).toBe('duration');
     expect(r.summary.samplesCollected).toBeGreaterThan(20);
     const inner = r.topFunctions.find((t) => t.name === 'Hot.inner')!;
