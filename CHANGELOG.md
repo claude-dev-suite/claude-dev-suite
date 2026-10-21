@@ -44,8 +44,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `releases/latest/download/` link never goes stale. The updater keeps reading
   the versioned assets, which means the download count on the fixed names is
   the count of people who clicked.
+- **Fifteen dependabot bumps as one change** (#259, #261–#263, #265–#271,
+  #274–#277): the PRs touched the same three lockfiles, so merging them one by
+  one would have conflicted each against the last. The only major is `graphql`
+  16 → 17 in `api-explorer`; it builds and its suite passes unchanged. The
+  dashboard lockfile shrinks by ~1,500 lines because electron-builder 26.15
+  dropped the `fs-extra`/`@npmcli` dependency trees it used to carry.
 
 ### Fixed
+
+- **The JFR integration test no longer fails intermittently on CI.** It gave a
+  never-ending JVM a 4-second window, and on a loaded runner the source launcher
+  compiling the fixture could use most of it, leaving a recording with no
+  execution samples. The window is now 8 seconds.
 
 - **Detection reads npm, yarn and pnpm workspace packages.** The directory
   scan stopped one level down, so in an `apps/*` + `packages/*` workspace it

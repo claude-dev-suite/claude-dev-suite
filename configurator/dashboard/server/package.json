@@ -25,7 +25,7 @@
     "uninstall": "node dist/cli/uninstall.js"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.276",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.288",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
@@ -44,15 +44,15 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.4",
     "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^7.2.1",
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.5.12",
-    "@vitest/coverage-v8": "^5.0.0",
+    "@vitest/coverage-v8": "^5.0.3",
     "supertest": "^7.2.2",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.3"
   }
 }
