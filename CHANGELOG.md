@@ -10,6 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **A Claude Code plugin marketplace with one thin plugin.** `/plugin marketplace add
+  claude-dev-suite/claude-dev-suite`, then `/plugin install dev-suite@dev-suite`, gives
+  `/dev-suite:init`: it runs `npx @claude-dev-suite/cli init` as a dry run, shows the
+  plan, and installs only on an explicit yes. The plugin carries no agents, skills or
+  MCP servers of its own — the format reference had ruled a plugin out because none of
+  those can ship in one usefully, and a plugin that fetches the installer sidesteps all
+  three constraints. Its skill is marked `metadata.internal`, so
+  `npx skills add claude-dev-suite/claude-dev-suite` does not install it as a bare
+  `init` next to Claude Code's built-in `/init`.
 - **`dev-suite init`, the wizard without a window** — published as
   `npx @claude-dev-suite/cli init`. It detects the stack, selects what the
   wizard pre-selects (recommended agents, MCP servers and rules; the assistants

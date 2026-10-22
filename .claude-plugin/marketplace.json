@@ -1,0 +1,19 @@
+{
+  "name": "dev-suite",
+  "owner": {
+    "name": "claude-dev-suite",
+    "url": "https://github.com/claude-dev-suite"
+  },
+  "metadata": {
+    "description": "Configure Claude Code — and the other assistants a project uses — for the project's stack."
+  },
+  "plugins": [
+    {
+      "name": "dev-suite",
+      "source": "./plugins/dev-suite",
+      "description": "Detect the project's stack and install the matching agents, skills, MCP servers and rules, from inside Claude Code.",
+      "category": "development",
+      "homepage": "https://github.com/claude-dev-suite/claude-dev-suite"
+    }
+  ]
+}
