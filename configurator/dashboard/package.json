@@ -37,7 +37,7 @@
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react-dom": "^19.3.1",
     "shiki": "^4.4.3",
     "zustand": "^5.0.15"
   },
