@@ -89,3 +89,13 @@ snapshot_date,path,count,uniques
 2026-10-26,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/spring-batch/SKILL.md",5,3
 2026-10-26,"/claude-dev-suite/claude-dev-suite/blob/main/skills/gamedev/2d-art/animation-frames/quick-ref/attack-anticipation.md",5,3
 2026-10-26,"/claude-dev-suite/claude-dev-suite/blob/main/skills/languages/mapstruct/SKILL.md",5,2
+2026-11-02,"/claude-dev-suite/claude-dev-suite",106,59
+2026-11-02,"/claude-dev-suite/claude-dev-suite/tree/main",47,23
+2026-11-02,"/claude-dev-suite/claude-dev-suite/tree/main/skills",22,16
+2026-11-02,"/claude-dev-suite/claude-dev-suite/blob/main/skills/state-management/redux-toolkit/quick-ref/rtk-query.md",21,1
+2026-11-02,"/claude-dev-suite/claude-dev-suite/blob/main/skills/gamedev/2d-art/character-design/SKILL.md",14,14
+2026-11-02,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/axum/SKILL.md",11,7
+2026-11-02,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/spring-modulith/SKILL.md",10,7
+2026-11-02,"/claude-dev-suite/claude-dev-suite/blob/main/skills/bitcoin/mining/stratum-v1/SKILL.md",9,9
+2026-11-02,"/claude-dev-suite/claude-dev-suite/blob/main/agents/backend/spring-boot-expert.md",7,4
+2026-11-02,"/claude-dev-suite/claude-dev-suite/blob/main/skills/windows/driver-signing/SKILL.md",7,3
