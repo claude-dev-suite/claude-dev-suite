@@ -767,8 +767,10 @@ export class RecipesService {
    * `installGitHook` appends `\n# recipe:<id>\n<command>\n` (the leading blank
    * line only when the file already existed), so this drops the marker line,
    * the command line after it and that blank line. Everything else in the file
-   * — the user's own hook and other recipes — is left as it was. A file left
-   * holding only the shebang `installGitHook` created is removed.
+   * — the user's own hook and other recipes — is left as it was. The file
+   * itself is never deleted, even when only a shebang is left: nothing records
+   * whether `installGitHook` created it or the user already had it, and a
+   * shebang-only hook is a harmless no-op.
    */
   private removeGitHook(
     projectPath: string,
@@ -801,12 +803,7 @@ export class RecipesService {
         idx = lines.indexOf(marker);
       }
 
-      const content = lines.join('\n');
-      if (content.trim() === '#!/bin/sh') {
-        fs.unlinkSync(hookFile);
-      } else {
-        fs.writeFileSync(hookFile, content);
-      }
+      fs.writeFileSync(hookFile, lines.join('\n'));
       return { success: true };
     } catch (error) {
       return {

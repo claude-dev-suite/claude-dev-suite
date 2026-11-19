@@ -88,6 +88,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The README's asset table named files the build has never produced
   (`Dev-Suite-Dashboard-x.y.z-x64.dmg`, `…-x64.AppImage`, `…-x64.deb`); it now
   lists the real names.
+- **Disabling a git-hook recipe removes its command from the hook.** Disabling
+  only flipped the manifest flag, so the command written to `.git/hooks/<type>`
+  kept running on every commit or push while the dashboard showed the recipe as
+  off. Disabling now removes the recipe's marker and command and leaves the
+  rest of the hook, including other recipes, as it was; the hook file itself is
+  never deleted. Projects that disabled a git-hook recipe before this fix still
+  have its command on disk: enable the recipe and disable it again to remove it.
 
 ## [1.19.0] - 2026-10-03
 

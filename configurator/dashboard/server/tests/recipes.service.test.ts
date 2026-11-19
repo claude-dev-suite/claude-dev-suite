@@ -703,7 +703,7 @@ describe('RecipesService', () => {
       expect(fs.readFileSync(hookFile, 'utf-8')).toContain(recipe!.implementation.command);
     });
 
-    it('removes a hook file it created when disabling leaves it empty', async () => {
+    it('leaves a shebang-only hook file in place when disabling empties it', async () => {
       createMockProject(tempDir, {
         packageJson: { name: 'test' },
         hasGit: true,
@@ -719,7 +719,71 @@ describe('RecipesService', () => {
       expect(fs.existsSync(hookFile)).toBe(true);
 
       await service.disableRecipe(tempDir, recipe!.id);
-      expect(fs.existsSync(hookFile)).toBe(false);
+      // Nothing records who created the file, so it is kept; a shebang-only
+      // hook does nothing.
+      expect(fs.readFileSync(hookFile, 'utf-8')).toBe('#!/bin/sh\n');
+    });
+
+    it('does not delete a pre-existing shebang-only hook when disabling', async () => {
+      createMockProject(tempDir, {
+        packageJson: { name: 'test' },
+        hasGit: true,
+      });
+      const hooksDir = path.join(tempDir, '.git', 'hooks');
+      fs.mkdirSync(hooksDir, { recursive: true });
+
+      // The user's own no-op hook, there before any recipe was enabled.
+      const hookFile = path.join(hooksDir, 'pre-commit');
+      const userHook = '#!/bin/sh\n';
+      fs.writeFileSync(hookFile, userHook, { mode: 0o755 });
+
+      const recipe = AUTOMATION_RECIPES.find(
+        (r) => r.implementation.type === 'git-hook' && r.implementation.hookType === 'pre-commit'
+      );
+      expect((await service.enableRecipe(tempDir, recipe!.id)).success).toBe(true);
+      expect(fs.readFileSync(hookFile, 'utf-8')).toContain(`# recipe:${recipe!.id}`);
+
+      expect((await service.disableRecipe(tempDir, recipe!.id)).success).toBe(true);
+      expect(fs.existsSync(hookFile)).toBe(true);
+      expect(fs.readFileSync(hookFile, 'utf-8')).toBe(userHook);
+    });
+
+    it('removes only the disabled recipe when two recipes share a hook file', async () => {
+      createMockProject(tempDir, {
+        packageJson: { name: 'test' },
+        hasGit: true,
+      });
+      const hooksDir = path.join(tempDir, '.git', 'hooks');
+      fs.mkdirSync(hooksDir, { recursive: true });
+      const hookFile = path.join(hooksDir, 'pre-commit');
+      const userHook = '#!/bin/sh\n\necho "user check"\n';
+      fs.writeFileSync(hookFile, userHook, { mode: 0o755 });
+
+      const [first, second] = AUTOMATION_RECIPES.filter(
+        (r) => r.implementation.type === 'git-hook' && r.implementation.hookType === 'pre-commit'
+      );
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      expect((await service.enableRecipe(tempDir, first.id)).success).toBe(true);
+      const withFirst = fs.readFileSync(hookFile, 'utf-8');
+      expect((await service.enableRecipe(tempDir, second.id)).success).toBe(true);
+
+      // Disabling the second leaves the user's hook and the first recipe as they were.
+      expect((await service.disableRecipe(tempDir, second.id)).success).toBe(true);
+      expect(fs.readFileSync(hookFile, 'utf-8')).toBe(withFirst);
+
+      // Re-enable the second, then disable the first: the second must survive.
+      expect((await service.enableRecipe(tempDir, second.id)).success).toBe(true);
+      expect((await service.disableRecipe(tempDir, first.id)).success).toBe(true);
+      const after = fs.readFileSync(hookFile, 'utf-8');
+      expect(after).not.toContain(`# recipe:${first.id}`);
+      expect(after).not.toContain(first.implementation.command);
+      expect(after).toContain(`# recipe:${second.id}\n${second.implementation.command}\n`);
+      expect(after.startsWith(userHook)).toBe(true);
+
+      // Disabling the second too restores the user's hook byte for byte.
+      expect((await service.disableRecipe(tempDir, second.id)).success).toBe(true);
+      expect(fs.readFileSync(hookFile, 'utf-8')).toBe(userHook);
     });
 
     it('should clean up settings.json when disabling claude-hook recipe', async () => {
