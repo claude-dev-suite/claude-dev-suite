@@ -14,6 +14,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   includes separate reserved and committed values, which the parser rejected, so
   profiling failed with no heap samples. Parse the new format using committed as
   the heap total while preserving the legacy format and the other collectors.
+- **An unparseable `.claude/settings.json` is no longer replaced.** When the
+  file did not parse (a trailing comma was enough), the Claude Code install
+  wrote `{ "skillListingBudgetFraction": 0.05 }` over it, deleting the user's
+  hooks, permissions and env; the integration-validator hook step had the same
+  fallback. The file is now left untouched and reported as an
+  action-required skipped capability, as an unparseable `.mcp.json` already is.
 
 ### Added
 
