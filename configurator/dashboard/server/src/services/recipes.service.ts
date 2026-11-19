@@ -476,8 +476,16 @@ export class RecipesService {
           };
         }
       } else if (recipe.implementation.type === 'git-hook') {
-        // Remove Git hook is more complex - for now just mark as disabled
-        // The git hook file would need to be modified
+        // Remove the command from the hook file. Flipping the manifest flag
+        // alone left it running on every commit/push while the UI said "off".
+        const result = this.removeGitHook(projectPath, recipe);
+        if (!result.success) {
+          return {
+            success: false,
+            recipeId,
+            error: result.error,
+          };
+        }
       }
 
       // Update manifest
@@ -749,6 +757,58 @@ export class RecipesService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to write settings',
+      };
+    }
+  }
+
+  /**
+   * Remove a Git hook command written by {@link installGitHook}.
+   *
+   * `installGitHook` appends `\n# recipe:<id>\n<command>\n` (the leading blank
+   * line only when the file already existed), so this drops the marker line,
+   * the command line after it and that blank line. Everything else in the file
+   * — the user's own hook and other recipes — is left as it was. The file
+   * itself is never deleted, even when only a shebang is left: nothing records
+   * whether `installGitHook` created it or the user already had it, and a
+   * shebang-only hook is a harmless no-op.
+   */
+  private removeGitHook(
+    projectPath: string,
+    recipe: AutomationRecipe
+  ): { success: boolean; error?: string } {
+    if (projectPath.includes('..')) throw new PathValidationError('Path traversal not allowed');
+    const hookType = recipe.implementation.hookType;
+    if (!hookType || !/^[a-z-]+$/.test(hookType)) {
+      return { success: true }; // installGitHook never wrote a file for this recipe
+    }
+
+    const hookFile = path.join(projectPath, '.git', 'hooks', hookType);
+    try {
+      if (!fs.existsSync(hookFile)) return { success: true }; // Nothing to remove
+
+      const lines = fs.readFileSync(hookFile, 'utf-8').split('\n');
+      const marker = `# recipe:${recipe.id}`;
+      let idx = lines.indexOf(marker);
+      if (idx < 0) return { success: true }; // Not installed
+
+      while (idx >= 0) {
+        let start = idx;
+        let end = idx + 1; // the marker
+        // Its command: always the line after the marker, matched by position
+        // rather than text so a command changed by a later release still goes.
+        const next = lines[end];
+        if (next !== undefined && next.trim() !== '' && !next.startsWith('# recipe:')) end++;
+        if (start > 0 && lines[start - 1] === '') start--; // the separator line
+        lines.splice(start, end - start);
+        idx = lines.indexOf(marker);
+      }
+
+      fs.writeFileSync(hookFile, lines.join('\n'));
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to remove git hook',
       };
     }
   }
