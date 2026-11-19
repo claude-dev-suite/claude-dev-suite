@@ -171,6 +171,32 @@ describe('ClaudeCodeAdapter.write', () => {
     expect(settings.env).toEqual({ KEEP: 'me' });
   });
 
+  it('leaves an unparseable settings.json untouched and reports it', async () => {
+    // A trailing comma is enough. The file still holds the user's hooks,
+    // permissions and env; replacing it with `{ skillListingBudgetFraction }`
+    // would delete all of them.
+    const claudeDir = path.join(projectPath, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    const raw = '{\n  "permissions": { "allow": ["Bash(npm test)"] },\n  "env": { "KEEP": "me" },\n}\n';
+    fs.writeFileSync(path.join(claudeDir, 'settings.json'), raw);
+
+    const adapter = new ClaudeCodeAdapter();
+    const { manifest, extendedManifest } = manifests();
+    const result = await adapter.write({
+      plan: emptyPlan(),
+      paths: targetPaths(projectPath),
+      mcpServers: {},
+      manifest,
+      extendedManifest,
+    });
+
+    expect(fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf-8')).toBe(raw);
+    expect(manifest.files.some(f => f.path === '.claude/settings.json')).toBe(false);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({ capability: 'settings', kind: 'action-required' }),
+    ]);
+  });
+
   it('sets the budget when the settings file has no opinion yet', async () => {
     const adapter = new ClaudeCodeAdapter();
     const { manifest, extendedManifest } = manifests();

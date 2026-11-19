@@ -34,6 +34,7 @@ import { getTargetLayout, type TargetLayout } from '../target-layout.js';
 import type { TargetPaths } from '../target-paths.js';
 import { writeClaudeCodeMcpConfig } from '../writers/mcp-config.writer.js';
 import type {
+  SkippedCapability,
   TargetAdapter,
   TargetWriteContext,
   TargetWriteResult,
@@ -43,6 +44,24 @@ const logger = getLogger('ClaudeCodeAdapter');
 
 /** The agent the integration-validation hook tells the session to delegate to. */
 const VALIDATOR_AGENT_ID = 'integration-validator-expert';
+
+/**
+ * Whether a settings file exists but cannot be read as a JSON object.
+ *
+ * `.claude/settings.json` holds the user's own hooks, permissions and env. A
+ * file that does not parse (a trailing comma, a `//` comment) cannot be merged
+ * into, and every writer here would otherwise fall back to `{}` and replace it
+ * with only dev-suite's keys.
+ */
+function isUnparseableSettings(settingsPath: string): boolean {
+  if (!fs.existsSync(settingsPath)) return false;
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    return typeof parsed !== 'object' || parsed === null || Array.isArray(parsed);
+  } catch {
+    return true;
+  }
+}
 
 export class ClaudeCodeAdapter implements TargetAdapter {
   readonly id = 'claude-code' as const;
@@ -54,10 +73,28 @@ export class ClaudeCodeAdapter implements TargetAdapter {
     const { plan, paths, manifest, extendedManifest } = ctx;
     const { projectPath, rules, detectedStack } = plan;
 
+    // An unparseable `.claude/settings.json` is left untouched and reported,
+    // the same way an unparseable `.mcp.json` is (see writeMergedMcpConfig):
+    // both settings writers below would otherwise replace it wholesale.
+    const settingsSkipped: SkippedCapability[] = [];
+    const settingsWritable = !isUnparseableSettings(paths.settingsFile);
+    if (!settingsWritable) {
+      logger.warn('Existing settings file is unparseable — left untouched', {
+        context: { file: paths.relSettingsFile },
+      });
+      settingsSkipped.push({
+        capability: 'settings',
+        kind: 'action-required',
+        reason: `${paths.relSettingsFile} exists but could not be parsed, so it was left untouched: the skill listing budget was not raised and the integration-validator hook was not added. Fix the syntax and re-run the install`,
+      });
+    }
+
     // Raise the skill listing budget: dev-suite installs enough core skills to
     // exceed Claude Code's default, which would fire a "N descriptions dropped"
     // warning. No analogue on other assistants.
-    this.ensureSkillBudget(paths, manifest, extendedManifest, projectPath);
+    if (settingsWritable) {
+      this.ensureSkillBudget(paths, manifest, extendedManifest, projectPath);
+    }
 
     // Rule templates the user selected (e.g. security.md) → `.claude/rules/`.
     await this.installRules(rules, paths, manifest);
@@ -84,7 +121,7 @@ export class ClaudeCodeAdapter implements TargetAdapter {
       }),
     });
 
-    const validatorHookConfigured = this.configureValidatorHook(
+    const validatorHookConfigured = settingsWritable && this.configureValidatorHook(
       projectPath, paths, manifest, extendedManifest, detectedStack, plan.devSuiteDir
     );
 
@@ -95,7 +132,7 @@ export class ClaudeCodeAdapter implements TargetAdapter {
       acknowledgedHashes: plan.acknowledgedFileHashes,
     });
 
-    return { ruleFiles: [...ruleResult.written, ...ruleResult.drifted], driftedRuleFiles: ruleResult.drifted, validatorHookConfigured, skipped };
+    return { ruleFiles: [...ruleResult.written, ...ruleResult.drifted], driftedRuleFiles: ruleResult.drifted, validatorHookConfigured, skipped: [...skipped, ...settingsSkipped] };
   }
 
   /** Copy selected rule templates into the target's rules directory. */
@@ -191,6 +228,7 @@ export class ClaudeCodeAdapter implements TargetAdapter {
    * - File present, key missing → merge in `0.05`, preserving everything else
    * - File present, key already set → leave alone (respect the user's override,
    *   even a lower one — they know their context budget better than we do)
+   * - File present but unparseable → leave alone (`write()` reports it)
    */
   private ensureSkillBudget(
     paths: TargetPaths,
@@ -211,11 +249,13 @@ export class ClaudeCodeAdapter implements TargetAdapter {
           alreadySet = true;
         }
       } catch (error: unknown) {
-        logger.warn('Failed to parse existing .claude/settings.json — overwriting with safe defaults', {
+        // Never fall back to `{}` and write it: that replaces the user's hooks,
+        // permissions and env with this one key.
+        logger.warn('Failed to parse existing .claude/settings.json — left untouched', {
           error,
           context: { settingsPath },
         });
-        settings = {};
+        return;
       }
     }
 
