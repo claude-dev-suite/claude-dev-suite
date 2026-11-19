@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Java memory profiling works on JDK 25.** G1's `jcmd GC.heap_info` output now
+  includes separate reserved and committed values, which the parser rejected, so
+  profiling failed with no heap samples. Parse the new format using committed as
+  the heap total while preserving the legacy format and the other collectors.
+
 ### Added
 
 - **`dev-suite init`, the wizard without a window** — published as

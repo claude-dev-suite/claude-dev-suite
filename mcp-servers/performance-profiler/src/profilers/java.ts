@@ -172,7 +172,14 @@ export function parseHeapInfo(text: string): { used: number; total: number } | n
   let used = 0;
   let total = 0;
   let found = false;
-  // G1 / Parallel / Serial: "<name> total 524288K, used 18064K [...]" — one line per heap/generation.
+  // JDK 25: "<name> total reserved 1048576K, committed 263168K, used 224410K [...]".
+  // Committed is the heap total, matching the meaning of the legacy format below.
+  for (const m of text.matchAll(/^\s*(?!Metaspace|class space)[\w -]*?\btotal reserved (\d+)([KMG]), committed (\d+)([KMG]), used (\d+)([KMG])/gm)) {
+    total += Number(m[3]) * UNIT[m[4]];
+    used += Number(m[5]) * UNIT[m[6]];
+    found = true;
+  }
+  // Legacy G1 / Parallel / Serial: "<name> total 524288K, used 18064K [...]" — one line per heap/generation.
   for (const m of text.matchAll(/^\s*(?!Metaspace|class space)[\w -]*?\btotal (\d+)([KMG]), used (\d+)([KMG])/gm)) {
     total += Number(m[1]) * UNIT[m[2]];
     used += Number(m[3]) * UNIT[m[4]];
