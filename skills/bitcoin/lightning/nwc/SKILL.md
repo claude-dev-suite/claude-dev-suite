@@ -120,7 +120,7 @@ Response:
 | Provider | Type |
 |----------|------|
 | **Alby** | Hosted custodial, free NWC |
-| **Mutiny** | Self-custodial, NWC built-in |
+| **Rizful** | Web wallet; send-and-receive and receive-only NWC codes; hold invoices (03) |
 | **Phoenix** | NWC plugin available |
 | **LNbits** | NWC extension |
 | **Cashu Mints** | NWC for mint operations |
