@@ -20,6 +20,12 @@ describe('jcmd GC.heap_info', () => {
   class space    used 1164K, committed 1280K, reserved 1048576K`;
     expect(parseHeapInfo(g1)).toEqual({ used: 18064 * 1024, total: 524288 * 1024 });
   });
+  it('parses G1 reserved/committed output from JDK 25', () => {
+    const g1 = `41959:
+ garbage-first heap   total reserved 1048576K, committed 263168K, used 224410K [0x0000000440000000, 0x0000000480000000)
+  region size 1024K, 70 young (71680K), 4 survivors (4096K)`;
+    expect(parseHeapInfo(g1)).toEqual({ used: 224410 * 1024, total: 263168 * 1024 });
+  });
   it('sums generations for Parallel GC and ignores Metaspace', () => {
     const par = ` PSYoungGen      total 76288K, used 3932K [0x00000007, 0x0000000, 0x00000)
   eden space 65536K, 6% used [0x0000,0x0000,0x0000)
