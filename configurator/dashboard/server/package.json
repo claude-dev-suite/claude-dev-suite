@@ -37,7 +37,7 @@
     "uuid": "^14.0.2",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "ws": "^8.21.3",
+    "ws": "^8.22.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -48,7 +48,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^7.2.1",
     "@types/uuid": "^11.0.0",
-    "@types/ws": "^8.5.12",
+    "@types/ws": "^8.18.2",
     "@vitest/coverage-v8": "^5.0.3",
     "supertest": "^7.2.2",
     "tsx": "^4.23.15",
