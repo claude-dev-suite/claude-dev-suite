@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "@electric-sql/pglite-socket": "^0.2.11",
+    "@electric-sql/pglite-socket": "^0.2.13",
     "@types/pg": "^8.23.1"
   }
 }
