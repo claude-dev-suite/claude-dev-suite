@@ -119,3 +119,13 @@ snapshot_date,path,count,uniques
 2026-11-16,"/claude-dev-suite/claude-dev-suite/blob/main/skills/state-management/redux-toolkit/quick-ref/rtk-query.md",13,2
 2026-11-16,"/claude-dev-suite/claude-dev-suite/blob/e10ab644ba43abe2abc923399226df4af7337214/skills/gamedev/2d-art/ai-art-tools/SKILL.md",11,7
 2026-11-16,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/fiber/SKILL.md",10,10
+2026-11-23,"/claude-dev-suite/claude-dev-suite",143,112
+2026-11-23,"/claude-dev-suite/claude-dev-suite/tree/main/skills",39,31
+2026-11-23,"/claude-dev-suite/claude-dev-suite/tree/main",32,30
+2026-11-23,"/claude-dev-suite/claude-dev-suite/blob/main/agents/core/architect.md",28,6
+2026-11-23,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/axum/SKILL.md",26,19
+2026-11-23,"/claude-dev-suite/claude-dev-suite/blob/main/skills/gamedev/2d-art/character-design/SKILL.md",25,13
+2026-11-23,"/claude-dev-suite/claude-dev-suite/blob/main/skills/testing/googletest/SKILL.md",19,11
+2026-11-23,"/claude-dev-suite/claude-dev-suite/tree/main/skills/gamedev",18,12
+2026-11-23,"/claude-dev-suite/claude-dev-suite/blob/main/skills/backend-frameworks/spring-modulith/SKILL.md",17,10
+2026-11-23,"/claude-dev-suite/claude-dev-suite/blob/main/skills/windows/driver-signing/SKILL.md",15,12
